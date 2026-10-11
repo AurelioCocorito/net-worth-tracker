@@ -110,7 +110,7 @@
         "figuresOutsideVerdict": 5,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-03: la prima riga chiusa (Sintesi) finisce a 879 contro la pill a 767 — la striscia prende due righe («+3000,00 €» è una cella larga, decisione 28) e LA tessera tiene la pill del periodo a 44 px e la curva già a 120 px; decisione 19 estesa alla Panoramica (README § 9, 29)"
+        "raisedBy": "MOB-03: la prima riga chiusa (Sintesi) finisce a 879 contro la pill a 767 — la striscia prende due righe («+3000,00 €» è una cella larga, decisione 28) e LA tessera tiene la pill del periodo a 44 px e la curva già a 120 px; decisione 19 estesa alla Panoramica (README § 9, 65)"
       },
       "768": {
         "screens": 1.26,
@@ -140,7 +140,7 @@
         "figuresOutsideVerdict": 5,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-03: la curva di PatrimonioTile a 120 px sotto desktop (decisione 4, la stessa che MOB-06 usa) porta sopra la piega le etichette della curva, il digest e il conteggio: figuresAboveFold 12 → 18 a 390 (di cui +2 di deriva del giorno: il codice di develop misurato lo stesso giorno dava 14) e 22 → 25 a 768; screens scende (3,34 → 3,23 · 2,1 → 2,04 · 2,75 → 2,64)"
+        "raisedBy": "MOB-03: la curva di PatrimonioTile a 120 px sotto desktop (decisione 4, la stessa che MOB-06 usa) porta sopra la piega le etichette della curva, il digest e il conteggio: figuresAboveFold 12 → 18 a 390 (di cui +2 di deriva del giorno: il codice di develop misurato lo stesso giorno dava 14) e 22 → 25 a 768; screens scende (3,34 → 3,23 · 2,1 → 2,04 · 2,73 → 2,64)"
       },
       "768": {
         "screens": 2.04,
@@ -150,7 +150,7 @@
         "figuresOutsideVerdict": 15,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-03: la curva di PatrimonioTile a 120 px sotto desktop (decisione 4, la stessa che MOB-06 usa) porta sopra la piega le etichette della curva, il digest e il conteggio: figuresAboveFold 12 → 18 a 390 (di cui +2 di deriva del giorno: il codice di develop misurato lo stesso giorno dava 14) e 22 → 25 a 768; screens scende (3,34 → 3,23 · 2,1 → 2,04 · 2,75 → 2,64)"
+        "raisedBy": "MOB-03: la curva di PatrimonioTile a 120 px sotto desktop (decisione 4, la stessa che MOB-06 usa) porta sopra la piega le etichette della curva, il digest e il conteggio: figuresAboveFold 12 → 18 a 390 (di cui +2 di deriva del giorno: il codice di develop misurato lo stesso giorno dava 14) e 22 → 25 a 768; screens scende (3,34 → 3,23 · 2,1 → 2,04 · 2,73 → 2,64)"
       },
       "1024": {
         "screens": 2.64,

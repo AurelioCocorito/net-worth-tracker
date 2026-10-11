@@ -9,7 +9,7 @@ Censimento 2026-09-26 (`doc/mobile/README.md` § 3). **768×1024**: mediana 2,39
 una intera. **1024×768**: mediana 3,11 (non «~3,5»), di norma una sopra la piega e nessuna intera (Allocazione 2/1,
 Analisi 1/1): il landscape è il tablet peggiore. Righe del 2026-09-26, da riverificare:
 
-- Griglie `grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12` (The Tile Grid Rule; `app/dashboard/page.tsx:351`
+- Griglie `grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12` (The Tile Grid Rule; `app/dashboard/page.tsx:507`
   e § 5): due colonne anche a 1024. Le celle sono `TILE_CELL_CLASS = 'flex min-w-0 [&>section]:flex-1'`
   (`components/ui/tile.tsx`): si stirano sulla traccia; le celle delle righe prendono `TILE_ROW_CELL_CLASS` (= `TILE_CELL_CLASS` +
   `max-desktop:self-start`, dal 2026-10-10).
@@ -38,6 +38,13 @@ Analisi 1/1): il landscape è il tablet peggiore. Righe del 2026-09-26, da river
   che `mobile:budget` già tiene; la baseline § 3 è del mirror sul dev server e non si confronta col fixture).
   Su Panoramica e Tracciamento, a 768 e a 1024, LA tessera finisce sopra la piega (test (2)): la curva a 120 px sotto
   `desktop:` (README § 9, 4) vale anche qui.
+- **La deriva del giorno del fixture, ereditata dal ritiro di MOB-03 (2026-10-11)**: sei voci di `budget.json` (Storico 390/768,
+  Allocazione 390/1024, Previdenza 768/1024) portano `raisedBy: "MOB-03: deriva del giorno del mese…"` perché il codice di
+  develop misurato l'11 dava una o due cifre in più del 10 con le stesse tessere (doc/guide/prima-schermata.md § Per-page
+  blind spots: una proiezione che cambia di cifre, una riga che va a capo — non isolato). Prima di stringere con `--tighten`
+  questa spec isola la causa sulle quattro superfici (una corsa il giorno N e una il giorno N+1 sullo stesso codice, le
+  cifre sopra la piega a confronto) e la scrive nel seed come stato che vale dal 5 al penultimo giorno, oppure la dichiara
+  nel punto cieco della guida come limite del fixture; mai una tolleranza (README § 9, 23).
 - La barra misurata come in § 4.3, trigger ≥ 44×44 (README § 9, 48). A 1440 le due pagine campione hanno 12 colonne e
   nessuna griglia di § 5 porta una classe `@[…]` fuori dalle costanti di `tabletComposition.ts` (guardia Vitest).
 
@@ -58,7 +65,7 @@ Analisi 1/1): il landscape è il tablet peggiore. Righe del 2026-09-26, da river
 
 Due colonne da `tablet:`; tre con una container query sotto `max-desktop:` (mai `lg:` né `min-[…]:`), su un `div`
 NUOVO attorno alla griglia: non `PageContainer`, perché `container-type` ancora a sé i `fixed` e `SavingsRateBadge`
-(`components/ui/SavingsRateBadge.tsx:114`) lo è, dentro di lui (`app/dashboard/page.tsx:556`). Costanti letterali in
+(`components/ui/SavingsRateBadge.tsx:114`) lo è, dentro di lui (`app/dashboard/page.tsx:686`). Costanti letterali in
 `lib/utils/tabletComposition.ts`:
 
 | Costante | Classi |
@@ -151,7 +158,7 @@ Due progetti dopo `mobile`, copiati da lui (`isMobile`, `hasTouch`, `STORAGE_STA
 stesso `testIgnore`, `:191-200`) con `testMatch: /\.tablet\.spec\.ts/`: `tablet` 768×1024, `tablet-landscape` 1024×768.
 `desktop` ignora `/\.(mobile|degraded|tablet)\.spec\.ts/`; `workers: 1` resta. Una spec gira nei due progetti e ramifica
 su `page.viewportSize().width`. Pagine campione, account base, forma e mai importi: **Panoramica** (`e2e/overview.tablet.spec.ts`:
-la risposta di `/api/dashboard/overview` patchata come in MOB-03 § 7, con `flags.hasTERTracking: true` e nessun
+la risposta di `/api/dashboard/overview` patchata con `e2e/overviewFixture.ts` (2026-10-11), con `flags.hasTERTracking: true` e nessun
 obiettivo, quindi sette righe chiuse — sintesi, cashflow, composizione, costi, spese, entrate, asset — e con
 `MAX_BESIDE_ROWS = 6` la settima, `panoramica-asset`, va sotto LA tessera) e **Cashflow › Tracciamento** (tab, «+» e
 «Aggiungi», Movimenti; `e2e/cashflow.tablet.spec.ts`; il fixture ha 4 righe, non arriva al limite). Rendimenti no: il

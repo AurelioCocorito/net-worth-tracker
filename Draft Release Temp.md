@@ -23,6 +23,8 @@
 
 ## 🔧 Improvements
 
+- **Patrimonio e landing (telefono e tablet)** — The net-worth curve of the hero tile is shorter below the desktop width (120px), the same tile the Panoramica now composes; the reading, the chips and the market digest stay whole on those two surfaces.
+
 - **Cashflow · FIRE e Simulazioni · Impostazioni (telefono e tablet)** — Improved the section pill under the title: every tab is now a 44-pixel target for the thumb, so the pill is a little taller.
 - **Ogni pagina** — Improved the figures in every verdict and reading: the «€» now sits right after its number («+1.200 €» instead of a whole monospace cell of space between them), on the phone's figure strip too.
 

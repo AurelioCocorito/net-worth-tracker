@@ -1,5 +1,5 @@
 /**
- * The Panoramica composed for a phone (MOB-03, 2026-10-11; doc/guide/panoramica.md § Composizione
+ * The Panoramica composed for a phone (since 2026-10-11; doc/guide/panoramica.md § Composizione
  * mobile): the first spec of the page's CONTENT at 390, on the base account with the overview
  * response patched on the wire (`e2e/overviewFixture.ts`: round invented figures, nothing written).
  *
@@ -7,8 +7,9 @@
  * strip restates the first sentence); the three cells are a thumb's target and open what they
  * say — «Il perché», the Cashflow row with the focus on its trigger, THE tile's curve on YTD with
  * the focus on the checked period; THE tile shows neither chip nor «Mercato:» while the sentence
- * names the market; every other tile is a closed row with an empty, inert panel, the first ending
- * above the pill; the tax on a sale is on the first screen without a tap, and a taxed month that
+ * names the market; every other tile is a closed row with an empty, inert panel, the first starting
+ * after THE tile (under the pill at 390, owner's call: doc/mobile/README.md § 9, 65); the tax on a
+ * sale is on the first screen without a tap, and a taxed month that
  * is not the story keeps the whole paragraph with no «Il perché»; the rows are remembered across a
  * reload; the DOM order is the vertical order with no `order-*` left; nothing runs off `main`. The
  * words and the arithmetic are Vitest's (`__tests__/{overviewSummary,overviewNarrative,
@@ -51,7 +52,7 @@ const perche = (page: Page) => page.getByRole('button', { name: /^Il perché/ })
 const badge = (page: Page) => page.locator('[class*="fixed bottom-4 left-4"]');
 
 test.describe('Panoramica, composed for a phone', () => {
-  test('the first screen: title only, three cells, THE tile without its chips; the rows closed and empty, the first above the pill', async ({ page }) => {
+  test('the first screen: title only, three cells, THE tile without its chips; the rows closed and empty, the first after THE tile', async ({ page }) => {
     await patchOverview(page);
     await openOverview(page);
     await expect(badge(page)).toHaveCount(0);
@@ -88,7 +89,7 @@ test.describe('Panoramica, composed for a phone', () => {
     await expect(theTile.getByText('Mercato:')).toBeHidden();
     await expect(theTile.getByRole('radiogroup', { name: 'Periodo del grafico' })).toBeVisible();
 
-    // One closed trigger per row, every panel empty and inert; the first row ends above the pill.
+    // One closed trigger per row, every panel empty and inert; the first row starts after THE tile.
     await expect(page.locator('main [id$="-trigger"]')).toHaveCount(ROW_IDS.length);
     for (const id of ROW_IDS) {
       await expect(trigger(page, id)).toHaveAttribute('aria-expanded', 'false');
@@ -244,8 +245,18 @@ test.describe('Panoramica, composed for a phone', () => {
     expect(await page.locator('body > :not(:has(main)) button', { hasText: /^Il perché/ }).count()).toBe(0);
     await expect(page.locator('main').getByRole('button', { name: /^Il perché/ })).toHaveCount(1);
 
-    // «Il resto della pagina» sits right after THE tile, before the first row.
-    await expect(page.getByRole('heading', { level: 2, name: 'Il resto della pagina' })).toBeVisible();
+    // «Il resto della pagina» sits right after THE tile, before the first row — held, not just
+    // visible (added in the retirement of 2026-10-11, seen red with `PageRest` moved after Sintesi).
+    const rest = page.getByRole('heading', { level: 2, name: 'Il resto della pagina' });
+    await expect(rest).toBeVisible();
+    const [restTop, theTileBottom, firstRowTop] = await page.evaluate(() => {
+      const top = (el: Element | null) => el!.getBoundingClientRect().top;
+      const tile = document.querySelector('#panoramica-patrimonio')!.getBoundingClientRect();
+      const heading = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === 'Il resto della pagina');
+      return [top(heading!), tile.bottom, top(document.querySelector('#panoramica-sintesi'))];
+    });
+    expect(restTop, 'after THE tile').toBeGreaterThanOrEqual(theTileBottom - 1);
+    expect(restTop, 'before the first row').toBeLessThanOrEqual(firstRowTop);
     await page.getByRole('button', { name: 'Apri tutte' }).click();
     for (const id of ROW_IDS) await expect(trigger(page, id)).toHaveAttribute('aria-expanded', 'true');
     await page.waitForTimeout(600);

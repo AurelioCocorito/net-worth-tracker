@@ -20,7 +20,11 @@ interface VerdictStripProps {
   eyebrows?: Readonly<Record<string, string>>;
 }
 
-/** A value longer than this takes a row of its own: «+123.456,78 €» does not fit a third of 358px (decision 28). */
+/**
+ * A value longer than this takes a row of its own: «+123.456,78 €» does not fit a third of 358px
+ * (decision 28). A `null` cell's `reason` counts the same way («nessuno snapshot prima di questo
+ * mese» is a wide cell too; first seen on the Panoramica, 2026-10-11).
+ */
 const WIDE_CELL_CHARS = 9;
 
 /**

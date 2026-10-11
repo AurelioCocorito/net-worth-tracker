@@ -11,7 +11,7 @@ export const OVERVIEW_VERDICT_ID = 'panoramica-verdetto';
 
 interface OverviewVerdictProps {
   verdict: OverviewVerdictModel;
-  /** `<VerdictStrip>` of the phone composition (MOB-03, 2026-10-11); absent on the Assistente. */
+  /** `<VerdictStrip>` of the phone composition (since 2026-10-11); absent at 1440, where the page passes none. */
   strip?: ReactNode;
   /** The verdict's «Il perché» as a row of the page's controller; absent at 1440. */
   restCollapse?: TileCollapse;

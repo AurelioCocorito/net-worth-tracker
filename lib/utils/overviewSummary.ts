@@ -1,5 +1,5 @@
 /**
- * The Panoramica's model for the small-screen composition (MOB-03, 2026-10-11): the payload IS
+ * The Panoramica's model for the small-screen composition (since 2026-10-11): the payload IS
  * the page's summary, so what the other pages derive in a `*Summary` module — the strip's three
  * figures, the two cashflow ratios, the rows' closed asides — is read straight from
  * `DashboardOverviewPayload` here. Pure, SDK-free, tested by `__tests__/overviewSummary.test.ts`.
@@ -7,7 +7,7 @@
  * The strip (`selectOverviewStrip`) prints EXACTLY what the verdict prints (The First-Screen
  * Rule): every cell carries the value ALREADY rounded the way the sentence rounds it, with the
  * sentence's `decimals`, so `Intl` never rounds a second time — «Messo da parte finora» at −12,5
- * is «-12%» in both (`Math.round`), where `Intl` alone would print −13%.
+ * is «−12%» in both (`Math.round`), where `Intl` alone would print −13%.
  */
 
 import { buildOverviewVerdict, narrativeToText, resolveLivedCashflow, type OverviewVerdictInput } from '@/lib/utils/overviewNarrative';

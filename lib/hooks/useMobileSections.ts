@@ -71,7 +71,8 @@ export interface MobileSections {
   /**
    * Every row's eyebrow by id — what a strip cell announces it opens («, apre Anni»). A page hands
    * it to `VerdictStrip` as `eyebrows`, spreading its own entry for a cell that opens THE tile or
-   * no row at all (`{ ...sections.eyebrows, 'panoramica-patrimonio': "l'andamento da inizio anno" }`).
+   * no row at all (`{ ...sections.eyebrows, 'panoramica-patrimonio': "l'andamento da inizio anno",
+   * perche: 'il perché' }` — the Panoramica adds both, since 2026-10-11).
    * Born here on 2026-10-10 (the retirement): the strip does not know the rows, so without this map
    * a cell fell back to its own label and said «apre Quest'anno».
    */

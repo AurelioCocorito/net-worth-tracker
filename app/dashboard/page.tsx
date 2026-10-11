@@ -85,7 +85,7 @@ import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarr
  *                                           | Composizione(3) | Costi(2) | Obiettivo(2)
  *                     Spese(4) | Entrate(4) | Asset principali(4)
  *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11;
- *                     MOB-03, 2026-10-11): title → the strip of three figures → «Il perché» →
+ *                     since 2026-10-11): title → the strip of three figures → «Il perché» →
  *                     Patrimonio, open, its chips lifted and its curve at 120px → «Il resto della
  *                     pagina» → Sintesi, Cashflow, Composizione, Costi, Obiettivo, Spese, Entrate,
  *                     Asset principali as closed rows (`useMobileSections`; doc/guide/panoramica.md
@@ -231,7 +231,7 @@ export default function DashboardPage() {
   const savingsRate = monthSavingsRate(overview?.expenseStats);
   const coverageRatio = monthCoverageRatio(overview?.expenseStats);
 
-  // The rows of the phone composition (The Closed-Row Rule, MOB-03): one per tile present, in the
+  // The rows of the phone composition (The Closed-Row Rule, since 2026-10-11): one per tile present, in the
   // DOM's order; at 1440 every `collapse()` is `undefined` and the page is the page of every width.
   const costsVisible = Boolean(overview && (overview.flags.hasTERTracking || overview.flags.hasStampDuty));
   const goals = useMemo(
@@ -418,7 +418,7 @@ export default function DashboardPage() {
   const expensesScheduledCaption = expenseStats ? describeScheduledCaption(expenseStats.currentMonth.expensesScheduled ?? 0, today.daysInMonth) : null;
   const incomeScheduledCaption = expenseStats ? describeScheduledCaption(expenseStats.currentMonth.incomeScheduled ?? 0, today.daysInMonth) : null;
 
-  // ─── The phone composition (MOB-03) ───────────────────────────────────────────
+  // ─── The phone composition (2026-10-11) ───────────────────────────────────────────
   const strip = selectOverviewStrip(overview);
   const asides = describeOverviewAsides(overview);
   const restCollapse = sections.collapse(VERDICT_REST_SECTION);

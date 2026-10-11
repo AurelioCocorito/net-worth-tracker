@@ -16,7 +16,7 @@ Righe del 2026-10-10 (MOB-02..08 possono spostarle: riverificare).
 - `.impeccable/design.json`: `narrative.keyCharacteristics[8]` e `donts[32]` ripetono verbatim le due frasi; `rules`
   ha 44 voci `{ name, body, section }` (la `[26]` è `:684`), nessuna delle quattro; `extensions.motion` senza
   `ease-spring` e con `spring-layout`, la cui molla non esiste più (`lib/utils/motionVariants.ts` non esporta
-  `springLayoutTransition`; l'unica occorrenza del grep è il commento di `app/dashboard/page.tsx:271`); `components[]`
+  `springLayoutTransition`; l'unica occorrenza del grep è il commento di `app/dashboard/page.tsx:344`); `components[]`
   descrive Page Verdict, Tile ed Error Notice («role=alert») come oggi; `extensions.breakpoints[1].purpose` dice
   «iPad Mini landscape (1024px) gets the mobile layout by design - never use lg:».
 - `PRODUCT.md:9` «Mobile-first at 390px with desktop as an elevated variant». `CLAUDE.md` § Known Issues: la voce della pill

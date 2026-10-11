@@ -9,23 +9,27 @@
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import type { DeclineCause, PeriodSalesSummary, TaxedGrowth } from '@/lib/utils/periodSales';
 import type { Narrative, NarrativeSegment } from '@/lib/utils/narrative';
+import { isPrintedZero } from '@/lib/utils/verdictStrip';
 
 const prose = (text: string): NarrativeSegment => ({ text });
 const figure = (text: string): NarrativeSegment => ({ text, mono: true });
 
-/** Signed compact euro figure with a typographic minus, coloured by sign. */
+/**
+ * Signed compact euro figure with a typographic minus, coloured by sign — unless it prints as a
+ * zero: «0 € risparmiati» takes no sign and no colour, like every printed zero of the page
+ * (`isPrintedZero`, decision 20 of doc/mobile/README.md § 9; here since 2026-10-11, when the
+ * retirement of the Panoramica's composition found «+0 €» still printed by this helper).
+ */
 function signedCompactEuro(value: number): NarrativeSegment {
-  const sign = value >= 0 ? '+' : '−';
-  return {
-    text: `${sign}${cachedFormatCurrencyEUR(Math.abs(value), true)}`,
-    mono: true,
-    sign: value >= 0 ? 'positive' : 'negative',
-  };
+  const unsigned = cachedFormatCurrencyEUR(Math.abs(value), true);
+  if (isPrintedZero(unsigned)) return { text: unsigned, mono: true };
+  const negative = value < 0;
+  return { text: `${negative ? '−' : '+'}${unsigned}`, mono: true, sign: negative ? 'negative' : 'positive' };
 }
 
 /**
  * The clauses a phone must never hide behind a tap (The Binding-Clause Rule, doc/mobile/README.md
- * § 9; since MOB-03, 2026-10-11): the tax paid on a sale and the month without it change the
+ * § 9; since 2026-10-11): the tax paid on a sale and the month without it change the
  * meaning of the variation already printed, so each of their segments is `binding` and
  * `splitVerdict` cancels any cut that would leave them in the rest. The proceeds, the gain, a loss
  * and a missing rate are facts beside the figure, not readings of it: they stay plain. The email
@@ -125,7 +129,9 @@ function monthSplitParts(total: number, marketEffect: number, savings: number | 
   if (savings === null) {
     return [...market, prose(' e '), signedCompactEuro(rest), prose(' tra risparmio e altre variazioni')];
   }
-  const saved: Narrative = [signedCompactEuro(savings), prose(savings >= 0 ? ' risparmiati' : ' spesi oltre le entrate')];
+  // The word follows the PRINTED sign: «−0,2 €» prints as an unsigned «0 €», and a zero is «risparmiati».
+  const savedFigure = signedCompactEuro(savings);
+  const saved: Narrative = [savedFigure, prose(savedFigure.sign === 'negative' ? ' spesi oltre le entrate' : ' risparmiati')];
   const other = rest - savings;
   if (!isMaterialOtherChange(other, total)) return [...market, prose(' e '), ...saved];
   return [...market, prose(', '), ...saved, prose(', '), signedCompactEuro(other), prose(' di altre variazioni')];

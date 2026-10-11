@@ -1,13 +1,15 @@
 /**
  * Tests for lib/utils/overviewSummary.ts — the Panoramica's model for the phone composition
- * (MOB-03, 2026-10-11): the strip's three cells, the identity between a cell and the verdict's
+ * (since 2026-10-11): the strip's three cells, the identity between a cell and the verdict's
  * sentence, `verdictNamesMarket`, the rows' closed asides, the two ratios of the Cashflow tile.
  * The Firebase chain behind chartService's formatter is mocked away as in overviewNarrative.test.ts.
  *
  * Falsified on 2026-10-11, one at a time: the identity went red with «Questo mese» without
  * `decimals` («+3000 €» against the sentence's «+3000,00 €») and with the savings rate passed
  * unrounded (−12,5 → «−13%» from `Intl`, «−12%» in the sentence); `verdictNamesMarket` went red on
- * the net-loss sale with the body replaced by `input.marketEffect !== null`.
+ * the net-loss sale with the body replaced by `input.marketEffect !== null` — the comparison with
+ * the regex pins the definition, the hard-coded booleans per case carry the proof; the asides went
+ * red (in the retirement, the same day) with Sintesi's aside replaced by «giorno 11 di 31».
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -111,8 +113,11 @@ describe('selectOverviewStrip', () => {
     expect(strip.map((figure) => figure.label)).toEqual(['Questo mese', 'Da inizio anno', 'Messo da parte finora']);
     expect(strip.map((figure) => figure.opens)).toEqual([VERDICT_REST_SECTION, OVERVIEW_PATRIMONIO_ID, OVERVIEW_SECTION_IDS.cashflow]);
     expect(validateStrip(strip, [...ROW_IDS, OVERVIEW_PATRIMONIO_ID, VERDICT_REST_SECTION])).toEqual([]);
-    // Without «Il perché» (the cut cancelled by a binding clause) the first cell still opens a known target.
-    expect(validateStrip(strip, [...ROW_IDS, OVERVIEW_PATRIMONIO_ID, VERDICT_REST_SECTION])).toEqual([]);
+    // Without «Il perché» (the cut cancelled by a binding clause) the first cell's target is one the
+    // controller does not know — `validateStrip` says so, and the PAGE answers it: `handleStripOpen`
+    // puts the focus on the verdict's box instead (app/dashboard/page.tsx). Written in the retirement
+    // of 2026-10-11, where this line was a copy of the one above.
+    expect(validateStrip(strip, [...ROW_IDS, OVERVIEW_PATRIMONIO_ID])).toEqual([`«Questo mese» opens an unknown section «${VERDICT_REST_SECTION}»`]);
   });
 
   it('lifts the two chips of THE tile, and nothing of the Cashflow tile', () => {
