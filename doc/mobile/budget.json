@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-10",
+  "measuredAt": "2026-10-11",
   "account": "census@example.com",
   "tolerance": {},
   "informational": {
@@ -103,28 +103,29 @@
   "budget": {
     "panoramica": {
       "390": {
-        "screens": 3.56,
+        "screens": 1.66,
         "tilesAboveFold": 1,
-        "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 15,
+        "tilesFullyAboveFold": 1,
+        "figuresAboveFold": 5,
         "figuresOutsideVerdict": 5,
-        "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "firstClosedRowAbovePill": false,
+        "overflowX": false,
+        "raisedBy": "MOB-03: la prima riga chiusa (Sintesi) finisce a 879 contro la pill a 767 — la striscia prende due righe («+3000,00 €» è una cella larga, decisione 28) e LA tessera tiene la pill del periodo a 44 px e la curva già a 120 px; decisione 19 estesa alla Panoramica (README § 9, 29)"
       },
       "768": {
-        "screens": 2.1,
-        "tilesAboveFold": 3,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 39,
-        "figuresOutsideVerdict": 23,
-        "firstClosedRowAbovePill": null,
+        "screens": 1.26,
+        "tilesAboveFold": 6,
+        "tilesFullyAboveFold": 5,
+        "figuresAboveFold": 15,
+        "figuresOutsideVerdict": 15,
+        "firstClosedRowAbovePill": true,
         "overflowX": false
       },
       "1024": {
-        "screens": 2.75,
+        "screens": 1.6,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 22,
+        "figuresAboveFold": 10,
         "figuresOutsideVerdict": 7,
         "firstClosedRowAbovePill": null,
         "overflowX": false
@@ -132,27 +133,29 @@
     },
     "patrimonio": {
       "390": {
-        "screens": 3.34,
+        "screens": 3.23,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 12,
+        "figuresAboveFold": 18,
         "figuresOutsideVerdict": 5,
         "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-03: la curva di PatrimonioTile a 120 px sotto desktop (decisione 4, la stessa che MOB-06 usa) porta sopra la piega le etichette della curva, il digest e il conteggio: figuresAboveFold 12 → 18 a 390 (di cui +2 di deriva del giorno: il codice di develop misurato lo stesso giorno dava 14) e 22 → 25 a 768; screens scende (3,34 → 3,23 · 2,1 → 2,04 · 2,75 → 2,64)"
       },
       "768": {
-        "screens": 2.1,
+        "screens": 2.04,
         "tilesAboveFold": 5,
         "tilesFullyAboveFold": 3,
-        "figuresAboveFold": 22,
+        "figuresAboveFold": 25,
         "figuresOutsideVerdict": 15,
         "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-03: la curva di PatrimonioTile a 120 px sotto desktop (decisione 4, la stessa che MOB-06 usa) porta sopra la piega le etichette della curva, il digest e il conteggio: figuresAboveFold 12 → 18 a 390 (di cui +2 di deriva del giorno: il codice di develop misurato lo stesso giorno dava 14) e 22 → 25 a 768; screens scende (3,34 → 3,23 · 2,1 → 2,04 · 2,75 → 2,64)"
       },
       "1024": {
-        "screens": 2.73,
-        "tilesAboveFold": 1,
-        "tilesFullyAboveFold": 0,
+        "screens": 2.64,
+        "tilesAboveFold": 3,
+        "tilesFullyAboveFold": 1,
         "figuresAboveFold": 18,
         "figuresOutsideVerdict": 11,
         "firstClosedRowAbovePill": null,
@@ -193,9 +196,9 @@
     },
     "cashflow-budget": {
       "390": {
-        "screens": 2.73,
+        "screens": 2.67,
         "tilesAboveFold": 1,
-        "tilesFullyAboveFold": 0,
+        "tilesFullyAboveFold": 1,
         "figuresAboveFold": 15,
         "figuresOutsideVerdict": 9,
         "firstClosedRowAbovePill": null,
@@ -225,7 +228,7 @@
     },
     "cashflow-centri": {
       "390": {
-        "screens": 2.05,
+        "screens": 2.03,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 10,
@@ -257,7 +260,7 @@
     },
     "cashflow-divisione": {
       "390": {
-        "screens": 2.04,
+        "screens": 2.01,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 22,
@@ -289,7 +292,7 @@
     },
     "cashflow-dividendi": {
       "390": {
-        "screens": 3.05,
+        "screens": 3.03,
         "tilesAboveFold": 2,
         "tilesFullyAboveFold": 1,
         "figuresAboveFold": 8,
@@ -299,7 +302,7 @@
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "768": {
-        "screens": 1.94,
+        "screens": 1.92,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 1,
         "figuresAboveFold": 16,
@@ -321,7 +324,7 @@
     },
     "analisi": {
       "390": {
-        "screens": 3.72,
+        "screens": 3.68,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 12,
@@ -330,7 +333,7 @@
         "overflowX": false
       },
       "768": {
-        "screens": 2.44,
+        "screens": 2.43,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 1,
         "figuresAboveFold": 20,
@@ -350,7 +353,7 @@
     },
     "rendimenti": {
       "390": {
-        "screens": 4.11,
+        "screens": 4.09,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 8,
@@ -379,25 +382,27 @@
     },
     "storico": {
       "390": {
-        "screens": 4.82,
+        "screens": 4.71,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 15,
+        "figuresAboveFold": 16,
         "figuresOutsideVerdict": 9,
         "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       },
       "768": {
-        "screens": 3.05,
+        "screens": 3.03,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 28,
+        "figuresAboveFold": 29,
         "figuresOutsideVerdict": 19,
         "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       },
       "1024": {
-        "screens": 3.98,
+        "screens": 3.96,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 16,
@@ -408,16 +413,17 @@
     },
     "allocazione": {
       "390": {
-        "screens": 3.63,
+        "screens": 3.57,
         "tilesAboveFold": 2,
         "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 25,
-        "figuresOutsideVerdict": 17,
+        "figuresAboveFold": 26,
+        "figuresOutsideVerdict": 18,
         "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       },
       "768": {
-        "screens": 2.36,
+        "screens": 2.33,
         "tilesAboveFold": 4,
         "tilesFullyAboveFold": 2,
         "figuresAboveFold": 33,
@@ -426,18 +432,19 @@
         "overflowX": false
       },
       "1024": {
-        "screens": 2.99,
+        "screens": 2.96,
         "tilesAboveFold": 2,
         "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 27,
+        "figuresAboveFold": 28,
         "figuresOutsideVerdict": 23,
         "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       }
     },
     "previdenza": {
       "390": {
-        "screens": 3.9,
+        "screens": 3.85,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 12,
@@ -446,27 +453,29 @@
         "overflowX": false
       },
       "768": {
-        "screens": 2.62,
+        "screens": 2.59,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 24,
+        "figuresAboveFold": 26,
         "figuresOutsideVerdict": 12,
         "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       },
       "1024": {
-        "screens": 3.36,
+        "screens": 3.37,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 12,
         "figuresOutsideVerdict": 9,
         "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       }
     },
     "fire-calcolatore": {
       "390": {
-        "screens": 3.19,
+        "screens": 3.13,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 16,
@@ -476,7 +485,7 @@
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "768": {
-        "screens": 1.94,
+        "screens": 1.91,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 1,
         "figuresAboveFold": 23,
@@ -498,7 +507,7 @@
     },
     "fire-coast": {
       "390": {
-        "screens": 2.32,
+        "screens": 2.25,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 16,
@@ -530,7 +539,7 @@
     },
     "fire-what-if": {
       "390": {
-        "screens": 4.09,
+        "screens": 4.06,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 20,
@@ -550,7 +559,7 @@
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 4.06,
+        "screens": 4.02,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 20,
@@ -562,7 +571,7 @@
     },
     "fire-monte-carlo": {
       "390": {
-        "screens": 4.9,
+        "screens": 4.89,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 6,
@@ -572,7 +581,7 @@
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "768": {
-        "screens": 2.7,
+        "screens": 2.67,
         "tilesAboveFold": 2,
         "tilesFullyAboveFold": 1,
         "figuresAboveFold": 8,
@@ -582,7 +591,7 @@
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 3.49,
+        "screens": 3.47,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 7,
@@ -664,7 +673,7 @@
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "768": {
-        "screens": 1.38,
+        "screens": 1.36,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 2,
         "figuresAboveFold": 4,
@@ -674,7 +683,7 @@
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 1.71,
+        "screens": 1.69,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 2,
         "figuresAboveFold": 4,

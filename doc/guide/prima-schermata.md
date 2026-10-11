@@ -120,6 +120,13 @@ si legge prima di stringere o allargare.
 
 ## Per-page blind spots
 
+- **Il fixture deriva di una o due cifre col GIORNO del mese** (2026-10-11, MOB-03): il codice di develop misurato l'11
+  ha dato Storico 390 `figuresAboveFold` 16 (budget del 10: 15) e 768 29 (28), Allocazione 390 26 e `figuresOutsideVerdict`
+  18 (25 e 17) e 1024 28 (27), Previdenza 768 26 (24) e 1024 `screens` 3,37 (3,36), Patrimonio 390 14 (12) — identici al
+  codice nuovo dello stesso giorno, quindi non una regressione. Le date del seed sono relative alla corsa, ma qualcosa sulla
+  prima schermata segue il giorno (una proiezione che cambia di cifre, una riga che va a capo): non isolato. Finché non lo è,
+  una voce che si allarga di 1–2 col giorno porta `raisedBy: "MOB-NN: deriva del giorno…"` dopo la prova sul codice di develop
+  nello stesso giorno (uno `stash`, una build, il census sulle superfici mosse), mai una tolleranza (decisione 23).
 - **Il settle legge `main.textContent`, pannelli nascosti compresi**: su una tab di Cashflow la condizione «una cifra»
   è vera già con le cifre di Tracciamento (`forceMount`), quindi è lo skeleton assente, la riga di freschezza vuota e
   la coda di 500 ms a dire che la tab misurata è pronta — non la cifra. Una tab che resta senza cifre non si vede da qui.

@@ -1,12 +1,12 @@
 {
   "routes": {
     "/": {
-      "initialJsGzKB": 511,
-      "raisedBy": "#436: firebase 12.13 → 12.19 (@firebase/firestore 4.14 → 4.17), +57 KB gz sui condivisi che Next 16.4 riduce di 16; richiesto da firebase-admin 14 (@firebase/app 0.16.2). Misura prima/dopo in doc/guide/velocita.md § Registro"
+      "initialJsGzKB": 521,
+      "raisedBy": "MOB-03: la landing rende le tessere della Panoramica (CashflowTile con la didascalia del calendario e NarrativeText, PatrimonioTile con i blocchi sollevabili): 509,5 → 511,2 KB gz; tetto = misura +2% come #432 e #436, OK del proprietario 2026-10-11. Misura prima/dopo in doc/guide/velocita.md § Registro"
     },
     "/dashboard": {
-      "initialJsGzKB": 608,
-      "raisedBy": "#436: firebase 12.13 → 12.19 (@firebase/firestore 4.14 → 4.17), +57 KB gz sui condivisi che Next 16.4 riduce di 16; richiesto da firebase-admin 14 (@firebase/app 0.16.2). Misura prima/dopo in doc/guide/velocita.md § Registro"
+      "initialJsGzKB": 623,
+      "raisedBy": "MOB-03: la composizione mobile della Panoramica carica le primitive di MOB-02 (VerdictStrip, PageRest, useMobileSections, TileRowShell su Radix Collapsible): 603,3 → 610,7 KB gz, un chunk iniziale in più (29 → 30); tetto = misura +2% come #432 e #436, OK del proprietario 2026-10-11. Misura prima/dopo in doc/guide/velocita.md § Registro"
     },
     "/dashboard/allocation": {
       "initialJsGzKB": 593,

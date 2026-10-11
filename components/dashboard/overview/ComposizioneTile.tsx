@@ -6,6 +6,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { describeComposition } from '@/lib/utils/overviewNarrative';
 import { CompositionBar } from '@/components/ui/composition-bar';
+import type { TileCollapse } from '@/components/ui/tile';
 import { OverviewTile } from './OverviewTile';
 
 interface ComposizioneTileProps {
@@ -15,11 +16,15 @@ interface ComposizioneTileProps {
   eyebrow?: string;
   /** Optional secondary fact pinned to the bottom (Patrimonio links to Allocazione here). */
   footer?: ReactNode;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow (`describeOverviewAsides`). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
 /** "Dove sono i soldi?" — one stacked bar and a flat legend with value and share per class. */
-export function ComposizioneTile({ data, eyebrow = 'Composizione', footer, className }: ComposizioneTileProps) {
+export function ComposizioneTile({ data, eyebrow = 'Composizione', footer, collapse, asideWhenClosed, className }: ComposizioneTileProps) {
   const classes = data
     .filter((d) => d.percentage > 0)
     .map((d) => ({ assetClass: d.assetClass ?? d.name, percentage: d.percentage }));
@@ -28,6 +33,8 @@ export function ComposizioneTile({ data, eyebrow = 'Composizione', footer, class
     <OverviewTile
       eyebrow={eyebrow}
       aside="per asset class"
+      asideWhenClosed={asideWhenClosed}
+      collapse={collapse}
       reading={describeComposition(classes)}
       className={className}
     >
