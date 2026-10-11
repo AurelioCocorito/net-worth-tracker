@@ -1,7 +1,7 @@
 # MOB-04 — Cashflow: le cinque tab
 
 > Stato: da fare · riletta in modo adversariale il 2026-10-10: 34 rilievi, 9 decisioni · Priorità: 2 (Tracciamento è la pagina del telefono: l'unica con il «+») · Sforzo: L · Dipende da:
-> MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450), MOB-03 (sequenza, README § 9, 9; PERF-06 ritirata, in develop) · Sblocca: MOB-05..08 (`e2e/cashflow.tablet.spec.ts`), MOB-09
+> MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450), MOB-03 (ritirata il 2026-10-11, in develop dal 2026-10-11, PR #452; sequenza, README § 9, 9; PERF-06 ritirata, in develop) · Sblocca: MOB-05..08 (`e2e/cashflow.tablet.spec.ts`), MOB-09
 
 ## 1. Il problema, misurato
 
@@ -351,8 +351,9 @@ Da fare TASSATIVAMENTE prima di ogni cosa:
 - Leggi doc/guide/cashflow.md, cashflow-tracciamento.md, cashflow-budget.md, centri-di-costo.md, cashflow-divisione.md,
   cashflow-dividendi.md, stati.md, dialog.md, e2e-emulatori.md
 - Leggi COMMENTS.md e DEVELOPMENT_GUIDELINES.md e APPLICALE mentre scrivi codice
-- Leggi doc/mobile/README.md (§ 9: le decisioni 1–35), doc/guide/prima-schermata.md (la misura: MOB-01 è ritirata), MOB-02 e MOB-03 (chiuse; MOB-02 è il contratto: non
-  rinominare nulla; MOB-03 ha scritto describeScheduledCaption e il binding di salesNarrative) e questa spec per
+- Leggi doc/mobile/README.md (§ 9: le decisioni 1–35), doc/guide/prima-schermata.md (la misura: MOB-01 è ritirata), il codice di MOB-02 e MOB-03 (ritirate il 2026-10-10 e il 2026-10-11: MOB-02 è il contratto, non
+  rinominare nulla; della Panoramica si usano `describeScheduledCaption` e `describeScheduledNetCaption` di `lib/utils/overviewNarrative.ts`
+  e il `binding` di `lib/utils/salesNarrative.ts`, doc/guide/panoramica.md § Composizione mobile) e questa spec per
   intero; DESIGN.md § 5 e § 6 (MAI rigenerarlo); riverifica le righe di ExpenseDialog.tsx (onSuccess :381/:2078, ids
   :2034 con le commissioni dopo i genitori, dal 2026-10-10)
 - Crea SESSION_NOTES.md; crea il branch dalla branch attiva PRIMA di editare

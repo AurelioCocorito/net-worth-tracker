@@ -1,5 +1,5 @@
 /**
- * The Panoramica at 1440 after the phone composition (MOB-03, 2026-10-11): the page of before,
+ * The Panoramica at 1440 after the phone composition (2026-10-11): the page of before,
  * plus three declared additions — the year's euro in brackets after its percentage, the calendar
  * as a caption under the figures that contain it, a zero printed without a sign — and the
  * `order-*` utilities gone. No row trigger in the grid, the strip and «Il resto della pagina» not

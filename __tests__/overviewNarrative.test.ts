@@ -527,12 +527,13 @@ describe('projectMonthEndSpending', () => {
 });
 
 /**
- * Where a phone cuts the verdict (MOB-03, 2026-10-11; doc/mobile/README.md § 9, decisions 3 and
+ * Where a phone cuts the verdict (since 2026-10-11; doc/mobile/README.md § 9, decisions 3 and
  * 27). Falsified on 2026-10-11, one at a time: «title only» went red with `leadLength` set to the
  * first sentence's length; the taxed-story cut went red moved one segment earlier (the tax's
  * `binding` segment past the cut cancelled it, no «Il perché» at all) and one later (the savings
  * clause's first segment landed in the lead); the whole-paragraph case went red with `binding`
- * removed from `describeSales`.
+ * removed from `describeSales`; the unsigned zero went red (in the retirement, the same day) with
+ * the `isPrintedZero` branch removed from `signed` («+0,00 €»).
  */
 describe('buildOverviewVerdict — the phone cut', () => {
   it('should cut under the title: the strip restates the first sentence, the rest is «Il perché»', () => {
@@ -656,6 +657,7 @@ describe('buildOverviewVerdict — the phone cut', () => {
   });
 });
 
+/** Seen red on 2026-10-11 (the retirement) with «il patrimonio» removed from the list: four tests, this one first. */
 describe('overviewRestLabel', () => {
   it('should always open on «il patrimonio» and close on «del mese», the subjects in a fixed order', () => {
     expect(overviewRestLabel({ savings: false, market: false, sale: false })).toBe('il patrimonio del mese');

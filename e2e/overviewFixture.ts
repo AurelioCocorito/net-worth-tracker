@@ -1,5 +1,5 @@
 /**
- * The Panoramica's overview response, patched on the wire for the two `overview.*` specs (MOB-03,
+ * The Panoramica's overview response, patched on the wire for the two `overview.*` specs (since
  * 2026-10-11): `page.route` + `route.fetch()` + `route.fulfill` as `panoramica.snapshot.spec.ts`
  * does, so the specs never write and never depend on the month the base fixture was seeded in.
  * Round, invented figures (no real account's): +3000 € this month, +25.000 € the year, a salary of

@@ -1,7 +1,7 @@
 # MOB-06 — Patrimonio · Analisi · Storico · Hall of Fame
 
-> Stato: da fare · riletta in modo adversariale il 2026-10-10: 35 rilievi, 8 decisioni · Priorità: 3 (quattro pagine su un contratto già scritto) · Sforzo: L · Dipende da: MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450), MOB-03
-> (`PatrimonioTile`, `ComposizioneTile`, `describeSales`), MOB-04 (`describeTrackingScope`, `CashflowKpiTrio`) — sequenza, README § 9, 9; PERF-11 ritirata, in develop · Sblocca: MOB-07, MOB-08, MOB-09
+> Stato: da fare · riletta in modo adversariale il 2026-10-10: 35 rilievi, 8 decisioni · Priorità: 3 (quattro pagine su un contratto già scritto) · Sforzo: L · Dipende da: MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450), MOB-03 (ritirata il 2026-10-11, in develop dal 2026-10-11, PR #452:
+> `PatrimonioTile`, `ComposizioneTile` e `describeSales` vivono nel codice con quei nomi), MOB-04 (`describeTrackingScope`, `CashflowKpiTrio`) — sequenza, README § 9, 9; PERF-11 ritirata, in develop · Sblocca: MOB-07, MOB-08, MOB-09
 
 ## 1. Il problema, misurato
 
@@ -20,7 +20,7 @@ Righe del 2026-09-26 (chi implementa le riverifica):
   (fallita = «nessuna operazione»); `StrumentiTile.tsx` rende la lista O la tabella dal 2026-10-07 (`useMediaQuery`, `:259`)
   e ha `id="strumenti"` (`:591`, usato da `e2e/assets.rows{,.mobile}.spec.ts` e `assets.composite-chip.spec.ts`). Verdetto
   `patrimonioNarrative.ts:236-282`: una frase fino a «; sul mercato…» (`:257`), poi le vendite con la ritenuta (`:277`,
-  `describeSales`, `salesNarrative.ts:150`, condiviso con la Panoramica); lo zero firmato «+0 €» (`:70-77`). Il DOM è già
+  `describeSales`, `salesNarrative.ts:160`, condiviso con la Panoramica: dal 2026-10-11 i suoi zeri sono già senza segno); lo zero firmato «+0 €» (`:70-77`). Il DOM è già
   nell'ordine di lettura (`desktop:col-start-*`, nessun `order-*`). Dal 2026-10-10 la tessera «Mutuo» è una per prestito
   (`summary.loanId`: per un immobile non ancora migrato è l'id dell'immobile, `:250-293`), `accounts` include i prestiti
   personali (`isLiquidityRow`, `patrimonioSummary.ts:62-64`) e l'hero conta con `formatHoldingCounts(held, accounts, loans)`.
@@ -44,7 +44,7 @@ Righe del 2026-09-26 (chi implementa le riverifica):
 
 - Patrimonio, Analisi, Storico: schermate **≤ 2,5**; una tessera aperta; **≤ 5 cifre fuori dal verdetto** sopra la
   pill (`figuresOutsideVerdict`: il nodo finisce sopra il bordo alto della pill, non la piega; LA tessera compresa, 16); la prima riga chiusa sopra la pill. L'ordine dei tagli è fisso: sotto `desktop:` il
-  grafico di LA tessera è alto 120 px (README § 9, 4: Patrimonio `max-desktop:min-h-[120px]` di MOB-03 § 4.3; Evoluzione
+  grafico di LA tessera è alto 120 px (README § 9, 4: Patrimonio `max-desktop:min-h-[120px]` già in `components/dashboard/overview/PatrimonioTile.tsx` dal 2026-10-11; Evoluzione
   `max-desktop:min-h-[120px] desktop:min-h-[220px]` su `EvoluzioneTile.tsx:187`; le barre di Periodo, `SpendingBarsChart`
   in `PeriodoTile`, a 120 px), sempre; poi, su Patrimonio, la striscia perde la cella Liquidità (README § 9, 40); mai la
   lettura né il valore.
@@ -55,11 +55,11 @@ Righe del 2026-09-26 (chi implementa le riverifica):
 
 ## 3. Non-obiettivi
 
-B e C; le primitive (un campo nuovo solo additivo); il tablet (MOB-08); DESIGN.md (MOB-09); la Panoramica (MOB-03);
+B e C; le primitive (un campo nuovo solo additivo); il tablet (MOB-08); DESIGN.md (MOB-09); la Panoramica (composta il 2026-10-11, doc/guide/panoramica.md § Composizione mobile);
 Plusvalenze (MOB-05); le sparkline e i dialog (in develop dal 2026-10-07, doc/guide/patrimonio.md); la matematica; le azioni della navbar; le azioni
 di Hall of Fame (già in fondo da MOB-02). Sono di altre spec, chiuse prima (README § 9, 9), e qui si usano con i loro
 nomi: `PatrimonioTile.liftedFigures`, `id`, `isPatrimonioLiftedBlock` e la curva a 120 px, `ComposizioneTile` con
-`collapse`/`asideWhenClosed`, i `binding` di `describeSales` (MOB-03 § 4.3-4.4); `describeTrackingScope` e il blocco
+`collapse`/`asideWhenClosed`, i `binding` di `describeSales` (`lib/utils/salesNarrative.ts`, dal 2026-10-11); `describeTrackingScope` e il blocco
 `'trio'` di `CashflowKpiTrio` (MOB-04 § 4.2).
 
 ## 4. Design
@@ -70,7 +70,7 @@ Lifted-Figure sono PROPOSTE, MOB-09); `PageRest` subito dopo la cella di LA tess
 Patrimonio, è il primo figlio della griglia); LA tessera fuori dal controller (21); **una sequenza sola, il DOM di oggi**
 (README § 9, 1 e 11: nessun `order-*`, le righe seguono il DOM desktop, il desktop non cambia); `PageVerdict` +
 `strip` (`VerdictStrip`, `onOpen`: `perche` → `restCollapse.onOpenChange(true)`, il resto → `sections.reveal`, come
-MOB-03 § 4.2) + `restCollapse`; `LIFTED_FIGURE_CLASS` via `liftedBlocks` (si nasconde solo la cifra ripetuta; letture,
+la Panoramica, `app/dashboard/page.tsx` dal 2026-10-11) + `restCollapse`; `LIFTED_FIGURE_CLASS` via `liftedBlocks` (si nasconde solo la cifra ripetuta; letture,
 classifiche e ledger restano interi: 15, 17); `validateStrip` in un test per pagina; `ErrorNotice` di riga con
 `live={!sections.compact}`. La chiave `mobile-sections:<route>` non porta l'`ownerId`: la memoria è per dispositivo
 (README § 9), e gli id di un altro account cadono da `known`.
@@ -82,8 +82,8 @@ classifiche e ledger restano interi: 15, 17); `validateStrip` in un test per pag
 - **Verdetto**: «Sul mercato ha spinto soprattutto un ETF (+900 €).» diventa una frase sua anche a 1440 (README § 9, 5);
   `lead` = «Il portafoglio vale 120.000 €: +1500 € (+1,27%) su agosto, 12 strumenti e 3 conti.»; `restLabel` dal
   contenuto del seguito: «il mercato del mese» (solo mercato), «la vendita del mese» (solo vendita), «mercato e vendita
-  del mese» (entrambi), come `overviewRestLabel` di MOB-03 § 4.4. **Vincolante**: la ritenuta e il controfattuale di
-  `describeSales` sono `binding` ogni volta che sono stampati (li marca MOB-03 § 4.4, modulo condiviso: Patrimonio li
+  del mese» (entrambi), come `overviewRestLabel` di `lib/utils/overviewNarrative.ts`. **Vincolante**: la ritenuta e il controfattuale di
+  `describeSales` sono `binding` ogni volta che sono stampati (li marca `lib/utils/salesNarrative.ts` dal 2026-10-11, modulo condiviso: Patrimonio li
   eredita): quel mese il verdetto resta intero. Lo zero firmato senza segno (`:70-77`, README § 9, 20).
 - **Striscia** `selectPatrimonioStrip({ gains, cash })` (`patrimonioSummary.ts`): «G/P non realizzato» (l'etichetta di
   `RendimentoTile.tsx:68`; `gains.gainLoss`, `signed-currency`, `decimals: 2` perché la tessera stampa i centesimi,
@@ -96,10 +96,10 @@ classifiche e ledger restano interi: 15, 17); `validateStrip` in un test per pag
   Overview non letta: niente `PageVerdict`, niente striscia.
 - **Non si ripete**: `liftedFigures={[...liftedBlocks(strip, 'patrimonio-patrimonio').filter(isPatrimonioLiftedBlock),
   'monthly', 'yearly', 'curve-end']}` (il chip del mese è nel `lead`; il chip dell'anno si nasconde intero e il suo euro
-  entra nella frase fra parentesi dopo la percentuale dell'anno, come MOB-03 § 4.3, README § 9, 17 e 40; la fine curva
+  entra nella frase fra parentesi dopo la percentuale dell'anno, come la Panoramica (`buildOverviewVerdict`, dal 2026-10-11), README § 9, 17 e 40; la fine curva
   è l'eroe); il digest «Mercato» resta (il seguito lo nomina solo con `topMover && marketEffect !== null`,
-  `patrimonioNarrative.ts:262-292`: una `verdictNamesMarket` come MOB-03 § 4.3 decide `'movers'`). `PatrimonioTile`
-  condivisa: le prop sono di MOB-03 § 4.3, con questi nomi.
+  `patrimonioNarrative.ts:262-292`: una `verdictNamesMarket` come quella di `lib/utils/overviewSummary.ts` decide `'movers'`). `PatrimonioTile`
+  condivisa: le prop `liftedFigures`/`id` e la guardia `isPatrimonioLiftedBlock` sono nel codice dal 2026-10-11, con questi nomi.
 - **Il conteggio dell'hero** sotto `desktop:` è un bottone che chiama `sections.reveal('patrimonio-strumenti')`; a 1440
   resta il link a `#strumenti` (`page.tsx:430`, `StrumentiTile.tsx:571`): sotto `desktop:` la `section` di Strumenti ha
   l'id della riga, `patrimonio-strumenti`; a 1440 resta `#strumenti`. I selettori `section#strumenti` di
@@ -236,7 +236,7 @@ una cella del Driver (39); le celle che ripetono letture e ledger (15); l'ordine
 
 - `app/dashboard/assets/page.tsx`, `components/assets/StrumentiTile.tsx`, `components/assets/tiles/*.tsx` (`RendimentoTile`
   con `liftedFigures`, `LiquiditaTile`, `MovimentiTile`), `lib/utils/{patrimonioSummary,patrimonioNarrative}.ts`
-  (`PatrimonioTile`, `ComposizioneTile` e `salesNarrative.ts` sono di MOB-03: si usano).
+  (`PatrimonioTile`, `ComposizioneTile` e `salesNarrative.ts` sono della Panoramica, in develop dal 2026-10-11: si usano).
 - `components/cashflow/AnalisiTab.tsx`, `components/cashflow/analisi/tiles/*.tsx`,
   `components/cashflow/analisi/{FlowShareMobile,SpendingTypesMobileFlow,SpendingRolesMobileFlow}.tsx` (il blocco
   sollevato e le didascalie del Flusso), `lib/utils/{analisiSummary,analisiNarrative,spendingRoles}.ts`.
@@ -326,7 +326,7 @@ ripetuti — solo la cifra ripetuta, l'euro dell'anno nella frase —, le righe 
 tolte, i binding), il calendario di Analisi come scope, la Scheda come riga che si apre da sola dall'URL, una sola
 cella del Driver e il ledger mai sollevato, Strumenti chiusa sopra le sue righe leggere (un elenco per larghezza, la
 sparkline all'apertura), Movimenti in errore come ErrorNotice anche a 1440. I nomi sono quelli del codice di MOB-02 (ritirata il 2026-10-10: `lib/hooks/useMobileSections.ts`, `components/ui/{tile,page-verdict,verdict-strip,page-rest,error-notice}.tsx`,
-`axis` compreso), MOB-03 § 4.3 e MOB-04 § 4.2: non rinominarli.
+`axis` compreso), `PatrimonioTile.tsx` (`liftedFigures`, `id`, `PATRIMONIO_CURVE_ID_SUFFIX`) e MOB-04 § 4.2: non rinominarli.
 
 Da fare TASSATIVAMENTE prima di ogni cosa:
 - Leggi WORKFLOW.md, AGENTS.md (§ Tailwind Breakpoints and Responsive Layout, § React Query and Derived State,
@@ -335,7 +335,7 @@ Da fare TASSATIVAMENTE prima di ogni cosa:
 - Leggi doc/guide/patrimonio.md, cashflow-analisi.md, storico.md, hall-of-fame.md, stati.md, e2e-emulatori.md
 - Leggi COMMENTS.md e DEVELOPMENT_GUIDELINES.md e APPLICALE mentre scrivi codice
 - Leggi doc/mobile/README.md (§ 9: le decisioni 1–42), MOB-02 e questa spec per intero; DESIGN.md § 5 e § 6 (MAI
-  rigenerarlo; il capitolo mobile lo scrive MOB-09, dopo); i diff di MOB-03 (PatrimonioTile, ComposizioneTile,
+  rigenerarlo; il capitolo mobile lo scrive MOB-09, dopo); il diff della Panoramica (PR #452, 2026-10-11: PatrimonioTile, ComposizioneTile,
   describeSales) e MOB-04 (describeTrackingScope, CashflowKpiTrio), che sono chiuse
 - Crea SESSION_NOTES.md; crea il branch dalla branch attiva PRIMA di editare
 

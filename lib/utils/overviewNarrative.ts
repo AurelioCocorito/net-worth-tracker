@@ -109,7 +109,7 @@ export interface OverviewVerdict {
   tone: VerdictTone;
   sentence: Narrative;
   /**
-   * Where a phone cuts the sentence (since MOB-03, 2026-10-11; doc/mobile/README.md § 9,
+   * Where a phone cuts the sentence (since 2026-10-11; doc/mobile/README.md § 9,
    * decisions 3 and 27): `0` — title only, the strip restates the first sentence — or, when the
    * headline names the tax on a sale, the end of the sale clause, so the tax stays on the first
    * screen. Absent when nothing would be left behind «Il perché».
@@ -318,7 +318,7 @@ export function buildOverviewVerdict(input: OverviewVerdictInput): OverviewVerdi
     );
   }
   if (input.yearlyVariation) {
-    // The year's euro in brackets after its percentage (since MOB-03, 2026-10-11; decision 17 of
+    // The year's euro in brackets after its percentage (since 2026-10-11; decision 17 of
     // doc/mobile/README.md § 9): on a phone the year's chip of THE tile is lifted whole — the
     // percentage is the strip's cell — and nothing else prints its euro; at 1440 it is a
     // declared addition to the sentence.
@@ -432,7 +432,7 @@ const SCHEDULED_CAPTION_MIN_EUR = 1;
 
 /**
  * «di cui 350 € già in calendario, entro il 30» — the caption under ONE figure that contains
- * rows dated after today (The Scheduled-Is-Not-Spent Rule, at every width since MOB-03,
+ * rows dated after today (The Scheduled-Is-Not-Spent Rule, at every width since
  * 2026-10-11; decision 14 of doc/mobile/README.md § 9): the Cashflow tile's Entrate and Spese,
  * the total of the two category tiles. The words «già in calendario» are `scheduledSentence`'s
  * (cashflowNarrative.ts); the short form is a caption, without a verb, and «di cui» says the

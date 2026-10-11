@@ -277,7 +277,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
 - **`e2e/cashflow.transfer-fee.spec.ts` was red ONCE in a full run** (2026-10-07, Windows laptop, the second full run
   of PR #434, which did not touch transfers): green alone and in the suite's order, cause not traced. A second red
   there is a pattern, not noise — note the run before re-running it. **`e2e/cashflow.mobile.spec.ts` › «every tab of the
-  pill is at least 44×44» was red ONCE the same way** (2026-10-11, the full run of MOB-03, which did not touch the pill):
+  pill is at least 44×44» was red ONCE the same way** (2026-10-11, the full run of PR #452, the Panoramica's composition, which did not touch the pill):
   «Dividendi» read 43,99999237 px against `>= 44`, a sub-pixel reading of the 44px tab; green ×2 alone right after
   (`--repeat-each=2`). If it returns, compare with `Math.round` or a half-pixel tolerance rather than widening a timeout. **`e2e/bundle.lazy.spec.ts` › Analisi was red ONCE
   the same way** (2026-10-08, the first full run on Next 16.4, PR #436): `apiResponse.text: Response has been disposed`
@@ -319,7 +319,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
 - **A spec that needs a server-computed FLAG forces it on the RESPONSE** (2026-09-18, `e2e/panoramica.snapshot.spec.ts`:
   `page.route` + `route.fetch()` + `route.fulfill({ response, json })`): planted data goes stale at the month's turn,
   and without the flag the click under test WRITES a snapshot. **The same for a whole SCENARIO of the Panoramica**
-  (2026-10-11, MOB-03, `e2e/overviewFixture.ts` for `e2e/overview.{mobile.,}spec.ts`): the base account's real response
+  (2026-10-11, PR #452, `e2e/overviewFixture.ts` for `e2e/overview.{mobile.,}spec.ts`): the base account's real response
   is patched on the wire with round invented figures — the variations, the expense stats (`incomeScheduled` present, the
   previous month under 30% so `SavingsRateBadge` never covers the pill: the spec reads `[class*="fixed bottom-4 left-4"]`
   at 0 first), a curve with last December, January and the running month (the YTD window exists), `hasTERTracking` on

@@ -82,7 +82,7 @@ describe('describeSales', () => {
   });
 
   /**
-   * The Binding-Clause Rule (MOB-03, 2026-10-11): the tax and the counterfactual are the clauses
+   * The Binding-Clause Rule (since 2026-10-11): the tax and the counterfactual are the clauses
    * a phone never hides behind a tap. Falsified on 2026-10-11 with the `binding` wrapper removed
    * from the tax: this test and `e2e/overview.mobile.spec.ts` (the taxed month) went red.
    */
@@ -124,6 +124,19 @@ describe('describeMonthSplit', () => {
     expect(segments.find((segment) => text(segment) === '+3980 €')).toMatchObject({ mono: true, sign: 'positive' });
     expect(segments.find((segment) => text(segment) === '+1180 €')).toMatchObject({ mono: true, sign: 'positive' });
     expect(segments.find((segment) => text(segment) === '−1040 €')).toMatchObject({ mono: true, sign: 'negative' });
+  });
+
+  /**
+   * A printed zero is unsigned and uncoloured on every figure of the page (decision 20 of
+   * doc/mobile/README.md § 9). Seen red on 2026-10-11, in the retirement of the Panoramica's
+   * composition: `signedCompactEuro` still printed «+0 € risparmiati» with a positive colour.
+   */
+  it('should print a part that rounds to zero without a sign and without a colour', () => {
+    const segments = describeMonthSplit({ delta: 3980.3, marketEffect: 3980, savings: 0.3 });
+    expect(plain(segments)).toBe('Di quel movimento: +3980 € dal mercato e 0 € risparmiati.');
+    expect(segments.find((segment) => text(segment) === '0 €')).toMatchObject({ mono: true });
+    expect(segments.find((segment) => text(segment) === '0 €')?.sign).toBeUndefined();
+    expect(plain(describeMonthSplit({ delta: -2000.2, marketEffect: -2000, savings: -0.2 }))).toBe('Di quel movimento: −2000 € dal mercato e 0 € risparmiati.');
   });
 });
 

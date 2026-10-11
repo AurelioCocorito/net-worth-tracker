@@ -14,8 +14,8 @@ import { LIFTED_FIGURE_CLASS } from '@/components/ui/tile';
 import { OverviewTile, TILE_SUB_EYEBROW_CLASS } from './OverviewTile';
 
 /**
- * The blocks of this tile a phone's strip can repeat (The Lifted-Figure Rule, MOB-03, 2026-10-11;
- * MOB-06 uses the same names on Patrimonio): the month's chip, the year's chip, the «Mercato:»
+ * The blocks of this tile a phone's strip can repeat (The Lifted-Figure Rule, since 2026-10-11;
+ * Patrimonio lifts them with the same names when it is composed, doc/mobile/MOB-06 § 4.1): the month's chip, the year's chip, the «Mercato:»
  * digest, the right-hand label under the curve (the hero in compact form). A lifted block takes
  * `LIFTED_FIGURE_CLASS` and hides below `tablet:`; the hero itself is exempt (decision 24).
  */

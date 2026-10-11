@@ -10,7 +10,7 @@
 > «Fixture» (creata da MOB-01 con la prima corsa sul fixture del budget); la tabella del 2026-09-26 sul mirror (§ 3) resta
 > intatta come riferimento storico, e le corse sul mirror di fine spec vanno in SESSION_NOTES (solo aggregati). **Lettura
 > adversariale del 2026-10-10**: tutte e nove le spec rilette insieme contro il codice e le decisioni di § 9, 261 rilievi
-> corretti in loco e 49 domande chiuse (§ 9, decisioni 9–57); § 10 è vuoto. MOB-01 e MOB-02 sono fatte e ritirate (2026-10-10, PR #448 e #450): § 3.1 ha
+> corretti in loco e 49 domande chiuse (§ 9, decisioni 9–57); § 10 è vuoto. MOB-01 e MOB-02 sono fatte e ritirate (2026-10-10, PR #448 e #450) e MOB-03 il 2026-10-11 (PR #452): § 3.1 ha
 > la tabella del fixture, il loro testo è in `git log -- doc/mobile/`.
 
 ## 1. La domanda e la risposta
@@ -125,31 +125,33 @@ note di quella sessione, che non sopravvivono al commit (WORKFLOW.md § Where th
 **2026-10-10, `census@example.com`, build di produzione su :3200 (Mac), 19 superfici × 3 viewport in 2,0 minuti; due
 corse consecutive identiche.** È `doc/mobile/budget.json` com'è nato (`mobile:budget -- --tighten` sulla prima corsa) e
 la tabella che le spec MOB-02..08 aggiornano quando rimisurano. Cella = `screens` · tessere che iniziano / stanno intere
-entro `main.clientHeight` · cifre sopra la piega / cifre fuori dal verdetto sopra la pill. `firstClosedRowAbovePill` è
-`null` ovunque (nessuna riga chiusa prima di MOB-02), `overflowX` `false` ovunque. La tabella § 3 (mirror, dev server,
-2026-09-26) non si tocca più.
+entro `main.clientHeight` · cifre sopra la piega / cifre fuori dal verdetto sopra la pill · `riga` = `firstClosedRowAbovePill`
+dove una riga chiusa esiste (`null` altrove, non stampato); `overflowX` `false` ovunque. **Righe riscritte dal `budget.json`
+del 2026-10-11 nel ritiro di MOB-03**: il `--tighten` della sua sessione aveva stretto una ventina di celle senza riportarle
+qui (le strette sono elencate sotto), e d'ora in poi ogni rimisura riscrive la tabella intera dal file, non la sola riga
+della spec. La tabella § 3 (mirror, dev server, 2026-09-26) non si tocca più.
 
 | Superficie | 390 | 768 | 1024 |
 |---|---|---|---|
-| Panoramica (MOB-03, 2026-10-11: era 3,56 · 1/0 · 15 / 5 · 2,1 · 3/1 · 39 / 23 · 2,75 · 1/0 · 22 / 7) | 1,66 · 1/1 · 5 / 5 · riga `false` | 1,26 · 6/5 · 15 / 15 · riga `true` | 1,6 · 1/0 · 10 / 10 · riga `false` |
-| Patrimonio (MOB-03, 2026-10-11, la curva a 120 px: era 3,34 · 1/0 · 12 / 5 · 2,1 · 5/3 · 22 / 15 · 2,73 · 1/0 · 18 / 11) | 3,23 · 1/0 · 18 / 5 | 2,04 · 5/3 · 25 / 15 | 2,64 · 1/0 · 18 / 11 |
+| Panoramica (MOB-03, 2026-10-11: era 3,56 · 1/0 · 15 / 5 · 2,1 · 3/1 · 39 / 23 · 2,75 · 1/0 · 22 / 7) | 1,66 · 1/1 · 5 / 5 · riga `false` | 1,26 · 6/5 · 15 / 15 · riga `true` | 1,6 · 1/0 · 10 / 7 (misurate 10 · riga `false`: informative a 1024, il budget tiene 7 e `null` fino a MOB-08) |
+| Patrimonio (MOB-03, 2026-10-11, la curva a 120 px: era 3,34 · 1/0 · 12 / 5 · 2,1 · 5/3 · 22 / 15 · 2,73 · 1/0 · 18 / 11) | 3,23 · 1/0 · 18 / 5 | 2,04 · 5/3 · 25 / 15 | 2,64 · 3/1 · 18 / 11 |
 | Cashflow › Tracciamento | 3,16 · 1/0 · 15 / 5 | 2,34 · 3/1 · 23 / 13 | 3,07 · 1/0 · 14 / 5 |
-| Cashflow › Budget | 2,73 · 1/0 · 15 / 9 | 1,9 · 3/1 · 21 / 11 | 2,37 · 1/0 · 15 / 9 |
-| Cashflow › Centri | 2,05 · 1/0 · 10 / 5 | 1,47 · 2/1 · 18 / 11 | 1,78 · 1/0 · 10 / 5 |
-| Cashflow › Divisione | 2,04 · 1/0 · 22 / 5 | 1,31 · 4/2 · 38 / 18 | 1,61 · 1/0 · 22 / 8 |
-| Cashflow › Dividendi | 3,05 · 2/1 · 8 / 4 | 1,94 · 3/1 · 16 / 12 | 2,45 · 3/1 · 7 / 4 |
-| Analisi | 3,72 · 1/0 · 12 / 7 | 2,44 · 3/1 · 20 / 13 | 3,25 · 1/1 · 12 / 7 |
-| Rendimenti | 4,11 · 1/0 · 8 / 6 | 2,47 · 3/1 · 16 / 11 | 3,25 · 1/0 · 8 / 6 |
-| Storico | 4,82 · 1/0 · 15 / 9 | 3,05 · 3/1 · 28 / 19 | 3,98 · 1/0 · 16 / 10 |
-| Allocazione | 3,63 · 2/1 · 25 / 17 | 2,36 · 4/2 · 33 / 28 | 2,99 · 2/1 · 27 / 23 |
-| Previdenza | 3,9 · 1/0 · 12 / 7 | 2,62 · 3/1 · 24 / 12 | 3,36 · 1/0 · 12 / 9 |
-| FIRE › Calcolatore | 3,19 · 1/0 · 16 / 8 | 1,94 · 3/1 · 23 / 12 | 2,45 · 1/0 · 16 / 9 |
-| FIRE › Coast | 2,32 · 1/0 · 16 / 10 | 1,55 · 3/2 · 20 / 12 | 1,95 · 1/0 · 16 / 11 |
-| FIRE › What If | 4,09 · 1/0 · 20 / 5 | 3,03 · 2/1 · 27 / 17 | 4,06 · 1/0 · 20 / 8 |
-| FIRE › Monte Carlo | 4,9 · 1/0 · 6 / 1 | 2,7 · 2/1 · 8 / 3 | 3,49 · 1/0 · 7 / 2 |
+| Cashflow › Budget | 2,67 · 1/1 · 15 / 9 | 1,9 · 3/1 · 21 / 11 | 2,37 · 1/0 · 15 / 9 |
+| Cashflow › Centri | 2,03 · 1/0 · 10 / 5 | 1,47 · 2/1 · 18 / 11 | 1,78 · 1/0 · 10 / 5 |
+| Cashflow › Divisione | 2,01 · 1/0 · 22 / 5 | 1,31 · 4/2 · 38 / 18 | 1,61 · 1/0 · 22 / 8 |
+| Cashflow › Dividendi | 3,03 · 2/1 · 8 / 4 | 1,92 · 3/1 · 16 / 12 | 2,45 · 3/1 · 7 / 4 |
+| Analisi | 3,68 · 1/0 · 12 / 7 | 2,43 · 3/1 · 20 / 13 | 3,25 · 1/1 · 12 / 7 |
+| Rendimenti | 4,09 · 1/0 · 8 / 6 | 2,47 · 3/1 · 16 / 11 | 3,25 · 1/0 · 8 / 6 |
+| Storico | 4,71 · 1/0 · 16 / 9 | 3,03 · 3/1 · 29 / 19 | 3,96 · 1/0 · 16 / 10 |
+| Allocazione | 3,57 · 2/1 · 26 / 18 | 2,33 · 4/2 · 33 / 28 | 2,96 · 2/1 · 28 / 23 |
+| Previdenza | 3,85 · 1/0 · 12 / 7 | 2,59 · 3/1 · 26 / 12 | 3,37 · 1/0 · 12 / 9 |
+| FIRE › Calcolatore | 3,13 · 1/0 · 16 / 8 | 1,91 · 3/1 · 23 / 12 | 2,45 · 1/0 · 16 / 9 |
+| FIRE › Coast | 2,25 · 1/0 · 16 / 10 | 1,55 · 3/2 · 20 / 12 | 1,95 · 1/0 · 16 / 11 |
+| FIRE › What If | 4,06 · 1/0 · 20 / 5 | 3,03 · 2/1 · 27 / 17 | 4,02 · 1/0 · 20 / 8 |
+| FIRE › Monte Carlo | 4,89 · 1/0 · 6 / 1 | 2,67 · 2/1 · 8 / 3 | 3,47 · 1/0 · 7 / 2 |
 | FIRE › Obiettivi (spento) | 1 · 1/1 · 0 / 0 | 1 · 1/1 · 0 / 0 | 1 · 1/1 · 0 / 0 |
 | Hall of Fame (MOB-02, 2026-10-10: era 2,88 · 1/0 · 17 / 12 · 1,84 · 3/1 · 34 / 25 · 2,37 · 1/0 · 17 / 12) | 1,8 · 1/0 · 19 / 15 · riga `false` | 1,3 · 5/4 · 19 / 17 · riga `true` | 1,65 · 1/0 · 17 / 15 · riga `false` |
-| Impostazioni | 2,1 · 2/1 · 2 / 2 | 1,38 · 3/2 · 4 / 4 | 1,71 · 3/2 · 4 / 4 |
+| Impostazioni | 2,1 · 2/1 · 2 / 2 | 1,36 · 3/2 · 4 / 4 | 1,69 · 3/2 · 4 / 4 |
 
 **Voci allargate con `raisedBy`** (decisioni 19 e 22):
 
@@ -167,7 +169,7 @@ entro `main.clientHeight` · cifre sopra la piega / cifre fuori dal verdetto sop
   fuori dal verdetto sono le 3 celle, le 2 della lettura e le 10 del podio, che la decisione 15 lascia intere. A 768 la riga
   chiusa sta sopra la pill (`true`, registrato da `--tighten`). L'obiettivo «≤ 5 a 390» resta non raggiunto per questa
   pagina, e dichiarato: MOB-06 ne fa il censimento, MOB-09 scrive la regola.
-- **`MOB-03: la prima riga chiusa (Sintesi) finisce a 879 contro la pill a 767…`** (2026-10-11, decisione 29): Panoramica a 390,
+- **`MOB-03: la prima riga chiusa (Sintesi) finisce a 879 contro la pill a 767…`** (2026-10-11, decisione 65): Panoramica a 390,
   `firstClosedRowAbovePill` `false` — la striscia prende due righe (103 px: «+3000,00 €» è una cella larga, decisione 28, come
   ogni variazione a quattro cifre) e LA tessera (442 px: eroe 66, la riga «Andamento» con la pill a 44 px 74, la curva già a
   120, le etichette 15, il conteggio 48) chiude a 757; «Il resto» 44, Sintesi 825 → 879. A 768 la riga sta sopra la pill
@@ -175,13 +177,13 @@ entro `main.clientHeight` · cifre sopra la piega / cifre fuori dal verdetto sop
   è raggiunto; `screens` 1,66 contro l'1,6 di MOB-03 § 2 (la striscia su due righe, non stimata dalla spec).
 - **`MOB-03: la curva di PatrimonioTile a 120 px sotto desktop…`** (2026-10-11): Patrimonio `figuresAboveFold` 12 → 18 a 390 e
   22 → 25 a 768 — la curva più corta porta sopra la piega le etichette, il digest e il conteggio; `screens` scende (3,34 →
-  3,23 · 2,1 → 2,04 · 2,75 → 2,64). È il cambio che MOB-06 usa con gli stessi nomi.
-- **`MOB-03: deriva del giorno del mese, non del codice…`** (2026-10-11): sette voci di Storico (390 `figuresAboveFold` 15 → 16,
+  3,23 · 2,1 → 2,04 · 2,73 → 2,64). È il cambio che MOB-06 usa con gli stessi nomi.
+- **`MOB-03: deriva del giorno del mese, non del codice…`** (2026-10-11): sei voci (sette metriche) di Storico (390 `figuresAboveFold` 15 → 16,
   768 28 → 29), Allocazione (390 25 → 26 e cifre fuori 17 → 18, 1024 27 → 28) e Previdenza (768 24 → 26, 1024 `screens` 3,36
   → 3,37) — il codice di develop (1629613) misurato lo stesso giorno (uno `stash`, una build, il census sulle quattro
   superfici) dà esattamente questi valori, e anche Patrimonio a 390 dava 14 prima della curva: il fixture non è invariante al
-  giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots; da isolare in MOB-08 o in una
-  sessione sul fixture).
+  giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots; l'erede è MOB-08 § 2, scritto nel
+  ritiro di MOB-03 il 2026-10-11).
 - **Strette nello stesso commit, senza un `raisedBy` nuovo** (2026-10-11, `--tighten` di MOB-03): `screens` di una ventina di
   celle di altre superfici scende di 0,01–0,11 (Budget 390 2,73 → 2,67, Storico 390 4,82 → 4,71, Allocazione 390 3,63 →
   3,57, …) — la deriva del giorno nell'altro verso, registrata com'è misurata; nessuna cifra fuori dal verdetto si muove
@@ -286,7 +288,7 @@ MOB-08 (tablet) vuole le pagine composte; MOB-09 chiude la serie: finché manca,
 |---|---|---|
 | `doc/mobile/budget.json`, `scripts/mobileCensus.mjs`, `lib/utils/mobileBudget.ts`, il fixture `census@example.com` (`scripts/seedCensusE2E.mts`) | MOB-01 | tutte |
 | `PageVerdict` (`strip`, `scope`, `axis`, `restCollapse`), `Tile` (`collapse`, `asideWhenClosed`, `LIFTED_FIGURE_CLASS`, `TileRowShell`, `TILE_ROW_CELL_CLASS`, `TILE_SURFACE_CLASS`), `ErrorNotice` (`collapse`, `live`), `VerdictStrip`, `PageRest`, `verdictStrip.ts`, `mobileSections.ts`, `narrative.ts` (`binding`, `leadLength`, `restLabel`, `splitVerdict`), `describeFailedSections`, i due hook (`sections.eyebrows` dal ritiro), `--ease-spring`, `PageTabBar` | MOB-02 (ritirata il 2026-10-10: i nomi vivono nel codice) | MOB-03..08 |
-| `PatrimonioTile` (`liftedFigures`, `id`, curva a 120 px), `ComposizioneTile` di overview (`collapse`, `asideWhenClosed`), `salesNarrative.ts` (`binding`), `describeScheduledCaption` | MOB-03 | MOB-06 (Patrimonio), la landing |
+| `PatrimonioTile` (`liftedFigures`, `id`, `isPatrimonioLiftedBlock`, `PATRIMONIO_CURVE_ID_SUFFIX`, curva a 120 px), `ComposizioneTile` di overview (`collapse`, `asideWhenClosed`), `salesNarrative.ts` (`binding`; lo zero senza segno dal ritiro), `describeScheduledCaption` e `describeScheduledNetCaption`, `OverviewVerdict.OVERVIEW_VERDICT_ID`, `verdictNamesMarket` e `OVERVIEW_SECTION_IDS` (`lib/utils/overviewSummary.ts`) | MOB-03 (ritirata il 2026-10-11: i nomi vivono nel codice) | MOB-06 (Patrimonio), la landing |
 | `scheduledSentence` come `scope` (`describeTrackingScope`), `CashflowKpiTrio` e `CashflowPeriodoTile.liftedFigures`, `ExpenseDialog.onSuccess(saved)`, `components/cashflow/CashflowTabSkeletons.tsx`, `e2e/bundle.lazy.mobile.spec.ts` e `e2e/lazyTabLanding.ts` | MOB-04 | MOB-06 (Analisi), MOB-08 |
 | `playwright.config.ts`: il progetto `degraded-mobile` e `/degraded\./` nel `testIgnore` di `mobile` | MOB-05 | MOB-08 |
 | `analisi/tiles/PeriodoTile.liftedFigures`, `FlussoTile.liftedFigures` | MOB-06 | MOB-08 |
@@ -323,7 +325,7 @@ non spec per spec.
 |---|---|---|---|---|---|---|
 | MOB-01 | Il censimento in repo e il budget della prima schermata | 1 | M | — (PERF-01 e PERF-00 in develop) | Opus 5.5 · high | **ritirata il 2026-10-10** — PR #448 in develop dal 2026-10-10; 30 divergenze su 156 criteri letti contro il codice (sei lettori e tre scettici, tutto Opus): tredici dove il codice aveva ragione e la lezione era già a casa (le sette correzioni nell'intestazione di `scripts/mobileCensus.mjs`, le metriche e il settle in doc/guide/prima-schermata.md, il fixture nell'intestazione del seed, `compareCensusToBudget` con il terzo argomento e `informational` nel suo JSDoc, i dati del seed modellati sui fixture `centri` e `split` e non copiati) → doc/guide/prima-schermata.md, WORKFLOW.md § 3, i commenti alle righe; **quattro difetti a runtime degli script corretti nel ritiro, su decisione del proprietario** (§ 9, 61: la guardia Yahoo era cieca — il census azzerava il `source` dopo il giro di riscaldamento, l'unica chiamata che può dire `yahoo`, e `--tighten` non lo guardava; `--surfaces=cashflow` misurava zero superfici in silenzio; `--tighten` su una corsa parziale scriveva `budget.json` prima di andare rosso; lo stato dell'interruttore 50/30/20 promesso per il mirror e mai scritto — `tightenRefusal(run, budget)`, `validateSelection`, `yahooCalled`, `spendingRoles`; test visti rossi in `__tests__/mobileBudget.test.ts` e `mobileCensusOptions.test.ts`), sette difetti di solo testo corretti (le tre intestazioni dei test senza la falsificazione vista rossa — rifatte nel ritiro: verso invertito 6 rossi, `\s?` tolto 4, `/dashboard/dividends` 3 e una voce tolta 1; `reference/mobile-census.mjs` che diceva «until then»; § 3 che rimandava a SESSION_NOTES; la decisione 10 «in qualunque giorno» contro la 59; MOB-06 «sopra la piega» per una metrica che conta sopra la pill; MOB-03 che partiva dal 4,41 del mirror; le righe di `ritiro.md` del 2026-10-10 già mosse dallo scorporo della guida), cinque rinvii scritti ora (Obiettivi spento nel fixture → § 9, 60 e MOB-07 § 5; la colonna «obiettivo» a 768/1024 e la decisione 51 riscritta sul fixture → MOB-08 § 2 e § 5; la fila KPI del Tetto che si sovrappone a 390 → MOB-04 § 4 e § 7; il perché del `.mjs` (`__name` di tsx) → l'intestazione del census; la riga «dev» del draft tolta da 279858f → la regola in WORKFLOW.md § Where things are recorded e MOB-09 § 4); fuori dai non-obiettivi e dichiarato: PR #448 tocca `e2e/motion.layout.spec.ts` (il tema colore allineato a `localStorage` prima di ogni load, visto rosso 4/5 senza; doc/guide/e2e-emulatori.md). Nessun giro guidato F (proprietario, 2026-10-10). La misura di chiusura resta e si è rifatta nel ritiro sul codice corretto: 19 × 3 sul fixture in 2,0 min, `mobile:budget` verde su 57 misure, `yahooCalled` falso, `--selftest` verde; il `--tighten` rifiutato con `yahooCalled` forzato e con una corsa di una superficie, `budget.json` intatto. `budget.json` e il fixture sono di § 5; la tabella § 3.1 non cambia |
 | MOB-02 | Le primitive della composizione | 1 | L | MOB-01 | Fable 5.1 · xhigh | **ritirata il 2026-10-10** — PR #450 in develop dal 2026-10-10; 69 segnalazioni su 277 criteri letti contro il codice (sei lettori e tre scettici, tutto Opus), 9 confutate: trentasei dove il codice aveva ragione e la lezione era già a casa o portata ora (le API di § 4.1 coi loro nomi e le tre aggiunte `TileRowShell`/`TILE_ROW_CELL_CLASS`/`TILE_SURFACE_CLASS`, `plotClassName` al posto di `RecordBars.minHeight`; lo `scope` reso due volte; a 1440 nessun `restCollapse` e il `<p>` di oggi; la striscia `flex-wrap` con `basis-full` oltre 9 caratteri, non `grid`; la cache del hook `ReadonlyMap<string, CachedRow>` con chiave e default e il parse senza `useMemo` (il compiler lo tiene); `RecordBoardTile`/`NoteTile` che derivano `asideWhenClosed` dall'`aside` invece di inoltrarlo; l'unità delle cifre come span proprio su OGNI pagina, non solo nella striscia; gli export in più `splitFigureUnit`, `FIGURE_UNIT_CLASS`, `SplitVerdict`, `read/write/subscribeStoredSections`, `HOF_SECTION_IDS`; `narrative-text.tsx`, `mobileCensus.mjs`, quattro spec e2e, il README utente e prima-schermata.md toccati fuori da § 5/§ 10 → doc/guide/hall-of-fame.md § Composizione mobile, AGENTS.md § Motion e § Hierarchy, i commenti alle righe); **tre difetti a runtime corretti nel ritiro, su decisione del proprietario** (§ 9, 62–64: «Chiudi tutte» smontava il contenuto delle righe aperte al caricamento e mai toccate — `setAll(false)` ora le conta nella visita; `formatPoints` arrotondava a un decimale prima di `decimals`; una cella della striscia senza voce in `eyebrows` annunciava la propria etichetta — gli eyebrow vengono dal controller, `sections.eyebrows`; visti rossi in `e2e/mobile-composition.hof.mobile.spec.ts` e `__tests__/verdictStrip.test.ts`), due prove promesse in § 7 e mancanti aggiunte (la prima schermata misurata contro il top della pill; «Il perché» ricordato al reload, che pinna `restId` in `known`), una rinviata e ora scritta (lo `scope` visibile a 1440 → MOB-04 § 7, `cashflow.split.spec.ts`), dodici difetti di solo testo corretti (shell.md e impostazioni.md che davano la pill ancora sotto i 44 px; prima-schermata.md «fino a MOB-02»; hall-of-fame.md senza il 1024; velocita.md «cinque scenari»; AGENTS § Hierarchy con il selettore `[class*="order-"]` — che prende ogni `border-*` — e un elenco incompleto delle pagine con `order-*`; lo stesso selettore in MOB-03..07 § 7; la guardia `isXLiftedBlock` mancante in MOB-04, MOB-05, MOB-06 e MOB-07; il `revealRef` di MOB-06 motivato su una cattura che non c'è; `TILE_ROW_CELL_CLASS` mai nominata da MOB-08; il commento «three podium rows» di `RecordPatrimonioTile`; § 9 che diceva «nella striscia»; questa tabella e § 5 senza le aggiunte; CLAUDE.md «1003 → 922» per 1002 → 921), un punto lasciato e dichiarato (l'errore di tipo `id` + `collapse` sulla `Tile` è tenuto da `tsc` ai call site, nessun test lo pinna). Giro F fatto nella sessione di implementazione sul mirror (due difetti, corretti lì); nessuno nel ritiro. La misura di chiusura resta e si è rifatta nel ritiro sul codice corretto: 19 × 3 sul fixture in 2,0 min, `mobile:budget` verde su 57 misure senza una stretta né un allargamento (Hall of Fame 390 1,80 · 1/0 · 19/15 · riga `false`, 768 1,30 · 5/4 · 19/17 · `true`, 1024 1,65 · 1/0 · 17/15 · `false`: la tabella § 3.1 non cambia), `yahooCalled` falso; `perf:budget` verde su `.next-perf` (Hall of Fame 573,5 KB gz, nessun tetto alzato); tsc pulito, lint 0, Vitest 232/5135 in Europe/Rome e sotto `TZ=UTC`; Playwright **200/200** in 6,5 min (51 file; +1 prova in `mobile-composition.hof.mobile.spec.ts`, tre falsificazioni viste rosse una per volta) |
-| [MOB-03](MOB-03-panoramica.md) | Panoramica | 2 | M | MOB-01, MOB-02 | Fable 5.1 · high | **implementata il 2026-10-11** (branch `feat/mob-03-panoramica-mobile`, da ritirare in una sessione sua): il titolo solo sopra la striscia (`leadLength: 0`; con `taxIsTheStory` il taglio dopo la vendita), le tre celle da `selectOverviewStrip` (`lib/utils/overviewSummary.ts`, nuovo), LA tessera senza chip con l'euro dell'anno nella frase e il digest sollevato quando il verdetto nomina il mercato (`verdictNamesMarket`), la curva a 120 px sotto `desktop:`, le otto righe chiuse nell'ordine del DOM senza `order-*`, le tasse `binding` in `salesNarrative`, la didascalia «già in calendario» a ogni larghezza, lo zero senza segno; `e2e/overview.mobile.spec.ts` (9 prove a 390) e `e2e/overview.spec.ts` (1440) sulla risposta patchata (`e2e/overviewFixture.ts`). Tre decisioni del proprietario in sessione (§ 9, 29; il tetto JS 608 → 623; i `raisedBy` di § 3.1), 15 falsificazioni Vitest e 10 Playwright viste rosse. Misura: 390 1,66 · 1/1 · 5/5 · riga `false` (obiettivo «≤ 5» raggiunto, «≤ 1,6» mancato di 0,06 per la striscia su due righe), 768 1,26 · riga `true`, 1024 1,6; `perf:budget` verde sul tetto nuovo (610,7); tsc pulito, lint 0, Vitest 233/5163 nei due fusi, Playwright 211 (210 verdi + la pill di Cashflow a 43,99999 px una volta, verde ×2 da sola) in 8,9 min; giro sul mirror: smoke da script a 390 e 1440 (login vero, zero errori in console), il giro guidato di cinque punti non fatto — il proprietario ha chiuso sui segnali |
+| MOB-03 | Panoramica | 2 | M | MOB-01, MOB-02 | Fable 5.1 · high | **ritirata il 2026-10-11** — PR #452 in develop dal 2026-10-11; 222 criteri letti contro il codice da un workflow in sola lettura (sei lettori e tre scettici, tutto Opus): 176 reggono, 108 segnalazioni confermate (37 distinte, molte doppie) e 5 confutate. **Un difetto a runtime corretto nel ritiro, su decisione del proprietario** (§ 9, 66: `signedCompactEuro` di `lib/utils/salesNarrative.ts` stampava «+0 € risparmiati» con segno e colore — lo zero senza segno della decisione 20 era arrivato solo a `signedCurrency`/`signedPercent`; ora `isPrintedZero` decide, e la parola «risparmiati»/«spesi oltre le entrate» segue il segno STAMPATO; visto rosso in `__tests__/salesNarrative.test.ts`; la classe, 60 siti `>= 0 ? '+'` nel repo: `patrimonioNarrative` è di MOB-06 per la 20, email, PDF, Analisi e le tessere fuori dalla serie non si toccano); due prove promesse da § 7 e mai scritte, aggiunte (la posizione di «Il resto della pagina» fra LA tessera e Sintesi in `e2e/overview.mobile.spec.ts`, vista rossa con `PageRest` spostato dopo Sintesi; il caso «senza Il perché» di `validateStrip` in `__tests__/overviewSummary.test.ts`, che era una riga copiata da quella sopra); tre falsificazioni Vitest promesse da § 7 e mai registrate (le asides con «giorno 11 di 31», `overviewRestLabel` senza «il patrimonio», lo zero con il ramo `isPrintedZero` tolto) rifatte nel ritiro, viste rosse e scritte nelle intestazioni: delle «15» dichiarate in sessione ne risultano 10 registrate più queste 3; la decisione presa in sessione portava il numero 29, già di MOB-04 → 65 in § 9, § 3.1, `budget.json`, doc/guide/panoramica.md e nella E2E; la tabella § 3.1 riscritta intera dal `budget.json` (una ventina di celle strette dal `--tighten` di sessione e mai riportate; Patrimonio 1024 3/1 per 1/0; Panoramica 1024 misurata 10 / riga `false` ma informativa: il budget tiene 7 / `null` fino a MOB-08, proprietario); «2,75 → 2,64» per 2,73 nei due `raisedBy` di Patrimonio e in § 3.1; «sette voci» di deriva per sei (sette metriche); il tetto della landing 511 → 521 mancava qui e in CLAUDE.md; la corsa Playwright di chiusura era quella di CLAUDE.md (211/211 in 9,5 min, dopo la 210 + pill a 43,99999 px); tre rinvii senza erede scritti ora (la deriva del giorno del fixture → MOB-08 § 2; il salto skeleton → righe chiuse → doc/guide/panoramica.md § Composizione mobile; il `SavingsRateBadge` che copre la pill a 390 → § Per-page blind spots, proprietario; `expenseStats: null` non distinguibile → punto cieco, nessuna spec lo programma); la curva a 120 px su Patrimonio e landing dichiarata nelle loro guide e nel draft; i «MOB-03 § x» di MOB-04, MOB-06 e MOB-08 ripuntati al codice, quattro righe citate mosse dal diff riscritte (MOB-06:23, MOB-08:12 e :61, MOB-09:19); `OverviewVerdict` «absent on the Assistente» corretto (l'Assistente rende `PageVerdict` direttamente); la cella `null` con la sua `reason` è una cella larga come un valore oltre 9 caratteri (`WIDE_CELL_CHARS`, dichiarato nel commento); gli export in più (`describeScheduledNetCaption`, `PATRIMONIO_CURVE_ID_SUFFIX`, `OVERVIEW_VERDICT_ID`, `verdictNamesMarket`, `OVERVIEW_SECTION_IDS`) in § 5. Nella sola spec, cancellata: § 2 mai riscritto dopo la decisione (`firstClosedRowAbovePill: true`, «≤ 1,6» contro 1,66), «-12%» ASCII, «rosso in (5)» per (6), le asides sotto `overviewNarrative.test.ts`, `describeOverviewAsides` sotto `overviewNarrative.ts`, `order-1/2` per `order-1…8`, `verdictNamesMarket` senza il caso «nessun driver», il focus «sul paragrafo» per il box `#panoramica-verdetto`, l'eyebrow `perche` assente, le righe citate del 2026-09-26. Giro F: lo smoke da script della sessione di implementazione; nessuno nel ritiro. La misura di chiusura resta e si è rifatta nel ritiro, prima e dopo il fix: 19 × 3 sul fixture in 2,5 min (portatile Windows), `mobile:budget` verde su 57 senza una stretta né un allargamento (Panoramica 390 1,66 · 1/1 · 5/5 · riga `false`, 768 1,26 · 6/5 · 15/15 · `true`, 1024 1,6 · 1/0 · 10/10 · `false` informativa), `yahooCalled` falso; `perf:budget` verde su `.next-perf`, nessun tetto alzato; tsc pulito, lint 0, Vitest 233/5164 in Europe/Rome e sotto `TZ=UTC`; Playwright **211/211** in 9,5 min sul codice corretto (la suite intera su :3100; le due spec della Panoramica 12/12 di nuovo dopo la falsificazione di PageRest) |
 | [MOB-04](MOB-04-cashflow-cinque-tab.md) | Cashflow: le cinque tab | 2 | L | MOB-01, MOB-02, MOB-03 | Fable 5.1 · xhigh | da fare · riletta in modo adversariale il 2026-10-10: 34 rilievi, 9 decisioni |
 | [MOB-05](MOB-05-rendimenti.md) | Rendimenti | 2 | M | MOB-01, MOB-02 | Fable 5.1 · high | da fare · riletta in modo adversariale il 2026-10-10: 25 rilievi, 4 decisioni |
 | [MOB-06](MOB-06-patrimonio-analisi-storico-hall-of-fame.md) | Patrimonio · Analisi · Storico · Hall of Fame | 3 | L | MOB-01, MOB-02, MOB-03, MOB-04 | Opus 5.5 · high | da fare · riletta in modo adversariale il 2026-10-10: 35 rilievi, 8 decisioni |
@@ -456,7 +458,7 @@ ha misurato la baseline.
     la clausola della vendita (titolo + prima frase + tasse visibili, risparmio e mercato dietro «Il perché»). (28) Una
     cella con un valore oltre 9 caratteri («+123.456,78 €») prende una riga intera della striscia e le altre scendono
     (layout di `VerdictStrip`, MOB-02).
-  - **MOB-03 (2026-10-11, nella sessione di implementazione).** (29) **La prima riga chiusa della Panoramica resta sotto la
+  - **MOB-03 (2026-10-11, nella sessione di implementazione; numerata 65 nel ritiro, perché la 29 era già di MOB-04).** (65) **La prima riga chiusa della Panoramica resta sotto la
     pill a 390** (proprietario, interattiva): sul fixture la pill inizia a 767, il verdetto è alto 198 — la striscia prende
     DUE righe (103 px) perché «+3000,00 €» supera i 9 caratteri (decisione 28), come ogni variazione a quattro cifre —, LA
     tessera 442 (eroe 66, riga «Andamento» con la pill a 44 px 74, curva già a 120, etichette 15, conteggio 48), «Il
@@ -472,6 +474,13 @@ ha misurato la baseline.
     costante di modulo (`OVERVIEW_SECTIONS`) e la pagina passa il sottoinsieme presente (`resolveOverviewSections`,
     memoizzato sui tre flag); le due celle che non aprono una riga annunciano «il perché» e «l'andamento da inizio anno»
     dalla pagina (il controller non le conosce).
+  - **MOB-03 (2026-10-11, nel ritiro).** (66) **Lo zero stampato senza segno vale anche in `salesNarrative`** (proprietario):
+    `signedCompactEuro` stampava «+0 € risparmiati» con segno e colore; ora un importo che stampa zero è senza segno e la
+    parola («risparmiati» / «spesi oltre le entrate») segue il segno stampato. `patrimonioNarrative` resta a MOB-06 per la 20;
+    email, PDF, Analisi e le tessere fuori dalla serie non si toccano. Le due prove promesse da § 7 e mai scritte si aggiungono
+    nel ritiro (PageRest fra LA tessera e Sintesi; `validateStrip` senza «Il perché»); a 1024 il budget della Panoramica resta
+    7 / `null` (informativa fino a MOB-08) e § 3.1 scrive la misura come tale; il `SavingsRateBadge` che copre la pill a 390 è
+    un punto cieco di doc/guide/panoramica.md, non un rinvio a una spec.
   - **MOB-04.** (29) Una spesa salvata dal «+» fuori dal periodo o dai filtri: nessuna apertura, periodo e filtri fermi,
     solo il toast di successo che esiste. (30) Dividendi e Centri di Costo senza striscia. (31) La striscia di
     Tracciamento solleva il trio (totali del periodo, calendario compreso, con lo `scope` «Nel totale ci sono ancora…»);
@@ -535,6 +544,7 @@ ha misurato la baseline.
 ## 10. Domande aperte al proprietario
 
 Nessuna: le 49 domande della lettura adversariale del 2026-10-10 sono chiuse in § 9 (decisioni 9–57), le due della
-sessione MOB-01 sono le decisioni 58 e 59, le due del suo ritiro 60 e 61 (con la 51 riscritta), le tre del ritiro di MOB-02 62–64, e ogni spec
+sessione MOB-01 sono le decisioni 58 e 59, le due del suo ritiro 60 e 61 (con la 51 riscritta), le tre del ritiro di MOB-02 62–64, quella
+della sessione MOB-03 65 (e la 66 del suo ritiro), e ogni spec
 scrive la sua risposta come istruzione. Una domanda nuova nasce solo da un fatto che una sessione di implementazione
 scopre nel codice, si pone subito al proprietario con lo strumento interattivo e la risposta si aggiunge qui.

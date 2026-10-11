@@ -292,6 +292,9 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   `role="alert"` notice where the verdict would be — the management surface must survive a payload failure.
 - **The hero's «Mercato:» digest names three instruments and closes with «altri»** = `marketEffect − Σ shown`, so
   the three can never hide a negative total behind three gains (the class digest lists every class instead).
+- **The hero's curve is 120px below `desktop:`** (since 2026-10-11, the Panoramica's composition; `max-desktop:min-h-[120px]`
+  on the shared `PatrimonioTile`): the curve shortens, never the reading (doc/mobile/README.md § 9, decision 4). This page
+  passes no `liftedFigures` yet, so its chips and digest stay whole at every width until MOB-06 composes it.
 
 ## Two-Step Create Dialogs — `AssetDialog`
 
