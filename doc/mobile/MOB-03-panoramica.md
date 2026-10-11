@@ -1,6 +1,6 @@
 # MOB-03 — Panoramica
 
-> Stato: da fare · riletta in modo adversariale il 2026-10-10: 28 rilievi, 6 decisioni · Priorità: 2 (la pagina che si apre per prima, e la prima E2E del suo contenuto) · Sforzo: M ·
+> Stato: **implementata il 2026-10-11** (branch `feat/mob-03-panoramica-mobile`; README § 6 e § 9, 29; da ritirare in una sessione sua) · riletta in modo adversariale il 2026-10-10: 28 rilievi, 6 decisioni · Priorità: 2 (la pagina che si apre per prima, e la prima E2E del suo contenuto) · Sforzo: M ·
 > Dipende da: MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450; PERF-03 e PERF-07 ritirate, in develop) · Sblocca: MOB-04..08, MOB-09
 
 ## 1. Il problema, misurato

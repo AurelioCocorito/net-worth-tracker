@@ -4,6 +4,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { getMetricValueColor } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
+import type { TileCollapse } from '@/components/ui/tile';
 import { OverviewTile } from './OverviewTile';
 
 const MAX_ROWS = 5;
@@ -11,6 +12,10 @@ const MAX_ROWS = 5;
 interface AssetPrincipaliTileProps {
   topAssets: DashboardOverviewTopAsset[];
   assetCount: number;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow (`describeOverviewAsides`). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -19,7 +24,7 @@ interface AssetPrincipaliTileProps {
  * `returnPercent` is null for positions without a cost basis (cash, imports): rendered as "–",
  * never as 0, which would claim a measured flat return.
  */
-export function AssetPrincipaliTile({ topAssets, assetCount, className }: AssetPrincipaliTileProps) {
+export function AssetPrincipaliTile({ topAssets, assetCount, collapse, asideWhenClosed, className }: AssetPrincipaliTileProps) {
   const rows = topAssets.slice(0, MAX_ROWS);
 
   return (
@@ -30,6 +35,8 @@ export function AssetPrincipaliTile({ topAssets, assetCount, className }: AssetP
           {rows.length} di {assetCount} · valore · peso · rendimento
         </span>
       }
+      asideWhenClosed={asideWhenClosed}
+      collapse={collapse}
       className={className}
     >
       {rows.length === 0 ? (

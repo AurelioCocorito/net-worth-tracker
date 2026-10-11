@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import type { DashboardOverviewCategoryAmount } from '@/types/dashboardOverview';
 import type { Narrative } from '@/lib/utils/narrative';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { NarrativeText } from '@/components/ui/narrative-text';
+import type { TileCollapse } from '@/components/ui/tile';
 import { OverviewTile } from './OverviewTile';
 import { RankedRows } from './RankedRows';
 
@@ -12,6 +14,15 @@ interface CategoryTileProps {
   categories: DashboardOverviewCategoryAmount[];
   /** The one-line reading over the rows (Tracciamento names the concentration); the Panoramica has none. */
   reading?: Narrative | null;
+  /**
+   * «di cui 350 € già in calendario, entro il 30» under the reading, when `total` holds rows dated
+   * after today (`describeScheduledCaption`; The Scheduled-Is-Not-Spent Rule, at every width).
+   */
+  scheduledCaption?: Narrative | null;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow (`describeOverviewAsides`). */
+  asideWhenClosed?: string;
   /** Bar colour, a theme chart slot. */
   color: string;
   emptyCopy: string;
@@ -39,6 +50,9 @@ export function CategoryTile({
   total,
   categories,
   reading,
+  scheduledCaption,
+  collapse,
+  asideWhenClosed,
   color,
   emptyCopy,
   labelClassName,
@@ -60,9 +74,15 @@ export function CategoryTile({
     <OverviewTile
       eyebrow={eyebrow}
       aside={<span className="font-mono tabular-nums">{cachedFormatCurrencyEUR(total, true)}</span>}
+      asideWhenClosed={asideWhenClosed}
+      collapse={collapse}
       reading={reading}
       className={className}
     >
+      {/* The total in the aside holds the rows still in the calendar: said here, under the reading. */}
+      {scheduledCaption && (
+        <NarrativeText segments={scheduledCaption} figureClassName="" className="mt-1 text-[11px] leading-[1.35] text-muted-foreground" />
+      )}
       {categories.length === 0 ? (
         <p className="mt-3 text-[13px] text-muted-foreground">{emptyCopy}</p>
       ) : (

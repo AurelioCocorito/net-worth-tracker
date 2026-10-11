@@ -1,9 +1,18 @@
 import type { DashboardOverviewExpenseStats } from '@/types/dashboardOverview';
+import type { Narrative } from '@/lib/utils/narrative';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
-import { atPreviousMonth, describeCashflow, projectMonthEndSpending } from '@/lib/utils/overviewNarrative';
+import {
+  atPreviousMonth,
+  describeCashflow,
+  describeScheduledCaption,
+  describeScheduledNetCaption,
+  projectMonthEndSpending,
+} from '@/lib/utils/overviewNarrative';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { cn } from '@/lib/utils';
+import { NarrativeText } from '@/components/ui/narrative-text';
+import type { TileCollapse } from '@/components/ui/tile';
 import { OverviewTile, TILE_SUB_EYEBROW_CLASS } from './OverviewTile';
 
 interface CashflowTileProps {
@@ -16,7 +25,17 @@ interface CashflowTileProps {
   savingsRate: number | null;
   /** income / expenses; null when there are no expenses. */
   coverageRatio: number | null;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow (`describeOverviewAsides`). */
+  asideWhenClosed?: string;
   className?: string;
+}
+
+/** The calendar under one figure, in the figure's own column: 11px, the amount in mono. */
+function ScheduledCaption({ caption }: { caption: Narrative | null }) {
+  if (!caption) return null;
+  return <NarrativeText segments={caption} figureClassName="" className="text-[11px] leading-[1.35] text-muted-foreground" />;
 }
 
 /**
@@ -53,9 +72,11 @@ export function CashflowTile({
   daysInMonth,
   savingsRate,
   coverageRatio,
+  collapse,
+  asideWhenClosed,
   className,
 }: CashflowTileProps) {
-  const { income, expenses, net, expensesScheduled = 0 } = expenseStats.currentMonth;
+  const { income, expenses, net, expensesScheduled = 0, incomeScheduled = 0 } = expenseStats.currentMonth;
   // The same rule as Tracciamento: pace what is booked to date, add what is already scheduled.
   const pacedExpenses = projectMonthEndSpending(expenses - expensesScheduled, dayOfMonth, daysInMonth);
   const projectedExpenses = pacedExpenses === null ? null : pacedExpenses + expensesScheduled;
@@ -69,15 +90,21 @@ export function CashflowTile({
           giorno {dayOfMonth} di {daysInMonth}
         </span>
       }
+      asideWhenClosed={asideWhenClosed}
+      collapse={collapse}
       reading={describeCashflow(savingsRate, expenseStats.delta.expenses, month)}
       className={className}
     >
+      {/* The three figures are the WHOLE month, calendar included; what is still in the calendar is
+          declared under each figure that contains it, at every width (The Scheduled-Is-Not-Spent
+          Rule, decision 14 of doc/mobile/README.md § 9). */}
       <div className="mt-4 grid grid-cols-3 gap-3.5">
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className={TILE_SUB_EYEBROW_CLASS}>Entrate</p>
           <p className={cn('font-mono text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums', income > 0 ? 'text-positive' : 'text-muted-foreground')}>
             {cachedFormatCurrencyEUR(income, true)}
           </p>
+          <ScheduledCaption caption={describeScheduledCaption(incomeScheduled, daysInMonth)} />
           <DeltaLine delta={expenseStats.delta.income} positiveGood={true} month={month} />
         </div>
         <div className="flex min-w-0 flex-col gap-1.5">
@@ -85,6 +112,7 @@ export function CashflowTile({
           <p className={cn('font-mono text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums', expenses > 0 ? 'text-destructive' : 'text-muted-foreground')}>
             {cachedFormatCurrencyEUR(expenses, true)}
           </p>
+          <ScheduledCaption caption={describeScheduledCaption(expensesScheduled, daysInMonth)} />
           <DeltaLine delta={expenseStats.delta.expenses} positiveGood={false} month={month} />
         </div>
         <div className="flex min-w-0 flex-col gap-1.5">
@@ -93,6 +121,7 @@ export function CashflowTile({
             {net < 0 ? '−' : ''}
             {cachedFormatCurrencyEUR(Math.abs(net), true)}
           </p>
+          <ScheduledCaption caption={describeScheduledNetCaption(expensesScheduled, incomeScheduled, daysInMonth)} />
           <p className="text-[11px] text-muted-foreground">
             {savingsRate !== null ? (
               <span className="font-mono tabular-nums text-foreground">{formatPercentage(savingsRate, 1)}</span>

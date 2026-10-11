@@ -23,6 +23,16 @@ function signedCompactEuro(value: number): NarrativeSegment {
   };
 }
 
+/**
+ * The clauses a phone must never hide behind a tap (The Binding-Clause Rule, doc/mobile/README.md
+ * § 9; since MOB-03, 2026-10-11): the tax paid on a sale and the month without it change the
+ * meaning of the variation already printed, so each of their segments is `binding` and
+ * `splitVerdict` cancels any cut that would leave them in the rest. The proceeds, the gain, a loss
+ * and a missing rate are facts beside the figure, not readings of it: they stay plain. The email
+ * ignores the flag (it has no cut); Patrimonio inherits it with MOB-06.
+ */
+const binding = (segments: Narrative): Narrative => segments.map((segment) => ({ ...segment, binding: true }));
+
 /** «sulla vendita di VWCE» when the period sold exactly one instrument, «sulle vendite» otherwise. */
 function taxObject(sales?: PeriodSalesSummary | null): string {
   const instruments = sales?.instruments ?? [];
@@ -170,11 +180,14 @@ export function describeSales(sales: PeriodSalesSummary, split?: MonthSplit): Na
     narrative.push(prose(`; senza un'aliquota ${where} le tasse non sono stimate.`));
     return narrative;
   }
-  // «circa» belongs to an estimate; a tax typed from the statement is a fact.
+  // «circa» belongs to an estimate; a tax typed from the statement is a fact. The tax is binding
+  // even at zero: «pagato 0 € di tasse» still says what the variation does not carry.
   narrative.push(
-    prose(sales.taxIsWithheld ? ' e pagato ' : ' e pagato circa '),
-    figure(cachedFormatCurrencyEUR(sales.estimatedTax, true)),
-    prose(' di tasse'),
+    ...binding([
+      prose(sales.taxIsWithheld ? ' e pagato ' : ' e pagato circa '),
+      figure(cachedFormatCurrencyEUR(sales.estimatedTax, true)),
+      prose(' di tasse'),
+    ]),
   );
   if (!split || sales.estimatedTax <= 0) {
     narrative.push(prose('.'));
@@ -182,11 +195,13 @@ export function describeSales(sales: PeriodSalesSummary, split?: MonthSplit): Na
   }
   const withoutTax = split.delta + sales.estimatedTax;
   narrative.push(
-    prose(': senza, il mese avrebbe fatto '),
-    signedCompactEuro(withoutTax),
-    prose(' ('),
-    ...monthSplitParts(withoutTax, split.marketEffect, split.savings),
-    prose(').'),
+    ...binding([
+      prose(': senza, il mese avrebbe fatto '),
+      signedCompactEuro(withoutTax),
+      prose(' ('),
+      ...monthSplitParts(withoutTax, split.marketEffect, split.savings),
+      prose(').'),
+    ]),
   );
   return narrative;
 }

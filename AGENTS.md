@@ -678,8 +678,9 @@ file used to carry.
   doc/mobile/README.md § 9, decisions 1 and 11; Hall of Fame lost its `order-1…5` on 2026-10-10,
   `e2e/mobile-composition.hof.mobile.spec.ts` holds the DOM-equals-vertical order at 390 and 1440 and the `order-*`
   utilities in `main` at 0 — read from `classList` with `/^(?:[a-z-]+:)*order-/`, since `[class*="order-"]` matches
-  every `border-*`, doc/guide/e2e-emulatori.md). Every other page still carries `order-*` (the Panoramica, the Cashflow
-  tabs, Dividendi, Storico, Rendimenti, Allocazione, Previdenza, every FIRE tab) until MOB-03..07 compose them.
+  every `border-*`, doc/guide/e2e-emulatori.md). The Panoramica lost its `order-1…8` on 2026-10-11 (MOB-03,
+  `e2e/overview.{mobile.,}spec.ts`); every other page still carries `order-*` (the Cashflow tabs, Dividendi, Storico,
+  Rendimenti, Allocazione, Previdenza, every FIRE tab) until MOB-04..07 compose them.
 - **A row's caption WRAPS, it is never truncated, and the label column never grows to make room for it** (2026-09-14,
   `RankedRows`): a cut fact is no fact («30 set · Asilo nido · in calendario»); at 4 grid columns 46% is the most the
   label can take beside the bar's 40px floor, the amount and the share (58% painted the share outside the tile,

@@ -2,6 +2,7 @@ import type { DashboardOverviewGoalProgress } from '@/types/dashboardOverview';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { describeGoal } from '@/lib/utils/overviewNarrative';
 import { cn } from '@/lib/utils';
+import type { TileCollapse } from '@/components/ui/tile';
 import { OverviewTile } from './OverviewTile';
 
 /** How many goals fit the tile at desktop height without scrolling. */
@@ -10,6 +11,10 @@ const MAX_GOALS = 3;
 interface ObiettivoTileProps {
   /** In featured order (priority, then progress) — the tile shows the first MAX_GOALS. */
   goals: DashboardOverviewGoalProgress[];
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow (`describeOverviewAsides`). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -62,7 +67,7 @@ function GoalRow({ goal, hero }: { goal: DashboardOverviewGoalProgress; hero: bo
  * "A che punto sono gli obiettivi?" — the featured goal large, the next ones under it as
  * compact rows, so the tile's desktop height is spent on goals rather than on air.
  */
-export function ObiettivoTile({ goals, className }: ObiettivoTileProps) {
+export function ObiettivoTile({ goals, collapse, asideWhenClosed, className }: ObiettivoTileProps) {
   const shown = goals.slice(0, MAX_GOALS);
   const [featured, ...others] = shown;
   const single = shown.length === 1;
@@ -81,6 +86,8 @@ export function ObiettivoTile({ goals, className }: ObiettivoTileProps) {
       }
       reading={single ? describeGoal(featured.currentValue, featured.targetAmount) : undefined}
       ariaLabel={single ? `Obiettivo ${featured.goalName}` : 'Obiettivi'}
+      asideWhenClosed={asideWhenClosed}
+      collapse={collapse}
       className={className}
     >
       <div className="mt-4 flex flex-col divide-y divide-border">

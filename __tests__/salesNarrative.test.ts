@@ -80,6 +80,28 @@ describe('describeSales', () => {
     expect(tax).toMatchObject({ mono: true });
     expect(tax?.sign).toBeUndefined();
   });
+
+  /**
+   * The Binding-Clause Rule (MOB-03, 2026-10-11): the tax and the counterfactual are the clauses
+   * a phone never hides behind a tap. Falsified on 2026-10-11 with the `binding` wrapper removed
+   * from the tax: this test and `e2e/overview.mobile.spec.ts` (the taxed month) went red.
+   */
+  it('should bind the tax and the month without it, and nothing else', () => {
+    const segments = describeSales(SEPTEMBER_SALE, { delta: -4937.74, marketEffect: -1078.73, savings: null });
+    const bound = segments.filter((segment) => segment.binding).map(text).join('');
+    const free = segments.filter((segment) => !segment.binding).map(text).join('');
+    expect(bound).toBe(
+      ' e pagato circa 4089 € di tasse: senza, il mese avrebbe fatto −849 € (−1079 € dal mercato e +230 € tra risparmio e altre variazioni).',
+    );
+    expect(free).toBe('Hai venduto Vanguard FTSE All-World per 39.052 € con una plusvalenza di 15.726 €');
+  });
+
+  it('should bind the tax even at zero, and nothing on a loss or a missing rate', () => {
+    const zeroTax = describeSales({ ...SEPTEMBER_SALE, realizedGain: 10, estimatedTax: 0 });
+    expect(zeroTax.filter((segment) => segment.binding).map(text).join('')).toBe(' e pagato circa 0 € di tasse');
+    expect(describeSales({ ...SEPTEMBER_SALE, realizedGain: -1200, estimatedTax: 0 }).some((segment) => segment.binding)).toBe(false);
+    expect(describeSales({ ...SEPTEMBER_SALE, estimatedTax: null }).some((segment) => segment.binding)).toBe(false);
+  });
 });
 
 describe('describeMonthSplit', () => {

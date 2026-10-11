@@ -4,11 +4,16 @@ import { formatPercentage } from '@/lib/services/chartService';
 import { describeLiquidity } from '@/lib/utils/overviewNarrative';
 import { signTextClass } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
+import type { TileCollapse } from '@/components/ui/tile';
 import { OverviewTile, TILE_EYEBROW_CLASS } from './OverviewTile';
 
 interface SintesiTileProps {
   metrics: DashboardOverviewPayload['metrics'];
   hasCostBasisTracking: boolean;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow (`describeOverviewAsides`). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -16,7 +21,7 @@ interface SintesiTileProps {
  * "Quanto è liquidabile?" — the three-way split of the gross total, then the net figure after
  * estimated taxes when cost-basis tracking makes it knowable.
  */
-export function SintesiTile({ metrics, hasCostBasisTracking, className }: SintesiTileProps) {
+export function SintesiTile({ metrics, hasCostBasisTracking, collapse, asideWhenClosed, className }: SintesiTileProps) {
   const total = metrics.totalValue;
   const rows = [
     { label: 'Liquidità', value: metrics.cashNetWorth },
@@ -27,6 +32,8 @@ export function SintesiTile({ metrics, hasCostBasisTracking, className }: Sintes
   return (
     <OverviewTile
       eyebrow="Sintesi patrimoniale"
+      asideWhenClosed={asideWhenClosed}
+      collapse={collapse}
       reading={describeLiquidity(metrics.cashNetWorth, metrics.liquidInvestmentsNetWorth, total)}
       className={className}
     >

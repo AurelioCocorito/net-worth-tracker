@@ -49,8 +49,13 @@ export const MAX_STRIP_FIGURES = 4;
 
 const MINUS = '−';
 
-/** True when a formatted figure prints as a zero: the sign is decided on the TEXT (The Comma Rule). */
-function isPrintedZero(text: string): boolean {
+/**
+ * True when a formatted figure prints as a zero: the sign is decided on the TEXT (The Comma
+ * Rule), so «−0,004» is a zero too. Decision 20 (doc/mobile/README.md § 9): a printed zero takes
+ * no sign anywhere — the strip here, the Panoramica's `signedCurrency`/`signedPercent` since
+ * MOB-03 (2026-10-11), Patrimonio's with MOB-06.
+ */
+export function isPrintedZero(text: string): boolean {
   return !/[1-9]/.test(text);
 }
 
