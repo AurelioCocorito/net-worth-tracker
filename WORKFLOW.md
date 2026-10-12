@@ -256,7 +256,8 @@ The app **is** locally runnable; there is no fallback to declare.
   one session at a time, and reach `main` together after the last MOB spec is retired, by a PR the owner opens**
   (owner, 2026-10-12; the PERF series went to `main` on its own, PR #446). Which spec is in `develop`:
   `doc/mobile/README.md` § 6.
-- **A spec is retired by a session of its own** (fourteen times, 2026-09-28 → 2026-10-08): the code is read against the
+- **A spec is retired by a session of its own** (since 2026-09-28: the fourteen PERF specs, then each MOB one —
+  `doc/mobile/README.md` § 6): the code is read against the
   spec, every divergence gets a verdict, the lessons go home (AGENTS.md, the guide, a comment at the line, CLAUDE.md),
   then the spec and every pointer to it go. A text-only defect found there is fixed in the retirement with `tsc`, lint
   and Vitest, no Playwright; a runtime one only on the owner's call, with the area suite and the full Playwright; a

@@ -1,12 +1,12 @@
 # Email periodiche e PDF export
 
-> **Quando aprire questa guida** — chi tocca `lib/server/{monthlyEmailService,weeklyBudgetEmailService,emailHtml,emailPeriodComparison}.ts`, `lib/utils/{emailNarrative,pdfNarrative}.ts`, `lib/utils/pdfGenerator.tsx`, `lib/services/pdfDataService.ts`, `components/pdf/*`, `lib/constants/printTokens.ts`, il cron `app/api/cron/monthly-snapshot/route.ts`. Entrambe rendono fuori dal DOM: si verificano renderizzandole, e nessuna verifica è nella suite. In `AGENTS.md` resta lo stub con l'essenziale; qui c'è la regola completa. File: § *Files*, sotto.
+> **Quando aprire questa guida** — chi tocca `lib/server/{monthlyEmailService,weeklyBudgetEmailService,emailHtml,emailPeriodComparison,emailAiComment}.ts`, `lib/utils/{emailNarrative,pdfNarrative}.ts`, `lib/utils/pdfGenerator.tsx`, `lib/services/pdfDataService.ts`, `components/pdf/*`, `lib/constants/printTokens.ts`, il cron `app/api/cron/monthly-snapshot/route.ts`. Entrambe rendono fuori dal DOM: si verificano renderizzandole, e nessuna verifica è nella suite. In `AGENTS.md` resta lo stub con l'essenziale; qui c'è la regola completa. File: § *Files*, sotto.
 
 ## Files
 
 Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
-- **Email · PDF · token fuori dal DOM**: `lib/constants/printTokens.ts` (l'unica sede di un hex fuori dal DOM); email `lib/utils/emailNarrative.ts` (parole), `lib/server/emailHtml.ts` (chrome, tabelle annidate), `lib/server/{monthlyEmailService,weeklyBudgetEmailService,emailPeriodComparison}.ts`; PDF `lib/utils/pdfNarrative.ts` (`pdfSafeText` = il confine WinAnsi), `components/pdf/primitives/*` (`PDF_RAMP`), `lib/utils/pdfGenerator.tsx` → `lib/services/pdfDataService.ts` → `components/pdf/{PDFDocument,sections/*}`, `lib/utils/pdfTimeFilters.ts`, `types/pdf.ts`; cron `app/api/cron/monthly-snapshot/route.ts` (phases 2-8), `lib/server/{assetAdminRepository,dividendUseCase,dividendProcessor}.ts`
+- **Email · PDF · token fuori dal DOM**: `lib/constants/printTokens.ts` (l'unica sede di un hex fuori dal DOM); email `lib/utils/emailNarrative.ts` (parole), `lib/server/emailHtml.ts` (chrome, tabelle annidate), `lib/server/{monthlyEmailService,weeklyBudgetEmailService,emailPeriodComparison,emailAiComment}.ts`; PDF `lib/utils/pdfNarrative.ts` (`pdfSafeText` = il confine WinAnsi), `components/pdf/primitives/*` (`PDF_RAMP`), `lib/utils/pdfGenerator.tsx` → `lib/services/pdfDataService.ts` → `components/pdf/{PDFDocument,sections/*}`, `lib/utils/pdfTimeFilters.ts`, `types/pdf.ts`; cron `app/api/cron/monthly-snapshot/route.ts` (phases 2-8), `lib/server/{assetAdminRepository,dividendUseCase,dividendProcessor}.ts`
 
 ## PDF Export (`lib/utils/pdfGenerator.tsx`, `lib/services/pdfDataService.ts`, `lib/utils/pdfTimeFilters.ts`)
 
@@ -97,6 +97,16 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   deterministic, ranked with `lib/utils/hallOfFameRecords.ts` — the SAME definition as the in-app page.
 - **The email AI comment is a DEDICATED Anthropic call**, not the assistant pipeline; AI and comparison failures are
   both non-blocking — and so is the context bundle, built inside the same `try`.
+- **Only a reply that ended on `end_turn` is a comment** (2026-10-12): both emails read it through
+  `readCompleteEmailComment` (`lib/server/emailAiComment.ts`). A Sonnet 5.5 decline is an HTTP 200 with
+  `stop_reason: 'refusal'` that can follow some text, a `max_tokens` cut stops mid-sentence, a `pause_turn` is the
+  server-tool loop paused: each is a fragment, and an email cannot say «incompleto» the way Rendimenti's dialog does, so
+  it goes out WITHOUT the AI tile, as when the call fails (the log says why). Both calls run with the server-side fallback
+  (`betas: [SERVER_SIDE_FALLBACK_BETA]` + `fallbacks: 'default'` on `anthropic.beta.messages`, `lib/constants/aiModels.ts`):
+  a `cyber` or `frontier_llm` decline is rewritten by Sonnet 5 in the same call — a non-streamed mid-output decline omits
+  the declined partial — and the email names no model; the log line says which one wrote the comment. Pinned by
+  `generateEmailAiComment` / `generateWeeklyBudgetComment` in `__tests__/{monthlyEmailService,weeklyBudgetEmailService}.test.ts`
+  (both exported for that; refusal and cut seen red before the fix).
 - **The prompt BODY is the assistant's own block**: `buildEmailAiPrompt` = `formatBundleForPrompt(bundle, label)` +
   the sections only the email has (market effect, comparisons, category deltas, Hall of Fame, budget alerts). Do not
   re-list what the bundle already carries — the largest single expenses are the standing example — and do not add a

@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { ASSISTANT_MODEL } from '@/lib/constants/aiModels';
+import { ASSISTANT_MODEL, SERVER_SIDE_FALLBACK_BETA } from '@/lib/constants/aiModels';
 import { AssistantMemoryItem, AssistantMessage, AssistantMode, AssistantMonthContextBundle, AssistantMonthSelectorValue, AssistantPreferences } from '@/types/assistant';
 import {
   AssistantPromptParts,
@@ -190,8 +190,12 @@ export async function streamAssistantResponse({
     const isStructuredAnalysis = ['month_analysis', 'year_analysis', 'ytd_analysis', 'history_analysis'].includes(mode);
     const chatMaxTokens = enableWebSearch ? 16000 : 12000;
     const { system, userContent } = buildPrompt(mode, prompt, contextBundle, month, preferences, memoryItems);
-    const stream = await anthropic.messages.create({
+    const stream = await anthropic.beta.messages.create({
       model: ASSISTANT_MODEL,
+      // A policy decline is re-run on the fallback model inside this stream (aiModels.ts). The
+      // history replayed below is text only, so a fallback turn needs no block stripping.
+      betas: [SERVER_SIDE_FALLBACK_BETA],
+      fallbacks: 'default',
       max_tokens: isStructuredAnalysis ? 18000 : chatMaxTokens,
       // Static role/domain/guardrail/format instructions, identical for every user and
       // every request of this mode. No cache_control: this app's traffic pattern
@@ -207,7 +211,7 @@ export async function streamAssistantResponse({
                 type: 'web_search_20260209',
                 name: 'web_search',
                 max_uses: isStructuredAnalysis ? 2 : 3,
-              } satisfies Anthropic.WebSearchTool20260209,
+              } satisfies Anthropic.Beta.BetaWebSearchTool20260209,
             ],
           }
         : {}),
@@ -219,6 +223,13 @@ export async function streamAssistantResponse({
       if (chunk.type === 'content_block_start' && chunk.content_block?.type === 'server_tool_use') {
         webSearchUsed = true;
         onStatus('searching');
+      }
+
+      // The switch point of a server-side fallback: the answer goes on, written by another model.
+      if (chunk.type === 'content_block_start' && chunk.content_block?.type === 'fallback') {
+        console.info(
+          `[assistant] ${chunk.content_block.from.model} declined; ${chunk.content_block.to.model} continued`
+        );
       }
 
       // The terminal message_delta carries why generation stopped. Without reading it a

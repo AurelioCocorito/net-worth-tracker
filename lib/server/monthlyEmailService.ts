@@ -11,7 +11,8 @@
  * Never import it from client components.
  */
 
-import { EMAIL_ANALYSIS_MODEL } from '@/lib/constants/aiModels';
+import { EMAIL_ANALYSIS_MODEL, SERVER_SIDE_FALLBACK_BETA } from '@/lib/constants/aiModels';
+import { readCompleteEmailComment } from '@/lib/server/emailAiComment';
 import { adminDb } from '@/lib/firebase/admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { Resend } from 'resend';
@@ -759,9 +760,10 @@ const EMAIL_AI_MAX_TOKENS: Record<EmailPeriodType, number> = {
  * Every failure (bundle build, Anthropic error, missing key) is caught and logged: the
  * email is always sent, with or without the comment.
  *
- * @returns The AI-generated markdown text, or null on failure.
+ * @returns The AI-generated markdown text, or null on failure or on a reply that did not end
+ *   on `end_turn` (a refusal, a cut — `readCompleteEmailComment`). Exported for testing.
  */
-async function generateEmailAiComment(
+export async function generateEmailAiComment(
   userId: string,
   emailData: MonthlyEmailData,
   comparison: PeriodComparison
@@ -800,8 +802,11 @@ async function generateEmailAiComment(
     const Anthropic = (await import('@anthropic-ai/sdk')).default;
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
-    const message = await anthropic.messages.create({
+    const message = await anthropic.beta.messages.create({
       model: EMAIL_ANALYSIS_MODEL,
+      // A policy decline is re-run on the fallback model inside this call (aiModels.ts).
+      betas: [SERVER_SIDE_FALLBACK_BETA],
+      fallbacks: 'default',
       max_tokens: EMAIL_AI_MAX_TOKENS[emailData.periodType],
       system: system,
       thinking: { type: 'adaptive' },
@@ -816,20 +821,15 @@ async function generateEmailAiComment(
                 type: 'web_search_20260209',
                 name: 'web_search',
                 max_uses: 3,
-              } satisfies Anthropic.WebSearchTool20260209,
+              } satisfies Anthropic.Beta.BetaWebSearchTool20260209,
             ],
           }
         : {}),
       messages: [{ role: 'user', content: userContent }],
     });
 
-    // Concatenate the text blocks of the (non-streamed) response (skips thinking/tool blocks).
-    const text = message.content
-      .map((block) => (block.type === 'text' ? block.text : ''))
-      .join('')
-      .trim();
-
-    return text || null;
+    // A refusal or a cut leaves a fragment: the email goes out without the comment.
+    return readCompleteEmailComment(message, EMAIL_ANALYSIS_MODEL, 'emailAiComment');
   } catch (error) {
     // AI failure must never block email sending
     console.error(`[emailAiComment] Generation failed for user ${userId}:`, error);

@@ -49,7 +49,8 @@ import {
 } from '@/lib/utils/budgetUtils';
 import type { BudgetItem, BudgetPeriod } from '@/types/budget';
 import type { Expense } from '@/types/expenses';
-import { EMAIL_ANALYSIS_MODEL } from '@/lib/constants/aiModels';
+import { EMAIL_ANALYSIS_MODEL, SERVER_SIDE_FALLBACK_BETA } from '@/lib/constants/aiModels';
+import { readCompleteEmailComment } from '@/lib/server/emailAiComment';
 
 const WARNING_RATIO = 0.8;
 
@@ -288,10 +289,11 @@ export function buildCommentContext(data: WeeklyBudgetData): string {
 
 /**
  * Generates a short Italian comment (2 sentences: the most notable fact + one concrete
- * action) for the weekly email. Non-blocking: returns null on any failure or when no
- * API key is set.
+ * action) for the weekly email. Non-blocking: returns null on any failure, when no
+ * API key is set, or when the reply did not end on `end_turn` (a refusal, a cut).
+ * Exported for testing.
  */
-async function generateWeeklyBudgetComment(data: WeeklyBudgetData): Promise<string | null> {
+export async function generateWeeklyBudgetComment(data: WeeklyBudgetData): Promise<string | null> {
   if (!process.env.ANTHROPIC_API_KEY) return null;
   try {
     const prompt = `Sei un assistente finanziario personale italiano. Questo è lo stato dei budget dell'utente:
@@ -310,8 +312,11 @@ Niente elenchi, saluti, premesse o titoli.`;
 
     const Anthropic = (await import('@anthropic-ai/sdk')).default;
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const message = await anthropic.messages.create({
+    const message = await anthropic.beta.messages.create({
       model: EMAIL_ANALYSIS_MODEL,
+      // A policy decline is re-run on the fallback model inside this call (aiModels.ts).
+      betas: [SERVER_SIDE_FALLBACK_BETA],
+      fallbacks: 'default',
       // Thinking counts toward max_tokens: a ceiling sized for two sentences alone leaves
       // adaptive thinking at `high` no room, and the reply comes back cut or empty.
       max_tokens: 4096,
@@ -319,11 +324,8 @@ Niente elenchi, saluti, premesse o titoli.`;
       output_config: { effort: 'high' },
       messages: [{ role: 'user', content: prompt }],
     });
-    const text = message.content
-      .map((block) => (block.type === 'text' ? block.text : ''))
-      .join('')
-      .trim();
-    return text || null;
+    // A refusal or a cut leaves a fragment: the email goes out without the comment.
+    return readCompleteEmailComment(message, EMAIL_ANALYSIS_MODEL, 'weeklyBudgetEmail');
   } catch (error) {
     console.error('[weeklyBudgetEmail] AI comment generation failed:', error);
     return null;

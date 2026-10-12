@@ -32,6 +32,7 @@ import type {
 } from '@/lib/utils/performanceSummary';
 import {
   describeAnalysisBase,
+  describeReportAuthor,
   buildPerformanceVerdict,
   describeBenchmarkRanking,
   describeCapitalAndMarket,
@@ -620,6 +621,19 @@ describe('describeReturnMetrics / describeDrawdownDetail / describeYields', () =
     expect(plain(describeYields({ yocNet: 3.1, currentYieldNet: null }))).toBe('I dividendi rendono il 3,1% netto sul costo.');
     expect(plain(describeYields({ yocNet: null, currentYieldNet: 2.6 }))).toBe('I dividendi rendono il 2,6% netto sul prezzo di oggi; nessun costo medio per lo YOC.');
     expect(describeYields({ yocNet: null, currentYieldNet: null })).toBeNull();
+  });
+});
+
+describe('describeReportAuthor', () => {
+  it('names the requested model when it wrote the report, or before the stream says', () => {
+    expect(describeReportAuthor('claude-sonnet-5-5', 'claude-sonnet-5-5')).toBe('claude-sonnet-5-5');
+    expect(describeReportAuthor(null, 'claude-sonnet-5-5')).toBe('claude-sonnet-5-5');
+  });
+
+  it('names the fallback model, and why, when another model wrote it', () => {
+    expect(describeReportAuthor('claude-sonnet-5', 'claude-sonnet-5-5')).toBe(
+      'claude-sonnet-5 (claude-sonnet-5-5 aveva rifiutato la richiesta)',
+    );
   });
 });
 
