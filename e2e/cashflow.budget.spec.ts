@@ -15,7 +15,7 @@
  * (looping first, in case an earlier failed run left one behind). The verdict's figures
  * depend on the run month, so nothing here asserts an amount but the decoy.
  *
- * Since 2026-10-12 (MOB-04) the save status («Salvato») is ONE `sr-only` live node beside the
+ * Since 2026-10-12 the save status («Salvato») is ONE `sr-only` live node beside the
  * tile in its grid cell — stable whether the row is open or closed on a phone — and the aside
  * shows an `aria-hidden` copy: the spec reads the live node by its exact text, not inside the region.
  */

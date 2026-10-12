@@ -7,3 +7,17 @@ export function isNavItemActive(href: string, pathname: string): boolean {
   if (href === '/dashboard') return pathname === href;
   return pathname === href || pathname.startsWith(href + '/');
 }
+
+/**
+ * Whether the bottom nav draws the «+» that adds an expense: on Cashflow › Tracciamento alone
+ * (`?tab=` absent or `tracking` — on Dividendi and Budget the tab's own add button sits under
+ * the verdict, and a FAB that still added an EXPENSE there read as the tab's add affordance)
+ * and never in demo (2026-10-12: the demo account is shared by every visitor and `useDemoMode`
+ * gates every mutation, but the FAB was the one add control it did not reach — a save from it
+ * wrote to the shared account).
+ */
+export function isAddExpenseFabShown({ pathname, tab, isDemo }: { pathname: string; tab: string | null; isDemo: boolean }): boolean {
+  if (isDemo) return false;
+  const isOnCashflow = pathname === '/dashboard/cashflow' || pathname.startsWith('/dashboard/cashflow/');
+  return isOnCashflow && (tab === null || tab === 'tracking');
+}

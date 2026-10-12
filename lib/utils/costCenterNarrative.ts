@@ -434,8 +434,8 @@ export const EMPTY_CENTRI = `Nessun centro ancora. Dopo averne creato uno, ${HOW
 export const CENTRI_ASIDE: Narrative = [prose('in ordine di costo')];
 
 /**
- * What the closed rows of the two views say beside their eyebrow on a phone (The Closed-Row Rule;
- * MOB-04, 2026-10-12): words only. Centri «in ordine di costo» (its open aside, already words),
+ * What the closed rows of the two views say beside their eyebrow on a phone (The Closed-Row Rule,
+ * since 2026-10-12): words only. Centri «in ordine di costo» (its open aside, already words),
  * Dormienti «senza spese da tempo» (the open aside names the threshold in days — a figure); on a
  * centre Per categoria and Per sottocategoria «in totale» (the latter «2 escluse» while the lens
  * is on, `describeSottocategorieClosedAside`), Ciclo di vita its own state (`describeCicloAside`)

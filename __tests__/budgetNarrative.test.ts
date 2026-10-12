@@ -225,7 +225,7 @@ describe('buildBudgetVerdict', () => {
 });
 
 /**
- * The closed rows' words (MOB-04, 2026-10-12): never a figure. Seen red on 2026-10-12 with the
+ * The closed rows' words (since 2026-10-12): never a figure. Seen red on 2026-10-12 with the
  * rows reading their open asides — `describeAnnualAside` («2026, da gennaio · anno al 64%») and
  * `describeAlertsAside` («soglie di quota 90 · 100») — which carry the digits the rule forbids.
  */

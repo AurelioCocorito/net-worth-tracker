@@ -1,5 +1,5 @@
 /**
- * Cashflow › Divisione composed for a phone (MOB-04, since 2026-10-12; doc/guide/cashflow-divisione.md
+ * Cashflow › Divisione composed for a phone (since 2026-10-12; doc/guide/cashflow-divisione.md
  * § Composizione mobile), on the split account over «Quest'anno» — the window the fixture is
  * written for (`scripts/seedSplitE2E.mts`: Ghiandaia keeps 2200 € of what has moved, Tarsio
  * +500 € today and −100 € once the 1500 € still in the calendar is paid).
@@ -13,8 +13,9 @@
  * `.split.mobile.spec.ts`: collected by `split-mobile` alone (`playwright.config.ts`).
  *
  * Seen red on 2026-10-12: the strip reading `remaining` instead of `remainingBooked` (Tarsio
- * «−100 €»); the scope rendered only when `compact` (gone at 1440); both tabs on the default
- * `restId` (two `perche-panel` in `main`).
+ * «−100 €»); `residualTone` with its two tones swapped (Ghiandaia's cell without the gain token);
+ * both tabs on the default `restId` (two `perche-panel` in `main`). The scope rendered only when
+ * `compact` goes red at 1440, in `cashflow.split.spec.ts` — at 390 `compact` is always true.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -42,6 +43,8 @@ test.describe('Cashflow › Divisione, composed for a phone', () => {
     await expect(cells.nth(0)).toContainText(/Ghiandaia\s*2200\s?€/);
     await expect(cells.nth(1)).toContainText(/Tarsio\s*500\s?€/);
     await expect(cells.nth(1)).not.toContainText('100');
+    // Both residuals in the gain tone (`residualTone`, the tile's own rule).
+    await expect(cells.nth(0).locator('span.text-positive')).toHaveCount(1);
     await expect(cells.nth(1).locator('span.text-positive')).toHaveCount(1);
     await expect(cells.nth(1)).toHaveAccessibleName(/, apre Tarsio$/);
 

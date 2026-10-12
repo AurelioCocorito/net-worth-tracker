@@ -11,7 +11,7 @@
  *                                       | Per sottocategoria (7)
  *                     Movimenti collegati (12)
  *   Below desktop:    ONE sequence, the desktop DOM (decisions 1 and 11; composed since
- *                     2026-10-12, MOB-04): ← Centri di costo → verdict (whole, no strip) →
+ *                     2026-10-12): ← Centri di costo → verdict (whole, no strip) →
  *                     [Collega · Modifica · Archivia · Elimina] at 44px → Costo, open → «Il resto
  *                     della pagina» → Per categoria, Ciclo di vita, Per sottocategoria, Movimenti
  *                     collegati as closed rows, remembered per PAGE (`cost-centers-center`), never

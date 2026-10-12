@@ -73,8 +73,13 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   in the panel; `live={!sections.compact}` drops its `role="alert"` there, because the page's ONE live node for failed
   reads is `PageRest`'s `describeFailedSections` («Una sezione non è stata letta: Benchmark.» / «2 sezioni non sono state
   lette: Benchmark, Contributi.» / `null`). At 1440 nothing changes: `collapse` is `undefined`, `live` true. Hall of Fame
-  has one payload and renders neither a row nor an announcement for a failure; the first rows in error are MOB-04
-  (Dividendi), MOB-05 (Benchmark) and MOB-07 (Esposizione). `compact` (the cell width, drops the reassurance) is NOT
+  has one payload and renders neither a row nor an announcement for a failure; the first row in error is Dividendi's
+  Rendimento (since 2026-10-12), then MOB-05 (Benchmark) and MOB-07 (Esposizione). **A failed read of a WHOLE tab is
+  the verdict's `pending` notice** (`PageVerdict.pending`, `{ kind: 'failed', notice }`, since 2026-10-12: Tracciamento,
+  Divisione and — from the spec's retirement — Centri di Costo, whose empty summary's verdict «Nessun centro di costo.»
+  stood above the notice until then): the `section` stays, the axis keeps its slot and its focus, the notice takes the
+  sentence's place; `VerdictSkeleton`'s gap went from 2,5 to 2 that day so the wait matches the verdict it stands for,
+  on every page's `TileGridSkeleton`. `compact` (the cell width, drops the reassurance) is NOT
   `sections.compact` (the composition's width): write the latter in full at the call site.
 - **Where the 20 surfaces are**: `app/dashboard/{page,assets,history,performance,allocation,hall-of-fame,settings}`,
   the five Cashflow tabs (the `loadFailed` prop is threaded from `app/dashboard/{cashflow,analisi}/page.tsx`, because

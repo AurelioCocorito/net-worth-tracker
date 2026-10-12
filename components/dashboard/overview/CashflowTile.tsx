@@ -1,6 +1,6 @@
 import type { DashboardOverviewExpenseStats } from '@/types/dashboardOverview';
 import type { Narrative } from '@/lib/utils/narrative';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatEuroMinus } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import {
   atPreviousMonth,
@@ -117,10 +117,8 @@ export function CashflowTile({
         </div>
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className={TILE_SUB_EYEBROW_CLASS}>Risparmio</p>
-          <p className="font-mono text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums text-foreground">
-            {net < 0 ? '−' : ''}
-            {cachedFormatCurrencyEUR(Math.abs(net), true)}
-          </p>
+          {/* A net that prints as zero takes no «−» (decision 20; `formatEuroMinus` since 2026-10-12). */}
+          <p className="font-mono text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums text-foreground">{formatEuroMinus(net)}</p>
           <ScheduledCaption caption={describeScheduledNetCaption(expensesScheduled, incomeScheduled, daysInMonth)} />
           <p className="text-[11px] text-muted-foreground">
             {savingsRate !== null ? (

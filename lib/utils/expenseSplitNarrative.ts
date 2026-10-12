@@ -25,7 +25,7 @@ import type {
 } from '@/lib/utils/expenseSplitSummary';
 // Both from the SDK-free formatters module, never from chartService: this narrative is read by
 // the periodic emails too, and chartService would drag the client Firebase SDK into the cron.
-import { cachedFormatCurrencyEUR, formatPercentageIt as formatPercentage } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatEuroMinus, formatPercentageIt as formatPercentage } from '@/lib/utils/formatters';
 import { articleForPercent } from '@/lib/utils/patrimonioNarrative';
 import {
   describePeriodSubject,
@@ -150,12 +150,14 @@ export const SPLIT_REST_LABEL = 'quanto resta a ciascuno';
 
 /**
  * A person's booked residual as their tile prints it at 32px: the compact euro with the «−»
- * U+2212 on a deficit (The Comma Rule; `Intl` writes the hyphen-minus). At every width since
- * MOB-04 (doc/mobile/README.md § 9, decision 32), so the strip's cell — `formatStripFigure`,
- * which draws the same minus — prints exactly what the tile prints.
+ * U+2212 on a deficit (The Comma Rule; `Intl` writes the hyphen-minus), unsigned when it prints
+ * as zero («0 €» for −0,3: decision 20, since 2026-10-12 — until then the sign was decided on the
+ * value and the tile printed «−0 €» against the cell's «0 €»). At every width since 2026-10-12
+ * (doc/mobile/README.md § 9, decision 32), so the strip's cell — `formatStripFigure`, which
+ * decides the sign the same way — prints exactly what the tile prints.
  */
 export function formatBookedResidual(value: number): string {
-  return `${value < 0 ? '−' : ''}${euro(value)}`;
+  return formatEuroMinus(value);
 }
 
 /** What the closed rows of Divisione say beside their eyebrow (The Closed-Row Rule): words, never a figure. */
@@ -165,7 +167,7 @@ export const SPLIT_CLOSED_ASIDES = { quota: 'dalle entrate', member: 'quanto res
  * The scope line of Divisione's verdict (doc/mobile/README.md § 9, decision 14): «Nel totale ci
  * sono ancora 300 € di spese già in calendario da qui a fine mese.» — the part of the common pool
  * (and of the common income) dated after today, INSIDE the total the first sentence prints. Until
- * MOB-04 (2026-10-12) it was a sentence of the verdict itself; as the `scope` it is rendered at
+ * 2026-10-12 it was a sentence of the verdict itself; as the `scope` it is rendered at
  * every width by `PageVerdict`, and the sentence no longer carries it. `null` with nothing ahead.
  */
 export function describeSplitScope(summary: ExpenseSplitSummary, period: Period, now: Date): Narrative | null {
@@ -256,8 +258,8 @@ function poolClause(common: CommonSpending): Narrative {
  * 2600 € di entrate; a Marcella 436 € dei 1700 €." — without the income clause when nothing
  * was left in comune.
  *
- * The scheduled part of the pool is the verdict's `scope` since MOB-04 (`describeSplitScope`,
- * 2026-10-12; decision 14): a running period's pool contains rows that have not been paid yet,
+ * The scheduled part of the pool is the verdict's `scope` since 2026-10-12 (`describeSplitScope`,
+ * decision 14): a running period's pool contains rows that have not been paid yet,
  * and the caption says the amount is INSIDE the figure just printed, under the cells on a phone
  * and under the paragraph at 1440 — the sentence itself no longer carries it.
  *
@@ -343,7 +345,7 @@ function remainingClause(members: MemberBalance[]): Narrative {
 /**
  * " Con le spese in calendario, a fine periodo a Giuseppe restano 1173 € e a Marcella mancano
  * 83 €." — where the rows still in the calendar take each residual. It names them itself since
- * MOB-04 (2026-10-12): until then it opened on «Con quelle», whose antecedent was the scheduled
+ * 2026-10-12: until then it opened on «Con quelle», whose antecedent was the scheduled
  * sentence just before it — now the verdict's `scope`, out of the sentence (decision 14).
  *
  * Absent when nothing is scheduled, which is every closed period: then the booked residual IS the

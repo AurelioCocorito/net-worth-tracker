@@ -7,7 +7,7 @@
  * line over its figures. The inventory (TransactionFeed / ExpenseTable) is the last tile.
  *
  *   Below desktop:    ONE sequence, the desktop DOM (doc/mobile/README.md § 9, decisions 1 and 11;
- *                     composed since 2026-10-12, MOB-04): title → [periodo · Aggiungi] in the
+ *                     composed since 2026-10-12): title → [periodo · Aggiungi] in the
  *                     verdict's axis slot → the first sentence (or the title alone) → the strip of
  *                     three — Entrate, Spese, Risparmio, the trio of THE tile lifted whole — → the
  *                     calendar's scope line → «Il perché» → Cashflow del periodo, open, its trio's
@@ -114,6 +114,8 @@ import {
   resolveAnchorMonth,
   resolveFlowWindow,
   resolvePeriodCalendar,
+  FEED_PAGE_SIZE,
+  growFeedWindow,
   selectTracciamentoStrip,
   splitSpendingAtDate,
   summarizeMovements,
@@ -137,9 +139,6 @@ import {
   describeSavingsHistory,
   describeTrackingScope,
 } from '@/lib/utils/cashflowNarrative';
-
-/** Rows the feed reveals per «Carica altri». */
-const FEED_PAGE_SIZE = 20;
 
 /**
  * The rows of the phone composition, in the DOM's order (The Closed-Row Rule): every tile but
@@ -334,15 +333,18 @@ export function ExpenseTrackingTab({
   const savedRowRef = useRef<HTMLButtonElement | null>(null);
   const forgetSavedRow = () => setSavedRowId(null);
 
-  // Opens the add-expense dialog when the bottom-nav "+" button fires the custom event.
+  // Opens the add-expense dialog when the bottom-nav "+" button fires the custom event — never
+  // in demo (2026-10-12): the FAB is not drawn there (`isAddExpenseFabShown`), and a stray event
+  // must not open a form that writes to the shared account (`useDemoMode` gates every mutation).
   useEffect(() => {
     const handler = () => {
+      if (isDemo) return;
       setEditingExpense(null);
       setDialogOpen(true);
     };
     window.addEventListener('cashflow:add-expense', handler);
     return () => window.removeEventListener('cashflow:add-expense', handler);
-  }, []);
+  }, [isDemo]);
   // The one question a series adds to a delete from the feed: «solo questa o tutte?»
   const [seriesRequest, setSeriesRequest] = useState<SeriesDeleteRequest | null>(null);
   // «Collega la serie…» from a series row's detail (LinkSeriesDialog).
@@ -757,9 +759,11 @@ export function ExpenseTrackingTab({
   // belongs to the filters it was opened under).
   const filterKey = JSON.stringify([period, selectedTypes, selectedCatIds, selectedSubCategoryId, searchQuery, effectiveAccountId, effectiveOwnerId]);
   const mobileShowCount = feedWindow?.filterKey === filterKey ? feedWindow.count : FEED_PAGE_SIZE;
-  const showMore = () => {
+  // `shown` is what the feed draws, which may exceed the stored window after a save from the «+»
+  // (the feed widens to the saved row): the next page starts from there, or rows went away.
+  const showMore = (shown: number) => {
     forgetSavedRow();
-    setFeedWindow({ filterKey, count: mobileShowCount + FEED_PAGE_SIZE });
+    setFeedWindow({ filterKey, count: growFeedWindow({ stored: mobileShowCount, shown }) });
   };
 
   // categoryId → { icon, color } lookup for mobile row icon badges.

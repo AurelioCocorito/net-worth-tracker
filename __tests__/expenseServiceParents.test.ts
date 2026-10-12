@@ -1,5 +1,5 @@
 /**
- * `createExpenseSettledOnDate` hands back the PARENT rows it wrote (`parents`, 2026-10-12, MOB-04):
+ * `createExpenseSettledOnDate` hands back the PARENT rows it wrote (`parents`, since 2026-10-12):
  * the row as a reader would return it — its fields, its id, its date as a `Date` — one per parent
  * and in the parents' order, the fees excluded. Tracciamento's «+» on a phone reveals the saved
  * row before the refetch lands, and it can only do so with the row in hand: the id alone cannot

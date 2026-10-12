@@ -34,7 +34,7 @@ import { BUDGET_HISTORY_MONTHS } from '@/lib/utils/expenseWindows';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import type { StripFigure } from '@/lib/utils/verdictStrip';
 
-// ─── The phone composition: the ids and the strip (MOB-04, 2026-10-12) ────────
+// ─── The phone composition: the ids and the strip (since 2026-10-12) ──────────
 
 /**
  * The tiles of Budget below `desktop:`, in the DOM's order; `bud-` keeps them unique among the

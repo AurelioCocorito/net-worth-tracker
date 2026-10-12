@@ -183,8 +183,9 @@ test.describe('Hall of Fame', () => {
    * grid (the «Dettaglio» has its own `aria-expanded`), the strip and «Il resto della pagina» not
    * shown, no «Il perché», and the verdict's two sentences in ONE `<p>` — `useMobileSections` hands
    * the page no `restCollapse` at 1440, so `PageVerdict` prints the paragraph of today; only the
-   * punctuation changed («; il 2026» → «. Il 2026», decision 5). No page passes a `scope` yet: its
-   * visibility at 1440 is asserted by the first that does (MOB-04). Seen red on 2026-10-10 with
+   * punctuation changed («; il 2026» → «. Il 2026», decision 5). This page passes no `scope`: its
+   * visibility at 1440 is asserted by Divisione, the first page that does (since 2026-10-12,
+   * `cashflow.split.spec.ts`). Seen red on 2026-10-10 with
    * `useCompactLayout` answering `true` at every width (four triggers in the grid, the strip visible,
    * the sentence split in a `div`).
    */

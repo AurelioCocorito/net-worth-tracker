@@ -353,7 +353,7 @@ export function describeCeilingAside(c: CeilingSummary, now: Date): Narrative {
 }
 
 /**
- * What each closed row of Budget says beside its eyebrow on a phone (The Closed-Row Rule; MOB-04,
+ * What each closed row of Budget says beside its eyebrow on a phone (The Closed-Row Rule, since
  * 2026-10-12): words only. The open asides carry figures the rule forbids on a closed row —
  * `describeAnnualAside` «anno al 64%», `describeAlertsAside` «soglie di quota 90 · 100» — so each
  * row has its own: Categorie a rischio «a fine mese» (its horizon: a fixed budget does not follow

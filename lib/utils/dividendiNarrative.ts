@@ -681,8 +681,8 @@ export function describePaymentsCount(shown: number, total: number): Narrative {
 }
 
 /**
- * What the closed rows of Dividendi say beside their eyebrow on a phone (The Closed-Row Rule;
- * MOB-04, 2026-10-12): words or a count of rows, never an amount. Rendimento «ultimi 12 mesi» (a
+ * What the closed rows of Dividendi say beside their eyebrow on a phone (The Closed-Row Rule,
+ * since 2026-10-12): words or a count of rows, never an amount. Rendimento «ultimi 12 mesi» (a
  * window, not an amount: the tile does not follow the axis and says so closed too); Chi paga di
  * più «in portafoglio» (its open aside is the period's net, a figure); Affidabilità its window
  * and population («9 mesi · in portafoglio», `describeReliabilityClosedAside`); Per anno its years

@@ -349,7 +349,12 @@ export interface TransactionFeedProps {
   /** Total count before slicing, used for the load-more display. */
   totalCount: number;
   showCount: number;
-  onLoadMore: () => void;
+  /**
+   * «Carica altri», with the count the feed SHOWS — which may exceed `showCount` while a saved
+   * row past the window is in focus (`focusRowId`): the next page starts from the shown count, or
+   * the list would shrink (`growFeedWindow`, 2026-10-12).
+   */
+  onLoadMore: (shown: number) => void;
   /** When true, rows are grouped by day (use only when sorting by date). */
   grouped: boolean;
   onEdit: (expense: Expense) => void;
@@ -523,7 +528,7 @@ export function TransactionFeed({
       {/* Load more */}
       {effectiveShowCount < totalCount && (
         <div className="pt-2 text-center">
-          <Button variant="outline" size="sm" onClick={onLoadMore}>
+          <Button variant="outline" size="sm" onClick={() => onLoadMore(effectiveShowCount)}>
             Carica altri {Math.min(20, totalCount - effectiveShowCount)}
           </Button>
           <p className="text-muted-foreground mt-2 font-mono text-xs tabular-nums">

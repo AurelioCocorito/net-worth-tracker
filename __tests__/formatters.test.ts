@@ -1,12 +1,43 @@
 import { describe, it, expect } from 'vitest'
 import {
   formatCurrency,
+  formatEuroMinus,
   formatPercentage,
   formatDate,
   formatDateTime,
   formatNumber,
   formatTimePeriodLabel,
+  isPrintedZero,
+  withTypographicMinus,
 } from '@/lib/utils/formatters'
+
+/**
+ * The typographic minus on a printed MAGNITUDE (The Comma Rule), and none when the magnitude
+ * prints as zero (doc/mobile/README.md § 9, decision 20). Seen red on 2026-10-12 with the zero
+ * clause removed from `withTypographicMinus` («−0 €» for −0,3, «−0%» for −0,4).
+ */
+describe('withTypographicMinus / formatEuroMinus / isPrintedZero', () => {
+  /** Node's Intl writes a narrow no-break space before «€»: read it as a plain one. */
+  const plain = (text: string) => text.replace(/[  ]/g, ' ')
+
+  it('puts the U+2212 in front of a negative magnitude, nothing in front of a positive one', () => {
+    expect(withTypographicMinus(-83, '83 €')).toBe('−83 €')
+    expect(withTypographicMinus(1300, '1300 €')).toBe('1300 €')
+    expect(plain(formatEuroMinus(-354))).toBe('−354 €')
+    expect(plain(formatEuroMinus(1940))).toBe('1940 €')
+  })
+
+  it('leaves a magnitude that prints as zero unsigned, whatever the sign of the value', () => {
+    expect(withTypographicMinus(-0.3, '0 €')).toBe('0 €')
+    expect(withTypographicMinus(-0.4, '0%')).toBe('0%')
+    expect(withTypographicMinus(0, '0 €')).toBe('0 €')
+    expect(plain(formatEuroMinus(-0.3))).toBe('0 €')
+    expect(plain(formatEuroMinus(0))).toBe('0 €')
+    expect(isPrintedZero('0,00 €')).toBe(true)
+    expect(isPrintedZero('−0,00%')).toBe(true)
+    expect(isPrintedZero('0,01 €')).toBe(false)
+  })
+})
 
 describe('formatCurrency', () => {
   it('should format EUR with default decimals', () => {

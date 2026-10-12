@@ -276,7 +276,7 @@ describe('buildSplitVerdict', () => {
     expect(plain(verdict.sentence)).not.toContain('%');
   });
 
-  // The scheduled part of the pool is the verdict's SCOPE since MOB-04 (2026-10-12, decision 14):
+  // The scheduled part of the pool is the verdict's SCOPE since 2026-10-12 (decision 14):
   // the same clause Tracciamento and Analisi print, for the same reason — the amount is INSIDE the
   // total just printed — but as a caption under the cells, out of the sentence. Seen red on
   // 2026-10-12 with the clause left in the `sentence`.
@@ -360,7 +360,7 @@ describe('buildSplitVerdict', () => {
   });
 
   /**
-   * Where a phone cuts it (MOB-04, 2026-10-12): the first sentence — gross, pool clause, shares —
+   * Where a phone cuts it (since 2026-10-12): the first sentence — gross, pool clause, shares —
    * stands; the residuals and the calendar go behind «Il perché · quanto resta a ciascuno». Seen red
    * on 2026-10-12 with the cut placed after the residual sentence (the rest held the calendar
    * clause alone) and with `leadLength` set on a basis that could not be computed.
@@ -392,6 +392,10 @@ describe('buildSplitVerdict', () => {
     expect(plain([{ text: formatBookedResidual(-83) }])).toBe('−83 €');
     expect(plain([{ text: formatBookedResidual(1300) }])).toBe('1300 €');
     expect(plain([{ text: formatBookedResidual(0) }])).toBe('0 €');
+    // A residual that PRINTS as zero takes no sign either (decision 20): the strip's cell prints
+    // «0 €» for −0,3 and the tile must print the same. Seen red on 2026-10-12, in the spec's
+    // retirement, with the sign decided on the value («−0 €»).
+    expect(plain([{ text: formatBookedResidual(-0.3) }])).toBe('0 €');
     expect(SPLIT_CLOSED_ASIDES).toEqual({ quota: 'dalle entrate', member: 'quanto resta' });
   });
 

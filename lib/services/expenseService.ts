@@ -304,7 +304,7 @@ interface WrittenRows {
    * The parent rows as the readers hand them out (`getExpensesByDateRange`), one per `ids`
    * position of a parent and in the same order — the fees are not here. For the caller that
    * wants to show the row it just saved before the refetch lands (Tracciamento's «+» on a phone,
-   * MOB-04, 2026-10-12).
+   * since 2026-10-12).
    */
   parents: Expense[];
   isSeries: boolean;

@@ -571,14 +571,14 @@
     },
     "fire-monte-carlo": {
       "390": {
-        "screens": 4.87,
+        "screens": 4.89,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 6,
         "figuresOutsideVerdict": 1,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-04: screens oscilla fra 4,87 e 4,89 a parità di codice — due corse consecutive sulla stessa build di develop (e450d00e, 2026-10-12, ritiro) leggono prima l'uno e poi l'altro; il --tighten della sessione aveva scritto 4,87 come deriva del giorno; MOB-07, che compone Monte Carlo, rimisura; la pill a 44 px da MOB-02"
       },
       "768": {
         "screens": 2.67,

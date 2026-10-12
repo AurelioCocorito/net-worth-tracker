@@ -10,8 +10,9 @@
  *
  * Runs on the Centri fixture account (`centri-mobile` project — scripts/seedCostCentersE2E.mts).
  *
- * Since 2026-10-12 (MOB-04) Centri and Movimenti collegati are closed rows below `desktop:`
- * (doc/guide/centri-di-costo.md § Composizione mobile): each test opens the row before reading it.
+ * Since 2026-10-12 Centri and Movimenti collegati are closed rows below `desktop:`
+ * (doc/guide/centri-di-costo.md § Composizione mobile): each test opens the row before reading it,
+ * and Back finds the list's row still open (the memory is the list's, not the detail's).
  */
 
 import { test, expect } from '@playwright/test';
@@ -38,6 +39,14 @@ test.describe('Centri di Costo — mobile', () => {
     await expect.poll(() => page.evaluate(() => document.querySelector('main')!.scrollTop)).toBe(0);
     await expect(page.getByRole('button', { name: 'Centri di costo', exact: true })).toBeInViewport();
     await expect(page.getByRole('button', { name: 'Elimina centro di costo', exact: true })).toBeInViewport();
+
+    // Back finds the list with its rows as they were: the memory is the list's own
+    // (`mobile-sections:cashflow:cost-centers`), not the detail's. Seen red on 2026-10-12 with
+    // that key cleared before going back (the row came back closed).
+    await page.goBack();
+    await expect(page.getByRole('region', { name: 'Verdetto sui centri di costo' })).toBeVisible();
+    await expect(page.locator('#cdc-centri-trigger')).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('region', { name: 'Centri', exact: true }).getByRole('button', { name: /^Apri Fenicottero/ })).toBeVisible();
   });
 
   test('the detail neither overflows main nor ships a target under 44px', async ({ page }) => {

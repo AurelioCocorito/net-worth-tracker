@@ -7,7 +7,7 @@
  * The payments list — table or calendar — is the last tile, the inventory it is.
  *
  *   Below desktop:    ONE sequence, the desktop DOM (doc/mobile/README.md § 9, decisions 1 and 11;
- *                     composed since 2026-10-12, MOB-04): title → [periodo · +] in the verdict's
+ *                     composed since 2026-10-12): title → [periodo · +] in the verdict's
  *                     axis slot → the verdict, whole (no strip, no cut — decision 30: received
  *                     and announced are never one figure, and the Rendimento is not on the axis)
  *                     → Incasso netto, open → «Il resto della pagina» → Affidabilità, Rendimento,

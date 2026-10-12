@@ -259,7 +259,7 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
 ## Composizione mobile
 
-Composed on 2026-10-12 (MOB-04; the primitives in doc/guide/hall-of-fame.md § Composizione mobile, the rules in doc/mobile/README.md § 9): below `desktop:` one sequence, the desktop DOM — the `order-1/4/2/3/5/6` of the phone went that day, so Affidabilità now precedes Rendimento there too (decision 11).
+Composed on 2026-10-12 (PR #454; its spec, retired the same day, is in `git log -- doc/mobile/`; the primitives in doc/guide/hall-of-fame.md § Composizione mobile, the rules in doc/mobile/README.md § 9): below `desktop:` one sequence, the desktop DOM — the `order-1/4/2/3/5/6` of the phone went that day, so Affidabilità now precedes Rendimento there too (decision 11).
 
 - **THE tile**: Incasso netto (`dvd-incasso`), open at every width (decision 21), received and announced in their own material at its top.
 - **No strip** (decision 30): received and announced are never one figure — two cells or none, and the two already open THE tile on the period's window (The Received-vs-Announced Rule); the Rendimento does not follow the axis and is never in a strip. The verdict is one sentence, whole (`buildDividendiVerdict` sets no `leadLength`).
@@ -272,6 +272,7 @@ Composed on 2026-10-12 (MOB-04; the primitives in doc/guide/hall-of-fame.md § C
 
 ## Per-page blind spots
 
+- **No strip on a phone** (2026-10-12, decision 30): under the title there is the period pill and the «+», then the verdict's one sentence — received and announced are never one figure, and the two already open THE tile; a reader looking for the three cells the other tabs show finds none here, by design. Not proven in a browser: Pagamenti open by default while a provisional coupon asks for its rate, and the «nothing recorded» state on a phone (no axis, no rows, no memory) — the fixtures' coupons are past and not provisional.
 - **Rendimento's failure is spoken once, by the page** (2026-10-12): on a phone the row's notice and the Dettaglio's are silent (`live={false}`), `PageRest`'s one sentence says «1 sezione non è stata letta: Rendimento.»; a reader who closed the row sees the red eyebrow and nothing else until the next visit, when it opens again.
 - **`e2e/cashflow.dividendi.spec.ts` › «the form refuses…» is red after `cashflow.accounts` + `cashflow.budget`** (2026-09-30:
   3/3 on a clean `develop` worktree, 2/3 on the branch of PR #418, green alone): after the refusal the dialog stays open

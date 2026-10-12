@@ -11,7 +11,7 @@
  * `Drawer` with «Mostra risultati»): the reading counts the movements left, the primary names
  * them, and «Ripristina» is the footer's secondary — disabled while nothing is set.
  *
- * Since 2026-10-12 (MOB-04) Movimenti is a closed row below `desktop:`: every test opens it first.
+ * Since 2026-10-12 Movimenti is a closed row below `desktop:`: every test opens it first.
  * The composition itself is `mobile-composition.cashflow.mobile.spec.ts`.
  */
 

@@ -1,5 +1,5 @@
 import type { PeriodCashflowTotals } from '@/lib/utils/tracciamentoSummary';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatEuroMinus } from '@/lib/utils/formatters';
 import { formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { printedDelta } from '@/lib/utils/cashflowNarrative';
 import { cn } from '@/lib/utils';
@@ -77,10 +77,9 @@ export function CashflowKpiTrio({ totals, incomeDelta, expensesDelta, previousLa
       </div>
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className={TILE_SUB_EYEBROW_CLASS}>Risparmio</p>
-        <p className={cn(valueClass, 'text-foreground')}>
-          {net < 0 ? '−' : ''}
-          {cachedFormatCurrencyEUR(Math.abs(net), true)}
-        </p>
+        {/* The strip's cell repeats this figure on a phone: ONE formatter decides the «−», and a
+            net that prints as zero takes none (decision 20, 2026-10-12). */}
+        <p className={cn(valueClass, 'text-foreground')}>{formatEuroMinus(net)}</p>
         <p className="text-[11px] text-muted-foreground">
           {savingsRate !== null ? (
             <span className="font-mono tabular-nums text-foreground">{formatPercentage(savingsRate, 1)}</span>

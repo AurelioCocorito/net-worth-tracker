@@ -21,8 +21,8 @@
  * tile is the unit the eye lands on. It also makes the grid scale to a third person without a
  * layout of its own.
  *
- * BELOW DESKTOP (doc/mobile/README.md § 9, decisions 1 and 11; composed since 2026-10-12,
- * MOB-04): ONE sequence, the desktop DOM — title → [periodo] in the verdict's axis slot → the
+ * BELOW DESKTOP (doc/mobile/README.md § 9, decisions 1 and 11; composed since 2026-10-12):
+ * ONE sequence, the desktop DOM — title → [periodo] in the verdict's axis slot → the
  * sentence up to the shares → the strip, one cell per person on their booked residual (the
  * person's hero, lifted; none past four people or without a basis — decision 32) → the calendar's
  * scope line (decision 14, at every width) → «Il perché» → In comune, open → «Il resto della
@@ -58,6 +58,7 @@ import {
   SPLIT_MEMBER_HERO_BLOCK,
   SPLIT_REST_ID,
   SPLIT_SECTION_IDS,
+  residualTone,
   selectSplitStrip,
   splitMemberSectionId,
   summarizeExpenseSplit,
@@ -305,7 +306,8 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
             const calendar = describeMemberCalendar(balance);
             const sectionId = splitMemberSectionId(balance.member.id);
             // The hero is the strip's cell for this person: hidden on a phone when lifted
-            // (decision 15), printed again from `tablet:` where the strip is not drawn.
+            // (decision 15), printed again from `tablet:` beside the strip, which stays drawn
+            // up to 1439 (`LIFTED_FIGURE_CLASS` hides below `tablet:` only).
             const heroLifted = liftedBlocks(strip, sectionId).includes(SPLIT_MEMBER_HERO_BLOCK);
             return (
               <div key={balance.member.id} className={TILE_ROW_CELL_CLASS}>
@@ -321,13 +323,16 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
                       'mt-3 font-mono text-[32px] leading-none tracking-tight',
                       // The sign tokens mean money gained and lost, and a residual is exactly
                       // that — but only of money that has MOVED, so the colour follows the
-                      // booked figure. With no basis there is no residual to colour, and no
-                      // figure to print.
+                      // booked figure, as the strip's cell does (`residualTone`: none on a
+                      // residual that prints as zero, since 2026-10-12). With no basis there
+                      // is no residual to colour, and no figure to print.
                       balance.remainingBooked === null
                         ? 'text-muted-foreground'
-                        : balance.remainingBooked < 0
+                        : residualTone(balance.remainingBooked) === 'negative'
                           ? 'text-destructive'
-                          : 'text-positive',
+                          : residualTone(balance.remainingBooked) === 'positive'
+                            ? 'text-positive'
+                            : 'text-foreground',
                       heroLifted && LIFTED_FIGURE_CLASS,
                     )}
                   >

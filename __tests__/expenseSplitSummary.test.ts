@@ -5,6 +5,7 @@ import {
   SPLIT_REST_ID,
   SPLIT_SECTION_IDS,
   allocateByShare,
+  residualTone,
   resolveSplitBasis,
   selectSplitStrip,
   splitMemberSectionId,
@@ -472,7 +473,7 @@ describe('summarizeExpenseSplit — income left «in comune»', () => {
 });
 
 /**
- * The phone's strip (MOB-04, 2026-10-12): one cell per person on the residual of money that has
+ * The phone's strip (since 2026-10-12): one cell per person on the residual of money that has
  * MOVED. The identity is the tile's (`formatBookedResidual`: the compact euro, the «−» U+2212 on a
  * deficit — decision 32). Seen red on 2026-10-12 with the cell reading `remaining` (the period's
  * residual: Tarsio's «−100 €» for his «+500 €» of today), and with the identity compared against
@@ -516,6 +517,23 @@ describe('selectSplitStrip', () => {
     expect(formatStripFigure(strip[1])!.sign).toBe('negative');
     expect(cellText(strip[2])).toBe(plain(formatBookedResidual(0)));
     expect(formatStripFigure(strip[2])!.sign).toBeUndefined();
+  });
+
+  it('prints a residual that rounds to zero as the unsigned, untoned zero — in the cell and in the tile alike', () => {
+    // Seen red on 2026-10-12, in the spec's retirement: the tile printed «−0 €» in the loss colour
+    // for −0,3 while the cell printed «0 €» (decision 20: a printed zero takes no sign anywhere),
+    // and the cell still carried the loss tone the strip then dropped.
+    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Pulcino', -0.3)]));
+    expect(cellText(strip[1])).toBe('0 €');
+    expect(cellText(strip[1])).toBe(plain(formatBookedResidual(-0.3)));
+    expect(formatStripFigure(strip[1])!.sign).toBeUndefined();
+    expect(strip[1].tone).toBeUndefined();
+    // The tile reads the same tone: none at a printed zero, the sign's otherwise, null without a basis.
+    expect(residualTone(-0.3)).toBeNull();
+    expect(residualTone(0)).toBeNull();
+    expect(residualTone(-83)).toBe('negative');
+    expect(residualTone(2200)).toBe('positive');
+    expect(residualTone(null)).toBeNull();
   });
 
   it('reads the money that has MOVED: +100 booked against −100 over the period is «+100», positive', () => {

@@ -29,7 +29,7 @@ import { toDate, getItalyMonth, getItalyYear } from '@/lib/utils/dateHelpers';
 // is the same as year-to-date — so we deliberately don't carry a separate YTD option.
 export type DividendPeriod = 'month' | 'year' | 'rolling12' | 'all';
 
-// ─── The phone composition: the ids (MOB-04, 2026-10-12) ──────────────────────
+// ─── The phone composition: the ids (since 2026-10-12) ────────────────────────
 
 /**
  * THE tile and the rows of Dividendi below `desktop:`, in the desktop DOM's order (doc/mobile/

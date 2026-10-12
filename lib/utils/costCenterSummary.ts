@@ -32,7 +32,7 @@ import { summarizeCeiling } from '@/lib/utils/budgetSummary';
 import { getItalyDate, getItalyMonth, getItalyYear, isItalyDayAfter, toDate } from '@/lib/utils/dateHelpers';
 import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
 
-// ─── The phone composition: the ids (MOB-04, 2026-10-12) ──────────────────────
+// ─── The phone composition: the ids (since 2026-10-12) ────────────────────────
 
 /**
  * The tiles of Centri di Costo below `desktop:` — the list's three and the detail's five — in the

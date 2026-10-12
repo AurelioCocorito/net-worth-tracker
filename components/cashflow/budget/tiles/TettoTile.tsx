@@ -44,8 +44,10 @@ interface TettoTileProps {
 /**
  * The KPI's value scales to ITS cell (a per-cell `@container`, AGENTS.md § Tailwind): «~11.274 €»
  * at 22px in Geist Mono is ~120px, and a third of a 390px tile is ~97 — on the fixture the
- * exceeded ceiling's «Fine mese» ran under «Oltre» (seen by the census on 2026-10-10, fixed by
- * MOB-04 on 2026-10-12). A figure is never truncated: it shrinks until it fits.
+ * exceeded ceiling's «Fine mese» ran under «Oltre» (seen by the census on 2026-10-10; since
+ * 2026-10-12 those two KPIs are lifted into the strip at 390, and the shrink below guards the
+ * widths where they are drawn — from 768 a cell is ~230px, so it fires only when THE tile is
+ * narrowed, as MOB-08 plans at 1024). A figure is never truncated: it shrinks until it fits.
  */
 const KPI_VALUE_CLASS = 'font-mono text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums @max-[120px]:text-[18px] @max-[104px]:text-[16px]';
 

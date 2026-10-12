@@ -1,7 +1,7 @@
 # MOB-06 — Patrimonio · Analisi · Storico · Hall of Fame
 
 > Stato: da fare · riletta in modo adversariale il 2026-10-10: 35 rilievi, 8 decisioni · Priorità: 3 (quattro pagine su un contratto già scritto) · Sforzo: L · Dipende da: MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450), MOB-03 (ritirata il 2026-10-11, in develop dal 2026-10-11, PR #452:
-> `PatrimonioTile`, `ComposizioneTile` e `describeSales` vivono nel codice con quei nomi), MOB-04 (`describeTrackingScope`, `CashflowKpiTrio`) — sequenza, README § 9, 9; PERF-11 ritirata, in develop · Sblocca: MOB-07, MOB-08, MOB-09
+> `PatrimonioTile`, `ComposizioneTile` e `describeSales` vivono nel codice con quei nomi), MOB-04 (ritirata il 2026-10-12, in develop dal 2026-10-12, PR #454: `describeTrackingScope`, `scheduledScope` e `CashflowKpiTrio` vivono nel codice con quei nomi) — sequenza, README § 9, 9; PERF-11 ritirata, in develop · Sblocca: MOB-07, MOB-08, MOB-09
 
 ## 1. Il problema, misurato
 
@@ -60,7 +60,7 @@ Plusvalenze (MOB-05); le sparkline e i dialog (in develop dal 2026-10-07, doc/gu
 di Hall of Fame (già in fondo da MOB-02). Sono di altre spec, chiuse prima (README § 9, 9), e qui si usano con i loro
 nomi: `PatrimonioTile.liftedFigures`, `id`, `isPatrimonioLiftedBlock` e la curva a 120 px, `ComposizioneTile` con
 `collapse`/`asideWhenClosed`, i `binding` di `describeSales` (`lib/utils/salesNarrative.ts`, dal 2026-10-11); `describeTrackingScope` e il blocco
-`'trio'` di `CashflowKpiTrio` (MOB-04 § 4.2).
+`'trio'` di `CashflowKpiTrio` (`components/cashflow/tiles/CashflowKpiTrio.tsx` e `lib/utils/tracciamentoSummary.ts`, dal 2026-10-12).
 
 ## 4. Design
 
@@ -128,7 +128,9 @@ classifiche e ledger restano interi: 15, 17); `validateStrip` in un test per pag
 - **Verdetto**: **`scheduledSentence` esce dalla `sentence` e diventa lo `scope`** (README § 9, 14): `describeAnalisiScope(input):
   Narrative | null` (nuova, `analisiNarrative.ts`) = `scheduledSentence(input.scheduled,
   describeAnalisiScheduledHorizon(input.period, input.today))` senza lo spazio iniziale, la stessa forma di
-  `describeTrackingScope` (MOB-04 § 4.2); la pagina la passa come `scope` a ogni larghezza (a 1440 sotto il paragrafo);
+  `describeTrackingScope` (`lib/utils/cashflowNarrative.ts`, dal 2026-10-12: il pezzo da riusare è `scheduledScope(scheduled,
+  horizon)`, la frase senza lo spazio iniziale, non `describeTrackingScope`, che è di Tracciamento); la pagina la passa come
+  `scope` a ogni larghezza (a 1440 sotto il paragrafo);
   le chiamate di `:298`, `:302`, `:334` non la mettono più in coda; `:623` (lettura di tessera) resta. `lead` = la prima
   frase («Nel 2026 hai speso 30.000 €, −4,2% su gen–ago 2025.»), poi «Casa pesa…» si spezza a «; <categoria> pesa» →
   «. Casa pesa» anche a 1440 (5); `restLabel` «le categorie» senza anomalie, «categorie e fuori scala» con.
@@ -326,7 +328,7 @@ ripetuti — solo la cifra ripetuta, l'euro dell'anno nella frase —, le righe 
 tolte, i binding), il calendario di Analisi come scope, la Scheda come riga che si apre da sola dall'URL, una sola
 cella del Driver e il ledger mai sollevato, Strumenti chiusa sopra le sue righe leggere (un elenco per larghezza, la
 sparkline all'apertura), Movimenti in errore come ErrorNotice anche a 1440. I nomi sono quelli del codice di MOB-02 (ritirata il 2026-10-10: `lib/hooks/useMobileSections.ts`, `components/ui/{tile,page-verdict,verdict-strip,page-rest,error-notice}.tsx`,
-`axis` compreso), `PatrimonioTile.tsx` (`liftedFigures`, `id`, `PATRIMONIO_CURVE_ID_SUFFIX`) e MOB-04 § 4.2: non rinominarli.
+`axis` compreso), `PatrimonioTile.tsx` (`liftedFigures`, `id`, `PATRIMONIO_CURVE_ID_SUFFIX`) e di Cashflow (`lib/utils/cashflowNarrative.ts`: `scheduledScope`, `describeTrackingScope`; `components/cashflow/tiles/CashflowKpiTrio.tsx`: `lifted`, dal 2026-10-12): non rinominarli.
 
 Da fare TASSATIVAMENTE prima di ogni cosa:
 - Leggi WORKFLOW.md, AGENTS.md (§ Tailwind Breakpoints and Responsive Layout, § React Query and Derived State,
@@ -334,9 +336,9 @@ Da fare TASSATIVAMENTE prima di ogni cosa:
   § Performance tooling), CLAUDE.md
 - Leggi doc/guide/patrimonio.md, cashflow-analisi.md, storico.md, hall-of-fame.md, stati.md, e2e-emulatori.md
 - Leggi COMMENTS.md e DEVELOPMENT_GUIDELINES.md e APPLICALE mentre scrivi codice
-- Leggi doc/mobile/README.md (§ 9: le decisioni 1–42), MOB-02 e questa spec per intero; DESIGN.md § 5 e § 6 (MAI
+- Leggi doc/mobile/README.md (§ 9: le decisioni 1–75), il codice di MOB-02 e questa spec per intero; DESIGN.md § 5 e § 6 (MAI
   rigenerarlo; il capitolo mobile lo scrive MOB-09, dopo); il diff della Panoramica (PR #452, 2026-10-11: PatrimonioTile, ComposizioneTile,
-  describeSales) e MOB-04 (describeTrackingScope, CashflowKpiTrio), che sono chiuse
+  describeSales) e quello di Cashflow (PR #454, 2026-10-12: scheduledScope, describeTrackingScope, CashflowKpiTrio), entrambi ritirati e in develop
 - Crea SESSION_NOTES.md; crea il branch dalla branch attiva PRIMA di editare
 
 Regole: nessun commit senza il mio OK; un branch e un commit; rispondi in italiano; nessuna domanda è aperta (README
