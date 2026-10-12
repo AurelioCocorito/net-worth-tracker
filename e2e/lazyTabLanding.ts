@@ -9,8 +9,10 @@
  * tab itself in its loading state and measure the same cell again. A helper, not a spec: the
  * FILENAME chooses the account (AGENTS.md § 5), so each spec that runs one sits on the right
  * fixture — Dividendi on the base account at 390 (`bundle.lazy.mobile.spec.ts`; at 1440 the
- * toolbar row is not drawn), Divisione on the split account at 390 and 1440
- * (`cashflow.split{,.mobile}.spec.ts`). Seen red on 2026-10-06 with the old fallbacks put back.
+ * phone's axis row is not drawn — since 2026-10-12 the period pill and the «+» sit in the
+ * verdict's `axis` slot, and the fallback draws them in `VerdictSkeleton.axis`), Divisione on the
+ * split account at 390 and 1440 (`cashflow.split{,.mobile}.spec.ts`). Seen red on 2026-10-06 with
+ * the old fallbacks put back.
  */
 import { expect, type Locator, type Page } from '@playwright/test';
 import { holdChunks, holdRequests } from './chunkProbe';

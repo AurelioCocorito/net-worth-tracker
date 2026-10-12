@@ -21,7 +21,7 @@ import { getExpenseDate } from '@/lib/utils/expenseHelpers';
 import { getCategoryKey, getCategoryName, resolveDisplayLabels } from '@/lib/utils/expenseGrouping';
 import type { StripFigure } from '@/lib/utils/verdictStrip';
 
-// ─── The phone composition: the ids and the strip (MOB-04, 2026-10-12) ────────
+// ─── The phone composition: the ids and the strip (since 2026-10-12) ──────────
 
 /**
  * THE tile and the rows of Tracciamento below `desktop:`, in the DOM's order (doc/mobile/README.md
@@ -43,6 +43,21 @@ export const TRACKING_REST_ID = 'trk-perche';
 
 /** The block of `CashflowPeriodoTile` the strip lifts: the trio's three values, never its rate or deltas. */
 export const TRACKING_TRIO_BLOCK = 'trio';
+
+/** Rows the Movimenti feed reveals per «Carica altri». */
+export const FEED_PAGE_SIZE = 20;
+
+/**
+ * The feed's next window after «Carica altri»: one page past what is SHOWN, never past what is
+ * stored. The two differ after a save from the «+»: the feed widens its window in the render to
+ * reach the saved row (`TransactionFeed.focusRowId`), so the row at index 50 shows 51 rows while
+ * the stored window is still 20 — and a page counted from the stored window (20 + 20) took rows
+ * away (51 → 40; seen red on 2026-10-12, in the spec's retirement). The feed hands over what it
+ * shows, the tab keeps the larger of the two.
+ */
+export function growFeedWindow({ stored, shown, page = FEED_PAGE_SIZE }: { stored: number; shown: number; page?: number }): number {
+  return Math.max(stored, shown) + page;
+}
 
 /**
  * The three figures under the title on a phone — the trio of THE tile, lifted whole (decision 31:

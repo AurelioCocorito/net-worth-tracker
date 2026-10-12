@@ -10,7 +10,7 @@
  * names it («quest'anno», «ultimi 12 mesi», the ceiling's own month or year).
  *
  *   Below desktop:    ONE sequence, the desktop DOM (doc/mobile/README.md § 9, decisions 1 and 11;
- *                     composed since 2026-10-12, MOB-04): verdict (whole, never cut; no strip —
+ *                     composed since 2026-10-12): verdict (whole, never cut; no strip —
  *                     decision 30, Totale's three figures each name their window) → [Nuovo
  *                     centro] → Totale, open → «Il resto della pagina» → Centri, Dormienti as
  *                     closed rows → Archiviati as it is. The detail is composed the same way
@@ -279,9 +279,31 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
   // --- List view ---
   return (
     <div className="space-y-4 max-desktop:portrait:pb-20">
-      {/* ── Verdict (whole at every width: no strip, no cut — decision 30) ────────────── */}
+      {/* ── Verdict (whole at every width: no strip, no cut — decision 30). A failed read is the
+          verdict's `pending` notice, not a sentence above it: until 2026-10-12 the verdict of the
+          EMPTY summary («Nessun centro di costo.») stood over a notice saying the page would
+          wrongly claim exactly that. ────────────────────────────────────────────── */}
       <div className="pt-1">
-        <PageVerdict verdict={verdict} ariaLabel="Verdetto sui centri di costo" restCollapse={sections.collapse(COST_CENTERS_REST_ID)} />
+        <PageVerdict
+          verdict={verdict}
+          ariaLabel="Verdetto sui centri di costo"
+          restCollapse={sections.collapse(COST_CENTERS_REST_ID)}
+          pending={
+            isError
+              ? {
+                  kind: 'failed',
+                  notice: (
+                    <ErrorNotice
+                      notice={describeReadFailure({
+                        consequence: 'I centri di costo non sono stati letti: senza di essi la pagina direbbe che non ne hai nessuno.',
+                        untouched: 'I centri e le spese registrate non sono stati toccati.',
+                      })}
+                    />
+                  ),
+                }
+              : undefined
+          }
+        />
       </div>
 
       {/* ── Below desktop: the only add affordance there is on a phone (the bottom-nav FAB
@@ -291,16 +313,8 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
         Nuovo centro
       </Button>
 
-      {isError ? (
-        /* Before the empty check, never after: `centers` defaults to [] on failure too. */
-        <ErrorNotice
-          className="max-w-[920px]"
-          notice={describeReadFailure({
-            consequence: 'I centri di costo non sono stati letti: senza di essi la pagina direbbe che non ne hai nessuno.',
-            untouched: 'I centri e le spese registrate non sono stati toccati.',
-          })}
-        />
-      ) : centers.length === 0 ? (
+      {isError ? null : /* before the empty check, never after: `centers` defaults to [] on failure too */
+      centers.length === 0 ? (
         /* «Nothing recorded» keeps the tile and its eyebrow (The Absence-Has-Three-Names Rule),
            and says the ONE thing a first visit cannot guess: a center fills from the expense
            form, not from here. No second button — the header (desktop) and the bar above

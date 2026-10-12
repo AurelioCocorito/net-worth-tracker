@@ -14,13 +14,15 @@ import { fromZonedTime } from 'date-fns-tz';
 import type { Expense } from '@/types/expenses';
 import type { Period } from '@/lib/utils/period';
 import { endOfMonthBound } from '@/lib/utils/dateHelpers';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatEuroMinus } from '@/lib/utils/formatters';
 import { narrativeToText } from '@/lib/utils/narrative';
 import { formatStripFigure, liftedBlocks, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
 import {
+  FEED_PAGE_SIZE,
   TRACKING_REST_ID,
   TRACKING_SECTION_IDS,
   TRACKING_TRIO_BLOCK,
+  growFeedWindow,
   selectTracciamentoStrip,
   type PeriodCashflowTotals,
   buildTrailingMonthFlows,
@@ -652,7 +654,7 @@ describe('resolvePeriodCalendar', () => {
 });
 
 /**
- * The phone's strip (MOB-04, 2026-10-12): the trio of THE tile lifted whole. The identity below is
+ * The phone's strip (since 2026-10-12): the trio of THE tile lifted whole. The identity below is
  * the one `CashflowKpiTrio` prints — the compact euro, the «−» U+2212 of the trio on a negative
  * net — so the cell and the KPI it hides can never disagree. Seen red on 2026-10-12 with the
  * strip formatting the three figures with two decimals (`formatCurrency(…, 'EUR', 2)`: «4850,00 €»
@@ -663,9 +665,13 @@ describe('selectTracciamentoStrip', () => {
   /** Node's Intl writes a narrow no-break space before «€»: both sides read it as a plain one. */
   const plain = (text: string) => text.replace(/[  ]/g, ' ');
   const cellText = (figure: StripFigure) => plain(narrativeToText([formatStripFigure(figure)!]));
-  /** What `CashflowKpiTrio` prints for each of the three values. */
+  /**
+   * What `CashflowKpiTrio` prints for each of the three values — the net through the SAME
+   * formatter the tile calls (`formatEuroMinus`, since 2026-10-12): a copy of the tile's formula
+   * here would stay green after the tile changed.
+   */
   const trioEuro = (value: number) => plain(cachedFormatCurrencyEUR(value, true));
-  const trioNet = (net: number) => plain(`${net < 0 ? '−' : ''}${cachedFormatCurrencyEUR(Math.abs(net), true)}`);
+  const trioNet = (net: number) => plain(formatEuroMinus(net));
   const totals = (income: number, expenses: number): PeriodCashflowTotals => ({
     income,
     expenses,
@@ -700,6 +706,13 @@ describe('selectTracciamentoStrip', () => {
     const balanced = selectTracciamentoStrip({ totals: totals(1200, 1200) });
     expect(cellText(balanced[2])).toBe(trioNet(0));
     expect(cellText(balanced[2])).not.toMatch(/[−+-]/);
+
+    // A net that PRINTS as zero takes no sign either (decision 20): «0 €» in the cell and in the
+    // trio. Seen red on 2026-10-12, in the spec's retirement: the trio decided its «−» on the
+    // value and printed «−0 €» for −0,3 against the cell's «0 €».
+    const nearZero = selectTracciamentoStrip({ totals: totals(1000, 1000.3) });
+    expect(cellText(nearZero[2])).toBe('0 €');
+    expect(cellText(nearZero[2])).toBe(trioNet(-0.3));
   });
 
   it('should not colour a side that is zero, and lift nothing for a cell without a figure', () => {
@@ -712,5 +725,23 @@ describe('selectTracciamentoStrip', () => {
   it('should be no strip at all with nothing in and nothing out — transfers or not (decision 70)', () => {
     expect(selectTracciamentoStrip({ totals: totals(0, 0) })).toEqual([]);
     expect(selectTracciamentoStrip({ totals: { ...totals(0, 0), transferCount: 2 } })).toEqual([]);
+  });
+});
+
+/**
+ * «Carica altri» after a save from the «+» (2026-10-12): the feed widens its window in the render
+ * to reach the saved row, so the next page counts from what is SHOWN. Seen red the same day, in
+ * the spec's retirement, with the page counted from the stored window (`stored + page`: the row at
+ * index 50 showed 51 rows and the press left 40).
+ */
+describe('growFeedWindow', () => {
+  it('adds a page to the stored window when nothing widened it', () => {
+    expect(growFeedWindow({ stored: 20, shown: 20 })).toBe(20 + FEED_PAGE_SIZE);
+    expect(growFeedWindow({ stored: 40, shown: 40, page: 10 })).toBe(50);
+  });
+
+  it('never goes below what the feed shows: a saved row past the window starts the next page from there', () => {
+    expect(growFeedWindow({ stored: 20, shown: 51 })).toBe(51 + FEED_PAGE_SIZE);
+    expect(growFeedWindow({ stored: 20, shown: 51 })).toBeGreaterThanOrEqual(51);
   });
 });

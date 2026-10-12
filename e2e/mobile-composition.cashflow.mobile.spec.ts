@@ -1,6 +1,6 @@
 /**
- * The small-screen composition of Cashflow's tabs (MOB-04, since 2026-10-12; the rules in the
- * five tab guides § Composizione mobile and doc/mobile/README.md § 9): Tracciamento, Budget and
+ * The small-screen composition of Cashflow's tabs (since 2026-10-12; the rules in the five tab
+ * guides § Composizione mobile and doc/mobile/README.md § 9): Tracciamento, Budget and
  * Dividendi at 390 on the BASE account (`scripts/seedEmulator.ts`: one salary of 2500 € and two
  * expenses, 320 € and 800 €, dated the 5th of the running month — or today, when the month is
  * younger). Divisione is `mobile-composition.cashflow.split.mobile.spec.ts`, on its own account.
@@ -21,10 +21,15 @@
  * `panoramica.snapshot.spec.ts`), never by aborting it: since 2026-10-05 that request carries
  * the registry too, and an abort is the failure of the whole TAB.
  *
- * Seen red on 2026-10-12, one behaviour at a time (§ 7 of the spec): (1) the trio without
- * `LIFTED_FIGURE_CLASS`; (2) `handleSuccess` without `reveal` (Movimenti closed) and without
- * `returnFocusTo` (the focus on the FAB); (5) an `order-2` put back on Rendimento's cell; (6)
- * `failed` read from `dividendsError` instead of `statsError`.
+ * Seen red on 2026-10-12, one behaviour at a time: (1) the trio without `LIFTED_FIGURE_CLASS`,
+ * and the coverage «×» hidden alone (the rate and the coverage stay when the values are lifted);
+ * (2) `handleSuccess` without `reveal` (Movimenti closed) and without `returnFocusTo` (the focus
+ * on the FAB); (3) the Tetto's lift ignored (its two KPIs visible at 390) and `@container`
+ * removed from a KPI cell (the cells lose their container type — the overlap itself cannot be
+ * reproduced on this fixture from 768, see the test); (5) an `order-2` put back on Rendimento's
+ * cell; (6) `failed` read from `dividendsError` instead of `statsError`. The scheduled decoy is
+ * dated noon UTC of the month's last day (its late evening was the NEXT month in Rome under
+ * summer time: the scope assertion would have gone red from March to September).
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -78,13 +83,16 @@ async function removeDecoyExpenses(): Promise<void> {
 }
 
 /**
- * A 50 € expense on the LAST day of the running month, late in the evening: still ahead of
- * «today» whatever the day the suite runs — except on that last evening itself, which the census
- * fixture refuses as well (`scripts/mobileCensus.mjs`).
+ * A 50 € expense on the LAST day of the running month, at noon UTC: still ahead of «today»
+ * whatever the day the suite runs — except on that last day itself, which the census fixture
+ * refuses as well (`scripts/mobileCensus.mjs`). Noon, not the late evening (2026-10-12, the
+ * spec's retirement): 22:30 UTC on a last day under summer time is 00:30 of the NEXT month in
+ * Rome, and `periodToRange` reads the local month — from March to September the decoy would
+ * have left the period and the scope assertion below would have gone red.
  */
 async function plantScheduledExpense(): Promise<void> {
   const now = new Date();
-  const date = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 22, 30)).toISOString();
+  const date = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 12, 0)).toISOString();
   const res = await fetch(`${FIRESTORE}/expenses/${SCHEDULED_DECOY_ID}`, {
     method: 'PATCH',
     headers: OWNER,
@@ -217,8 +225,10 @@ test.describe('Cashflow › Tracciamento, composed for a phone', () => {
     await expect(lifted).toHaveCount(3);
     for (let i = 0; i < 3; i++) await expect(lifted.nth(i)).toBeHidden();
     for (const label of ['Entrate', 'Spese', 'Risparmio']) await expect(theTile.getByText(label, { exact: true }).first()).toBeVisible();
-    // The savings rate under «Risparmio» («55,2%») stays: only the three values are lifted.
+    // The savings rate under «Risparmio» («55,2%») and the coverage («2,23×») stay: only the
+    // three values are lifted (decision 17).
     await expect(theTile.getByText(/^\d+,\d%/).first()).toBeVisible();
+    await expect(theTile.getByText(/\d,\d\d×/).first()).toBeVisible();
 
     // Title, verdict and cells all above the pill: the first screen ends at it.
     const pillTop = await page.locator('nav[aria-label="Navigazione principale"]').evaluate((el) => el.getBoundingClientRect().top);
@@ -326,11 +336,24 @@ test.describe('Cashflow › Budget, composed for a phone, with a ceiling of 1000
     await expect(trigger(page, 'bud-avvisi')).toHaveAttribute('aria-expanded', 'true');
     await expect(trigger(page, 'bud-avvisi')).toBeFocused();
 
-    // From `tablet:` the KPIs are printed again, side by side: «Fine mese» and «Oltre» in one
-    // row of a 768px tile, neither running under the other (the census saw them overlap on
-    // 2026-10-10; each KPI is now a container that shrinks its figure).
+    // The two lifted KPIs are HIDDEN at 390: that is what removed the overlap the census saw on
+    // 2026-10-10 («~11.274 €» under «Oltre» in a third of a 390px tile) — only «Al giorno» stays
+    // in the row. Seen red on 2026-10-12 with the lift ignored (`lifted()` returning nothing).
+    const liftedKpis = page.locator('#bud-tetto [class~="max-tablet:hidden"]');
+    await expect(liftedKpis).toHaveCount(2);
+    for (let i = 0; i < 2; i++) await expect(liftedKpis.nth(i)).toBeHidden();
+
+    // From `tablet:` the KPIs are printed again, side by side, each a container whose figure
+    // shrinks to its cell (`container-type: inline-size`): a guard, not a proof of the overlap —
+    // from 768 the Tetto spans the grid and a cell is ~230px, so no figure of the fixture can run
+    // under its neighbour here; the shrink is for a narrower THE tile (MOB-08's 1024, THE tile
+    // beside the rows). Seen red on 2026-10-12 with `@container` removed from the KPI cell.
     await page.setViewportSize({ width: 768, height: 1024 });
-    const kpis = page.locator('#bud-tetto [class~="@container"] p.font-mono');
+    const kpiCells = page.locator('#bud-tetto .grid-cols-3 > div');
+    await expect(kpiCells).toHaveCount(3);
+    for (let i = 0; i < 3; i++) await expect(kpiCells.nth(i)).toBeVisible();
+    expect(await kpiCells.evaluateAll((cells) => cells.map((cell) => getComputedStyle(cell).containerType))).toEqual(['inline-size', 'inline-size', 'inline-size']);
+    const kpis = kpiCells.locator('p.font-mono');
     await expect(kpis).toHaveCount(3);
     const boxes = await Promise.all([0, 1, 2].map(async (i) => (await kpis.nth(i).boundingBox())!));
     for (const box of boxes) expect(box.width).toBeGreaterThan(0);
@@ -341,6 +364,9 @@ test.describe('Cashflow › Budget, composed for a phone, with a ceiling of 1000
   });
 
   test('a row opened stays open across a change of tab and a reload, remembered per tab', async ({ page }) => {
+    // Two cold loads of the tab in one test (the second a reload): the 45 s the verdict may take
+    // do not fit the 30 s default.
+    test.setTimeout(120_000);
     await openBudget(page);
     await trigger(page, 'bud-categorie').click();
     await expect(trigger(page, 'bud-categorie')).toHaveAttribute('aria-expanded', 'true');
@@ -355,6 +381,10 @@ test.describe('Cashflow › Budget, composed for a phone, with a ceiling of 1000
     expect(await page.evaluate(() => localStorage.getItem('mobile-sections:cashflow:budget'))).toBe('["bud-categorie"]');
     expect(await page.evaluate(() => localStorage.getItem('mobile-sections:cashflow:tracking'))).toBeNull();
 
+    // The tab click writes `?tab=budget` through `router.replace`, AFTER the panel shows: a reload
+    // before the URL caught up landed on Tracciamento and read as a timeout on the Budget verdict
+    // (2026-10-12, twice in the full suite on the Windows laptop, green alone).
+    await expect(page).toHaveURL(/tab=budget/);
     await page.reload({ waitUntil: 'load' });
     await expect(page.getByRole('region', { name: 'Verdetto sul budget' })).toBeVisible({ timeout: 45_000 });
     await expect(trigger(page, 'bud-categorie')).toHaveAttribute('aria-expanded', 'true');

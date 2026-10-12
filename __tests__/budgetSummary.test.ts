@@ -325,7 +325,7 @@ describe('summarizeAlerts', () => {
 });
 
 /**
- * The phone's strip (MOB-04, 2026-10-12): two KPIs of the Tetto lifted whole, The Risk-vs-Fact Rule
+ * The phone's strip (since 2026-10-12): two KPIs of the Tetto lifted whole, The Risk-vs-Fact Rule
  * in the second cell (decision 34; «Supererai» to the verdict by decision 67). The identity below
  * is `TettoTile`'s: «~» + the compact euro on the projection, the compact euro on the rest. Seen red
  * on 2026-10-12 with `opens` of «Oltre» and «Supererai» swapped (Avvisi for a crossing still in the

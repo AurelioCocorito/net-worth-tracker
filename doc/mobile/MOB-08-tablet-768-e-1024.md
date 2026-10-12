@@ -1,7 +1,7 @@
 # MOB-08 — Tablet: 768 e 1024
 
 > Stato: da fare · riletta in modo adversariale il 2026-10-10: 30 rilievi, 5 decisioni · Priorità: 3 (il telefono prima; qui si raddrizza il landscape) · Sforzo: M · Dipende da: MOB-02..07
-> (MOB-02 ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450, e quindi MOB-01, ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448; PERF-01, PERF-02, PERF-14 ritirate, in develop) · Sblocca: MOB-09
+> (MOB-02 ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450, e quindi MOB-01, ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448; MOB-03 ritirata il 2026-10-11, PR #452; MOB-04 ritirata il 2026-10-12, PR #454; PERF-01, PERF-02, PERF-14 ritirate, in develop) · Sblocca: MOB-09
 
 ## 1. Il problema, misurato
 
@@ -25,7 +25,7 @@ Analisi 1/1): il landscape è il tablet peggiore. Righe del 2026-09-26, da river
   `ValoreStrumentoTile.tsx:154`) vale apposta anche a 1440.
 - `playwright.config.ts` non ha progetti tablet; `desktop` ignora `/\.(mobile|degraded)\.spec\.ts/` e le fixture
   proprie (`:92`): un `*.tablet.spec.ts` girerebbe anche a 1440.
-- Divisione tiene le tessere per persona dentro UNA cella (`ExpenseSplitTab.tsx:246`).
+- Divisione tiene le tessere per persona dentro UNA cella (`ExpenseSplitTab.tsx:303`, dal 2026-10-12).
 
 ## 2. Obiettivo misurabile
 
@@ -96,7 +96,7 @@ Contenitore: 736 px a 768, 992 a 1024 (anche su un 12,9" in verticale, 1024×136
   `1fr` × colonna 3 è libera e l'auto-placement la riempirebbe per prima (§ 8.5, il cursore riparte dalla riga 1).
 - Verdetto breve, striscia e riga d'ambito stanno sopra la griglia (la `freshness` è nel `PageHeader`, non qui); `LIFTED_FIGURE_CLASS`
   (`max-tablet:hidden`) ridà le cifre sollevate (The Lifted-Figure Rule); la curva di LA tessera resta a 120 px fino a 1439.
-- **Divisione**: sotto `desktop:` il contenitore delle persone (`ExpenseSplitTab.tsx:246`) è `contents` (`contents
+- **Divisione**: sotto `desktop:` il contenitore delle persone (`ExpenseSplitTab.tsx:303`) è `contents` (`contents
   desktop:grid desktop:grid-cols-… desktop:col-span-7`, come i wrapper di Storico e Rendimenti), così ogni
   `spl-persona-<memberId>` è una cella della griglia di pagina e prende `cellClass(id)` e `cellStyle(id)`.
 - **Il Flusso di Analisi sceglie il disegno a 640 px, non a `desktop:`** (proprietario, 2026-09-27): sotto i 640 px una
@@ -150,7 +150,7 @@ trigger ≥ 44×44. Il censimento la registra (`mainTop`, diagnostica di `last-r
 `doc/guide/e2e-emulatori.md` e a MOB-09. La barra vale per ogni schermo in orizzontale sotto `desktop:`
 (`max-desktop:landscape`): su un telefono in orizzontale `main` perde 4 px, annotato in shell.md, senza budget (non è una
 delle tre viewport). «Aggiungi» diventa `h-11` (il suo contenitore è `desktop:hidden`: a 1440 non esiste; solo l'altezza
-è di questa spec, il suo `onSuccess` è di MOB-04 § 4.2).
+è di questa spec, il suo `onSuccess(saved)` è in `components/expenses/ExpenseDialog.tsx` dal 2026-10-12).
 
 ### 4.4 Playwright
 

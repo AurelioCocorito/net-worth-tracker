@@ -15,7 +15,7 @@
  * the fixture is removed through the emulator's REST API — the one place this file does not
  * go through the app — before and after the test.
  *
- * Since 2026-10-12 (MOB-04) Pagamenti is a closed row below `desktop:` and the «+» sits in the
+ * Since 2026-10-12 Pagamenti is a closed row below `desktop:` and the «+» sits in the
  * verdict's axis slot: the test opens the row before reading it. The composition itself is
  * `mobile-composition.cashflow.mobile.spec.ts`.
  */

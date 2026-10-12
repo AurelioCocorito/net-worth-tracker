@@ -336,7 +336,7 @@ describe('buildCashflowVerdict', () => {
 });
 
 /**
- * Where a phone cuts the verdict (MOB-04, 2026-10-12; doc/mobile/README.md § 9, decisions 3 and
+ * Where a phone cuts the verdict (since 2026-10-12; doc/mobile/README.md § 9, decisions 3 and
  * 70) and the scope line under the strip. Seen red on 2026-10-12 with `leadLength` set to the
  * first sentence in every branch (the no-calendar case then kept «Ad agosto hai messo da parte…»
  * on the first screen beside the three cells that restate it), and with `describeTrackingScope`

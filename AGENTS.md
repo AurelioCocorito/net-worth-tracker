@@ -127,7 +127,12 @@ holds it): how it was learned is `git log`'s.
   speaks tokens). **An expense type has ONE colour map** (`lib/constants/expenseTypeColors.ts`, 2026-09-14): the feed's
   dot, the table's badge and the hero's legend; a row's `income` is the sign token `positive`, each outflow a chart slot,
   the SERIES (bars) take chart slots, never the sign token. **Sign tokens mean gain and loss, and nothing else**: a
-  neutral delta (a class gaining share) stays `text-muted-foreground`.
+  neutral delta (a class gaining share) stays `text-muted-foreground`. **A figure that PRINTS as zero takes no sign and
+  no sign token, whatever the raw value** (doc/mobile/README.md § 9, decision 20; on the tiles since 2026-10-12): decide
+  the «−» on the formatted text with `withTypographicMinus`/`formatEuroMinus` (`lib/utils/formatters.ts`, where
+  `isPrintedZero` lives, pinned by `__tests__/formatters.test.ts`), never on `value < 0` — the Cashflow trio printed
+  «−0 €» in red for −0,3 while the strip's cell printed «0 €»; the 20 `< 0 ? '−'` sites outside the composed surfaces
+  (Rendimenti, Storico, email, PDF) are left on purpose.
 - **`--warning` is near-white in light mode**: text on a `bg-warning` fill MUST be `text-warning-foreground`; a caution
   reading and the verdict's dot use `text-warning-foreground` too.
 - **A chart slot is not a text colour** — `--chart-1..8` target ~3:1 against a plot area (`text-[var(--chart-3)]`
@@ -684,8 +689,9 @@ file used to carry.
   `e2e/mobile-composition.hof.mobile.spec.ts` holds the DOM-equals-vertical order at 390 and 1440 and the `order-*`
   utilities in `main` at 0 — read from `classList` with `/^(?:[a-z-]+:)*order-/`, since `[class*="order-"]` matches
   every `border-*`, doc/guide/e2e-emulatori.md). The Panoramica lost its `order-1…8` on 2026-10-11
-  (`e2e/overview.{mobile.,}spec.ts`); every other page still carries `order-*` (the Cashflow tabs, Dividendi, Storico,
-  Rendimenti, Allocazione, Previdenza, every FIRE tab) until MOB-04..07 compose them.
+  (`e2e/overview.{mobile.,}spec.ts`), the five Cashflow tabs theirs on 2026-10-12 (Budget, Centri, the centre's detail,
+  Dividendi; `e2e/mobile-composition.cashflow.mobile.spec.ts`); every other page still carries `order-*` (Analisi, Storico,
+  Rendimenti, Allocazione, Previdenza, every FIRE tab) until MOB-05..07 compose them.
 - **A row's caption WRAPS, it is never truncated, and the label column never grows to make room for it** (2026-09-14,
   `RankedRows`): a cut fact is no fact («30 set · Asilo nido · in calendario»); at 4 grid columns 46% is the most the
   label can take beside the bar's 40px floor, the amount and the share (58% painted the share outside the tile,

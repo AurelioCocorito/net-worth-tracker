@@ -8,7 +8,8 @@
  * Seen red on 2026-09-30 by putting the static import back in `FlussoTile.tsx`: the chunk arrived at 390.
  *
  * Also here, because it is the base account at 390: Cashflow › Dividendi's lazy tab lands on the
- * placeholder the page drew for its chunk, the phone's toolbar row included (`lazyTabLanding.ts`).
+ * placeholder the page drew for its chunk, the phone's axis row — the period pill and the «+»,
+ * in the verdict's `axis` slot since 2026-10-12 — included (`lazyTabLanding.ts`).
  */
 import { test, expect } from '@playwright/test';
 import { SANKEY_SIGNATURE, probeChunks } from './chunkProbe';
@@ -26,7 +27,7 @@ test('Analisi at 390 draws the Flusso as a bar and rows and never downloads the 
   expect(await sankey.matching()).toEqual([]);
 });
 
-test('Cashflow › Dividendi at 390 lands on the placeholder the page drew for its chunk, toolbar row included', async ({ page }) => {
+test('Cashflow › Dividendi at 390 lands on the placeholder the page drew for its chunk, axis row included', async ({ page }) => {
   test.setTimeout(120_000);
   await expectDividendsTabLandsInPlace(page);
 });

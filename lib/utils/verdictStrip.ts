@@ -10,7 +10,7 @@
  * imports from `formatters`, never from `chartService`.
  */
 
-import { cachedFormatCurrencyEUR, formatCurrency, formatNumberIt, formatPercentageIt } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatCurrency, formatNumberIt, formatPercentageIt, isPrintedZero } from '@/lib/utils/formatters';
 import type { NarrativeSegment } from '@/lib/utils/narrative';
 
 export type StripFormat =
@@ -53,11 +53,11 @@ const MINUS = '−';
  * True when a formatted figure prints as a zero: the sign is decided on the TEXT (The Comma
  * Rule), so «−0,004» is a zero too. Decision 20 (doc/mobile/README.md § 9): a printed zero takes
  * no sign anywhere — the strip here, the Panoramica's `signedCurrency`/`signedPercent` and the
- * shared `salesNarrative` since 2026-10-11, Patrimonio's with MOB-06.
+ * shared `salesNarrative` since 2026-10-11, the tiles whose figure a cell repeats since
+ * 2026-10-12 (`withTypographicMinus`, the same rule, in `lib/utils/formatters.ts`), Patrimonio's
+ * with MOB-06. Defined there since 2026-10-12, so a tile and its cell read ONE definition.
  */
-export function isPrintedZero(text: string): boolean {
-  return !/[1-9]/.test(text);
-}
+export { isPrintedZero } from '@/lib/utils/formatters';
 
 /**
  * «+1,2 pt» — points of difference against a benchmark (`RendimentoTile`'s `formatPoints`): a

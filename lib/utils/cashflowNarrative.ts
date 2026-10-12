@@ -279,7 +279,9 @@ export function scheduledScope(scheduled: ScheduledSlice, horizon: string | null
  * Tracciamento's scope line: «Nel totale ci sono ancora 1850 € di spese e 500 € di entrate già in
  * calendario da qui a fine mese.» under the three cells, which print the PERIOD's totals (decision
  * 31); `null` with nothing in the calendar, and the line is simply absent. Its words are
- * `scheduledSentence`'s, the one source of that clause; Analisi reuses this (MOB-06).
+ * `scheduledSentence`'s, the one source of that clause. Analisi gets a scope line of its own in
+ * the same form (MOB-06, `describeAnalisiScope` over its own horizon): what it shares is
+ * `scheduledScope` above, not this function.
  */
 export function describeTrackingScope(period: Period, now: Date, scheduled: ScheduledSlice): Narrative | null {
   return scheduledScope(scheduled, describeScheduledHorizon(period, now));
@@ -424,7 +426,7 @@ function calendarSentence(period: Period, now: Date, totals: PeriodCashflowTotal
  * the calendar takes it. Until 2026-09-14 the tone came from the whole span, so on the 14th a
  * salary dated the 15th made the month «andare bene».
  *
- * Where a phone cuts it (MOB-04, 2026-10-12; doc/mobile/README.md § 9, decision 3): the strip
+ * Where a phone cuts it (since 2026-10-12; doc/mobile/README.md § 9, decision 3): the strip
  * under the title prints the period's three totals, so a sentence that restates them goes whole
  * behind «Il perché» (`leadLength: 0`) — without a calendar, or with the calendar alone (nothing
  * lived yet: the verdict IS the calendar sentence). With a calendar AND a lived part the first

@@ -127,7 +127,14 @@ si legge prima di stringere o allargare.
   prima schermata segue il giorno (una proiezione che cambia di cifre, una riga che va a capo): non isolato. Finché non lo è,
   una voce che si allarga di 1–2 col giorno porta `raisedBy: "MOB-NN: deriva del giorno…"` dopo la prova sul codice di develop
   nello stesso giorno (uno `stash`, una build, il census sulle superfici mosse), mai una tolleranza (decisione 23). L'erede
-  che la isola è MOB-08 § 2 (scritto nel ritiro di MOB-03, 2026-10-11), prima di rendere vincolanti 768 e 1024.
+  che la isola è MOB-08 § 2 (scritto nel ritiro di MOB-03, 2026-10-11), prima di rendere vincolanti 768 e 1024. **Le
+  informative a 768/1024 oscillano anche nello STESSO giorno** (2026-10-12, il ritiro della composizione di Cashflow, stesso
+  portatile e stesso codice della misura di sessione): `figuresOutsideVerdict` Tracciamento 1024 8 contro il tetto 5, Budget
+  1024 11 contro 9, Previdenza 768 17 contro 12, What If 1024 10 contro 8 — stampate, non rosse; non è il giorno del
+  mese, e non è isolato (stesso erede). **E una vincolante può oscillare fra due valori a parità di codice**: Monte Carlo
+  390 `screens` 4,87 o 4,89 (~17 px) da una corsa all'altra sulla STESSA build — provato con uno `stash` su develop il
+  2026-10-12, due corse consecutive — e allargato a 4,89 con `raisedBy` (proprietario); una stretta del `--tighten` su una
+  voce che oscilla è rossa alla corsa dopo, e la si riconosce rimisurando la sola superficie (`--surfaces=`) due volte.
 - **Il settle legge `main.textContent`, pannelli nascosti compresi**: su una tab di Cashflow la condizione «una cifra»
   è vera già con le cifre di Tracciamento (`forceMount`), quindi è lo skeleton assente, la riga di freschezza vuota e
   la coda di 500 ms a dire che la tab misurata è pronta — non la cifra. Una tab che resta senza cifre non si vede da qui.

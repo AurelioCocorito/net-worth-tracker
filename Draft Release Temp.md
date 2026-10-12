@@ -19,6 +19,11 @@
 
 ## 🐛 Bug Fixes
 
+- **Cashflow · Panoramica (uno zero)** — Fixed a figure that rounds to zero printed with a minus sign and a colour: the month's «Risparmio» on Tracciamento and on the Panoramica's Cashflow tile, the savings rate of a month, and what remains to a person on Divisione now read «0 €» in plain ink, as the cells under the title already did; an exact zero on Divisione is no longer green.
+- **Cashflow › Tracciamento (telefono)** — Fixed «Carica altri» after adding an entry from the «+»: when the new row sat past the first page the list opened on it, and the next «Carica altri» made the list shorter instead of longer.
+- **Cashflow › Tracciamento (demo)** — Fixed the «+» of the bottom bar in the demo account: it is no longer shown there, so a visitor cannot add an entry to the shared data.
+- **Cashflow › Centri di Costo** — Fixed the page when the cost centres cannot be read: the notice now stands where the verdict is, instead of under a sentence claiming you have no cost centres.
+
 - **Cashflow › Movimenti (tabella)** — Fixed the deletion of a whole series from the table view, which left the fees' debits on the account; the feed already gave them back.
 
 - **Rendimenti › Analizza con AI** — Fixed the empty report when the model declines to write it: the dialog now says it was refused, or that the report stopped halfway and the text written so far is incomplete, and «Rigenera» is offered after any failure, not only beside a finished report.

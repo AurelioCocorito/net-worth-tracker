@@ -174,7 +174,7 @@ describe('buildDividendiVerdict', () => {
     );
   });
 
-  // A phone never cuts this verdict (MOB-04, 2026-10-12): one sentence, no strip to restate it.
+  // A phone never cuts this verdict (since 2026-10-12): one sentence, no strip to restate it.
   // Seen red on 2026-10-12 with `leadLength` set at the «;» of the yield clause.
   it('is never cut on a phone, and its closed rows speak in words', () => {
     const verdict = buildDividendiVerdict(VERDICT_INPUT);

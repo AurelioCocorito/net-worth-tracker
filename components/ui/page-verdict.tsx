@@ -28,8 +28,8 @@ interface PageVerdictProps {
   pending?: PendingVerdict;
   /**
    * The page's axis below `desktop:` (a period picker), right under the title: at 1440 the page
-   * mounts a second instance of the same control where it stands today (`hidden desktop:flex`,
-   * the same state prop), as `PageHeader` does with its `actions`.
+   * mounts a second instance of the same control where it stands today (`hidden desktop:block`
+   * on the three Cashflow tabs, the same state prop), as `PageHeader` does with its `actions`.
    */
   axis?: ReactNode;
   /** `<VerdictStrip>`: the figures of the first screen, hidden from `desktop:` by the strip itself. */

@@ -314,7 +314,7 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   390) and 4 (Divisione at 1440); `e2e/lazyTabLanding.ts` holds the geometry. A value imported from a tab module into
   the page puts it back in the initial graph — types only. A deep link (`?tab=dividends`) pays one chunk request
   before the tab's own reads.
-- **Five composed tabs in ONE DOM** (2026-10-12, MOB-04): every panel is `forceMount`, so the five verdicts and their
+- **Five composed tabs in ONE DOM** (2026-10-12): every panel is `forceMount`, so the five verdicts and their
   rows live together. Each tab owns a `useMobileSections` controller with its `tab` — the memory is per tab
   (`mobile-sections:cashflow:tracking|budget|cost-centers|cost-centers-center|split|dividends`) — and every id is prefixed
   (`trk-`, `bud-`, `cdc-`, `spl-`, `dvd-`, the rest ids `<prefix>-perche` included): two `perche-panel` in one `main`

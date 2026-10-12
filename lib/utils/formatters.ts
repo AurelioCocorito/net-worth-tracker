@@ -38,6 +38,34 @@ export function cachedFormatCurrencyEUR(amount: number, compact = false): string
 }
 
 /**
+ * True when a formatted figure prints as a zero: the sign is decided on the TEXT (The Comma
+ * Rule), so «−0,004» is a zero too. A printed zero takes no sign anywhere (doc/mobile/README.md
+ * § 9, decision 20): the verdict strip, the Panoramica's `signedCurrency`/`signedPercent` and the
+ * shared `salesNarrative` since 2026-10-11, the Cashflow trio, the Risparmio rate and Divisione's
+ * residual since 2026-10-12 (the strip's cell printed «0 €» while the tile printed «−0 €»).
+ */
+export function isPrintedZero(text: string): boolean {
+  return !/[1-9]/.test(text);
+}
+
+/**
+ * The typographic «−» (U+2212) in front of an already formatted MAGNITUDE when the value is
+ * negative — and nothing when the magnitude prints as zero: «0 €» for −0,3, «0%» for −0,4
+ * (`isPrintedZero`). `Intl` would write the hyphen-minus, and deciding on the value instead of on
+ * the text put a «−» on a figure the reader sees as zero (2026-10-12). The ONE rule for a tile
+ * whose figure a strip cell repeats: the cell (`formatStripFigure`) decides the same way.
+ */
+export function withTypographicMinus(value: number, printedMagnitude: string): string {
+  if (isPrintedZero(printedMagnitude)) return printedMagnitude;
+  return `${value < 0 ? '−' : ''}${printedMagnitude}`;
+}
+
+/** The compact euro (no cents) with the typographic minus, unsigned when it prints as zero. */
+export function formatEuroMinus(value: number): string {
+  return withTypographicMinus(value, cachedFormatCurrencyEUR(Math.abs(value), true));
+}
+
+/**
  * Format a number as currency (Italian format)
  * @param amount - The amount to format
  * @param currency - The currency code (default: EUR)

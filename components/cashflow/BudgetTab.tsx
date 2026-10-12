@@ -8,7 +8,7 @@
  * says so — the Off-Axis Tile Rule).
  *
  *   Below desktop:    ONE sequence, the desktop DOM (doc/mobile/README.md § 9, decisions 1 and 11;
- *                     composed since 2026-10-12, MOB-04): verdict (one sentence, never cut —
+ *                     composed since 2026-10-12): verdict (one sentence, never cut —
  *                     decision 33) → the strip of two, «Fine mese» and «Restano» / «Oltre» /
  *                     «Supererai», the Tetto's KPIs lifted (The Risk-vs-Fact Rule in the strip,
  *                     decision 34; «Supererai» to the verdict, 67) → [Aggiungi budget ·
@@ -28,8 +28,9 @@
  * budgetSummary.ts / budgetUtils.ts, every sentence in budgetNarrative.ts.
  *
  * Budgets are opt-in and persisted through debounced auto-save (useBudgetConfig), paused
- * while the category budgets exceed the ceiling; the status is the Per categoria aside.
- * Alerts also surface in the monthly email (lib/server/monthlyEmailService.ts).
+ * while the category budgets exceed the ceiling; the status shows in the Per categoria aside and
+ * is SPOKEN by one `sr-only` live node beside the tile (since 2026-10-12, so a closed row on a
+ * phone keeps it). Alerts also surface in the monthly email (lib/server/monthlyEmailService.ts).
  */
 'use client';
 

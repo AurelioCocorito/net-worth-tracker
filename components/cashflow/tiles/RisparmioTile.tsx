@@ -2,7 +2,7 @@
 
 import type { Narrative } from '@/lib/utils/narrative';
 import type { SavingsHistory } from '@/lib/utils/tracciamentoSummary';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, withTypographicMinus } from '@/lib/utils/formatters';
 import { ChartHoverTip, useChartHover } from '@/components/ui/chart-hover';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
@@ -47,8 +47,9 @@ function SavingsRateBars({ history, highlightKey }: { history: SavingsHistory; h
   const slot = VIEW_W / history.months.length;
   const barWidth = slot * BAR_SHARE;
 
-  // The typographic minus, as everywhere on the page (The Comma Rule).
-  const rateText = (rate: number) => `${rate < 0 ? '−' : ''}${formatPercentage(Math.abs(rate), 0)}`;
+  // The typographic minus, as everywhere on the page (The Comma Rule) — none on a rate that
+  // prints as zero («0%» for −0,4; decision 20, since 2026-10-12).
+  const rateText = (rate: number) => withTypographicMinus(rate, formatPercentage(Math.abs(rate), 0));
   const label = history.months
     .map((m) => `${m.label}: ${m.savingsRate === null ? 'nessuna entrata' : rateText(m.savingsRate)}`)
     .join('; ');

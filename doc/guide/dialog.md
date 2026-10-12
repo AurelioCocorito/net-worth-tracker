@@ -174,8 +174,9 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   does not focus a clicked button, and a row opened from a window event or a non-focusable cell leaves `body` focused at
   open. Fed from `event.currentTarget` at the click (a `PageHeader` action is mounted twice; only `currentTarget` is the
   copy that was pressed). Pinned by `e2e/performance.degraded.spec.ts`. **`ExpenseDialog` takes `returnFocusTo` and
-  answers `onSuccess(saved)`** (2026-10-12, MOB-04): `saved` is `{ id, row }` of the parent row written (`null` on an
-  import or a series edit with no single row), and Tracciamento on a phone points `returnFocusTo` at the saved row's
+  answers `onSuccess(saved)`** (2026-10-12): `saved` is `{ id, row }` — on a create the first parent row written
+  (`createExpenseSettledOnDate().parents`, fees excluded), on an edit the row rebuilt from the form's data with plain
+  values; the type admits `null`, which no path produces today — and Tracciamento on a phone points `returnFocusTo` at the saved row's
   button in Movimenti (`TransactionFeed.focusRowRef`) — the focus goes to the row, not back to the FAB
   (doc/guide/cashflow-tracciamento.md § Composizione mobile). Every other host passes nothing and keeps the fallback.
 - **`e2e/modal.origin.spec.ts` can fail on a SLOW or cold dev server** (no `data-state="closed"` frame inside the

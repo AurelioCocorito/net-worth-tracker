@@ -41,9 +41,10 @@
 import type { Expense } from '@/types/expenses';
 import type { FamilyMember } from '@/types/assets';
 import { isScheduledRow, summarizeScheduled, type ScheduledSlice } from '@/lib/utils/tracciamentoSummary';
+import { formatEuroMinus, isPrintedZero } from '@/lib/utils/formatters';
 import type { StripFigure } from '@/lib/utils/verdictStrip';
 
-// ─── The phone composition: the ids and the strip (MOB-04, 2026-10-12) ────────
+// ─── The phone composition: the ids and the strip (since 2026-10-12) ──────────
 
 /** THE tile and the Quota row of Divisione below `desktop:`; the people's rows are `splitMemberSectionId`. */
 export const SPLIT_SECTION_IDS = { comune: 'spl-comune', quota: 'spl-quota' } as const;
@@ -59,6 +60,17 @@ export const SPLIT_MEMBER_HERO_BLOCK = 'hero';
 
 /** Past this many people the strip would not fit a row of 44px cells: none at all. */
 export const MAX_SPLIT_STRIP_MEMBERS = 4;
+
+/**
+ * The tone of a person's booked residual — the tile's colour and the strip cell's: gain or loss
+ * of money that has MOVED, and NONE on a residual that prints as zero (decision 20: «0 €» for
+ * −0,3 is neither, as the cell already printed it; until 2026-10-12 the tile coloured it green
+ * at exactly 0 and red just below, while the cell was untoned). `null` without a basis.
+ */
+export function residualTone(remainingBooked: number | null): 'positive' | 'negative' | null {
+  if (remainingBooked === null || isPrintedZero(formatEuroMinus(remainingBooked))) return null;
+  return remainingBooked < 0 ? 'negative' : 'positive';
+}
 
 /**
  * One cell per person under the title on a phone: their residual of money that has MOVED
@@ -79,11 +91,12 @@ export function selectSplitStrip(summary: ExpenseSplitSummary): StripFigure[] {
   return members.map((member): StripFigure => {
     const booked = member.remainingBooked;
     const section = splitMemberSectionId(member.member.id);
+    const tone = residualTone(booked);
     return {
       label: member.member.name,
       value: booked,
       format: 'currency',
-      ...(booked === null ? { reason: 'senza base' } : booked !== 0 ? { tone: booked < 0 ? ('negative' as const) : ('positive' as const) } : {}),
+      ...(booked === null ? { reason: 'senza base' } : tone ? { tone } : {}),
       opens: section,
       lifts: { section, block: SPLIT_MEMBER_HERO_BLOCK },
     };
