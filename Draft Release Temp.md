@@ -26,6 +26,11 @@
 - **Patrimonio e landing (telefono e tablet)** — The net-worth curve of the hero tile is shorter below the desktop width (120px), the same tile the Panoramica now composes; the reading, the chips and the market digest stay whole on those two surfaces.
 
 - **Cashflow · FIRE e Simulazioni · Impostazioni (telefono e tablet)** — Improved the section pill under the title: every tab is now a 44-pixel target for the thumb, so the pill is a little taller.
+- **Cashflow › Tracciamento (telefono e tablet)** — Improved the first screen: the period under the title, then the month's three figures — entrate, spese, risparmio — as three cells that open their tile, with what is still in the calendar said under them; the other tiles are closed rows you open with a tap and the page remembers. The «+» now opens Movimenti on the row you just saved, the cursor on it.
+- **Cashflow › Budget (telefono e tablet)** — Improved the first screen: «Fine mese» and what remains — or how far over you are, or the day the calendar crosses the ceiling — as two cells under the verdict, the ceiling's tile open, the other tiles as closed rows; the figures of the ceiling's tile no longer run into each other on a narrow screen.
+- **Cashflow › Centri di Costo (telefono e tablet)** — Improved the list and a centre's page: the total open, the other tiles as closed rows remembered per page.
+- **Cashflow › Divisione (telefono e tablet)** — Improved the first screen: one cell per person with what remains to them of the money that has already moved, and what is still in the calendar on its own line under them — on the desktop too, out of the sentence.
+- **Cashflow › Dividendi (telefono e tablet)** — Improved the first screen: the period and the «+» under the title, the net income open, the other tiles as closed rows in the page's order; a yield that could not be read is a red row, open until you close it.
 - **Ogni pagina** — Improved the figures in every verdict and reading: the «€» now sits right after its number («+1.200 €» instead of a whole monospace cell of space between them), on the phone's figure strip too.
 
 - **FIRE** — Improved the FIRE number: the loan on an excluded primary residence is left out with the house, so a debt on a thing not counted never lowers the figure.

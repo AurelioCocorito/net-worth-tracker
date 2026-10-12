@@ -6,7 +6,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
 import { describeAlertRowCaption } from '@/lib/utils/budgetNarrative';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface AvvisiTileProps {
@@ -16,6 +16,10 @@ interface AvvisiTileProps {
   aside: Narrative;
   reading: Narrative;
   footer: Narrative;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («soglie di quota» / «disattivati»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -36,9 +40,9 @@ function usedShareClass(alert: BudgetAlert): string {
  * a rischio tile's. When alerts are off the tile says so and why it is empty, rather than
  * disappearing: the user switched them off and may not remember.
  */
-export function AvvisiTile({ rows, enabled, aside, reading, footer, className }: AvvisiTileProps) {
+export function AvvisiTile({ rows, enabled, aside, reading, footer, collapse, asideWhenClosed, className }: AvvisiTileProps) {
   return (
-    <Tile eyebrow="Avvisi" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className}>
+    <Tile eyebrow="Avvisi" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} collapse={collapse} asideWhenClosed={asideWhenClosed} className={className}>
       {enabled && rows.length > 0 && (
         <ul className="mt-2 flex flex-col divide-y divide-border">
           {rows.map((alert) => {

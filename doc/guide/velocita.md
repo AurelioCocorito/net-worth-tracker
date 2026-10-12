@@ -91,7 +91,10 @@ leggendo, e da Git Bash i due comandi ricevono le opzioni. `--email=`
 `/dashboard/`, o il nome della pagina), `--warm-only`, `--cold-only`, `--mobile` (390×844 e CPU 4×), `--cpu=N`,
 `--revisit` (il secondo caricamento della route dopo una prima visita: la cache persistita, § Revisit). La porta è :3200 perché :3000 è
 il server del giro e :3100 quello di Playwright. `perf:serve` cerca `server.js` sotto `.next-perf/standalone/`, perché
-Next ci ricopia il percorso del progetto: sul laptop Windows sta in `Documents/GitHub/net-worth-tracker/`.
+Next ci ricopia il percorso del progetto: sul laptop Windows sta in `Documents/GitHub/net-worth-tracker/`. Un `perf:serve`
+rimasto vivo tiene quella cartella e fa fallire il `perf:build` successivo con `EBUSY: rmdir …/standalone` (2026-10-12):
+prima della build si ferma per PID (`Get-CimInstance Win32_Process … -match 'perfServe'`), e un `curl 127.0.0.1:3200`
+che risponde 000 non prova che sia morto — ascolta su `localhost` (IPv6).
 
 **Cold** — contesto nuovo, login vero sul form, caricamento completo della route; ms dal `navigationStart`:
 

@@ -2,7 +2,7 @@
 
 import type { Narrative } from '@/lib/utils/narrative';
 import type { YearlyIncomeSummary } from '@/lib/utils/dividendAnalytics';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { NetIncomeBars, type NetIncomeBarPoint } from './NetIncomeBars';
 
@@ -10,6 +10,10 @@ interface PerAnnoTileProps {
   summary: YearlyIncomeSummary;
   reading: Narrative | null;
   footer: Narrative | null;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («5 anni», a count of years). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -22,7 +26,7 @@ interface PerAnnoTileProps {
  * chart by construction, which would be a statement about the calendar, not about the
  * portfolio (the same rule Tracciamento applies to the running month).
  */
-export function PerAnnoTile({ summary, reading, footer, className }: PerAnnoTileProps) {
+export function PerAnnoTile({ summary, reading, footer, collapse, asideWhenClosed, className }: PerAnnoTileProps) {
   const points: NetIncomeBarPoint[] = summary.years.map((year) => ({
     key: String(year.year),
     label: String(year.year),
@@ -43,6 +47,8 @@ export function PerAnnoTile({ summary, reading, footer, className }: PerAnnoTile
         ) : undefined
       }
       reading={reading}
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       className={className}
     >
       {points.length === 0 ? (

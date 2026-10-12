@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Narrative } from '@/lib/utils/narrative';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface MovimentiTileProps {
@@ -13,6 +13,10 @@ interface MovimentiTileProps {
   mobileToolbar?: ReactNode;
   /** The feed or the table. */
   children: ReactNode;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. Open, the tile is whole: no inner scroll, no ceiling. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («12 di 24 voci», a count of rows). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -22,9 +26,9 @@ interface MovimentiTileProps {
  * largest, then the toolbar that narrows the list and the list itself. The feed keeps its
  * flat surface: rows inside a tile are never cards (DESIGN.md → Table inside a Tile).
  */
-export function MovimentiTile({ aside, reading, toolbar, mobileToolbar, children, className }: MovimentiTileProps) {
+export function MovimentiTile({ aside, reading, toolbar, mobileToolbar, children, collapse, asideWhenClosed, className }: MovimentiTileProps) {
   return (
-    <Tile eyebrow="Movimenti" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className}>
+    <Tile eyebrow="Movimenti" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} collapse={collapse} asideWhenClosed={asideWhenClosed} className={className}>
       {toolbar && <div className="mt-3.5 hidden desktop:block">{toolbar}</div>}
       {mobileToolbar && <div className="mt-3.5 desktop:hidden">{mobileToolbar}</div>}
       <div className="mt-4">{children}</div>

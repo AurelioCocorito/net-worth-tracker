@@ -9,7 +9,12 @@
  * period axis: a center's cost is its whole cost, and every tile measured on another window
  * names it («quest'anno», «ultimi 12 mesi», the ceiling's own month or year).
  *
- *   Mobile (1 col):   Verdict → [Nuovo centro] → Totale → Centri → Dormienti → Archiviati
+ *   Below desktop:    ONE sequence, the desktop DOM (doc/mobile/README.md § 9, decisions 1 and 11;
+ *                     composed since 2026-10-12, MOB-04): verdict (whole, never cut; no strip —
+ *                     decision 30, Totale's three figures each name their window) → [Nuovo
+ *                     centro] → Totale, open → «Il resto della pagina» → Centri, Dormienti as
+ *                     closed rows → Archiviati as it is. The detail is composed the same way
+ *                     (`CostCenterDetail`), its memory per page, never per centre.
  *   Desktop (12 col): Totale (5, 2 rows) | Centri (7)
  *                                        | Dormienti (7)
  *                     Archiviati (disclosure, below the fold)
@@ -43,11 +48,13 @@ import type { CostCenter } from '@/types/costCenters';
 import type { Expense } from '@/types/expenses';
 import { deleteCostCenter, setCostCenterArchived } from '@/lib/services/costCenterService';
 import { groupExpensesByCostCenter } from '@/lib/utils/costCenterUtils';
-import { buildCenterMonthStack, summarizeCostCenters } from '@/lib/utils/costCenterSummary';
+import { COST_CENTER_SECTION_IDS, COST_CENTERS_REST_ID, buildCenterMonthStack, summarizeCostCenters } from '@/lib/utils/costCenterSummary';
 import {
   CENTRI_ASIDE,
+  CENTRI_CLOSED_ASIDE,
   CENTRI_FOOTER,
   DORMIENTI_ASIDE,
+  DORMIENTI_CLOSED_ASIDE,
   DORMIENTI_FOOTER,
   EMPTY_CENTRI,
   buildCostCentersVerdict,
@@ -63,8 +70,10 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { PageVerdict } from '@/components/ui/page-verdict';
-import { TILE_CELL_CLASS } from '@/components/ui/tile';
+import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
+import { PageRest } from '@/components/ui/page-rest';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
 import { COST_CENTERS_SKELETON_CELLS } from '@/lib/constants/cashflowTabSkeletons';
 import { CostCenterDialog } from './CostCenterDialog';
 import { CostCenterDetail } from './CostCenterDetail';
@@ -85,7 +94,18 @@ const CENTER_PARAM = 'center';
 const EMPTY_CENTERS: CostCenter[] = [];
 const EMPTY_EXPENSES: Expense[] = [];
 
-export function CostCentersTab() {
+/** The list's rows below `desktop:`, in the DOM's order: every tile but Totale, THE tile (decision 21). */
+const COST_CENTERS_SECTIONS: readonly SectionSpec[] = [
+  { id: COST_CENTER_SECTION_IDS.centri, eyebrow: 'Centri' },
+  { id: COST_CENTER_SECTION_IDS.dormienti, eyebrow: 'Dormienti' },
+];
+
+interface CostCentersTabProps {
+  /** The tab is the one on screen: `PageRest` remounts on activation so its `role="alert"` speaks for it. */
+  active: boolean;
+}
+
+export function CostCentersTab({ active }: CostCentersTabProps) {
   const { user } = useAuth();
   const { ownerId } = useActiveAccount();
   const isDemo = useDemoMode();
@@ -155,6 +175,10 @@ export function CostCentersTab() {
   );
   const stack = useMemo(() => buildCenterMonthStack(summary.active, now, TRAILING_MONTHS), [summary, now]);
   const verdict = useMemo(() => buildCostCentersVerdict(summary, now), [summary, now]);
+
+  // The list's rows below `desktop:` (The Closed-Row Rule, since 2026-10-12); the detail has a
+  // controller of its own, so Back finds the list's rows as they were (memory per page).
+  const sections = useMobileSections({ route: 'cashflow', tab: 'cost-centers', sections: COST_CENTERS_SECTIONS, restId: COST_CENTERS_REST_ID });
 
   // --- Handlers ---
   // Whatever had the focus when the dialog was asked for — the header's button (it reaches
@@ -241,6 +265,7 @@ export function CostCentersTab() {
           onDelete={handleDelete}
           onArchiveToggle={handleArchiveToggle}
           isDemo={isDemo}
+          active={active}
         />
         <CostCenterDialog open={dialogOpen} onClose={() => setDialogOpen(false)} costCenter={editingCenter} centers={centers} returnFocusTo={dialogOpenerRef} onSuccess={handleDialogSuccess} />
       </>
@@ -254,9 +279,9 @@ export function CostCentersTab() {
   // --- List view ---
   return (
     <div className="space-y-4 max-desktop:portrait:pb-20">
-      {/* ── Verdict ─────────────────────────────────────────────────────────────── */}
+      {/* ── Verdict (whole at every width: no strip, no cut — decision 30) ────────────── */}
       <div className="pt-1">
-        <PageVerdict verdict={verdict} ariaLabel="Verdetto sui centri di costo" />
+        <PageVerdict verdict={verdict} ariaLabel="Verdetto sui centri di costo" restCollapse={sections.collapse(COST_CENTERS_REST_ID)} />
       </div>
 
       {/* ── Below desktop: the only add affordance there is on a phone (the bottom-nav FAB
@@ -285,10 +310,12 @@ export function CostCentersTab() {
         </Tile>
       ) : (
         <>
-          {/* ── Tile grid ─────────────────────────────────────────────────────── */}
+          {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width
+              (decision 11; the `order-*` went on 2026-10-12) ─────────────────────── */}
           <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-            <div className={cn(TILE_CELL_CLASS, 'order-1 tablet:col-span-2 desktop:order-none desktop:col-span-5 desktop:row-span-2')}>
+            <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
               <TotaleTile
+                id={COST_CENTER_SECTION_IDS.totale}
                 summary={summary}
                 stack={stack}
                 stackCaption={describeTrailingCaption(stack, now)}
@@ -299,7 +326,8 @@ export function CostCentersTab() {
                 palette={chartColors}
               />
             </div>
-            <div className={cn(TILE_CELL_CLASS, 'order-2 tablet:col-span-2 desktop:order-none desktop:col-span-7')}>
+            <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} />
+            <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
               <CentriTile
                 rows={summary.active}
                 aside={CENTRI_ASIDE}
@@ -308,9 +336,11 @@ export function CostCentersTab() {
                 palette={chartColors}
                 now={now}
                 onOpen={openCenter}
+                collapse={sections.collapse(COST_CENTER_SECTION_IDS.centri)}
+                asideWhenClosed={CENTRI_CLOSED_ASIDE}
               />
             </div>
-            <div className={cn(TILE_CELL_CLASS, 'order-3 tablet:col-span-2 desktop:order-none desktop:col-span-7')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
               <DormientiTile
                 centers={summary.dormant}
                 aside={DORMIENTI_ASIDE}
@@ -318,6 +348,8 @@ export function CostCentersTab() {
                 footer={DORMIENTI_FOOTER}
                 palette={chartColors}
                 onOpen={openCenter}
+                collapse={sections.collapse(COST_CENTER_SECTION_IDS.dormienti)}
+                asideWhenClosed={DORMIENTI_CLOSED_ASIDE}
               />
             </div>
           </div>

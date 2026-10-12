@@ -3,7 +3,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { printedDelta } from '@/lib/utils/cashflowNarrative';
 import { cn } from '@/lib/utils';
-import { TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { LIFTED_FIGURE_CLASS, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
 
 const KPI_VALUE_CLASS = 'font-mono text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums';
 
@@ -42,6 +42,12 @@ interface CashflowKpiTrioProps {
    * prints ONE caption for both under the trio (Analisi, whose baseline is a long window name).
    */
   previousLabel: string | null;
+  /**
+   * The three values are the phone's strip (The Lifted-Figure Rule, doc/mobile/README.md § 9,
+   * decision 31): hidden below `tablet:` by `LIFTED_FIGURE_CLASS`; the labels, the deltas, the
+   * savings rate and the coverage stay — only the figure the strip repeats goes (decision 17).
+   */
+  lifted?: boolean;
   className?: string;
 }
 
@@ -50,27 +56,28 @@ interface CashflowKpiTrioProps {
  * and on Analisi's Periodo tile, one component so the two cannot drift. The savings rate and
  * the coverage ratio sit together on purpose: same relationship, two units.
  */
-export function CashflowKpiTrio({ totals, incomeDelta, expensesDelta, previousLabel, className }: CashflowKpiTrioProps) {
+export function CashflowKpiTrio({ totals, incomeDelta, expensesDelta, previousLabel, lifted = false, className }: CashflowKpiTrioProps) {
   const { income, expenses, net, savingsRate, coverageRatio } = totals;
+  const valueClass = cn(KPI_VALUE_CLASS, lifted && LIFTED_FIGURE_CLASS);
   return (
     <div className={cn('grid grid-cols-3 gap-3.5', className)}>
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className={TILE_SUB_EYEBROW_CLASS}>Entrate</p>
-        <p className={cn(KPI_VALUE_CLASS, income > 0 ? 'text-positive' : 'text-muted-foreground')}>
+        <p className={cn(valueClass, income > 0 ? 'text-positive' : 'text-muted-foreground')}>
           {cachedFormatCurrencyEUR(income, true)}
         </p>
         <DeltaLine delta={incomeDelta} positiveGood={true} previousLabel={previousLabel} />
       </div>
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className={TILE_SUB_EYEBROW_CLASS}>Spese</p>
-        <p className={cn(KPI_VALUE_CLASS, expenses > 0 ? 'text-destructive' : 'text-muted-foreground')}>
+        <p className={cn(valueClass, expenses > 0 ? 'text-destructive' : 'text-muted-foreground')}>
           {cachedFormatCurrencyEUR(expenses, true)}
         </p>
         <DeltaLine delta={expensesDelta} positiveGood={false} previousLabel={previousLabel} />
       </div>
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className={TILE_SUB_EYEBROW_CLASS}>Risparmio</p>
-        <p className={cn(KPI_VALUE_CLASS, 'text-foreground')}>
+        <p className={cn(valueClass, 'text-foreground')}>
           {net < 0 ? '−' : ''}
           {cachedFormatCurrencyEUR(Math.abs(net), true)}
         </p>

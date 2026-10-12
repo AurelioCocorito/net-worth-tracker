@@ -114,6 +114,19 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   terminal that started them, so `--export-on-exit` runs) and rerun.
 
 ## Browser-Driven E2E (Playwright)
+- **Cashflow's composition specs bend the base fixture through the emulator's REST API and undo it** (2026-10-12, MOB-04,
+  `e2e/mobile-composition.cashflow.mobile.spec.ts` on `mobile`, `…cashflow.split.mobile.spec.ts` on `split-mobile`): a
+  decoy expense at the end of the month (the scope line), a `budgets/test-user-1` document with a 1000 € ceiling (the base
+  account has none — PATCH, then DELETE and a GET at 404), a coupon in `dividends/` (the base account has none, and the
+  rows exist only with a registry); every decoy carries «ornitorinco» in its note and the sweep before and after each
+  test finds them by it — **paging the collection with `nextPageToken`**: the emulator holds every fixture account's
+  rows (hof alone 94 expenses) and a single `pageSize=300` read left the decoy on the second page, so the next run read
+  «Spese 1170 €» (seen that day). **A failed stats read is a REWRITTEN answer, never an abort**: `page.route('**/api/dividends/stats*')`
+  → `route.fetch()` → `route.fulfill({ response, json: { ...body, stats: null } })` (the pattern of
+  `panoramica.snapshot.spec.ts`), because since 2026-10-05 that request carries the registry too and `r.abort()` is the
+  failure of the whole TAB. Two boxes compared after a strip cell's tap are read in ONE `Promise.all`, or before the tap:
+  `reveal` scrolls smoothly and two reads taken during it disagree (seen red that day, 222 against 294). A Cashflow
+  phone spec scopes its locators to the tabpanel by name: every visited tab is `forceMount`ed (doc/guide/shell.md).
 - **A phone spec freezes the clock BEFORE `goto`, and a closed row holds nothing** (2026-10-10, MOB-02,
   `e2e/mobile-composition.hof.mobile.spec.ts`): `page.clock.setFixedTime(new Date('2026-09-15T12:00:00+02:00'))` keeps
   the `hof` fixture's running month and year whatever the calendar — the parked Firebase token outlives the frozen

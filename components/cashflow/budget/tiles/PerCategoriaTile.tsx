@@ -9,7 +9,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { BudgetTrack } from '@/components/cashflow/budget/BudgetTrack';
 import { BudgetDeleteButton } from '@/components/cashflow/budget/BudgetDeleteButton';
@@ -28,6 +28,12 @@ interface PerCategoriaTileProps {
   onDelete: (id: string) => void;
   /** What to render when there is no monthly row at all. */
   empty?: ReactNode;
+  /** THE tile's anchor when the account has no budget at all (`bud-categorie`); exclusive with `collapse`. */
+  id?: string;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («budget del mese»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -321,8 +327,10 @@ function MobileRow({
  * inventory announces an armed delete and its cancellation; the armed row prints what the
  * second press does.
  */
-export function PerCategoriaTile({ rows, calendarPct, aside, reading, footer, isDemo, onEdit, onDelete, empty, className }: PerCategoriaTileProps) {
+export function PerCategoriaTile({ rows, calendarPct, aside, reading, footer, isDemo, onEdit, onDelete, empty, id, collapse, asideWhenClosed, className }: PerCategoriaTileProps) {
   const hasRows = rows.expense.length + rows.income.length > 0;
+  // A tile is THE tile (an `id`) or a row (a `collapse`), never both: the union is `Tile`'s own.
+  const anchor = collapse ? { collapse, asideWhenClosed } : { id };
   const [announcement, setAnnouncement] = useState('');
   const [armedKey, setArmedKey] = useState<string | null>(null);
   const announce = useCallback((text: string) => setAnnouncement(text), []);
@@ -336,7 +344,7 @@ export function PerCategoriaTile({ rows, calendarPct, aside, reading, footer, is
   const listProps = { isDemo, armedKey, announce, onArmedChange, onEdit, onDelete: handleDelete };
 
   return (
-    <Tile eyebrow="Per categoria" aside={aside} reading={reading} className={className}>
+    <Tile eyebrow="Per categoria" aside={aside} reading={reading} className={className} {...anchor}>
       {!hasRows && empty && <div className="mt-3.5">{empty}</div>}
 
       {hasRows && (

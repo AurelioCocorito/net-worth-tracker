@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, type Ref } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
@@ -20,6 +20,11 @@ export interface CompactExpenseRowProps {
    * the parent through `resolveOwnerLabel`, only with Divisione on.
    */
   ownerLabel?: string | null;
+  /**
+   * The row's button, for the one row the feed has to put the focus on — the row just saved on
+   * a phone (`TransactionFeed.focusRowId`): the modal that saved it hands the focus back here.
+   */
+  buttonRef?: Ref<HTMLButtonElement>;
 }
 
 /**
@@ -30,7 +35,8 @@ export interface CompactExpenseRowProps {
  * A scheduled row (an instalment, a recurring occurrence dated ahead) takes an «In
  * calendario» chip and drops the sign colour on its amount: the sign tokens mean money
  * gained and money lost, and neither has happened yet. A row attributed to one person takes
- * that person's name as a chip; the shared default stays clean.
+ * that person's name as a chip; the shared default stays clean. `data-expense-id` names the
+ * row for the feed's focus and for a spec; the row carried no id until 2026-10-12.
  */
 export function CompactExpenseRow({
   expense,
@@ -39,6 +45,7 @@ export function CompactExpenseRow({
   categoryColor,
   scheduled = false,
   ownerLabel = null,
+  buttonRef,
 }: Readonly<CompactExpenseRowProps>) {
   const isIncome = expense.type === 'income';
   const isTransfer = expense.type === 'transfer';
@@ -53,8 +60,10 @@ export function CompactExpenseRow({
 
   return (
     <button
+      ref={buttonRef}
       type="button"
-      className="w-full flex items-center gap-3 text-left py-1"
+      data-expense-id={expense.id}
+      className="w-full flex items-center gap-3 text-left py-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={() => onSelect(expense)}
       aria-label={`${title}, ${amountLabel}`}
     >

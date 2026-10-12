@@ -19,7 +19,7 @@
  * `cachedFormatCurrencyEUR` (no-break space before €, four-digit amounts ungrouped).
  */
 
-import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
+import { narrativeToText, type Narrative, type NarrativeSegment, type PageVerdictModel, type VerdictTone } from '@/lib/utils/narrative';
 import type {
   CoverageMonth,
   DividendNetComparison,
@@ -678,6 +678,28 @@ export function describePaymentsCount(shown: number, total: number): Narrative {
   if (total === 0) return [prose('nessuna voce')];
   const voci: Narrative = [figure(String(total)), prose(` ${pluralize(total, 'voce', 'voci')}`)];
   return shown === total ? voci : [figure(String(shown)), prose(' di '), ...voci];
+}
+
+/**
+ * What the closed rows of Dividendi say beside their eyebrow on a phone (The Closed-Row Rule;
+ * MOB-04, 2026-10-12): words or a count of rows, never an amount. Rendimento «ultimi 12 mesi» (a
+ * window, not an amount: the tile does not follow the axis and says so closed too); Chi paga di
+ * più «in portafoglio» (its open aside is the period's net, a figure); Affidabilità its window
+ * and population («9 mesi · in portafoglio», `describeReliabilityClosedAside`); Per anno its years
+ * (`describeYearsAside`); Pagamenti its count (`describePaymentsCount`).
+ */
+export const RENDIMENTO_CLOSED_ASIDE = 'ultimi 12 mesi';
+export const PAGATORI_CLOSED_ASIDE = 'in portafoglio';
+
+/** «9 mesi · in portafoglio» — the open aside of Affidabilità, as the closed row's words. */
+export function describeReliabilityClosedAside(monthsInWindow: number): string {
+  return `${narrativeToText(describeReliabilityWindow(monthsInWindow))} · in portafoglio`;
+}
+
+/** «5 anni» / «1 anno» — the years Per anno draws; «nessun incasso» with none. */
+export function describeYearsAside(years: number): string {
+  if (years === 0) return 'nessun incasso';
+  return `${years} ${pluralize(years, 'anno', 'anni')}`;
 }
 
 /**

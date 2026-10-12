@@ -38,6 +38,11 @@
    wording through the free-text answer («hai pagato», not «pagherai», for a tax the broker
    withholds at the sale).
 
+6. **Figures in tests are invented and round, never the mirror's** (2026-10-12). A Vitest fixture,
+   an E2E decoy or a seed carries amounts like 2500, 1120, 50: the owner's real figures never
+   enter the repo, not even as an expected value. The mirror is for the guided tour only
+   (§ 3, phase G removes it).
+
 ---
 
 ## 2. Guided verification (*collaudo guidato*)

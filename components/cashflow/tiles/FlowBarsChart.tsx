@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import type { MonthFlow } from '@/lib/utils/tracciamentoSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils';
@@ -10,10 +11,17 @@ interface FlowBarsChartProps {
   flows: MonthFlow[];
   /** The month the page is about — drawn at full strength, the others recede. */
   highlightKey: string | null;
-  /** Minimum height of the plot; the tile's flex column lets it stretch past it. */
+  /**
+   * Minimum height of the plot from `desktop:`; the tile's flex column lets it stretch past it.
+   * Below `desktop:` the plot yields to `PHONE_MIN_HEIGHT` whatever is passed (doc/mobile/README.md
+   * § 9, decision 4: with THE tile tall the curve gives, never the reading).
+   */
   minHeight?: number;
   className?: string;
 }
+
+/** The plot's floor below `desktop:` (the Panoramica's curve has the same, 2026-10-11). */
+const PHONE_MIN_HEIGHT_CLASS = 'min-h-[120px] desktop:min-h-[var(--flow-min-h)]';
 
 const VIEW_W = 600;
 const VIEW_H = 180;
@@ -43,9 +51,13 @@ export function FlowBarsChart({ flows, highlightKey, minHeight = 150, className 
   const hover = useChartHover(flows.length, 'slot');
   const hovered = hover.index !== null ? flows[hover.index] : null;
 
+  // The desktop floor travels as a custom property so the phone's 120px can be a class, not an
+  // inline style the class could never beat.
+  const plotStyle = { '--flow-min-h': `${minHeight}px` } as CSSProperties;
+
   return (
     <div className={cn('flex flex-col', className)}>
-      <div className="relative flex-1" style={{ minHeight }} {...(hover.enabled ? hover.handlers : {})}>
+      <div className={cn('relative flex-1', PHONE_MIN_HEIGHT_CLASS)} style={plotStyle} {...(hover.enabled ? hover.handlers : {})}>
         <svg
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
           preserveAspectRatio="none"

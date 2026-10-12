@@ -15,6 +15,8 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import {
+  SPLIT_CLOSED_ASIDES,
+  SPLIT_REST_LABEL,
   buildSplitVerdict,
   describeBasisRemedy,
   describeCommonIncome,
@@ -25,9 +27,11 @@ import {
   describeIncomeConsumed,
   describeSplitAside,
   describeSplitBasis,
+  describeSplitScope,
+  formatBookedResidual,
 } from '@/lib/utils/expenseSplitNarrative';
 import type { CommonSpending, ExpenseSplitSummary, MemberBalance, SplitBasis } from '@/lib/utils/expenseSplitSummary';
-import { narrativeToText } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict } from '@/lib/utils/narrative';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { Period } from '@/lib/utils/period';
 
@@ -272,16 +276,19 @@ describe('buildSplitVerdict', () => {
     expect(plain(verdict.sentence)).not.toContain('%');
   });
 
-  // The same clause Tracciamento and Analisi close on, for the same reason: the amount is INSIDE
-  // the total just printed, not beside it.
-  it('closes on the scheduled part of the pool, as a decomposition', () => {
-    const verdict = buildSplitVerdict({
-      summary: summary({ common: pool({ scheduled: { expenses: 300, income: 0, count: 1, throughMonth: null } }) }),
-      period: AUGUST,
-      now: NOW,
-    });
+  // The scheduled part of the pool is the verdict's SCOPE since MOB-04 (2026-10-12, decision 14):
+  // the same clause Tracciamento and Analisi print, for the same reason — the amount is INSIDE the
+  // total just printed — but as a caption under the cells, out of the sentence. Seen red on
+  // 2026-10-12 with the clause left in the `sentence`.
+  it('leaves the scheduled part of the pool to the scope line, out of the sentence', () => {
+    const scheduledPool = summary({ common: pool({ scheduled: { expenses: 300, income: 0, count: 1, throughMonth: null } }) });
+    const verdict = buildSplitVerdict({ summary: scheduledPool, period: AUGUST, now: NOW });
 
-    expect(plain(verdict.sentence)).toContain('Nel totale ci sono ancora 300 € di spese già in calendario');
+    expect(plain(verdict.sentence)).not.toContain('Nel totale');
+    const scope = describeSplitScope(scheduledPool, AUGUST, NOW)!;
+    expect(plain(scope)).toBe('Nel totale ci sono ancora 300 € di spese già in calendario da qui a fine mese.');
+    expect(scope[0].text).not.toMatch(/^\s/);
+    expect(describeSplitScope(summary(), AUGUST, NOW)).toBeNull();
   });
 
   // An empty period is not a period whose shares failed. The headline used to say «le quote non
@@ -341,12 +348,51 @@ describe('buildSplitVerdict', () => {
     expect(verdict.headline).toBe('Ad agosto resta qualcosa a tutti.');
     expect(verdict.tone).toBe('positive');
     expect(plain(verdict.sentence)).toContain('A Giuseppe restano 1300 € dei 2400 € di entrate; a Tarsio restano 0 € dei 1700 €.');
-    expect(plain(verdict.sentence)).toContain('Con quelle, a fine periodo a Giuseppe restano 1173 € e a Tarsio mancano 83 €.');
+    // The clause names the calendar itself since 2026-10-12: its antecedent («Con quelle») left the
+    // sentence with the scheduled clause, now the scope line.
+    expect(plain(verdict.sentence)).toContain('Con le spese in calendario, a fine periodo a Giuseppe restano 1173 € e a Tarsio mancano 83 €.');
+    expect(plain(verdict.sentence)).not.toContain('Con quelle');
   });
 
   it('adds no calendar clause when nothing is scheduled', () => {
     const verdict = buildSplitVerdict({ summary: summary(), period: AUGUST, now: NOW });
     expect(plain(verdict.sentence)).not.toContain('a fine periodo');
+  });
+
+  /**
+   * Where a phone cuts it (MOB-04, 2026-10-12): the first sentence — gross, pool clause, shares —
+   * stands; the residuals and the calendar go behind «Il perché · quanto resta a ciascuno». Seen red
+   * on 2026-10-12 with the cut placed after the residual sentence (the rest held the calendar
+   * clause alone) and with `leadLength` set on a basis that could not be computed.
+   */
+  it('cuts after the shares on a phone, the residuals behind «Il perché · quanto resta a ciascuno»', () => {
+    const verdict = buildSplitVerdict({ summary: summary({ common: pool({ total: 2410, income: 300 }) }), period: AUGUST, now: NOW });
+    const split = splitVerdict(verdict);
+    expect(plain(split.lead)).toBe('Ad agosto le spese in comune sono 2410 €, meno 300 € di entrate in comune: 2110 € da dividere, 600 € a Giuseppe (60%) e 400 € a Marcella (40%).');
+    expect(plain(split.rest)).toBe(' A Giuseppe restano 1500 € dei 2400 € di entrate; a Marcella restano 1100 € dei 1600 €.');
+    expect(split.restLabel).toBe(SPLIT_REST_LABEL);
+    expect(verdict.sentence.some((segment) => segment.binding)).toBe(false);
+  });
+
+  it('does not cut a verdict with nothing behind the tap: no basis, or nothing to divide', () => {
+    const noBasis = buildSplitVerdict({
+      summary: summary({
+        basis: { kind: 'unavailable', reason: 'missing-income', missingNames: ['Marcella'], unattributedIncome: 0 },
+        members: [balance({ name: 'Giuseppe', personalSpending: 300 }), balance({ name: 'Marcella' })],
+      }),
+      period: AUGUST,
+      now: NOW,
+    });
+    expect(noBasis.leadLength).toBeUndefined();
+    const nothing = buildSplitVerdict({ summary: summary({ common: pool({ total: 0, rowCount: 0 }), members: [balance({ name: 'Giuseppe' }), balance({ name: 'Marcella' })] }), period: AUGUST, now: NOW });
+    expect(nothing.leadLength).toBeUndefined();
+  });
+
+  it('prints a residual as the tile does: the compact euro with the U+2212, never Intl\'s hyphen', () => {
+    expect(plain([{ text: formatBookedResidual(-83) }])).toBe('−83 €');
+    expect(plain([{ text: formatBookedResidual(1300) }])).toBe('1300 €');
+    expect(plain([{ text: formatBookedResidual(0) }])).toBe('0 €');
+    expect(SPLIT_CLOSED_ASIDES).toEqual({ quota: 'dalle entrate', member: 'quanto resta' });
   });
 
   // Income left «in comune» pays the pool first (2026-09-27): the sentence says the gross, what

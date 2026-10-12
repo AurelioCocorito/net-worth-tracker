@@ -4,15 +4,17 @@ import type { Narrative } from '@/lib/utils/narrative';
 import type { CenterSummary } from '@/lib/utils/costCenterSummary';
 import { formatDate } from '@/lib/utils/formatters';
 import { toDate } from '@/lib/utils/dateHelpers';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface CicloTileProps {
   summary: CenterSummary;
-  /** «attivo» / «fermo» / «archiviato». */
+  /** «attivo» / «fermo» / «archiviato» — the closed row's words too. */
   aside: string;
   reading: Narrative;
   footer: Narrative;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
   className?: string;
 }
 
@@ -31,9 +33,9 @@ function Row({ label, value }: { label: string; value: string }) {
  * dormant past 90 days, archived) is the reading; the actions that change it sit beside
  * the verdict, not here.
  */
-export function CicloTile({ summary, aside, reading, footer, className }: CicloTileProps) {
+export function CicloTile({ summary, aside, reading, footer, collapse, className }: CicloTileProps) {
   return (
-    <Tile eyebrow="Ciclo di vita" aside={<span>{aside}</span>} reading={reading} className={className}>
+    <Tile eyebrow="Ciclo di vita" aside={aside} reading={reading} collapse={collapse} asideWhenClosed={aside} className={className}>
       <dl className="mt-2 flex flex-col divide-y divide-border">
         <Row label="Creato" value={formatDate(toDate(summary.center.createdAt))} />
         {summary.firstDate && <Row label="Prima spesa" value={formatDate(summary.firstDate)} />}

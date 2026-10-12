@@ -10,6 +10,9 @@
  * And the filters behind «Filtri» are a modal of the vocabulary (2026-09-18, it was a raw
  * `Drawer` with «Mostra risultati»): the reading counts the movements left, the primary names
  * them, and «Ripristina» is the footer's secondary — disabled while nothing is set.
+ *
+ * Since 2026-10-12 (MOB-04) Movimenti is a closed row below `desktop:`: every test opens it first.
+ * The composition itself is `mobile-composition.cashflow.mobile.spec.ts`.
  */
 
 import { test, expect } from '@playwright/test';
@@ -31,7 +34,11 @@ async function measureOverflow(page: import('@playwright/test').Page) {
 test.beforeEach(async ({ page }) => {
   await page.goto('/dashboard/cashflow');
   await expect(page.getByRole('region', { name: 'Verdetto del periodo' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('region', { name: 'Movimenti' })).toBeVisible();
+  const movimenti = page.locator('#trk-movimenti-trigger');
+  await expect(movimenti).toHaveAttribute('aria-expanded', 'false');
+  await movimenti.click();
+  await expect(movimenti).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('region', { name: 'Movimenti' }).getByRole('combobox', { name: /^Periodo dei movimenti:/ })).toBeVisible();
 });
 
 /**

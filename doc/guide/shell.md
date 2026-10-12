@@ -47,6 +47,11 @@ rules below name.
 - **An inactive `PageTabs` panel keeps its `div`, not its CONTENT** (2026-09-22): Radix renders the panel (so its id
   and `aria-controls` survive) but unmounts the children, so a field of another tab is not in the DOM and a spec
   anchors on the OPENED panel (`#<layoutId>-panel-<tab> section`), never on a tile of a tab that is not showing.
+  **Cashflow's panels are `forceMount`** (every visited tab stays mounted, hidden by `tabPanelSwitch`), so there a
+  hidden tab IS in the DOM: since 2026-10-12 each tab's composition ids are prefixed (`trk-`, `bud-`, `cdc-`, `spl-`,
+  `dvd-`), the memory is per tab, and the page passes `active` so the one `role="alert"` of `PageRest` is remounted
+  for the tab that shows (doc/guide/cashflow.md § The tabs load their code on demand). A locator on a Cashflow
+  phone spec scopes to the tabpanel by name (`getByRole('tabpanel', { name: 'Budget' })`) or counts only what is visible.
 - **Single source for nav arrays**: `lib/constants/navigation.ts` — Sidebar, BottomNavigation and SecondaryMenuDrawer all
   import from it, never redeclare inline. **A route link in the shell is a `SceneLink`** (`components/layout/SceneLink.tsx`,
   a `next/link` whose plain left click runs the page scene — prefetch, modifier clicks, `target` and the caller's own

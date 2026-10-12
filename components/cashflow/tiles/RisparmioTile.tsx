@@ -6,7 +6,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { ChartHoverTip, useChartHover } from '@/components/ui/chart-hover';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface RisparmioTileProps {
@@ -18,6 +18,10 @@ interface RisparmioTileProps {
   footer: Narrative | null;
   /** The month the page is about, drawn at full strength. */
   highlightKey: string | null;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («mese per mese»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -130,9 +134,9 @@ function SavingsRateBars({ history, highlightKey }: { history: SavingsHistory; h
  * (`summarizeSavingsHistory`), read as average, best and worst, drawn as bars around the
  * average. Months without income draw no bar: a missing denominator is not a zero.
  */
-export function RisparmioTile({ history, aside, reading, footer, highlightKey, className }: RisparmioTileProps) {
+export function RisparmioTile({ history, aside, reading, footer, highlightKey, collapse, asideWhenClosed, className }: RisparmioTileProps) {
   return (
-    <Tile eyebrow="Risparmio nel tempo" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className}>
+    <Tile eyebrow="Risparmio nel tempo" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} collapse={collapse} asideWhenClosed={asideWhenClosed} className={className}>
       {history.measuredCount === 0 ? (
         <p className="mt-3 text-[13px] text-muted-foreground">Nessun mese con entrate nella finestra.</p>
       ) : (

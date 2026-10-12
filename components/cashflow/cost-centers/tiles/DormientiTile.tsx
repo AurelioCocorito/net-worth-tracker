@@ -5,7 +5,7 @@ import type { CenterSummary } from '@/lib/utils/costCenterSummary';
 import type { CostCenter } from '@/types/costCenters';
 import { describeDormantRow, describeIdle } from '@/lib/utils/costCenterNarrative';
 import { resolveCostCenterColor } from '@/lib/utils/costCenterColors';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface DormientiTileProps {
@@ -16,6 +16,10 @@ interface DormientiTileProps {
   footer: Narrative;
   palette: string[];
   onOpen: (center: CostCenter) => void;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («senza spese da tempo»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -25,9 +29,9 @@ interface DormientiTileProps {
  * history (`resolveLastActivityDate`), never on a window. A row opens the detail, where
  * the center can be archived.
  */
-export function DormientiTile({ centers, aside, reading, footer, palette, onOpen, className }: DormientiTileProps) {
+export function DormientiTile({ centers, aside, reading, footer, palette, onOpen, collapse, asideWhenClosed, className }: DormientiTileProps) {
   return (
-    <Tile eyebrow="Dormienti" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className}>
+    <Tile eyebrow="Dormienti" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} collapse={collapse} asideWhenClosed={asideWhenClosed} className={className}>
       {centers.length > 0 && (
         <ul className="mt-2 flex flex-col divide-y divide-border">
           {centers.map((center) => {

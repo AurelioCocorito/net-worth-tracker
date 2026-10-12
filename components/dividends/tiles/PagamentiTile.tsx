@@ -2,13 +2,17 @@
 
 import type { ReactNode } from 'react';
 import type { Narrative } from '@/lib/utils/narrative';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface PagamentiTileProps {
   /** "15 voci" / "4 di 15 voci" — from `describePaymentsCount`. */
   aside: Narrative;
   reading: Narrative | null;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («15 voci», a count of rows). */
+  asideWhenClosed?: string;
   /** The provisional-coupon notice, above the toolbar it concerns. */
   notice?: ReactNode;
   /** The desktop toolbar (instrument, type, view switch, CSV). */
@@ -33,6 +37,8 @@ interface PagamentiTileProps {
 export function PagamentiTile({
   aside,
   reading,
+  collapse,
+  asideWhenClosed,
   notice,
   toolbar,
   mobileToolbar,
@@ -45,6 +51,8 @@ export function PagamentiTile({
       eyebrow="Pagamenti"
       aside={<NarrativeText segments={aside} figureClassName="font-medium" />}
       reading={reading}
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       className={className}
     >
       {notice && <div className="mt-3.5">{notice}</div>}

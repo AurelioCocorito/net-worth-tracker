@@ -20,30 +20,50 @@
  * tile; here each person is a tile, because the reader is looking for THEIR own figure and a
  * tile is the unit the eye lands on. It also makes the grid scale to a third person without a
  * layout of its own.
+ *
+ * BELOW DESKTOP (doc/mobile/README.md § 9, decisions 1 and 11; composed since 2026-10-12,
+ * MOB-04): ONE sequence, the desktop DOM — title → [periodo] in the verdict's axis slot → the
+ * sentence up to the shares → the strip, one cell per person on their booked residual (the
+ * person's hero, lifted; none past four people or without a basis — decision 32) → the calendar's
+ * scope line (decision 14, at every width) → «Il perché» → In comune, open → «Il resto della
+ * pagina» → Quota and one row per person, closed. The «−» of a deficit is U+2212 in the strip
+ * and in the hero alike (`formatBookedResidual`).
  */
 
 'use client';
 
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_CELL_CLASS, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
-import { TileGridSkeleton, VerdictSkeleton } from '@/components/ui/tile-grid-skeleton';
+import { LIFTED_FIGURE_CLASS, Tile, TILE_CELL_CLASS, TILE_ROW_CELL_CLASS, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { SPLIT_SKELETON_CELLS } from '@/lib/constants/cashflowTabSkeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
-import { PageVerdict } from '@/components/ui/page-verdict';
+import { PageVerdict, type PendingVerdict } from '@/components/ui/page-verdict';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { RankedRows, type RankedRow } from '@/components/ui/ranked-rows';
 import { PeriodPicker } from '@/components/ui/period-picker';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { currentMonthPeriod, type Period } from '@/lib/utils/period';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
 import { useExpensesInRange } from '@/lib/hooks/useExpenses';
 import { trackingWindow } from '@/lib/utils/expenseWindows';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { filterExpensesByPeriod, rankCategories } from '@/lib/utils/tracciamentoSummary';
-import { summarizeExpenseSplit } from '@/lib/utils/expenseSplitSummary';
 import {
+  SPLIT_MEMBER_HERO_BLOCK,
+  SPLIT_REST_ID,
+  SPLIT_SECTION_IDS,
+  selectSplitStrip,
+  splitMemberSectionId,
+  summarizeExpenseSplit,
+} from '@/lib/utils/expenseSplitSummary';
+import {
+  SPLIT_CLOSED_ASIDES,
   buildSplitVerdict,
   describeCommonSpending,
   describeMemberBalance,
@@ -51,6 +71,8 @@ import {
   describeMemberCalendar,
   describeSplitAside,
   describeSplitBasis,
+  describeSplitScope,
+  formatBookedResidual,
 } from '@/lib/utils/expenseSplitNarrative';
 import type { Expense } from '@/types/expenses';
 import type { FamilyMember } from '@/types/assets';
@@ -59,7 +81,12 @@ interface ExpenseSplitTabProps {
   familyMembers: FamilyMember[];
   /** The years the picker offers, from the account's oldest and newest row (`listExpenseYears`). */
   availableYears: number[];
+  /** The tab is the one on screen: `PageRest` remounts on activation so its `role="alert"` speaks for it. */
+  active: boolean;
 }
+
+/** The row every account has: Quota, before the people. */
+const QUOTA_SECTION: SectionSpec = { id: SPLIT_SECTION_IDS.quota, eyebrow: 'Quota' };
 
 const EMPTY_EXPENSES: Expense[] = [];
 
@@ -76,7 +103,7 @@ function PoolRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ExpenseSplitTab({ familyMembers, availableYears }: ExpenseSplitTabProps) {
+export function ExpenseSplitTab({ familyMembers, availableYears, active }: ExpenseSplitTabProps) {
   const { ownerId } = useActiveAccount();
   const [period, setPeriod] = useState<Period>(() => currentMonthPeriod());
   // ONE `now` per mount, like every other tab: a page whose clock moves under it would move its
@@ -95,6 +122,20 @@ export function ExpenseSplitTab({ familyMembers, availableYears }: ExpenseSplitT
 
   const verdict = useMemo(() => buildSplitVerdict({ summary, period, now }), [summary, period, now]);
 
+  // The rows of the phone composition and the verdict's «Il perché» (The Closed-Row Rule, since
+  // 2026-10-12): Quota, then one row per person, keyed on the member id so a rename keeps the
+  // row's memory. Memoized on the members: the controller asks for a stable list.
+  const splitSections = useMemo<readonly SectionSpec[]>(
+    () => [QUOTA_SECTION, ...familyMembers.map((member) => ({ id: splitMemberSectionId(member.id), eyebrow: member.name }))],
+    [familyMembers],
+  );
+  const sections = useMobileSections({ route: 'cashflow', tab: 'split', sections: splitSections, restId: SPLIT_REST_ID });
+
+  // The strip: each person's booked residual, their hero lifted (decision 32); the scope line
+  // the calendar's clause, out of the sentence at every width (decision 14).
+  const strip = selectSplitStrip(summary);
+  const scope = describeSplitScope(summary, period, now);
+
   // The common pool broken down by category, through the ranking Tracciamento already uses:
   // one definition of «the period's top categories», never a second one here.
   const commonRanking = useMemo(() => rankCategories(summary.commonExpenses, 'expenses'), [summary.commonExpenses]);
@@ -107,37 +148,47 @@ export function ExpenseSplitTab({ familyMembers, availableYears }: ExpenseSplitT
   }));
 
   // A wait is a skeleton, a failed read a notice — and in both the picker stays: the read is the
-  // read of ONE period, and the way out of it is another period (Tracciamento's rule).
+  // read of ONE period, and the way out of it is another period (Tracciamento's rule). Below
+  // `desktop:` the picker is the verdict's `axis` slot in every state (`PageVerdict.pending`,
+  // decision 35): the same element, so the one that asked for the new period keeps its focus.
   const surface = resolveSurfaceState({ loading: loading, failed: loadFailed });
-  const verdictSlot =
-    surface === 'failed' ? (
-      <ErrorNotice
-        className="max-w-[920px] min-w-0 flex-1"
-        notice={describeReadFailure({
-          consequence: 'I movimenti non sono stati letti: senza di essi non si sa cosa è stato speso in comune.',
-          untouched: 'I movimenti registrati non sono stati toccati.',
-        })}
-      />
-    ) : surface === 'loading' ? (
-      <VerdictSkeleton className="flex-1" />
-    ) : (
-      <PageVerdict verdict={verdict} ariaLabel="Verdetto sulla divisione" />
-    );
+  const pending: PendingVerdict | undefined =
+    surface === 'failed'
+      ? {
+          kind: 'failed',
+          notice: (
+            <ErrorNotice
+              notice={describeReadFailure({
+                consequence: 'I movimenti non sono stati letti: senza di essi non si sa cosa è stato speso in comune.',
+                untouched: 'I movimenti registrati non sono stati toccati.',
+              })}
+            />
+          ),
+        }
+      : surface === 'loading'
+        ? { kind: 'loading' }
+        : undefined;
+  const axis = <PeriodPicker value={period} onChange={setPeriod} availableYears={availableYears} className="max-w-[190px] shrink-0" />;
 
-  // The same rows in both returns below: the picker is the same element while its period is read.
+  // The same row in both returns below: the picker is the same element while its period is read.
   const periodRows = (
-    <>
-      {/* ── Verdict, with the period axis beside it on desktop ─────────────────── */}
-      <div className="flex items-start justify-between gap-6 pt-1">
-        {verdictSlot}
-        <div className="hidden desktop:block">
-          <PeriodPicker value={period} onChange={setPeriod} availableYears={availableYears} className="shrink-0" />
-        </div>
+    // ── Verdict, with the period axis beside it on desktop (a second instance, decision 12) ──
+    <div className="flex items-start justify-between gap-6 pt-1">
+      <div className="min-w-0 flex-1">
+        <PageVerdict
+          verdict={verdict}
+          ariaLabel="Verdetto sulla divisione"
+          axis={axis}
+          pending={pending}
+          strip={pending ? undefined : <VerdictStrip figures={strip} onOpen={sections.reveal} eyebrows={sections.eyebrows} />}
+          scope={pending || !scope ? undefined : <NarrativeText segments={scope} className="text-[13px] leading-[1.45] text-muted-foreground" figureClassName="font-medium" />}
+          restCollapse={sections.collapse(SPLIT_REST_ID)}
+        />
       </div>
-      <div className="flex flex-wrap items-center justify-center gap-2 desktop:hidden">
-        <PeriodPicker value={period} onChange={setPeriod} availableYears={availableYears} className="max-w-[190px] shrink-0" />
+      <div className="hidden desktop:block">
+        <PeriodPicker value={period} onChange={setPeriod} availableYears={availableYears} className="shrink-0" />
       </div>
-    </>
+    </div>
   );
 
   if (surface !== 'ready') {
@@ -164,11 +215,12 @@ export function ExpenseSplitTab({ familyMembers, availableYears }: ExpenseSplitT
     <div className="space-y-4">
       {periodRows}
 
-      {/* ── Tile grid ──────────────────────────────────────────────────────────── */}
+      {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width (decision
+          11) — THE tile, «Il resto della pagina», then the rows ─────────────────────── */}
       <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
         {/* In comune — the pool, and what it is made of */}
         <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
-          <Tile eyebrow="In comune" reading={describeCommonSpending(summary)}>
+          <Tile id={SPLIT_SECTION_IDS.comune} eyebrow="In comune" reading={describeCommonSpending(summary)}>
             {/* Nothing recorded is not a measured zero (DESIGN.md → The Absence-Has-Three-Names
                 Rule): with no shared row at all the tile carries NO figure, because a 40px `0 €`
                 asserts a measurement nobody took. A pool that really adds up to zero has rows,
@@ -219,12 +271,16 @@ export function ExpenseSplitTab({ familyMembers, availableYears }: ExpenseSplitT
           </Tile>
         </div>
 
+        <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} />
+
         {/* Quota — the split, and the income it comes from */}
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
           <Tile
             eyebrow="Quota"
             aside={splitAside ? <NarrativeText segments={splitAside} /> : undefined}
             reading={describeSplitBasis(summary.basis)}
+            collapse={sections.collapse(SPLIT_SECTION_IDS.quota)}
+            asideWhenClosed={SPLIT_CLOSED_ASIDES.quota}
           >
             {summary.basis.kind === 'computed' && (
               <div className="mt-4 flex flex-wrap gap-x-8 gap-y-3">
@@ -247,12 +303,18 @@ export function ExpenseSplitTab({ familyMembers, availableYears }: ExpenseSplitT
           {summary.members.map((balance) => {
             const consumed = describeIncomeConsumed(balance);
             const calendar = describeMemberCalendar(balance);
+            const sectionId = splitMemberSectionId(balance.member.id);
+            // The hero is the strip's cell for this person: hidden on a phone when lifted
+            // (decision 15), printed again from `tablet:` where the strip is not drawn.
+            const heroLifted = liftedBlocks(strip, sectionId).includes(SPLIT_MEMBER_HERO_BLOCK);
             return (
-              <div key={balance.member.id} className={TILE_CELL_CLASS}>
+              <div key={balance.member.id} className={TILE_ROW_CELL_CLASS}>
                 <Tile
                   eyebrow={balance.member.name}
                   ariaLabel={`Quanto resta a ${balance.member.name}`}
                   reading={describeMemberBalance(balance)}
+                  collapse={sections.collapse(sectionId)}
+                  asideWhenClosed={SPLIT_CLOSED_ASIDES.member}
                 >
                   <p
                     className={cn(
@@ -265,7 +327,8 @@ export function ExpenseSplitTab({ familyMembers, availableYears }: ExpenseSplitT
                         ? 'text-muted-foreground'
                         : balance.remainingBooked < 0
                           ? 'text-destructive'
-                          : 'text-positive'
+                          : 'text-positive',
+                      heroLifted && LIFTED_FIGURE_CLASS,
                     )}
                   >
                     {balance.remainingBooked === null ? (
@@ -273,7 +336,8 @@ export function ExpenseSplitTab({ familyMembers, availableYears }: ExpenseSplitT
                       // dash as «Trattino» adds a word and no fact.
                       <span aria-hidden="true">—</span>
                     ) : (
-                      cachedFormatCurrencyEUR(balance.remainingBooked, true)
+                      // The «−» is U+2212, the strip's and the KPI trio's (The Comma Rule).
+                      formatBookedResidual(balance.remainingBooked)
                     )}
                   </p>
                   {(calendar || consumed) && (
