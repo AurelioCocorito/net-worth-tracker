@@ -21,6 +21,8 @@
 
 - **Cashflow › Movimenti (tabella)** — Fixed the deletion of a whole series from the table view, which left the fees' debits on the account; the feed already gave them back.
 
+- **Rendimenti › Analizza con AI** — Fixed the empty report when the model declines to write it: the dialog now says it was refused, or that the report stopped halfway and the text written so far is incomplete, and «Rigenera» is offered after any failure, not only beside a finished report.
+
 ## 🔧 Improvements
 
 - **Patrimonio e landing (telefono e tablet)** — The net-worth curve of the hero tile is shorter below the desktop width (120px), the same tile the Panoramica now composes; the reading, the chips and the market digest stay whole on those two surfaces.

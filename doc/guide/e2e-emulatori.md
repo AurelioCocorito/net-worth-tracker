@@ -105,6 +105,10 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   read `netstat -ano`, confirm each PID's command line is this repo's, then `Stop-Process -Id … -Force`. **A port 3000
   held by another app sends `next dev` to 3001 on its own** (2026-09-19: a foreign app answered `/login` with a redirect
   to `/it/login`, and the probe waited for a form that never came): read the «Local:» line of the dev log first.
+  **A port 3100 held by another app is REUSED by Playwright** (`reuseExistingServer` is on locally, the port fixed in
+  `playwright.config.ts`; 2026-10-08 and 2026-10-12, the owner's other project on `next start --port 3100`): the suite
+  would run against the wrong app. Before a suite, read the command line of :3100's PID; if it is not this repo's
+  `dev:e2e`, the owner stops it — the agent never does.
 - **After a long session the Firestore emulator can refuse every gRPC WRITE while REST still answers** (2026-09-29,
   Windows laptop: two full suites, six partial runs, four benchmarks and a mirror seed in one evening, the JVM at
   2,5 GB): `global-setup` died on the Centri seed's `WriteBatch.commit` with `4 DEADLINE_EXCEEDED … after 60.0s`, the

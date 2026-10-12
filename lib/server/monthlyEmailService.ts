@@ -807,15 +807,16 @@ async function generateEmailAiComment(
       thinking: { type: 'adaptive' },
       output_config: { effort: 'high' },
       // Macro context is the only thing the search is for (the system core scopes it to
-      // market movements), so the preference that governs it governs the tool.
+      // market movements), so the preference that governs it governs the tool. The version
+      // with dynamic filtering, as on the assistant and Rendimenti's analysis (2026-10-12).
       ...(preferences.includeMacroContext
         ? {
             tools: [
               {
-                type: 'web_search_20250305',
+                type: 'web_search_20260209',
                 name: 'web_search',
                 max_uses: 3,
-              } satisfies Anthropic.WebSearchTool20250305,
+              } satisfies Anthropic.WebSearchTool20260209,
             ],
           }
         : {}),

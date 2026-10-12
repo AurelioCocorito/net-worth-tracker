@@ -129,11 +129,24 @@ function readAnthropicFailure(error: unknown): AnthropicFailure {
 }
 
 /**
+ * The dialog's reading when the model declined (`stop_reason: 'refusal'`, an HTTP 200): the
+ * Sonnet 5.x generation declines in more categories than before, and without a sentence an
+ * empty report closed on `[DONE]` as a finished one (2026-10-12; the assistant's twin is
+ * `REFUSAL_NOTICE` in lib/server/assistant/anthropicStream.ts). A refusal after some text
+ * leaves that text on screen, so its sentence says the report is incomplete.
+ */
+const REFUSAL_EMPTY_MESSAGE =
+  'Il modello ha rifiutato di scrivere questo report. Clicca «Rigenera» per riprovare.';
+const REFUSAL_PARTIAL_MESSAGE =
+  'Il modello ha interrotto il report rifiutandosi di continuare: il testo qui sotto è incompleto. Clicca «Rigenera» per riprovare.';
+
+/**
  * Wraps an Anthropic stream in a ReadableStream formatted as Server-Sent Events.
  *
  * SSE FORMAT: `data: {JSON}\n\n` chunks, terminated by `data: [DONE]\n\n`.
  * Tool use and thinking blocks are silently skipped — only text_delta chunks
- * (Claude's written response) are forwarded to the client.
+ * (Claude's written response) are forwarded to the client. A refusal read from the terminal
+ * `message_delta` becomes one `{ error }` chunk before `[DONE]`.
  *
  * CANCELLATION (2026-09-20): the reader closing the dialog is not a failure. Until this date the
  * upstream generation ran to its end after the client had gone (8–14 s, paid for) and the next
@@ -150,15 +163,26 @@ function buildPerformanceSseStream(
   return new ReadableStream({
     async start(controller) {
       try {
+        let hasWrittenText = false;
+        let stopReason: string | null = null;
         for await (const chunk of anthropicStream) {
           if (upstream.signal.aborted) return;
+          // The terminal message_delta carries why generation stopped.
+          if (chunk.type === 'message_delta' && chunk.delta.stop_reason) {
+            stopReason = chunk.delta.stop_reason;
+          }
           if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            hasWrittenText = true;
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`)
             );
           }
         }
         if (upstream.signal.aborted) return;
+        if (stopReason === 'refusal') {
+          const errorMsg = hasWrittenText ? REFUSAL_PARTIAL_MESSAGE : REFUSAL_EMPTY_MESSAGE;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: errorMsg })}\n\n`));
+        }
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
       } catch (streamError: unknown) {
