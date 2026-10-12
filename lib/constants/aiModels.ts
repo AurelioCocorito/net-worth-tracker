@@ -16,7 +16,11 @@
  * WARNING (Checklist Comment): every call reads content blocks by `type` and sends
  * `thinking: { type: 'adaptive' }` with an `effort`; the memory extraction forces
  * `tool_choice`, which Haiku accepts and Sonnet 5.5 / Opus 5.5 refuse (400) — moving the
- * extraction up a tier means `tool_choice: 'auto'` plus `strict: true` on the tool.
+ * extraction up a tier means `tool_choice: 'auto'` plus `strict: true` on the tool. A Sonnet 5.5
+ * decline is an HTTP 200 with `stop_reason: 'refusal'` and often no text: every prose surface
+ * reads `stop_reason` and says so — the assistant (`REFUSAL_NOTICE`), Rendimenti's analysis (the
+ * `{ error }` before `[DONE]`, 2026-10-12) — and the emails drop an empty comment. A new surface
+ * on these models owes the same branch.
  */
 
 /** The performance report of Rendimenti → «Analizza con AI». */

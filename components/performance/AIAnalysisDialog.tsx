@@ -229,27 +229,31 @@ export function AIAnalysisDialog({
       : `Report scritto da ${PERFORMANCE_ANALYSIS_MODEL}. Non è consulenza finanziaria.`,
   });
 
+  // «Rigenera» also stands beside a failure with no text (2026-10-12): the refusal and the
+  // overload readings name it, and until then an empty report had no way to retry but closing.
+  const canRegenerate = !loading && (Boolean(analysis) || status.phase === 'error');
+
   const footer = (
     <>
       {analysis && !loading && (
-        <>
-          <Button variant="outline" onClick={handleCopyAnalysis} className="gap-2">
-            {copied ? (
-              <>
-                <Check className="h-4 w-4" aria-hidden="true" />
-                Copiato
-              </>
-            ) : (
-              <>
-                <Copy className="h-4 w-4" aria-hidden="true" />
-                Copia il report
-              </>
-            )}
-          </Button>
-          <Button variant="outline" onClick={fetchAnalysis}>
-            Rigenera
-          </Button>
-        </>
+        <Button variant="outline" onClick={handleCopyAnalysis} className="gap-2">
+          {copied ? (
+            <>
+              <Check className="h-4 w-4" aria-hidden="true" />
+              Copiato
+            </>
+          ) : (
+            <>
+              <Copy className="h-4 w-4" aria-hidden="true" />
+              Copia il report
+            </>
+          )}
+        </Button>
+      )}
+      {canRegenerate && (
+        <Button variant="outline" onClick={fetchAnalysis}>
+          Rigenera
+        </Button>
       )}
       <Button onClick={() => onOpenChange(false)}>Chiudi</Button>
     </>

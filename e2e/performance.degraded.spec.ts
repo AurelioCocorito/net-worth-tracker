@@ -283,3 +283,50 @@ test('a reload paints the last known figures — no page skeleton, the header sa
   await expect(page.getByRole('region', { name: 'Verdetto sui rendimenti' })).toHaveText(verdict);
   await expect(page.locator('[data-freshness]')).toHaveText(['', '']);
 });
+
+// ─── «Analizza con AI» when the model declines (2026-10-12) ──────────────────
+//
+// The route's refusal events are Vitest's (`__tests__/analyzePerformanceRoute.test.ts`); what only
+// a browser knows is what the dialog does with them. The route is answered by the browser itself,
+// so nothing reaches Anthropic (a probe never opens a control that spends: WORKFLOW.md § 3).
+
+const REFUSAL_EMPTY = 'Il modello ha rifiutato di scrivere questo report. Clicca «Rigenera» per riprovare.';
+const REFUSAL_PARTIAL =
+  'Il modello ha interrotto il report rifiutandosi di continuare: il testo qui sotto è incompleto. Clicca «Rigenera» per riprovare.';
+
+/** An SSE body as the route writes it: one `data:` line per payload, `[DONE]` as the bare string. */
+function sseBody(...payloads: unknown[]): string {
+  return payloads.map((payload) => `data: ${typeof payload === 'string' ? payload : JSON.stringify(payload)}\n\n`).join('');
+}
+
+test('a refused report says so, with «Rigenera» beside it even when no text was written', async ({ page }) => {
+  await setPensionToggle(false);
+  const answers = [
+    sseBody({ error: REFUSAL_EMPTY }, '[DONE]'),
+    sseBody({ text: 'Il fenicottero ha reso.' }, { error: REFUSAL_PARTIAL }, '[DONE]'),
+  ];
+  let calls = 0;
+  await page.route('**/api/ai/analyze-performance', (route) => {
+    const body = answers[Math.min(calls, answers.length - 1)];
+    calls += 1;
+    return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body });
+  });
+  await gotoPerformance(page);
+
+  await page.getByRole('button', { name: 'Analizza con AI', exact: true }).locator('visible=true').click();
+  const dialog = page.getByRole('dialog');
+
+  // Refused before any text: the reading says why the report is empty, and «Rigenera» is there
+  // (it stood only beside a written report); «Copia» has nothing to copy.
+  await expect(dialog).toContainText(REFUSAL_EMPTY);
+  await expect(dialog.getByRole('button', { name: 'Rigenera', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Copia il report' })).toHaveCount(0);
+
+  // Refused halfway: the text stays, the reading says it is incomplete, both actions stand.
+  await dialog.getByRole('button', { name: 'Rigenera', exact: true }).click();
+  await expect(dialog).toContainText(REFUSAL_PARTIAL);
+  await expect(dialog).toContainText('Il fenicottero ha reso.');
+  await expect(dialog.getByRole('button', { name: 'Copia il report' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Rigenera', exact: true })).toBeVisible();
+  expect(calls).toBe(2);
+});

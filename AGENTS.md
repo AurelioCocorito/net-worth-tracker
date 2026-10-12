@@ -834,8 +834,8 @@ file used to carry.
   unchanged mtime is the failure that looks like success. **`TaskStop` kills only the npm wrapper** (2026-09-19):
   `next dev`, the `firebase` CLI and the Firestore `java` stay listening.
 - Il resto — the CRLF trap on a Windows clone, the stale `.next-e2e` / `NEXT_DIST_DIR=.next-throwaway` rule, the
-  two-process anatomy of the mirror, the Windows `_admin/export` call and its slash trap, a port 3000 held by another
-  app — in `doc/guide/e2e-emulatori.md`.
+  two-process anatomy of the mirror, the Windows `_admin/export` call and its slash trap, a port 3000 or 3100 held by
+  another app — in `doc/guide/e2e-emulatori.md`.
 
 ### Browser-Driven E2E (Playwright) → `doc/guide/e2e-emulatori.md`
 - **What belongs in a browser test**: only what needs a real layout (the `desktop:` switch at 1440px, a collapsible, a

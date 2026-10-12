@@ -253,12 +253,9 @@ The app **is** locally runnable; there is no fallback to declare.
 
 - **Branches**: `develop` is the integration branch, `main` the default; a session branches off
   whatever is active (usually `develop`) and merges into it by PR. **The `doc/mobile/` specs land on `develop`,
-  one session at a time** (the fourteen `doc/perf/` specs did the same, 2026-09-28 → 2026-10-08; MOB-01 and MOB-02 landed and
-  were retired on 2026-10-10, PRs #448 and #450; MOB-03 on 2026-10-11, PR #452). The 2026-09-28 rule
-  («they reach `main` together») was derogated by the owner on 2026-10-08: `develop` goes to `main` **after the last
-  PERF spec and the Known Issues session of 2026-10-08** — the Next 16.4 security fix ships with the perf work — and
-  the MOB specs follow in a second release. PERF-14 was retired on 2026-10-08: from that day the PR from `develop` to
-  `main` is the owner's to open.
+  one session at a time, and reach `main` together after the last MOB spec is retired, by a PR the owner opens**
+  (owner, 2026-10-12; the PERF series went to `main` on its own, PR #446). Which spec is in `develop`:
+  `doc/mobile/README.md` § 6.
 - **A spec is retired by a session of its own** (fourteen times, 2026-09-28 → 2026-10-08): the code is read against the
   spec, every divergence gets a verdict, the lessons go home (AGENTS.md, the guide, a comment at the line, CLAUDE.md),
   then the spec and every pointer to it go. A text-only defect found there is fixed in the retirement with `tsc`, lint
@@ -305,9 +302,9 @@ The app **is** locally runnable; there is no fallback to declare.
   snapshot, not the exit code. **A snapshot's `target_path` and
   `target_fingerprint` are those of the machine that wrote it** (2026-09-14): `latest` accepts only the local
   absolute path and the local bytes (a Windows checkout is CRLF under `* text=auto`, so its fingerprint never
-  matches a Mac's), while `trend` and `signals` match by slug. The four snapshots written on Windows were
-  rewritten to this Mac's path and LF fingerprint. The owner also works from a Windows laptop
-  (CLAUDE.md § Current Status), so close a snapshot on the machine that wrote it.
+  matches a Mac's), while `trend` and `signals` match by slug. On 2026-09-14 the four snapshots written on Windows
+  were rewritten to the Mac's path and LF fingerprint. The owner works from a Mac and from a Windows laptop, so close
+  a snapshot on the machine that wrote it.
 - **Do not duplicate project conventions here.** Code and comment conventions live in
   `DEVELOPMENT_GUIDELINES.md` and `COMMENTS.md`, repo-wide patterns and traps in `AGENTS.md`, the
   per-area rules in `doc/guide/<tema>.md`, the aesthetic in `DESIGN.md`, environment and emulators

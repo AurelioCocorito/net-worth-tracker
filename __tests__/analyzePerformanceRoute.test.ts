@@ -72,6 +72,72 @@ async function postWithUpstreamFailure(failure: unknown) {
   return { status: response.status, body: await response.json() };
 }
 
+/**
+ * Posts one analysis whose upstream answers with `events`, and returns the SSE payloads the
+ * dialog would read, in order: each `data:` line parsed, `[DONE]` kept as the string.
+ */
+async function postWithUpstreamEvents(events: unknown[]) {
+  async function* upstream() {
+    for (const event of events) yield event;
+  }
+  vi.spyOn(Anthropic.Messages.prototype, 'create').mockResolvedValue(upstream() as never);
+  const response = await POST(buildRequest());
+  const body = await response.text();
+  return body
+    .split('\n\n')
+    .filter((line) => line.startsWith('data: '))
+    .map((line) => line.slice(6))
+    .map((data) => (data === '[DONE]' ? data : JSON.parse(data)));
+}
+
+const textDelta = (text: string) => ({
+  type: 'content_block_delta',
+  index: 0,
+  delta: { type: 'text_delta', text },
+});
+
+const stopWith = (stopReason: string) => ({
+  type: 'message_delta',
+  delta: { stop_reason: stopReason, stop_sequence: null },
+  usage: { output_tokens: 10 },
+});
+
+describe('POST /api/ai/analyze-performance refusals', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('says the model declined, before [DONE], when it refuses with no text', async () => {
+    // Sonnet 5.5 declines with HTTP 200 and `stop_reason: 'refusal'`: without the error event
+    // the dialog closed on a bare [DONE] and showed an empty report as a finished one.
+    const payloads = await postWithUpstreamEvents([stopWith('refusal')]);
+
+    expect(payloads).toEqual([
+      { error: 'Il modello ha rifiutato di scrivere questo report. Clicca «Rigenera» per riprovare.' },
+      '[DONE]',
+    ]);
+  });
+
+  it('says the report is incomplete when the model refuses after writing part of it', async () => {
+    const payloads = await postWithUpstreamEvents([textDelta('Il portafoglio'), stopWith('refusal')]);
+
+    expect(payloads).toEqual([
+      { text: 'Il portafoglio' },
+      {
+        error:
+          'Il modello ha interrotto il report rifiutandosi di continuare: il testo qui sotto è incompleto. Clicca «Rigenera» per riprovare.',
+      },
+      '[DONE]',
+    ]);
+  });
+
+  it('adds nothing to a report that ends normally', async () => {
+    const payloads = await postWithUpstreamEvents([textDelta('Il portafoglio'), stopWith('end_turn')]);
+
+    expect(payloads).toEqual([{ text: 'Il portafoglio' }, '[DONE]']);
+  });
+});
+
 describe('POST /api/ai/analyze-performance upstream failures', () => {
   afterEach(() => {
     vi.restoreAllMocks();
