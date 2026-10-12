@@ -30,7 +30,7 @@ import { articleForPercent } from '@/lib/utils/patrimonioNarrative';
 import {
   describePeriodSubject,
   describeScheduledHorizon,
-  scheduledSentence,
+  scheduledScope,
 } from '@/lib/utils/cashflowNarrative';
 
 // ─── Segment helpers ──────────────────────────────────────────────────────────
@@ -145,6 +145,33 @@ export interface SplitVerdictInput {
   now: Date;
 }
 
+/** The label of «Il perché» on a phone: what the hidden half of the verdict is about (decision 68, 2026-10-12). */
+export const SPLIT_REST_LABEL = 'quanto resta a ciascuno';
+
+/**
+ * A person's booked residual as their tile prints it at 32px: the compact euro with the «−»
+ * U+2212 on a deficit (The Comma Rule; `Intl` writes the hyphen-minus). At every width since
+ * MOB-04 (doc/mobile/README.md § 9, decision 32), so the strip's cell — `formatStripFigure`,
+ * which draws the same minus — prints exactly what the tile prints.
+ */
+export function formatBookedResidual(value: number): string {
+  return `${value < 0 ? '−' : ''}${euro(value)}`;
+}
+
+/** What the closed rows of Divisione say beside their eyebrow (The Closed-Row Rule): words, never a figure. */
+export const SPLIT_CLOSED_ASIDES = { quota: 'dalle entrate', member: 'quanto resta' } as const;
+
+/**
+ * The scope line of Divisione's verdict (doc/mobile/README.md § 9, decision 14): «Nel totale ci
+ * sono ancora 300 € di spese già in calendario da qui a fine mese.» — the part of the common pool
+ * (and of the common income) dated after today, INSIDE the total the first sentence prints. Until
+ * MOB-04 (2026-10-12) it was a sentence of the verdict itself; as the `scope` it is rendered at
+ * every width by `PageVerdict`, and the sentence no longer carries it. `null` with nothing ahead.
+ */
+export function describeSplitScope(summary: ExpenseSplitSummary, period: Period, now: Date): Narrative | null {
+  return scheduledScope(summary.common.scheduled, describeScheduledHorizon(period, now));
+}
+
 /**
  * Every judgement on this page reads the BOOKED residual, never the whole-period one: a month is
  * called short only on money that has actually left the account. See `MemberBalance.remainingBooked`.
@@ -229,9 +256,16 @@ function poolClause(common: CommonSpending): Narrative {
  * 2600 € di entrate; a Marcella 436 € dei 1700 €." — without the income clause when nothing
  * was left in comune.
  *
- * The scheduled clause closes it exactly as on Tracciamento and Analisi, and for the same
- * reason: a running period's pool contains rows that have not been paid yet, and the amount is
- * INSIDE the figure just printed, not beside it.
+ * The scheduled part of the pool is the verdict's `scope` since MOB-04 (`describeSplitScope`,
+ * 2026-10-12; decision 14): a running period's pool contains rows that have not been paid yet,
+ * and the caption says the amount is INSIDE the figure just printed, under the cells on a phone
+ * and under the paragraph at 1440 — the sentence itself no longer carries it.
+ *
+ * Where a phone cuts it: the first sentence (the gross, what the common income took off, the
+ * shares — the shares are shares of the NET, and the clause is what says so) stands under the
+ * title; «quanto resta a ciascuno» — the residuals and where the calendar takes them — goes behind
+ * «Il perché». No cut without a residual to hide: a basis that cannot be computed explains itself
+ * in one breath.
  */
 export function buildSplitVerdict({ summary, period, now }: SplitVerdictInput): PageVerdictModel {
   const subject = describePeriodSubject(period, now);
@@ -251,28 +285,29 @@ export function buildSplitVerdict({ summary, period, now }: SplitVerdictInput): 
 
   if (summary.basis.kind === 'unavailable') {
     sentence.push(prose('. '), ...describeMissingBasis(summary.basis));
-  } else {
-    // Over a pool the common income covered whole there is no share to name: a percentage of
-    // zero would be a form.
-    const covered = summary.common.income > 0 && summary.common.toSplit <= 0;
-    if (!covered) {
-      sentence.push(prose(summary.common.income > 0 ? ', ' : ': '));
-      summary.members.forEach((member, index) => {
-        if (index > 0) sentence.push(prose(index === summary.members.length - 1 ? ' e ' : ', '));
-        sentence.push(
-          figure(euro(member.commonShare ?? 0)),
-          prose(` a ${member.member.name} (`),
-          figure(formatPercentage((member.share ?? 0) * 100, 0)),
-          prose(')')
-        );
-      });
-    }
-    sentence.push(prose('.'), ...remainingClause(summary.members));
+    return { headline, tone, sentence };
   }
 
-  sentence.push(...(scheduledSentence(summary.common.scheduled, describeScheduledHorizon(period, now)) ?? []));
-  sentence.push(...calendarClause(summary.members));
-  return { headline, tone, sentence };
+  // Over a pool the common income covered whole there is no share to name: a percentage of
+  // zero would be a form.
+  const covered = summary.common.income > 0 && summary.common.toSplit <= 0;
+  if (!covered) {
+    sentence.push(prose(summary.common.income > 0 ? ', ' : ': '));
+    summary.members.forEach((member, index) => {
+      if (index > 0) sentence.push(prose(index === summary.members.length - 1 ? ' e ' : ', '));
+      sentence.push(
+        figure(euro(member.commonShare ?? 0)),
+        prose(` a ${member.member.name} (`),
+        figure(formatPercentage((member.share ?? 0) * 100, 0)),
+        prose(')')
+      );
+    });
+  }
+  sentence.push(prose('.'));
+  const leadLength = sentence.length;
+  const rest: Narrative = [...remainingClause(summary.members), ...calendarClause(summary.members)];
+  if (rest.length === 0) return { headline, tone, sentence };
+  return { headline, tone, sentence: [...sentence, ...rest], leadLength, restLabel: SPLIT_REST_LABEL };
 }
 
 /**
@@ -306,8 +341,10 @@ function remainingClause(members: MemberBalance[]): Narrative {
 }
 
 /**
- * " Con quelle, a fine periodo a Giuseppe restano 1173 € e a Marcella mancano 83 €." — where the
- * rows still in the calendar take each residual, once `scheduledSentence` has named them.
+ * " Con le spese in calendario, a fine periodo a Giuseppe restano 1173 € e a Marcella mancano
+ * 83 €." — where the rows still in the calendar take each residual. It names them itself since
+ * MOB-04 (2026-10-12): until then it opened on «Con quelle», whose antecedent was the scheduled
+ * sentence just before it — now the verdict's `scope`, out of the sentence (decision 14).
  *
  * Absent when nothing is scheduled, which is every closed period: then the booked residual IS the
  * period's, and a second sentence repeating it would be a form.
@@ -318,7 +355,7 @@ function calendarClause(members: MemberBalance[]): Narrative {
   );
   if (moved.length === 0) return [];
 
-  const segments: Narrative = [prose(' Con quelle, a fine periodo ')];
+  const segments: Narrative = [prose(' Con le spese in calendario, a fine periodo ')];
   moved.forEach((member, index) => {
     const remaining = member.remaining!;
     const short = remaining < 0;

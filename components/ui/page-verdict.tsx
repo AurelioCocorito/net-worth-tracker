@@ -4,12 +4,28 @@ import { cn } from '@/lib/utils';
 import { splitVerdict, type PageVerdictModel, type VerdictTone } from '@/lib/utils/narrative';
 import { sectionPanelId } from '@/lib/utils/mobileSections';
 import { NarrativeSegments, NarrativeText } from '@/components/ui/narrative-text';
+import { VerdictSkeletonHeadline, VerdictSkeletonLines } from '@/components/ui/tile-grid-skeleton';
 import type { TileCollapse } from '@/components/ui/tile';
+
+/**
+ * A verdict not here yet: the wait (the skeleton's silhouette) or the read that failed (the
+ * page's `ErrorNotice`, in the verdict's place). See `PageVerdictProps.pending`.
+ */
+export type PendingVerdict = { kind: 'loading' } | { kind: 'failed'; notice: ReactNode };
 
 interface PageVerdictProps {
   verdict: PageVerdictModel;
   /** Accessible name of the section — what the verdict is about ("Verdetto del mese"). */
   ariaLabel: string;
+  /**
+   * The verdict is being read, or its read failed (decision 35, 2026-10-12): the same `section`
+   * renders the `axis` slot where the title will leave it — with `kind: 'loading'` between the
+   * headline's line and the sentence's two (`VerdictSkeleton`'s), with `kind: 'failed'` before
+   * the notice — so a period picker in the slot is the SAME element in every state and keeps the
+   * focus of the gesture that asked for the new period (Tracciamento, Divisione). `verdict` is
+   * not read while this is set; a page passes its last one or an empty model.
+   */
+  pending?: PendingVerdict;
   /**
    * The page's axis below `desktop:` (a period picker), right under the title: at 1440 the page
    * mounts a second instance of the same control where it stands today (`hidden desktop:flex`,
@@ -62,12 +78,25 @@ const SENTENCE_CLASS = 'text-[14px] leading-[1.6] text-muted-foreground desktop:
  * closes the paragraph — and no single position in the sequence is both, since between the
  * first sentence and the rest it would split the paragraph at 1440. A caption, never a control,
  * so the duplicate carries no id and no focus.
+ *
+ * `pending` keeps the tree's shape: the `section`, then the headline's place, then the axis slot,
+ * then the body — the axis is child number two in every state, so React keeps its element.
  */
-export function PageVerdict({ verdict, ariaLabel, axis, strip, scope, restCollapse }: PageVerdictProps) {
+export function PageVerdict({ verdict, ariaLabel, axis, strip, scope, restCollapse, pending }: PageVerdictProps) {
   const headline = verdict.headline.endsWith('.') ? verdict.headline.slice(0, -1) : verdict.headline;
   const split = restCollapse ? splitVerdict(verdict) : null;
   const restOpen = restCollapse?.open ?? false;
   const hasRest = split !== null && split.rest.length > 0;
+
+  if (pending) {
+    return (
+      <section aria-label={ariaLabel} className="flex max-w-[920px] flex-col gap-2" style={{ viewTransitionName: 'page-verdict' }}>
+        {pending.kind === 'loading' ? <VerdictSkeletonHeadline /> : null}
+        {axis && <div className="desktop:hidden">{axis}</div>}
+        {pending.kind === 'loading' ? <VerdictSkeletonLines /> : pending.notice}
+      </section>
+    );
+  }
 
   return (
     // `page-verdict` is the region a page scene morphs into the next page's verdict (globals.css →

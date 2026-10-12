@@ -354,6 +354,7 @@ file used to carry.
 - Il resto — le sei regole per esteso, `linkedCashAssetId` su ogni occorrenza, «Collega la serie», lo schema del transfer e la sua spec, la commissione come riga propria (`expenseFee.ts`), la rata che riduce il debito per la QUOTA CAPITALE (`mortgageRepayment.ts`), l'estinzione, il trasferimento su un immobile — in `doc/guide/cashflow.md`.
 
 ### Cashflow › Tracciamento → `doc/guide/cashflow-tracciamento.md`
+- Composed for a phone since 2026-10-12 (MOB-04): the period in the verdict's `axis` slot in every state (`PageVerdict.pending`), the trio of THE tile lifted into a strip of three, the calendar as the scope line, the «+» opening Movimenti on the saved row with the focus on it — `doc/guide/cashflow-tracciamento.md` § Composizione mobile; the five tabs' shared contract (`forceMount`, prefixed ids, memory per tab, `active`) in `doc/guide/cashflow.md` § The tabs load their code on demand.
 - ONE period axis, two slices: `expenses` feeds the verdict and every tile; `filteredExpenses` feeds ONLY the Movimenti list. Never route a tile through `filteredExpenses`; the phone bar's picker is a second HANDLE on the same `period`, never a second axis.
 - A period is its WHOLE calendar span; what has not happened is DECLARED (chip «In calendario», sign colour dropped). `isScheduledRow` = after today by Italian calendar DAY (`isItalyDayAfter`), shared with `budgetUtils` and `costCenterSummary`.
 - The verdict judges what has HAPPENED (`settleTotals`, 2026-09-14), then says where the calendar takes it. The month in progress is compared with the SAME DAYS of the previous month (`currentComparisonWindow`/`previousComparisonWindow`); a previous period is honest or absent.
@@ -369,6 +370,7 @@ file used to carry.
 - Il resto — «Fuori scala», the Periodo pacing, `EntityDossier`, the Sankey rules, the optional Flusso by 50/30/20 role (`spendingRoles.ts`), the Flusso's drawing below 640px (a share bar and rows, a legibility threshold of the chart), Playwright — in `doc/guide/cashflow-analisi.md`.
 
 ### Cashflow › Budget → `doc/guide/cashflow-budget.md`
+- Composed for a phone since 2026-10-12 (MOB-04): «Fine mese» beside the fact («Restano» / «Oltre» / «Supererai», the last opening the verdict), the Tetto's KPIs lifted, THE tile by account, the save status one `sr-only` live node beside the tile — `doc/guide/cashflow-budget.md` § Composizione mobile.
 - Opt-in (`reconcileBudgetItems` never auto-creates); NO period axis (always the current Italian month; annual budgets are year-to-date on their own Off-Axis tile).
 - ONE projection rule, the app's: `buildSpendingForecast` over the month's spending SPLIT at today (`spendingProjection.ts`, shared with Panoramica/Tracciamento); a FIXED category never follows the pace; `MIN_FORECAST_DAYS` (4).
 - Risk vs fact: «Categorie a rischio» = projection over amount AND not over yet; a budget already over is a fact for «Avvisi». No row in two tiles. A threshold is a fact of what is BOOKED (`BudgetAlert.spent` = up to today), read against the calendar of its own window (`calendarPct`, `aheadOfCalendar`): the amber is for the rows ahead of it only. «Speso» is `spentToDate`; the scheduled rows are their own clause in every sentence (2026-09-14).
@@ -376,6 +378,7 @@ file used to carry.
 - Il resto — `summarizeCeiling`, the two-face KPIs on `exceeded`, `BudgetTrack`, the `cashflow:add-budget` event — in `doc/guide/cashflow-budget.md`.
 
 ### Centri di Costo → `doc/guide/centri-di-costo.md`
+- Composed for a phone since 2026-10-12 (MOB-04): no strip, the verdict whole, the list and the detail each with a controller and ONE memory per page (never per centre) — `doc/guide/centri-di-costo.md` § Composizione mobile.
 - NO period axis, by decision (2026-08-23): a project's cost is its whole cost; every figure is lifetime («in totale») unless the tile names its window.
 - `summarizeCenter` splits rows at today: booked ones are the cost; scheduled ones get an «in calendario» chip, feed a window's end and a ceiling's `spent`, and are NEVER summed into the total.
 - A CENTER HAS NO PACE (2026-09-18): a window's end is booked + calendar (`ytd + yearScheduled`), never `projectWindowEndWithScheduled`. Budget keeps its pace — do not unify; a monthly ceiling reads Budget's `summarizeCeiling` but re-derives `exceeded`.
@@ -384,6 +387,7 @@ file used to carry.
 - Il resto — risk vs fact (`exceeded`/`atRisk`) and the detail's ranking, the retired picker, the backdated row, how the detail lands and refocuses (`data-center-row`), `CenterStackBars`, «Collega spese…», session-only lenses — in `doc/guide/centri-di-costo.md`.
 
 ### Cashflow › Divisione → `doc/guide/cashflow-divisione.md`
+- Composed for a phone since 2026-10-12 (MOB-04): one cell per person on `remainingBooked` (the «−» U+2212 at every width), the calendar's clause as the verdict's scope line at 1440 too, the people's heroes lifted — `doc/guide/cashflow-divisione.md` § Composizione mobile.
 - Opt-in, on Tracciamento's period axis. ONE field carries the feature: `Expense.personalMemberId`; absent (or `null`) MEANS «in comune» (so no migration). Members are Previdenza's `FamilyMember`s, never a second list. Writing it is a FOUR-place fan-out.
 - The share is NEVER invented: `resolveSplitBasis` returns `unavailable` (with `missingNames`) below two people or when one person has no income attributed in the period; every split figure is then `null`. The base is the PERIOD's attributed income, WHATEVER its category (owner's decision, 2026-09-27; labor-only from 2026-08-31 until then) — do not «stabilise» it silently.
 - Income left «in comune» pays the pool FIRST (2026-09-27): the shares divide `CommonSpending.toSplit = max(0, total − income)`, a `surplus` is declared and never distributed. A residual is of money that has MOVED (2026-09-21): the page prints and colours `remainingBooked`; `remaining` is the whole period's.
@@ -391,6 +395,7 @@ file used to carry.
 - Il resto — `unattributedIncome`, the booked pool net of the income received and the «Da dividere» row, the calendar as a separate clause, `laborIncomeCategoryIds` no longer read, the readers outside the tab (`movementsOwnerFilter.ts`), the deleted-member bucket, the dialog control, `effectiveTab`, the one-cell people row, the verdict-explains/tile-instructs split, «Attribuisci spese» — in `doc/guide/cashflow-divisione.md`.
 
 ### Cashflow › Dividendi · Dividends and Coupons → `doc/guide/cashflow-dividendi.md`
+- Composed for a phone since 2026-10-12 (MOB-04): no strip (received and announced never one figure), the period pill and the «+» in the verdict's `axis` slot, the rows in DOM order, a failed stats read as Rendimento's row (`ErrorNotice collapse live={false}`, one live node per tab) — `doc/guide/cashflow-dividendi.md` § Composizione mobile.
 - RECEIVED AND ANNOUNCED ARE NEVER ONE FIGURE — counted, totalled and coloured apart on every surface; `summarizePayments` returns two halves and no sum.
 - ONE period axis (`resolvePeriodBounds`, upper bound = end of the period's own unit, NOT today), the announced money ON it; filters narrow only the list. TWO POPULATIONS, BOTH NAMED (2026-09-14): verdict and inventory read the REGISTRY (sold included); Affidabilità and Chi paga di più measure the HELD portfolio (`heldAssetIds`).
 - A coupon's cashflow expense is created only by the daily cron on payment date (`!isAutoGenerated`, idempotent via `expenseId`), and it credits the instrument's account, else the default, ONLY when the payment is not an arrear (`lib/utils/dividendAccount.ts`, 2026-09-20) — row, balance and `expenseId` in one transaction.
@@ -569,7 +574,7 @@ file used to carry.
   tall or unpredictable sections → Radix `<Collapsible>` + CSS transition; small predictable content →
   `AnimatePresence` + `height:'auto'`. Always a chevron on an expandable row; `CollapsibleTrigger asChild` propagates
   `data-state`. **A closed TILE of the phone composition is `TileRowShell`** (`components/ui/tile.tsx`, 2026-10-10;
-  the sample page is Hall of Fame, doc/guide/hall-of-fame.md § Composizione mobile): Radix `Collapsible` + `CollapsibleTrigger asChild` for the toggle but NEVER
+  the sample page is Hall of Fame, doc/guide/hall-of-fame.md § Composizione mobile; several composed tabs mounted together — Cashflow's five, `forceMount`, since 2026-10-12 — prefix every id, keep one memory per tab and remount `PageRest` with `active`, doc/guide/cashflow.md § The tabs load their code on demand): Radix `Collapsible` + `CollapsibleTrigger asChild` for the toggle but NEVER
   `CollapsibleContent` (it unmounts the children while closed, no closing transition) — the panel is our own
   `grid-rows-[0fr]↔[1fr]` with `motion-safe:transition-[grid-template-rows] motion-safe:duration-300
   motion-safe:ease-spring` (`--ease-spring`, the 400/35 spring sampled as `linear()` in globals.css), an

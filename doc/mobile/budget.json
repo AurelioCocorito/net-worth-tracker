@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-11",
+  "measuredAt": "2026-10-12",
   "account": "census@example.com",
   "tolerance": {},
   "informational": {
@@ -164,27 +164,27 @@
     },
     "cashflow-tracciamento": {
       "390": {
-        "screens": 3.16,
+        "screens": 1.67,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 15,
+        "figuresAboveFold": 12,
         "figuresOutsideVerdict": 5,
-        "firstClosedRowAbovePill": null,
+        "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-04: la prima riga chiusa sotto la pill a 390 (decisione 19): LA tessera Cashflow del periodo (grafico già a 120 px, trio sollevato) parte a 478 ed è alta 443, la prima riga chiusa inizia a 990 contro la pill a 767; la pill a 44 px da MOB-02"
       },
       "768": {
-        "screens": 2.34,
+        "screens": 1.28,
         "tilesAboveFold": 3,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 23,
-        "figuresOutsideVerdict": 13,
+        "tilesFullyAboveFold": 3,
+        "figuresAboveFold": 16,
+        "figuresOutsideVerdict": 10,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 3.07,
+        "screens": 1.6,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 14,
@@ -196,59 +196,59 @@
     },
     "cashflow-budget": {
       "390": {
-        "screens": 2.67,
+        "screens": 1.81,
         "tilesAboveFold": 1,
-        "tilesFullyAboveFold": 1,
+        "tilesFullyAboveFold": 0,
         "figuresAboveFold": 15,
         "figuresOutsideVerdict": 9,
-        "firstClosedRowAbovePill": null,
+        "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-04: il Tetto del mese (LA tessera) parte a 404 ed è alto 495 anche con i KPI sollevati — lo storico a barre e gli obiettivi di entrata non hanno una curva da accorciare — e finisce a 899 contro la pill a 767: tilesFullyAboveFold 1 → 0; la prima riga chiusa inizia a 967 (decisione 19); la pill a 44 px da MOB-02"
       },
       "768": {
-        "screens": 1.9,
-        "tilesAboveFold": 3,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 21,
+        "screens": 1.36,
+        "tilesAboveFold": 4,
+        "tilesFullyAboveFold": 4,
+        "figuresAboveFold": 17,
         "figuresOutsideVerdict": 11,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 2.37,
+        "screens": 1.62,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 15,
+        "figuresAboveFold": 17,
         "figuresOutsideVerdict": 9,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-04: figuresAboveFold 15 → 17 — la striscia di due celle («Fine mese», «Restano»/«Oltre») si disegna fino a 1439 e da 768 i KPI del Tetto tornano interi; la pill a 44 px da MOB-02"
       }
     },
     "cashflow-centri": {
       "390": {
-        "screens": 2.03,
+        "screens": 1.55,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 10,
         "figuresOutsideVerdict": 5,
-        "firstClosedRowAbovePill": null,
+        "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-04: la prima riga chiusa sotto la pill a 390 (decisione 19): LA tessera Totale parte a 390 ed è alta 482, la prima riga chiusa inizia a 940 contro la pill a 767; la pill a 44 px da MOB-02"
       },
       "768": {
-        "screens": 1.47,
-        "tilesAboveFold": 2,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 18,
-        "figuresOutsideVerdict": 11,
-        "firstClosedRowAbovePill": null,
+        "screens": 1.19,
+        "tilesAboveFold": 3,
+        "tilesFullyAboveFold": 3,
+        "figuresAboveFold": 10,
+        "figuresOutsideVerdict": 5,
+        "firstClosedRowAbovePill": true,
         "overflowX": false,
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 1.78,
+        "screens": 1.38,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 10,
@@ -260,30 +260,30 @@
     },
     "cashflow-divisione": {
       "390": {
-        "screens": 2.01,
+        "screens": 1.62,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 22,
-        "figuresOutsideVerdict": 5,
-        "firstClosedRowAbovePill": null,
+        "figuresAboveFold": 17,
+        "figuresOutsideVerdict": 7,
+        "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-04: figuresOutsideVerdict 5 → 7 — le due celle della striscia (una per persona, decisione 32) più le cinque cifre di In comune (eroe, le due righe del pool, le due categorie); la prima riga chiusa inizia a 1015 contro la pill a 767 (LA tessera parte a 478, alta 469; decisione 19); la pill a 44 px da MOB-02"
       },
       "768": {
-        "screens": 1.31,
+        "screens": 1.19,
         "tilesAboveFold": 4,
         "tilesFullyAboveFold": 2,
-        "figuresAboveFold": 38,
-        "figuresOutsideVerdict": 18,
+        "figuresAboveFold": 19,
+        "figuresOutsideVerdict": 11,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 1.61,
+        "screens": 1.47,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 22,
+        "figuresAboveFold": 16,
         "figuresOutsideVerdict": 8,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
@@ -292,34 +292,34 @@
     },
     "cashflow-dividendi": {
       "390": {
-        "screens": 3.03,
+        "screens": 1.61,
         "tilesAboveFold": 2,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 8,
+        "tilesFullyAboveFold": 2,
+        "figuresAboveFold": 6,
         "figuresOutsideVerdict": 4,
-        "firstClosedRowAbovePill": null,
+        "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-04: la prima riga chiusa sotto la pill a 390 (decisione 19): LA tessera Incasso netto parte a 340 ed è alta 378, la prima riga chiusa inizia a 787 contro la pill a 767; la pill a 44 px da MOB-02"
       },
       "768": {
-        "screens": 1.92,
-        "tilesAboveFold": 3,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 16,
-        "figuresOutsideVerdict": 12,
-        "firstClosedRowAbovePill": null,
+        "screens": 1.15,
+        "tilesAboveFold": 6,
+        "tilesFullyAboveFold": 6,
+        "figuresAboveFold": 6,
+        "figuresOutsideVerdict": 4,
+        "firstClosedRowAbovePill": true,
         "overflowX": false,
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 2.45,
-        "tilesAboveFold": 3,
+        "screens": 1.41,
+        "tilesAboveFold": 1,
         "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 7,
+        "figuresAboveFold": 6,
         "figuresOutsideVerdict": 4,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-04: tilesAboveFold 3 → 1 — sotto Incasso netto (295 → 673) le righe chiuse partono a 742 su 768 di altezza e non contano come iniziate; la pill a 44 px da MOB-02"
       }
     },
     "analisi": {
@@ -571,7 +571,7 @@
     },
     "fire-monte-carlo": {
       "390": {
-        "screens": 4.89,
+        "screens": 4.87,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 6,

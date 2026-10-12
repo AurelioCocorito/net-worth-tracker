@@ -20,9 +20,14 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import type { Period } from '@/lib/utils/period';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import type { MonthFlow, PeriodCashflowTotals, SavingsHistory, ScheduledSlice } from '@/lib/utils/tracciamentoSummary';
 import {
+  TRACKING_CLOSED_ASIDES,
+  TRACKING_REST_LABEL_CLOSING,
+  TRACKING_REST_LABEL_FIGURES,
+  describeTrackingScope,
+  scheduledScope,
   buildCashflowVerdict,
   describeCategoryShare,
   describeComparisonPhrase,
@@ -327,6 +332,71 @@ describe('buildCashflowVerdict', () => {
     expect(plain(eight.sentence)).toContain("hai messo da parte l'8%");
     const zero = buildCashflowVerdict({ ...INPUT, totals: { ...TOTALS, savingsRate: 0.3 } });
     expect(plain(zero.sentence)).toContain('hai messo da parte lo 0%');
+  });
+});
+
+/**
+ * Where a phone cuts the verdict (MOB-04, 2026-10-12; doc/mobile/README.md § 9, decisions 3 and
+ * 70) and the scope line under the strip. Seen red on 2026-10-12 with `leadLength` set to the
+ * first sentence in every branch (the no-calendar case then kept «Ad agosto hai messo da parte…»
+ * on the first screen beside the three cells that restate it), and with `describeTrackingScope`
+ * returning `null` whatever the slice.
+ */
+describe('the phone cut of the verdict and the scope line', () => {
+  const CALENDAR: ScheduledSlice = { count: 3, expenses: 1850, income: 500, throughMonth: 12 };
+
+  it('should hide the whole sentence behind «Il perché · le cifre del periodo» without a calendar', () => {
+    const verdict = buildCashflowVerdict(INPUT);
+    expect(verdict.leadLength).toBe(0);
+    expect(verdict.restLabel).toBe(TRACKING_REST_LABEL_FIGURES);
+    const split = splitVerdict(verdict);
+    expect(split.lead).toEqual([]);
+    expect(plain(split.rest)).toBe(plain(verdict.sentence));
+  });
+
+  it('should hide the lone calendar sentence the same way when nothing has happened yet', () => {
+    const verdict = buildCashflowVerdict({
+      ...INPUT,
+      totals: { income: 1850, expenses: 1850, net: 0, savingsRate: 0, coverageRatio: 1, transferCount: 0 },
+      scheduled: { count: 2, expenses: 1850, income: 1850, throughMonth: 8 },
+    });
+    expect(plain(verdict.sentence)).toMatch(/^Con /);
+    expect(verdict.leadLength).toBe(0);
+    expect(verdict.restLabel).toBe(TRACKING_REST_LABEL_FIGURES);
+  });
+
+  it('should keep the lived sentence and hide where the calendar takes it, with a calendar and a lived part', () => {
+    const verdict = buildCashflowVerdict({ ...INPUT, scheduled: CALENDAR });
+    const split = splitVerdict(verdict);
+    expect(plain(split.lead)).toBe('Ad agosto finora hai messo da parte il 76% (3290 €): entrate 4350 €, spese 1060 €, in calo del 6,4% sui primi 22 giorni di luglio.');
+    expect(plain(split.rest)).toBe(' Con 1850 € di spese e 500 € di entrate già in calendario da qui a fine mese, il mese chiude a +1940 € (il 40%).');
+    expect(split.restLabel).toBe(TRACKING_REST_LABEL_CLOSING);
+    // The cut falls on the sentence boundary: the lead ends with the full stop, the rest opens the next sentence.
+    expect(verdict.sentence[verdict.leadLength! - 1].text).toBe('.');
+  });
+
+  it('should not cut a period with no strip: nothing in, nothing out, the one sentence stays whole (decision 70)', () => {
+    const empty = buildCashflowVerdict({ ...INPUT, totals: { income: 0, expenses: 0, net: 0, savingsRate: null, coverageRatio: null, transferCount: 0 } });
+    expect(empty.leadLength).toBeUndefined();
+    expect(splitVerdict(empty).rest).toEqual([]);
+    const transfers = buildCashflowVerdict({ ...INPUT, totals: { income: 0, expenses: 0, net: 0, savingsRate: null, coverageRatio: null, transferCount: 2 } });
+    expect(transfers.leadLength).toBeUndefined();
+  });
+
+  it('should write the scope line without the leading space, and none without a calendar', () => {
+    const scope = describeTrackingScope(AUGUST, NOW, CALENDAR)!;
+    expect(plain(scope)).toBe('Nel totale ci sono ancora 1850 € di spese e 500 € di entrate già in calendario da qui a fine mese.');
+    expect(scope[0].text).not.toMatch(/^\s/);
+    expect(describeTrackingScope(AUGUST, NOW, NOTHING_SCHEDULED)).toBeNull();
+    // A slice with a count and no amount (transfers ahead) is no calendar either.
+    expect(describeTrackingScope(AUGUST, NOW, { count: 1, expenses: 0, income: 0, throughMonth: 9 })).toBeNull();
+    // The scope is `scheduledSentence` trimmed, and nothing else: the two say the same words.
+    expect(plain(scheduledScope(CALENDAR, 'a fine mese'))).toBe(plain(scheduledSentence(CALENDAR, 'a fine mese'))!.trimStart());
+  });
+
+  it('should keep the closed rows in words', () => {
+    expect(Object.values(TRACKING_CLOSED_ASIDES).every((aside) => !/\d/.test(aside))).toBe(true);
+    expect(TRACKING_CLOSED_ASIDES).toEqual({ spese: 'per categoria', entrate: 'per categoria', risparmio: 'mese per mese' });
   });
 });
 

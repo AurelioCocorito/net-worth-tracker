@@ -23,7 +23,7 @@
 import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
 import type { BudgetAlert, BudgetKind, BudgetPeriod, BudgetRiskSummary } from '@/types/budget';
 import type { BudgetAllocationValidation } from '@/lib/utils/budgetUtils';
-import type { AnnualBudgetSummary, CeilingSummary, IncomeTargetSummary, SpendingHistory } from '@/lib/utils/budgetSummary';
+import { BUDGET_SECTION_IDS, type AnnualBudgetSummary, type BudgetSectionId, type CeilingSummary, type IncomeTargetSummary, type SpendingHistory } from '@/lib/utils/budgetSummary';
 import type { ModalStatusCopy } from '@/lib/utils/dialogNarrative';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
@@ -350,6 +350,24 @@ export function describeProjectionCaption(c: CeilingSummary): Narrative {
 /** "agosto · giorno 22 di 31" */
 export function describeCeilingAside(c: CeilingSummary, now: Date): Narrative {
   return [prose(`${monthInSentence(now)} · giorno `), count(c.calendar.dayOfMonth), prose(' di '), count(c.calendar.daysInMonth)];
+}
+
+/**
+ * What each closed row of Budget says beside its eyebrow on a phone (The Closed-Row Rule; MOB-04,
+ * 2026-10-12): words only. The open asides carry figures the rule forbids on a closed row —
+ * `describeAnnualAside` «anno al 64%», `describeAlertsAside` «soglie di quota 90 · 100» — so each
+ * row has its own: Categorie a rischio «a fine mese» (its horizon: a fixed budget does not follow
+ * the pace, so the rows are projections of month-end), Avvisi «soglie di quota» or «disattivati»
+ * («superati» would lie with nothing crossed), Budget annuali «da gennaio», Per categoria «budget
+ * del mese».
+ */
+export function describeBudgetClosedAsides(alertsEnabled: boolean): Record<Exclude<BudgetSectionId, 'bud-tetto'>, string> {
+  return {
+    [BUDGET_SECTION_IDS.rischio]: 'a fine mese',
+    [BUDGET_SECTION_IDS.avvisi]: alertsEnabled ? 'soglie di quota' : 'disattivati',
+    [BUDGET_SECTION_IDS.annuali]: 'da gennaio',
+    [BUDGET_SECTION_IDS.categorie]: 'budget del mese',
+  };
 }
 
 // ─── Categorie a rischio ──────────────────────────────────────────────────────

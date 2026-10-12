@@ -37,6 +37,7 @@ import {
   describeCeilingAside,
   describeCeilingSetting,
   describeBudgetAmountRefusal,
+  describeBudgetClosedAsides,
   describeBudgetDeleteConsequence,
   describeBudgetDuplicateRefusal,
   describeBudgetItemCopy,
@@ -131,6 +132,20 @@ describe('buildBudgetVerdict', () => {
     );
   });
 
+  // A phone never cuts a Budget verdict (doc/mobile/README.md § 9, decision 33): one sentence that
+  // already names the calendar, whole even over the ceiling, where it restates the two cells.
+  // Seen red on 2026-10-12 with `leadLength` set on the exceeded branch.
+  it('is never cut on a phone, over the ceiling included', () => {
+    const over = ceiling({ spent: 4180, spentToDate: 4180, usedPct: 104.5, projection: 5890, remaining: 0, exceeded: true, overBy: 180, crossedOn: 13 });
+    for (const input of [ceiling(), over, ceiling({ spent: 4110, spentToDate: 2910, scheduled: 1200, exceeded: true, overBy: 110, crossedOn: 28 })]) {
+      const v = buildBudgetVerdict({ ceiling: input, risk: risk(), hasItems: true, now: NOW });
+      expect(v.leadLength).toBeUndefined();
+      expect(v.restLabel).toBeUndefined();
+    }
+    expect(buildBudgetVerdict({ ceiling: null, risk: risk(), hasItems: true, now: NOW }).leadLength).toBeUndefined();
+    expect(buildBudgetVerdict({ ceiling: null, risk: risk(), hasItems: false, now: NOW }).leadLength).toBeUndefined();
+  });
+
   it('a warning names the day the pace crosses the ceiling', () => {
     const v = buildBudgetVerdict({ ceiling: ceiling({ projectedCrossingDay: 29 }), risk: risk(), hasItems: true, now: NOW });
     expect(plain(v.sentence)).toBe(
@@ -206,6 +221,26 @@ describe('buildBudgetVerdict', () => {
     expect(v.headline).toBe('Nessun budget impostato.');
     expect(v.tone).toBe('neutral');
     expect(plain(v.sentence)).toBe('Un tetto mensile su tutte le spese, o un budget per categoria, e questa pagina ti dice ogni giorno se agosto sta tenendo.');
+  });
+});
+
+/**
+ * The closed rows' words (MOB-04, 2026-10-12): never a figure. Seen red on 2026-10-12 with the
+ * rows reading their open asides — `describeAnnualAside` («2026, da gennaio · anno al 64%») and
+ * `describeAlertsAside` («soglie di quota 90 · 100») — which carry the digits the rule forbids.
+ */
+describe('describeBudgetClosedAsides', () => {
+  it('names each row in words, the alerts by their state', () => {
+    expect(describeBudgetClosedAsides(true)).toEqual({
+      'bud-rischio': 'a fine mese',
+      'bud-avvisi': 'soglie di quota',
+      'bud-annuali': 'da gennaio',
+      'bud-categorie': 'budget del mese',
+    });
+    expect(describeBudgetClosedAsides(false)['bud-avvisi']).toBe('disattivati');
+    for (const aside of [...Object.values(describeBudgetClosedAsides(true)), ...Object.values(describeBudgetClosedAsides(false))]) {
+      expect(aside).not.toMatch(/\d/);
+    }
   });
 });
 

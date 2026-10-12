@@ -88,10 +88,29 @@ test.describe('Cashflow › Divisione', () => {
     expect(heroClass).toContain('text-positive');
     expect(heroClass).not.toContain('text-destructive');
 
-    // And the verdict agrees: nobody is short TODAY.
+    // And the verdict agrees: nobody is short TODAY — the whole paragraph at 1440, no «Il perché».
     const verdict = page.getByRole('region', { name: 'Verdetto sulla divisione' });
     await expect(verdict).toContainText(/resta qualcosa a tutti/);
-    await expect(verdict).toContainText(/Con quelle, a fine periodo/);
+    await expect(verdict).toContainText(/Con le spese in calendario, a fine periodo/);
+    await expect(verdict.getByRole('button', { name: /^Il perché/ })).toHaveCount(0);
+  });
+
+  /**
+   * The calendar's clause is the verdict's SCOPE line at every width (doc/mobile/README.md § 9,
+   * decision 14, since 2026-10-12): under the paragraph at 1440 too, the one slot of MOB-02 no
+   * page of that spec passed — this is its first desktop proof. Seen red with the scope rendered
+   * only when `compact`.
+   */
+  test('prints the calendar\'s clause as the scope line under the verdict at 1440', async ({ page }) => {
+    await openDivisione(page);
+
+    const verdict = page.getByRole('region', { name: 'Verdetto sulla divisione' });
+    const scope = verdict.getByText(/Nel totale ci sono ancora\s*1500[\s ]*€ di spese già in calendario da qui a fine anno/).filter({ visible: true });
+    await expect(scope).toBeVisible();
+    // Out of the sentence: the paragraph itself no longer carries «in calendario da qui a».
+    await expect(verdict.locator('p, div').filter({ hasText: /da dividere/ }).first()).not.toContainText('da qui a fine anno');
+    const paragraph = (await verdict.getByText(/900[\s ]*€ a Ghiandaia/).first().boundingBox())!;
+    expect((await scope.boundingBox())!.y).toBeGreaterThan(paragraph.y);
   });
 
   /**

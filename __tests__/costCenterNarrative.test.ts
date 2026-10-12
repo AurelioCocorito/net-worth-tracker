@@ -15,14 +15,18 @@ vi.mock('firebase/firestore', () => ({
 
 import type { Expense } from '@/types/expenses';
 import type { CostCenter } from '@/types/costCenters';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import { summarizeCenter, summarizeCostCenters, buildCenterMonthStack } from '@/lib/utils/costCenterSummary';
 import { buildCategoryComposition, buildSubCategoryComposition } from '@/lib/utils/costCenterUtils';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import {
+  CATEGORIE_CLOSED_ASIDE,
   CENTRI_ASIDE,
+  CENTRI_CLOSED_ASIDE,
   CENTRI_FOOTER,
+  DORMIENTI_CLOSED_ASIDE,
   EMPTY_CENTRI,
+  describeSottocategorieClosedAside,
   buildCostCenterVerdict,
   buildCostCentersVerdict,
   describeArchiviati,
@@ -145,6 +149,26 @@ describe('buildCostCentersVerdict', () => {
     expect(plain(v.sentence)).toBe(
       '3 centri attivi per 10.300 € in totale: Automobile è il più caro (5200 €, il 50%) e ad agosto arriva a 260 € su 250 € con le spese già in calendario; Bici è fermo da 120 giorni.',
     );
+  });
+
+  // A phone never cuts these verdicts (MOB-04, 2026-10-12): no strip (decision 30), and «con le
+  // spese già in calendario» stays visible because nothing is hidden — even where the sentence has
+  // two («Nessuna spesa nei centri di costo.», `HOW_TO_LINK`). The closed rows speak in words.
+  // Seen red on 2026-10-12 with `leadLength` set half-way through the list's sentence.
+  it('is never cut on a phone, list and detail alike, and its closed rows speak in words', () => {
+    for (const v of [buildCostCentersVerdict(list(), NOW), buildCostCentersVerdict(list({ auto: { budgetAmount: undefined, budgetPeriod: undefined }, bici: { archivedAt: day('2026-05-01') } }), NOW)]) {
+      expect(v.leadLength).toBeUndefined();
+      expect(splitVerdict(v).rest).toEqual([]);
+      expect(v.sentence.some((segment) => segment.binding)).toBe(false);
+    }
+    const detail = buildCostCenterVerdict(summarizeCenter(center({ budgetAmount: 250, budgetPeriod: 'monthly' }), AUTO_ROWS, NOW), NOW);
+    expect(detail.leadLength).toBeUndefined();
+    expect(splitVerdict(detail).rest).toEqual([]);
+    expect(CENTRI_CLOSED_ASIDE).toBe(plain(CENTRI_ASIDE));
+    expect(DORMIENTI_CLOSED_ASIDE).toBe('senza spese da tempo');
+    expect(CATEGORIE_CLOSED_ASIDE).toBe('in totale');
+    expect(describeSottocategorieClosedAside(0)).toBe('in totale');
+    expect(describeSottocategorieClosedAside(2)).toBe('2 escluse');
   });
 
   it('never calls a risk what only a pace would cross: 260 € known on a 300 € ceiling holds', () => {

@@ -3,7 +3,7 @@
 import type { Narrative } from '@/lib/utils/narrative';
 import type { BudgetRiskSummary } from '@/types/budget';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface RischioTileProps {
@@ -11,6 +11,12 @@ interface RischioTileProps {
   aside: Narrative;
   reading: Narrative;
   footer: Narrative;
+  /** THE tile's anchor when the account has no ceiling (`bud-rischio`); exclusive with `collapse`. */
+  id?: string;
+  /** The row below `desktop:` while the Tetto is THE tile; `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («a fine mese»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -21,9 +27,11 @@ interface RischioTileProps {
  * projections, not money spent, and only over the categories the user gave a budget to.
  * The crossed thresholds live in the Avvisi tile — no row appears in both.
  */
-export function RischioTile({ risk, aside, reading, footer, className }: RischioTileProps) {
+export function RischioTile({ risk, aside, reading, footer, id, collapse, asideWhenClosed, className }: RischioTileProps) {
+  // A tile is THE tile (an `id`) or a row (a `collapse`), never both: the union is `Tile`'s own.
+  const anchor = collapse ? { collapse, asideWhenClosed } : { id };
   return (
-    <Tile eyebrow="Categorie a rischio" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className}>
+    <Tile eyebrow="Categorie a rischio" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className} {...anchor}>
       {risk.atRisk.length > 0 && (
         <ul className="mt-2 flex flex-col divide-y divide-border">
           {risk.atRisk.map((row) => (

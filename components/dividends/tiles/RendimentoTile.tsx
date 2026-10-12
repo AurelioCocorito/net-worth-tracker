@@ -7,7 +7,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { getMetricValueColor } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { READ_FAILURE_EYEBROW } from '@/lib/utils/statesNarrative';
 
@@ -17,7 +17,12 @@ interface RendimentoTileProps {
   reading: Narrative | null;
   footer: Narrative | null;
   isLoading: boolean;
+  /** The measures were not read: the alert below at 1440; below `desktop:` the tab renders an `ErrorNotice` row in this tile's place instead. */
   isError: boolean;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («ultimi 12 mesi»: a window, never an amount). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -53,7 +58,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
  *
  * A failed fetch is an alert, not an empty tile: the rest of the page keeps working.
  */
-export function RendimentoTile({ summary, reading, footer, isLoading, isError, className }: RendimentoTileProps) {
+export function RendimentoTile({ summary, reading, footer, isLoading, isError, collapse, asideWhenClosed, className }: RendimentoTileProps) {
   return (
     <Tile
       eyebrow="Rendimento"
@@ -63,6 +68,8 @@ export function RendimentoTile({ summary, reading, footer, isLoading, isError, c
         </span>
       }
       reading={summary ? reading : null}
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       className={className}
     >
       {isError ? (

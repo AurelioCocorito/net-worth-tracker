@@ -9,7 +9,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { BudgetTrack } from '@/components/cashflow/budget/BudgetTrack';
 import { BudgetDeleteButton } from '@/components/cashflow/budget/BudgetDeleteButton';
@@ -24,6 +24,10 @@ interface AnnualiTileProps {
   isDemo: boolean;
   onEdit: (item: BudgetItem) => void;
   onDelete: (id: string) => void;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («da gennaio»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -119,7 +123,7 @@ function AnnualRow({
  * 2-click bin of the monthly list: an annual budget is set and removed here, not elsewhere.
  * One live region for the whole list announces arm and disarm.
  */
-export function AnnualiTile({ summary, aside, reading, footer, isDemo, onEdit, onDelete, className }: AnnualiTileProps) {
+export function AnnualiTile({ summary, aside, reading, footer, isDemo, onEdit, onDelete, collapse, asideWhenClosed, className }: AnnualiTileProps) {
   const [announcement, setAnnouncement] = useState('');
   const [armedKey, setArmedKey] = useState<string | null>(null);
   const announce = useCallback((text: string) => setAnnouncement(text), []);
@@ -132,7 +136,7 @@ export function AnnualiTile({ summary, aside, reading, footer, isDemo, onEdit, o
   };
 
   return (
-    <Tile eyebrow="Budget annuali" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className}>
+    <Tile eyebrow="Budget annuali" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} collapse={collapse} asideWhenClosed={asideWhenClosed} className={className}>
       <ul className="mt-2 flex flex-col divide-y divide-border">
         {summary.rows.map((row) => (
           <AnnualRow

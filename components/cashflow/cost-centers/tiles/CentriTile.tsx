@@ -8,7 +8,7 @@ import { describeCenterChip, describeCenterRow } from '@/lib/utils/costCenterNar
 import { resolveCostCenterColor } from '@/lib/utils/costCenterColors';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { CenterChip } from '@/components/cashflow/cost-centers/CenterChip';
 
@@ -20,6 +20,10 @@ interface CentriTileProps {
   palette: string[];
   now: Date;
   onOpen: (center: CostCenter) => void;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («in ordine di costo»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -88,9 +92,9 @@ function CenterRow({ row, palette, now, onOpen }: { row: CenterRankedRow; palett
  * The inventory: every active center ranked by its lifetime cost, each a flat row that opens
  * the detail. Sorted by the pure layer; the tile computes nothing.
  */
-export function CentriTile({ rows, aside, reading, footer, palette, now, onOpen, className }: CentriTileProps) {
+export function CentriTile({ rows, aside, reading, footer, palette, now, onOpen, collapse, asideWhenClosed, className }: CentriTileProps) {
   return (
-    <Tile eyebrow="Centri" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className}>
+    <Tile eyebrow="Centri" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} collapse={collapse} asideWhenClosed={asideWhenClosed} className={className}>
       {rows.length > 0 ? (
         <ul className="mt-2 flex flex-col divide-y divide-border">
           {rows.map((row) => (

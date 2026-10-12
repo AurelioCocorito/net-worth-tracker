@@ -19,7 +19,7 @@
  * `cachedFormatCurrencyEUR` (nbsp before €, four-digit amounts ungrouped).
  */
 
-import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
+import { narrativeToText, type Narrative, type NarrativeSegment, type PageVerdictModel } from '@/lib/utils/narrative';
 import type { CostCenterCategorySlice, CostCenterSubCategorySlice } from '@/types/costCenters';
 import type { CenterBudgetSummary, CenterMonthStack, CenterSummary, CostCentersSummary } from '@/lib/utils/costCenterSummary';
 import type { ModalStatusCopy } from '@/lib/utils/dialogNarrative';
@@ -432,6 +432,25 @@ export const EMPTY_CENTRI = `Nessun centro ancora. Dopo averne creato uno, ${HOW
 
 /** «In ordine di costo» — Centri's own scope; Totale keeps «N centri attivi · in totale». */
 export const CENTRI_ASIDE: Narrative = [prose('in ordine di costo')];
+
+/**
+ * What the closed rows of the two views say beside their eyebrow on a phone (The Closed-Row Rule;
+ * MOB-04, 2026-10-12): words only. Centri «in ordine di costo» (its open aside, already words),
+ * Dormienti «senza spese da tempo» (the open aside names the threshold in days — a figure); on a
+ * centre Per categoria and Per sottocategoria «in totale» (the latter «2 escluse» while the lens
+ * is on, `describeSottocategorieClosedAside`), Ciclo di vita its own state (`describeCicloAside`)
+ * and Movimenti collegati its count (`describeMovimentiAside`: rows, not euro).
+ */
+export const CENTRI_CLOSED_ASIDE = 'in ordine di costo';
+export const DORMIENTI_CLOSED_ASIDE = 'senza spese da tempo';
+export const CATEGORIE_CLOSED_ASIDE = 'in totale';
+export const SOTTOCATEGORIE_CLOSED_ASIDE = 'in totale';
+
+/** «in totale», or the lens's count («2 escluse») while a subcategory is taken out of it. */
+export function describeSottocategorieClosedAside(excludedCount: number): string {
+  const aside = describeSottocategorieAside(excludedCount);
+  return aside ? narrativeToText(aside) : SOTTOCATEGORIE_CLOSED_ASIDE;
+}
 
 export function describeTrailingCaption(stack: CenterMonthStack, now: Date): Narrative {
   if (stack.centers.length === 0) return [prose('nessuna spesa negli ultimi '), count(stack.months.length), prose(' mesi')];

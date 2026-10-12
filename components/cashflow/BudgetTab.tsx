@@ -7,8 +7,15 @@
  * budget is always read on the current month (annual budgets are year-to-date and their tile
  * says so — the Off-Axis Tile Rule).
  *
- *   Mobile (1 col):   Verdict → [Aggiungi budget · impostazioni] → Tetto del mese →
- *                     Categorie a rischio → Avvisi → Budget annuali → Per categoria → Impostazioni
+ *   Below desktop:    ONE sequence, the desktop DOM (doc/mobile/README.md § 9, decisions 1 and 11;
+ *                     composed since 2026-10-12, MOB-04): verdict (one sentence, never cut —
+ *                     decision 33) → the strip of two, «Fine mese» and «Restano» / «Oltre» /
+ *                     «Supererai», the Tetto's KPIs lifted (The Risk-vs-Fact Rule in the strip,
+ *                     decision 34; «Supererai» to the verdict, 67) → [Aggiungi budget ·
+ *                     impostazioni] → Tetto del mese, open → «Il resto della pagina» → Categorie a
+ *                     rischio, Avvisi, Budget annuali, Per categoria as closed rows → Impostazioni.
+ *                     Without a ceiling THE tile is Categorie a rischio, no strip; without a
+ *                     budget at all, Per categoria alone with its empty state.
  *   Desktop (12 col): Tetto del mese (5, 2 rows) | Categorie a rischio (4) | Avvisi (3)
  *                                                | Budget annuali (7)
  *                     Per categoria (12)
@@ -39,8 +46,11 @@ import { useExpensesInRange } from '@/lib/hooks/useExpenses';
 import { BUDGET_HISTORY_MONTHS, budgetWindow } from '@/lib/utils/expenseWindows';
 import { evaluateBudgetAlerts, rankCategoriesAtRisk } from '@/lib/utils/budgetUtils';
 import {
+  BUDGET_REST_ID,
+  BUDGET_SECTION_IDS,
   buildCategoryRows,
   buildSpendingHistory,
+  selectBudgetStrip,
   trailingMonthKeys,
   summarizeAlerts,
   summarizeAnnualBudgets,
@@ -59,6 +69,7 @@ import {
   describeAllocation,
   describeAnnualAside,
   describeAnnualBudgets,
+  describeBudgetClosedAsides,
   describeBudgetCounts,
   describeCeiling,
   describeCeilingAside,
@@ -68,16 +79,21 @@ import {
 } from '@/lib/utils/budgetNarrative';
 import { resolveBudgetCalendar } from '@/lib/utils/budgetUtils';
 import { PageVerdict } from '@/components/ui/page-verdict';
-import { TILE_CELL_CLASS } from '@/components/ui/tile';
+import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
 import { BUDGET_SKELETON_CELLS } from '@/lib/constants/cashflowTabSkeletons';
 import { cn } from '@/lib/utils';
 import { BudgetItemDialog } from '@/components/cashflow/budget/BudgetItemDialog';
 import { BudgetImpostazioni } from '@/components/cashflow/budget/BudgetImpostazioni';
-import { TettoTile } from '@/components/cashflow/budget/tiles/TettoTile';
+import { isTettoLiftedBlock, TettoTile } from '@/components/cashflow/budget/tiles/TettoTile';
 import { RischioTile } from '@/components/cashflow/budget/tiles/RischioTile';
 import { AvvisiTile } from '@/components/cashflow/budget/tiles/AvvisiTile';
 import { AnnualiTile } from '@/components/cashflow/budget/tiles/AnnualiTile';
@@ -91,6 +107,36 @@ interface BudgetTabProps {
   categoriesFailed: boolean;
   historyStartYear: number;
   userId: string;
+  /** The tab is the one on screen: `PageRest` remounts on activation so its `role="alert"` speaks for it. */
+  active: boolean;
+}
+
+/** The box «Supererai» puts the focus on: the verdict names the day the calendar crosses the ceiling. */
+const BUDGET_VERDICT_ID = 'bud-verdetto';
+
+/** The four rows, in the DOM's order; which ones are rows depends on the account (`resolveBudgetSections`). */
+const BUDGET_ROW_SPECS: Record<Exclude<(typeof BUDGET_SECTION_IDS)[keyof typeof BUDGET_SECTION_IDS], 'bud-tetto'>, SectionSpec> = {
+  [BUDGET_SECTION_IDS.rischio]: { id: BUDGET_SECTION_IDS.rischio, eyebrow: 'Categorie a rischio' },
+  [BUDGET_SECTION_IDS.avvisi]: { id: BUDGET_SECTION_IDS.avvisi, eyebrow: 'Avvisi' },
+  [BUDGET_SECTION_IDS.annuali]: { id: BUDGET_SECTION_IDS.annuali, eyebrow: 'Budget annuali' },
+  [BUDGET_SECTION_IDS.categorie]: { id: BUDGET_SECTION_IDS.categorie, eyebrow: 'Per categoria' },
+};
+
+/**
+ * The rows of the phone composition for this account (The Closed-Row Rule): with a ceiling the
+ * Tetto is THE tile and the four others are rows; without one Categorie a rischio is THE tile
+ * and three are rows; without a budget at all Per categoria alone, with its empty state, and no
+ * rows (decision 21 names THE tile; `BudgetTab`'s header the three states). Budget annuali is a
+ * row only while there is an annual budget.
+ */
+function resolveBudgetSections(state: { hasCeiling: boolean; hasItems: boolean; hasAnnual: boolean }): readonly SectionSpec[] {
+  if (!state.hasItems) return [];
+  const rows: SectionSpec[] = [];
+  if (state.hasCeiling) rows.push(BUDGET_ROW_SPECS[BUDGET_SECTION_IDS.rischio]);
+  rows.push(BUDGET_ROW_SPECS[BUDGET_SECTION_IDS.avvisi]);
+  if (state.hasAnnual) rows.push(BUDGET_ROW_SPECS[BUDGET_SECTION_IDS.annuali]);
+  rows.push(BUDGET_ROW_SPECS[BUDGET_SECTION_IDS.categorie]);
+  return rows;
 }
 
 const SAVE_STATUS_LABEL: Record<BudgetSaveStatus, string | null> = {
@@ -108,7 +154,7 @@ const SETTINGS_ID = 'budget-impostazioni';
 
 const EMPTY_EXPENSES: Expense[] = [];
 
-export function BudgetTab({ categories, categoriesLoading, categoriesFailed, historyStartYear, userId }: BudgetTabProps) {
+export function BudgetTab({ categories, categoriesLoading, categoriesFailed, historyStartYear, userId, active }: BudgetTabProps) {
   const isDemo = useDemoMode();
   const { ownerId } = useActiveAccount();
   const budget = useBudgetConfig({ userId, categories, disabled: isDemo });
@@ -175,6 +221,14 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
   const hasItems = budget.items.length > 0 || ceiling !== null;
   const verdict = useMemo(() => buildBudgetVerdict({ ceiling, risk, hasItems, now }), [ceiling, risk, hasItems, now]);
 
+  // The rows of the phone composition and the verdict's «Il perché» (The Closed-Row Rule, since
+  // 2026-10-12): at 1440 every `collapse()` is `undefined` and the tab is the tab of every width.
+  // Which tiles are rows follows the account (`resolveBudgetSections`), memoized on the three flags.
+  const hasCeiling = ceiling !== null;
+  const hasAnnual = annual.rows.length > 0;
+  const budgetSections = useMemo(() => resolveBudgetSections({ hasCeiling, hasItems, hasAnnual }), [hasCeiling, hasItems, hasAnnual]);
+  const sections = useMobileSections({ route: 'cashflow', tab: 'budget', sections: budgetSections, restId: BUDGET_REST_ID });
+
   // --- Handlers ---
   const openCreate = useCallback(() => {
     openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -224,15 +278,39 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
 
   const saveLabel = budget.saveStatus === 'saved' && savedDismissed ? null : SAVE_STATUS_LABEL[budget.saveStatus];
   const saveFailed = budget.saveStatus === 'invalid' || budget.saveStatus === 'error';
+  const saveLabelClass = saveFailed ? 'text-destructive' : budget.saveStatus === 'saved' ? 'text-positive' : '';
   const monthlyExpenseCount = rows.expense.length;
 
   const addButtonLabel = isDemo ? 'Aggiungi budget — non disponibile in modalità demo' : 'Aggiungi budget';
 
+  // ─── The phone composition (2026-10-12) ───────────────────────────────────────────
+  // The strip is two KPIs of the Tetto, lifted whole; «Supererai» opens no row but puts the focus
+  // on the verdict (decision 67), which the controller does not know: its words come from here.
+  const strip = selectBudgetStrip(ceiling);
+  const tettoLifted = liftedBlocks(strip, BUDGET_SECTION_IDS.tetto).filter(isTettoLiftedBlock);
+  const closedAsides = describeBudgetClosedAsides(budget.alertsEnabled);
+  const stripEyebrows = { ...sections.eyebrows, [VERDICT_REST_SECTION]: 'il verdetto' };
+  const handleStripOpen = (section: string) => {
+    if (section === VERDICT_REST_SECTION) {
+      document.getElementById(BUDGET_VERDICT_ID)?.focus({ preventScroll: true });
+      return;
+    }
+    sections.reveal(section);
+  };
+  // «Il resto della pagina» follows THE tile's cell: the Tetto's with a ceiling, Categorie a
+  // rischio's without one; with no budget at all there are no rows and no rest.
+  const rest = hasItems ? <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} /> : null;
+
   return (
     <div className="space-y-4 max-desktop:portrait:pb-20">
-      {/* ── Verdict ─────────────────────────────────────────────────────────────── */}
-      <div className="pt-1">
-        <PageVerdict verdict={verdict} ariaLabel="Verdetto sul budget" />
+      {/* ── Verdict (one sentence, never cut: decision 33); the box takes the focus from «Supererai» ── */}
+      <div id={BUDGET_VERDICT_ID} tabIndex={-1} className="pt-1 outline-none">
+        <PageVerdict
+          verdict={verdict}
+          ariaLabel="Verdetto sul budget"
+          strip={<VerdictStrip figures={strip} onOpen={handleStripOpen} eyebrows={stripEyebrows} />}
+          restCollapse={sections.collapse(BUDGET_REST_ID)}
+        />
       </div>
 
       {/* ── Below desktop: the only add affordance there is on a phone (the bottom-nav FAB
@@ -247,11 +325,14 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
         </Button>
       </div>
 
-      {/* ── Tile grid ───────────────────────────────────────────────────────────── */}
+      {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width (decision
+          11; the `order-*` the phone used went on 2026-10-12) — THE tile, «Il resto della
+          pagina», then the rows ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
         {ceiling ? (
-          <div className={cn(TILE_CELL_CLASS, 'order-1 tablet:col-span-2 desktop:order-none desktop:col-span-5 desktop:row-span-2')}>
+          <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
             <TettoTile
+              id={BUDGET_SECTION_IDS.tetto}
               summary={ceiling}
               aside={describeCeilingAside(ceiling, now)}
               reading={describeCeiling(ceiling)}
@@ -259,6 +340,7 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
               historyCaption={describeHistory(history)}
               income={income}
               incomeReading={income ? describeIncomeTargets(income) : null}
+              liftedFigures={tettoLifted}
             />
           </div>
         ) : (
@@ -266,23 +348,38 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
           // below the fold are open to fill it.
           <div className="hidden desktop:col-span-5 desktop:row-span-2 desktop:block" aria-hidden="true" />
         )}
+        {ceiling && rest}
 
-        <div className={cn(TILE_CELL_CLASS, 'order-2 desktop:order-none desktop:col-span-4')}>
-          <RischioTile risk={risk} aside={RISK_ASIDE} reading={describeRisk(risk)} footer={RISK_FOOTER} />
+        {/* Without a ceiling Categorie a rischio is THE tile; without any budget it says «Nessun
+            budget mensile» under Per categoria's own empty state — hidden below `desktop:` with
+            Avvisi, the desktop unchanged (decision 11). */}
+        <div className={cn(hasCeiling ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS, 'desktop:col-span-4', !hasItems && 'max-desktop:hidden')}>
+          <RischioTile
+            risk={risk}
+            aside={RISK_ASIDE}
+            reading={describeRisk(risk)}
+            footer={RISK_FOOTER}
+            id={hasCeiling ? undefined : BUDGET_SECTION_IDS.rischio}
+            collapse={hasCeiling ? sections.collapse(BUDGET_SECTION_IDS.rischio) : undefined}
+            asideWhenClosed={closedAsides[BUDGET_SECTION_IDS.rischio]}
+          />
         </div>
+        {!ceiling && rest}
 
-        <div className={cn(TILE_CELL_CLASS, 'order-3 desktop:order-none desktop:col-span-3')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3', !hasItems && 'max-desktop:hidden')}>
           <AvvisiTile
             rows={alerts.rows}
             enabled={budget.alertsEnabled}
             aside={describeAlertsAside(budget.alertThresholds, budget.alertsEnabled)}
             reading={describeAlerts(alerts.rows, budget.alertsEnabled, now)}
             footer={describeAlertsFooter(budget.alertsEnabled, alerts.forecastOnlyCount)}
+            collapse={sections.collapse(BUDGET_SECTION_IDS.avvisi)}
+            asideWhenClosed={closedAsides[BUDGET_SECTION_IDS.avvisi]}
           />
         </div>
 
-        {annual.rows.length > 0 ? (
-          <div className={cn(TILE_CELL_CLASS, 'order-4 tablet:col-span-2 desktop:order-none desktop:col-span-7')}>
+        {hasAnnual ? (
+          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
             <AnnualiTile
               summary={annual}
               aside={describeAnnualAside(annual)}
@@ -291,13 +388,19 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
               isDemo={isDemo}
               onEdit={openEdit}
               onDelete={budget.deleteItem}
+              collapse={sections.collapse(BUDGET_SECTION_IDS.annuali)}
+              asideWhenClosed={closedAsides[BUDGET_SECTION_IDS.annuali]}
             />
           </div>
         ) : (
           <div className="hidden desktop:col-span-7 desktop:block" aria-hidden="true" />
         )}
 
-        <div className={cn(TILE_CELL_CLASS, 'order-5 tablet:col-span-2 desktop:order-none desktop:col-span-12')}>
+        {/* The save status is ONE stable live node, a sibling of the tile in its cell (`sr-only`,
+            so a closed row keeps it in the DOM); the aside shows the same words, `aria-hidden`,
+            where the aside renders — open, or at 1440 (doc/guide/dialog.md: a live node changes
+            text and empties, it never appears). */}
+        <div className={cn(hasItems ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
           <PerCategoriaTile
             rows={rows}
             calendarPct={(calendar.dayOfMonth / calendar.daysInMonth) * 100}
@@ -306,9 +409,11 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
                 <NarrativeText segments={describeBudgetCounts(monthlyExpenseCount, rows.income.length, now)} figureClassName="font-medium" />
                 {/* The separator stays outside the live region: a reader hears «Salvato», not «punto mediano Salvato». */}
                 {saveLabel && <span aria-hidden="true">·</span>}
-                <span role="status" aria-live="polite" className={cn(saveFailed ? 'text-destructive' : budget.saveStatus === 'saved' ? 'text-positive' : '')}>
-                  {saveLabel ?? ''}
-                </span>
+                {saveLabel && (
+                  <span aria-hidden="true" className={saveLabelClass}>
+                    {saveLabel}
+                  </span>
+                )}
               </span>
             }
             reading={describeAllocation(budget.validation, monthlyExpenseCount)}
@@ -325,7 +430,13 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
                 </Button>
               </div>
             }
+            id={hasItems ? undefined : BUDGET_SECTION_IDS.categorie}
+            collapse={hasItems ? sections.collapse(BUDGET_SECTION_IDS.categorie) : undefined}
+            asideWhenClosed={closedAsides[BUDGET_SECTION_IDS.categorie]}
           />
+          <span role="status" aria-live="polite" className="sr-only">
+            {saveLabel ?? ''}
+          </span>
         </div>
       </div>
 

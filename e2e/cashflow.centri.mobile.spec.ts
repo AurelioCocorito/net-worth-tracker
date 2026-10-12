@@ -9,6 +9,9 @@
  *    44px target — «Mostra altre» was 36.
  *
  * Runs on the Centri fixture account (`centri-mobile` project — scripts/seedCostCentersE2E.mts).
+ *
+ * Since 2026-10-12 (MOB-04) Centri and Movimenti collegati are closed rows below `desktop:`
+ * (doc/guide/centri-di-costo.md § Composizione mobile): each test opens the row before reading it.
  */
 
 import { test, expect } from '@playwright/test';
@@ -20,6 +23,11 @@ test.describe('Centri di Costo — mobile', () => {
     await page.goto('/dashboard/cashflow?tab=cost-centers');
     await expect(page.getByRole('region', { name: 'Verdetto sui centri di costo' })).toBeVisible({ timeout: 60_000 });
 
+    // The list is a closed row: open it, its aside («in ordine di costo») beside the eyebrow.
+    const centri = page.locator('#cdc-centri-trigger');
+    await expect(centri).toContainText('in ordine di costo');
+    await centri.click();
+    await expect(centri).toHaveAttribute('aria-expanded', 'true');
     const row = page.getByRole('region', { name: 'Centri', exact: true }).getByRole('button', { name: /^Apri Fenicottero/ });
     await row.scrollIntoViewIfNeeded();
     // Positive anchor: the defect only exists when the list IS scrolled at the moment of the tap.
@@ -38,6 +46,11 @@ test.describe('Centri di Costo — mobile', () => {
     await page.goto('/dashboard/cashflow?tab=cost-centers&center=e2e-cc-ornitorinco');
     const movimenti = page.getByRole('region', { name: 'Movimenti collegati' });
     await expect(movimenti).toBeVisible({ timeout: 60_000 });
+    // A closed row of the detail (`cost-centers-center`, its own memory): open it first.
+    const movimentiTrigger = page.locator('#cdc-centro-movimenti-trigger');
+    await expect(movimentiTrigger).toContainText(/\d+ (voci|voce)/);
+    await movimentiTrigger.click();
+    await expect(movimentiTrigger).toHaveAttribute('aria-expanded', 'true');
     await expect(movimenti.getByRole('button', { name: /^Mostra altre/ })).toBeVisible();
 
     const report = await page.evaluate(() => {

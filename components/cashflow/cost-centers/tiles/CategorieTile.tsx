@@ -2,7 +2,7 @@
 
 import type { Narrative } from '@/lib/utils/narrative';
 import type { CostCenterCategorySlice } from '@/types/costCenters';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { RankedRows } from '@/components/ui/ranked-rows';
 
@@ -13,6 +13,10 @@ interface CategorieTileProps {
   footer: Narrative;
   /** The center's own colour — the bars take it, as the list's swatch and the hero's bars do. */
   color: string;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («in totale»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -23,12 +27,12 @@ const OTHER_KEY = 'Altro';
  * 3px bar (rank), mono amount, share; the «Altro» tail closes the list as the residual so
  * the shares visibly add up (The Narrative Honesty Rule).
  */
-export function CategorieTile({ slices, reading, footer, color, className }: CategorieTileProps) {
+export function CategorieTile({ slices, reading, footer, color, collapse, asideWhenClosed, className }: CategorieTileProps) {
   const named = slices.filter((slice) => slice.key !== OTHER_KEY);
   const other = slices.find((slice) => slice.key === OTHER_KEY);
 
   return (
-    <Tile eyebrow="Per categoria" aside={<span>in totale</span>} reading={reading} className={className}>
+    <Tile eyebrow="Per categoria" aside="in totale" reading={reading} collapse={collapse} asideWhenClosed={asideWhenClosed} className={className}>
       {named.length > 0 && (
         <div className="mt-2">
           <RankedRows

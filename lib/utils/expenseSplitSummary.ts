@@ -41,6 +41,54 @@
 import type { Expense } from '@/types/expenses';
 import type { FamilyMember } from '@/types/assets';
 import { isScheduledRow, summarizeScheduled, type ScheduledSlice } from '@/lib/utils/tracciamentoSummary';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
+
+// ─── The phone composition: the ids and the strip (MOB-04, 2026-10-12) ────────
+
+/** THE tile and the Quota row of Divisione below `desktop:`; the people's rows are `splitMemberSectionId`. */
+export const SPLIT_SECTION_IDS = { comune: 'spl-comune', quota: 'spl-quota' } as const;
+
+/** The verdict's «Il perché» of this tab, a row of its controller. */
+export const SPLIT_REST_ID = 'spl-perche';
+
+/** One row per person: the member id keeps it stable across renames, the prefix unique among the tabs. */
+export const splitMemberSectionId = (memberId: string): string => `spl-persona-${memberId}`;
+
+/** The block of a person's tile the strip lifts: the 32px residual (their reading and captions stay). */
+export const SPLIT_MEMBER_HERO_BLOCK = 'hero';
+
+/** Past this many people the strip would not fit a row of 44px cells: none at all. */
+export const MAX_SPLIT_STRIP_MEMBERS = 4;
+
+/**
+ * One cell per person under the title on a phone: their residual of money that has MOVED
+ * (`remainingBooked`, the figure the tile prints and colours, never the period's `remaining`),
+ * in the trio's face — `currency` with the «−» U+2212 on a deficit, the tone of the sign, a
+ * printed zero unsigned — opening their row and lifting the 32px figure from it. Each prints
+ * EXACTLY what the tile prints (`__tests__/expenseSplitSummary.test.ts` holds the identity).
+ *
+ * `[]` when nobody has a measured residual (the basis is unavailable: the verdict already says
+ * why, `describeMissingBasis`) or with more than four people; a `null` cell «senza base» appears
+ * only beside at least one measured residual, which the model never produces today (a basis is
+ * one for the whole period) — kept so a future per-person basis has its words.
+ */
+export function selectSplitStrip(summary: ExpenseSplitSummary): StripFigure[] {
+  const members = summary.members;
+  if (members.length > MAX_SPLIT_STRIP_MEMBERS) return [];
+  if (!members.some((member) => member.remainingBooked !== null)) return [];
+  return members.map((member): StripFigure => {
+    const booked = member.remainingBooked;
+    const section = splitMemberSectionId(member.member.id);
+    return {
+      label: member.member.name,
+      value: booked,
+      format: 'currency',
+      ...(booked === null ? { reason: 'senza base' } : booked !== 0 ? { tone: booked < 0 ? ('negative' as const) : ('positive' as const) } : {}),
+      opens: section,
+      lifts: { section, block: SPLIT_MEMBER_HERO_BLOCK },
+    };
+  });
+}
 
 /**
  * A row whose `personalMemberId` names nobody the settings still know — the member was deleted

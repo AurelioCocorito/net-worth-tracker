@@ -257,8 +257,22 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 - **Persist a bondDetails-only change with `updateAssetBondDetails`, never `updateAsset`** (which `deleteField()`s an
   absent `averageCost`/`taxRate`), passing the COMPLETE object — `updateDoc` replaces the whole map.
 
+## Composizione mobile
+
+Composed on 2026-10-12 (MOB-04; the primitives in doc/guide/hall-of-fame.md § Composizione mobile, the rules in doc/mobile/README.md § 9): below `desktop:` one sequence, the desktop DOM — the `order-1/4/2/3/5/6` of the phone went that day, so Affidabilità now precedes Rendimento there too (decision 11).
+
+- **THE tile**: Incasso netto (`dvd-incasso`), open at every width (decision 21), received and announced in their own material at its top.
+- **No strip** (decision 30): received and announced are never one figure — two cells or none, and the two already open THE tile on the period's window (The Received-vs-Announced Rule); the Rendimento does not follow the axis and is never in a strip. The verdict is one sentence, whole (`buildDividendiVerdict` sets no `leadLength`).
+- **The axis** (decision 2): the period `SegmentedPill` and the «+» (44×44) in `PageVerdict.axis`, the desktop pill beside the verdict; `DividendsTabSkeleton` draws the same slot. The scrape stays in the Pagamenti toolbar on a phone.
+- **The rows and their aside, in DOM order** (`DIVIDEND_SECTIONS`, module-level; ids `DIVIDEND_SECTION_IDS`, the words in `lib/utils/dividendiNarrative.ts`): `dvd-affidabilita` (`describeReliabilityClosedAside`: «9 mesi · in portafoglio» — a window and a population), `dvd-rendimento` («ultimi 12 mesi»: a window, not an amount), `dvd-pagatori` («in portafoglio»), `dvd-per-anno` (`describeYearsAside`: «5 anni» / «1 anno» / «nessun incasso»), `dvd-pagamenti` (`describePaymentsCount`: «15 voci», «4 di 15 voci»); then the Dettaglio as it is. Pagamenti is in `defaultOpen` while a provisional BTP Italia/BTP€i coupon asks for its rate there (`PAGAMENTI_OPEN_BY_DEFAULT`, `ProvisionalCouponBanner`).
+- **A failed stats read is Rendimento's row** (`statsError` of `useDividendStats`, true also when the answer carries the list and `stats: null`): `DIVIDEND_SECTIONS_STATS_FAILED` marks the row `failed` — open on every visit, its eyebrow red once closed — and below `desktop:` its panel is `<ErrorNotice collapse live={false}>` («Rendimento · lettura fallita») in place of `RendimentoTile`; the Dettaglio's notice is `live={!sections.compact}`, so the tab's ONE live node is `PageRest`'s sentence. At 1440 the tile's own `isError` branch and the Dettaglio's `role="alert"` stay. `dividendsError || assetsError` is the TAB's failure, as before.
+- **Nothing recorded**: no axis, no rows, no `PageRest` and nothing written to the memory (`NO_SECTIONS`): Pagamenti alone with its two actions, as on desktop.
+- **The memory**: `mobile-sections:cashflow:dividends`, «Il perché» the row `dvd-perche`; `active` remounts `PageRest`.
+- **The specs**: `e2e/mobile-composition.cashflow.mobile.spec.ts` (a coupon planted through the emulator's REST API on the base account, which has none: the rows' order and no `order-*`; the stats read failed by REWRITING `/api/dividends/stats` with `stats: null` — `route.fetch()` + `route.fulfill`, never an abort, which is the tab's failure), `e2e/cashflow.dividendi.mobile.spec.ts` (opens Pagamenti first), `e2e/bundle.lazy.mobile.spec.ts` (the chunk lands on the fallback, axis included).
+
 ## Per-page blind spots
 
+- **Rendimento's failure is spoken once, by the page** (2026-10-12): on a phone the row's notice and the Dettaglio's are silent (`live={false}`), `PageRest`'s one sentence says «1 sezione non è stata letta: Rendimento.»; a reader who closed the row sees the red eyebrow and nothing else until the next visit, when it opens again.
 - **`e2e/cashflow.dividendi.spec.ts` › «the form refuses…» is red after `cashflow.accounts` + `cashflow.budget`** (2026-09-30:
   3/3 on a clean `develop` worktree, 2/3 on the branch of PR #418, green alone): after the refusal the dialog stays open
   with its form reset — `reset` re-runs, cause not traced yet. Two of four full runs that day had it red; green in

@@ -21,7 +21,7 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(),
 }));
 
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import type {
   CoverageMonth,
   DividendNetComparison,
@@ -42,8 +42,12 @@ import {
   describeConcentration,
   describeDpsGrowth,
   describeFilteredDividends,
+  describeReliabilityClosedAside,
   describeTotalReturn,
   describeMonthlyWindow,
+  describeYearsAside,
+  PAGATORI_CLOSED_ASIDE,
+  RENDIMENTO_CLOSED_ASIDE,
   describeNetIncome,
   describePayerRanking,
   describePaymentsCount,
@@ -168,6 +172,21 @@ describe('buildDividendiVerdict', () => {
     expect(plain(verdict.sentence)).toBe(
       'Nel 2026 hai incassato 3116 € netti, +18,0% su gen–ago 2025, da 7 strumenti; i 7 strumenti con costo medio rendono il 4,6% lordo sul costo negli ultimi 12 mesi. Il prossimo stacco è ENI il 15 settembre.'
     );
+  });
+
+  // A phone never cuts this verdict (MOB-04, 2026-10-12): one sentence, no strip to restate it.
+  // Seen red on 2026-10-12 with `leadLength` set at the «;» of the yield clause.
+  it('is never cut on a phone, and its closed rows speak in words', () => {
+    const verdict = buildDividendiVerdict(VERDICT_INPUT);
+    expect(verdict.leadLength).toBeUndefined();
+    expect(splitVerdict(verdict).rest).toEqual([]);
+    expect(RENDIMENTO_CLOSED_ASIDE).toBe('ultimi 12 mesi');
+    expect(PAGATORI_CLOSED_ASIDE).toBe('in portafoglio');
+    expect(describeReliabilityClosedAside(9)).toBe('9 mesi · in portafoglio');
+    expect(describeReliabilityClosedAside(1)).toBe('1 mese · in portafoglio');
+    expect(describeYearsAside(5)).toBe('5 anni');
+    expect(describeYearsAside(1)).toBe('1 anno');
+    expect(describeYearsAside(0)).toBe('nessun incasso');
   });
 
   it('names the yield clause’s own window and population — one held instrument, twelve months', () => {

@@ -263,6 +263,48 @@ export function scheduledSentence(scheduled: ScheduledSlice, horizon: string | n
   return narrative;
 }
 
+/**
+ * The same words as a caption of their own — the leading space of `scheduledSentence` dropped, so
+ * the clause can open a line instead of closing a sentence. The `scope` of a verdict whose strip
+ * prints totals that CONTAIN the calendar (doc/mobile/README.md § 9, decision 14: rendered at
+ * every width by `PageVerdict`, after the strip on a phone and under the paragraph at 1440).
+ */
+export function scheduledScope(scheduled: ScheduledSlice, horizon: string | null): Narrative | null {
+  const sentence = scheduledSentence(scheduled, horizon);
+  if (!sentence) return null;
+  return [{ ...sentence[0], text: sentence[0].text.trimStart() }, ...sentence.slice(1)];
+}
+
+/**
+ * Tracciamento's scope line: «Nel totale ci sono ancora 1850 € di spese e 500 € di entrate già in
+ * calendario da qui a fine mese.» under the three cells, which print the PERIOD's totals (decision
+ * 31); `null` with nothing in the calendar, and the line is simply absent. Its words are
+ * `scheduledSentence`'s, the one source of that clause; Analisi reuses this (MOB-06).
+ */
+export function describeTrackingScope(period: Period, now: Date, scheduled: ScheduledSlice): Narrative | null {
+  return scheduledScope(scheduled, describeScheduledHorizon(period, now));
+}
+
+/**
+ * The two labels of «Il perché» on a phone (decision 3): the first sentence restates the strip's
+ * three figures, so without a calendar the title stands alone and the whole sentence is «le cifre
+ * del periodo»; with a calendar and a lived part, the first sentence (what has happened) stands
+ * and the second — «dove chiude il periodo» — goes behind the tap.
+ */
+export const TRACKING_REST_LABEL_FIGURES = 'le cifre del periodo';
+export const TRACKING_REST_LABEL_CLOSING = 'dove chiude il periodo';
+
+/**
+ * What the closed rows of Tracciamento say beside their eyebrow (The Closed-Row Rule): words, never
+ * a figure. Movimenti is the exception that is no exception — its count («12 di 24 voci»,
+ * `describeMovementsCount`) is a count of rows, not of euro.
+ */
+export const TRACKING_CLOSED_ASIDES = {
+  spese: 'per categoria',
+  entrate: 'per categoria',
+  risparmio: 'mese per mese',
+} as const;
+
 function resolveTone(savingsRate: number | null, expenses: number): VerdictTone {
   if (savingsRate === null) return expenses > 0 ? 'negative' : 'neutral';
   if (savingsRate < 0) return 'negative';
@@ -381,6 +423,14 @@ function calendarSentence(period: Period, now: Date, totals: PeriodCashflowTotal
  * sentence come from the lived part («A settembre finora …»), and a second sentence says where
  * the calendar takes it. Until 2026-09-14 the tone came from the whole span, so on the 14th a
  * salary dated the 15th made the month «andare bene».
+ *
+ * Where a phone cuts it (MOB-04, 2026-10-12; doc/mobile/README.md § 9, decision 3): the strip
+ * under the title prints the period's three totals, so a sentence that restates them goes whole
+ * behind «Il perché» (`leadLength: 0`) — without a calendar, or with the calendar alone (nothing
+ * lived yet: the verdict IS the calendar sentence). With a calendar AND a lived part the first
+ * sentence judges what happened on figures the strip does not print, and stands; the calendar
+ * sentence goes behind the tap. A period with no strip at all (nothing in, nothing out) keeps
+ * its one sentence whole: the title alone would say less than it (decision 70).
  */
 export function buildCashflowVerdict(input: CashflowVerdictInput): PageVerdictModel {
   const subject = describePeriodSubject(input.period, input.now);
@@ -399,7 +449,13 @@ export function buildCashflowVerdict(input: CashflowVerdictInput): PageVerdictMo
           : [prose('Nessun movimento registrato.')];
       return { headline, tone, sentence };
     }
-    return { headline, tone, sentence: figuresSentence(capitalise(subject.inPeriod), subject, totals, input.delta, comparison) };
+    return {
+      headline,
+      tone,
+      sentence: figuresSentence(capitalise(subject.inPeriod), subject, totals, input.delta, comparison),
+      leadLength: 0,
+      restLabel: TRACKING_REST_LABEL_FIGURES,
+    };
   }
 
   const settled = settleTotals(totals, scheduled);
@@ -409,12 +465,19 @@ export function buildCashflowVerdict(input: CashflowVerdictInput): PageVerdictMo
 
   if (settled.income <= 0 && settled.expenses <= 0) {
     // Nothing lived yet: the calendar sentence stands alone (its leading space trimmed).
-    return { headline, tone, sentence: [{ ...calendar[0], text: calendar[0].text.trimStart() }, ...calendar.slice(1)] };
+    return {
+      headline,
+      tone,
+      sentence: [{ ...calendar[0], text: calendar[0].text.trimStart() }, ...calendar.slice(1)],
+      leadLength: 0,
+      restLabel: TRACKING_REST_LABEL_FIGURES,
+    };
   }
 
   // «finora» marks the lived part; the ytd subject already says it.
   const opening = `${capitalise(subject.inPeriod)}${input.period.kind === 'ytd' ? '' : ' finora'}`;
-  return { headline, tone, sentence: [...figuresSentence(opening, subject, settled, input.delta, comparison), ...calendar] };
+  const lived = figuresSentence(opening, subject, settled, input.delta, comparison);
+  return { headline, tone, sentence: [...lived, ...calendar], leadLength: lived.length, restLabel: TRACKING_REST_LABEL_CLOSING };
 }
 
 // ─── Tile readings ────────────────────────────────────────────────────────────
