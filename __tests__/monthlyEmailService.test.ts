@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PRINT_COLORS } from '@/lib/constants/printTokens';
 
@@ -61,6 +61,28 @@ vi.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifyIdToken: vi.fn() },
 }));
 
+// The AI comment reads the memory and builds the bundle before calling the model: both are
+// the real functions unless a test answers them itself.
+vi.mock('@/lib/server/assistant/store', async (importActual) => {
+  const actual = await importActual<typeof import('@/lib/server/assistant/store')>();
+  return { ...actual, getAssistantMemoryDocument: vi.fn(actual.getAssistantMemoryDocument) };
+});
+vi.mock('@/lib/services/assistantMonthContextService', async (importActual) => {
+  const actual = await importActual<typeof import('@/lib/services/assistantMonthContextService')>();
+  return { ...actual, buildAssistantPeriodRangeContext: vi.fn(actual.buildAssistantPeriodRangeContext) };
+});
+
+// The SDK is imported lazily inside the comment generator: one fake client answers on both
+// `messages.create` and `beta.messages.create`, so the test reads the response handling, not
+// which door the request went through.
+const { anthropicCreateMock } = vi.hoisted(() => ({ anthropicCreateMock: vi.fn() }));
+vi.mock('@anthropic-ai/sdk', () => ({
+  default: class {
+    messages = { create: anthropicCreateMock };
+    beta = { messages: { create: anthropicCreateMock } };
+  },
+}));
+
 vi.mock('@/lib/utils/dateHelpers', async () => {
   const actual = await vi.importActual<typeof import('@/lib/utils/dateHelpers')>(
     '@/lib/utils/dateHelpers'
@@ -91,8 +113,12 @@ import {
   generateEmailHtml,
   sendMonthlyEmail,
   buildExpenseSplitTile,
+  generateEmailAiComment,
   type MonthlyEmailData,
 } from '@/lib/server/monthlyEmailService';
+import { getAssistantMemoryDocument } from '@/lib/server/assistant/store';
+import { EMAIL_ANALYSIS_MODEL, SERVER_SIDE_FALLBACK_BETA } from '@/lib/constants/aiModels';
+import { buildAssistantPeriodRangeContext } from '@/lib/services/assistantMonthContextService';
 import { MAX_CATEGORY_DELTAS, type PeriodComparison } from '@/lib/server/emailPeriodComparison';
 import type { AssistantMemoryItem, AssistantMonthContextBundle, AssistantPreferences } from '@/types/assistant';
 import type { MonthlySnapshot } from '@/types/assets';
@@ -237,6 +263,74 @@ const BUDGET_ALERT: BudgetAlert = {
   thresholdCrossed: true,
   crossedOn: null,
 };
+
+// ─── generateEmailAiComment ───────────────────────────────────────────────────
+
+describe('generateEmailAiComment', () => {
+  const previousKey = process.env.ANTHROPIC_API_KEY;
+
+  /** A non-streamed response: a thinking block, then the text, then why it stopped. */
+  function answer(text: string, stopReason: string) {
+    return {
+      model: 'claude-sonnet-5-5',
+      content: [
+        { type: 'thinking', thinking: '', signature: 'sig' },
+        { type: 'text', text },
+      ],
+      stop_reason: stopReason,
+    };
+  }
+
+  beforeEach(() => {
+    process.env.ANTHROPIC_API_KEY = 'test-key';
+    anthropicCreateMock.mockReset();
+    vi.mocked(getAssistantMemoryDocument).mockRejectedValueOnce(new Error('no memory'));
+    vi.mocked(buildAssistantPeriodRangeContext).mockResolvedValueOnce(makeBundle());
+  });
+
+  afterEach(() => {
+    if (previousKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = previousKey;
+  });
+
+  it('keeps a comment that ends on end_turn', async () => {
+    anthropicCreateMock.mockResolvedValue(answer('Il patrimonio è cresciuto di 5000 €.', 'end_turn'));
+
+    const comment = await generateEmailAiComment('user-1', makeMonthlyData(), makeComparison());
+
+    expect(comment).toBe('Il patrimonio è cresciuto di 5000 €.');
+  });
+
+  it('asks for the default server-side fallback', async () => {
+    anthropicCreateMock.mockResolvedValue(answer('Il patrimonio è cresciuto di 5000 €.', 'end_turn'));
+
+    await generateEmailAiComment('user-1', makeMonthlyData(), makeComparison());
+
+    expect(anthropicCreateMock.mock.calls[0][0]).toMatchObject({
+      model: EMAIL_ANALYSIS_MODEL,
+      betas: [SERVER_SIDE_FALLBACK_BETA],
+      fallbacks: 'default',
+    });
+  });
+
+  it('drops a comment the model declined half-way (stop_reason refusal)', async () => {
+    // Sonnet 5.5 declines with HTTP 200: the half paragraph written before the refusal must
+    // not reach the inbox as if it were the comment — the email goes out without it.
+    anthropicCreateMock.mockResolvedValue(answer('Il patrimonio è cresciuto di', 'refusal'));
+
+    const comment = await generateEmailAiComment('user-1', makeMonthlyData(), makeComparison());
+
+    expect(comment).toBeNull();
+  });
+
+  it('drops a comment cut at max_tokens', async () => {
+    anthropicCreateMock.mockResolvedValue(answer('Il patrimonio è cresciuto di 5000 €. Il merc', 'max_tokens'));
+
+    const comment = await generateEmailAiComment('user-1', makeMonthlyData(), makeComparison());
+
+    expect(comment).toBeNull();
+  });
+});
 
 // ─── buildEmailAiPrompt ───────────────────────────────────────────────────────
 

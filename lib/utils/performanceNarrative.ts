@@ -820,3 +820,15 @@ export function describeAnalysisBase(input: { monthsMeasured: number; netCashFlo
   out.push(prose('.'));
   return out;
 }
+
+/**
+ * Who wrote the AI report, for the dialog's «scritto da …» (2026-10-12). The route runs with the
+ * server-side fallback: after a decline the report is written — in part or whole — by the
+ * fallback model, and the stream names it. Printing the REQUESTED model then would be the claim
+ * typed into the copy that `lib/constants/aiModels.ts` exists to prevent. `servedModel` is null
+ * until the stream names one (a report from before the stream said so reads as the requested).
+ */
+export function describeReportAuthor(servedModel: string | null, requestedModel: string): string {
+  if (servedModel === null || servedModel === requestedModel) return requestedModel;
+  return `${servedModel} (${requestedModel} aveva rifiutato la richiesta)`;
+}

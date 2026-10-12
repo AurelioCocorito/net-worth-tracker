@@ -5,6 +5,7 @@ import type { AssistantPreferences } from '@/types/assistant';
 vi.mock('server-only', () => ({}));
 
 import { streamAssistantResponse } from '@/lib/server/assistant/anthropicStream';
+import { ASSISTANT_MODEL, SERVER_SIDE_FALLBACK_BETA } from '@/lib/constants/aiModels';
 
 const OVERLOADED_MESSAGE = 'I server AI sono temporaneamente sovraccarichi. Riprova tra qualche secondo.';
 
@@ -23,10 +24,10 @@ const OVERLOADED_ENVELOPE = {
 
 /**
  * Runs a chat turn whose upstream call rejects with `failure`. The SDK client is built at
- * module load, so the rejection is injected on the shared `Messages.prototype.create`.
+ * module load, so the rejection is injected on the shared `Beta.Messages.prototype.create` (every Sonnet call goes through the beta endpoint for the server-side fallback).
  */
 function streamWithUpstreamFailure(failure: unknown) {
-  vi.spyOn(Anthropic.Messages.prototype, 'create').mockRejectedValue(failure);
+  vi.spyOn(Anthropic.Beta.Messages.prototype, 'create').mockRejectedValue(failure);
   return streamAssistantResponse({
     mode: 'chat',
     prompt: 'Come sta andando il mese?',
@@ -75,5 +76,35 @@ describe('streamAssistantResponse upstream failures', () => {
     );
 
     await expect(streamWithUpstreamFailure(sdkError)).rejects.toBe(sdkError);
+  });
+});
+
+describe('streamAssistantResponse server-side fallback', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('asks the beta endpoint for the default server-side fallback', async () => {
+    async function* empty() {}
+    const create = vi
+      .spyOn(Anthropic.Beta.Messages.prototype, 'create')
+      .mockResolvedValue(empty() as never);
+
+    await streamAssistantResponse({
+      mode: 'chat',
+      prompt: 'Come sta andando il mese?',
+      contextBundle: null,
+      preferences,
+      enableWebSearch: false,
+      onStatus: vi.fn(),
+      onText: vi.fn(),
+    });
+
+    expect(create.mock.calls[0][0]).toMatchObject({
+      model: ASSISTANT_MODEL,
+      betas: [SERVER_SIDE_FALLBACK_BETA],
+      fallbacks: 'default',
+      stream: true,
+    });
   });
 });

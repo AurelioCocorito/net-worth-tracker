@@ -19,6 +19,8 @@
 
 ## 🐛 Bug Fixes
 
+- **Email periodiche · email settimanale del budget** — Fixed an AI comment cut off halfway: when the model stops in the middle — it declines to go on, or reaches its length limit — the email now goes out without the comment instead of with half of it; when it declines for some reasons, another model writes the comment instead.
+
 - **Cashflow · Panoramica (uno zero)** — Fixed a figure that rounds to zero printed with a minus sign and a colour: the month's «Risparmio» on Tracciamento and on the Panoramica's Cashflow tile, the savings rate of a month, and what remains to a person on Divisione now read «0 €» in plain ink, as the cells under the title already did; an exact zero on Divisione is no longer green.
 - **Cashflow › Tracciamento (telefono)** — Fixed «Carica altri» after adding an entry from the «+»: when the new row sat past the first page the list opened on it, and the next «Carica altri» made the list shorter instead of longer.
 - **Cashflow › Tracciamento (demo)** — Fixed the «+» of the bottom bar in the demo account: it is no longer shown there, so a visitor cannot add an entry to the shared data.
@@ -26,9 +28,11 @@
 
 - **Cashflow › Movimenti (tabella)** — Fixed the deletion of a whole series from the table view, which left the fees' debits on the account; the feed already gave them back.
 
-- **Rendimenti › Analizza con AI** — Fixed the empty report when the model declines to write it: the dialog now says it was refused, or that the report stopped halfway and the text written so far is incomplete, and «Rigenera» is offered after any failure, not only beside a finished report.
+- **Rendimenti › Analizza con AI** — Fixed the empty or cut-off report: when the model declines to write it, another model takes over where the kind of refusal allows it, and the dialog names the model that actually wrote the report; when the refusal stands, or the report reaches its maximum length, the dialog says so — refused, or stopped halfway with the text written so far incomplete — and «Rigenera» is offered after any failure, not only beside a finished report.
 
 ## 🔧 Improvements
+
+- **Assistente AI** — Improved the answer to a question the model declines: for some kinds of refusal another model now answers in the same reply, instead of the notice that it cannot answer.
 
 - **Patrimonio e landing (telefono e tablet)** — The net-worth curve of the hero tile is shorter below the desktop width (120px), the same tile the Panoramica now composes; the reading, the chips and the market digest stay whole on those two surfaces.
 
