@@ -22,9 +22,9 @@ Righe del 2026-10-10 (MOB-02..08 possono spostarle: riverificare).
 - `PRODUCT.md:9` «Mobile-first at 390px with desktop as an elevated variant». `CLAUDE.md` § Known Issues: la voce della pill
   «38×32» tolta da MOB-02 il 2026-10-10 (lo `Switch` chiuso dal 2026-10-08); 13.133 byte in LF il 2026-10-10 (da rimisurare alla chiusura) contro
   «well under 20.000»; `CLAUDE.md` § Current Status: «50 Playwright spec files (189 tests incl. 6 auth setups)»: MOB-02..08
-  aggiungono 11 file e tre progetti. `README.md` utente: `:58` «tiles stack in one column» (Rendimenti), `:107` «tab
+  aggiungono 11 file e tre progetti. `README.md` utente: `:59` (riscritta il 2026-10-14 nel ritiro di MOB-05: la composizione sotto il desktop, le tessere intere dal tablet), `:107` «tab
   navigation uses a dropdown on small screens» (FIRE), `:114` «at 390px the tiles stack with the plan last» (Monte Carlo).
-- `AGENTS.md:733` «Keep the DOM in the desktop order so Tab follows the eye; the phone re-orders with `order-*` (Storico
+- `AGENTS.md:682-695` (§ Hierarchy, Density and Disclosure; era `:733` il 2026-09-26) «Keep the DOM in the desktop order so Tab follows the eye; the phone re-orders with `order-*` (Storico
   and Rendimenti are the worked examples)» (riscritta da MOB-02 il 2026-10-10: «Keep ONE sequence…» con l'elenco delle pagine che portano ancora `order-*`; qui si verifica che l'elenco sia vuoto).
 - `grep -rn "Composizione mobile" doc/guide` → 0 oggi; MOB-02..08 ne scrivono una per pagina, ognuna a modo suo.
 - `.impeccable/critique/`: 16 snapshot `closed: true` (2026-09-13 → 09-24) sulla composizione di PRIMA.

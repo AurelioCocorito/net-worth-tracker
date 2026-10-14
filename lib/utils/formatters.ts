@@ -66,6 +66,31 @@ export function formatEuroMinus(value: number): string {
 }
 
 /**
+ * The sign of a figure AS PRINTED at `decimals`: 0 when it rounds to zero («0,0%» for +0,03),
+ * the raw sign otherwise. The tone of a figure follows this, never `value < 0` (decision 20; on
+ * the Rendimenti tile since 2026-10-14, where the hero and the gap chip repeat a strip cell).
+ */
+export function printedSign(value: number, decimals: number): -1 | 0 | 1 {
+  if (Number(Math.abs(value).toFixed(decimals)) === 0) return 0;
+  return value < 0 ? -1 : 1;
+}
+
+/** «+7,3%», «−4,1%», «0,0%» — the it-IT percent signed on the PRINTED value, «−» typographic. */
+export function formatSignedPercentIt(value: number, decimals = 1): string {
+  const magnitude = formatPercentageIt(Math.abs(value), decimals);
+  const sign = printedSign(value, decimals);
+  return sign > 0 ? `+${magnitude}` : sign < 0 ? `−${magnitude}` : magnitude;
+}
+
+/** «+0,4 pt», «−9,3 pt», «1 pt», «0 pt» — a gap in points to one decimal, whole when it prints whole, signed on the printed value. */
+export function formatSignedPoints(delta: number): string {
+  const points = Math.round(Math.abs(delta) * 10) / 10;
+  const magnitude = `${formatNumberIt(points, points === Math.round(points) ? 0 : 1)} pt`;
+  const sign = printedSign(delta, 1);
+  return sign > 0 ? `+${magnitude}` : sign < 0 ? `−${magnitude}` : magnitude;
+}
+
+/**
  * Format a number as currency (Italian format)
  * @param amount - The amount to format
  * @param currency - The currency code (default: EUR)

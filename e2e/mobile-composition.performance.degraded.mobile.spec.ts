@@ -26,7 +26,9 @@
  * `mobile` project ignores `degraded.`.
  *
  * Seen red on 2026-10-14, one behaviour at a time: (1) the base passed as `scope` only at 1440
- * (nothing on the first screen to wait for); (2) the AI icon taken out of the phone's navbar
+ * (nothing on the first screen to wait for — the spec had promised «the base inside «Il perché»»,
+ * a mutation with the same effect: no visible «Base:» above «Il resto della pagina»; declared in
+ * the retirement of the same day); (2) the AI icon taken out of the phone's navbar
  * (count 0); (4) `reveal` without the `focus()`; (5) the store write removed from the row's
  * handler (the row never opens: `open` is read from the store); (6) Benchmark's `failed` fixed
  * to false (the row closed under six aborted series); (7) an `order-2` put back on Rischio

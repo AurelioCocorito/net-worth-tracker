@@ -1,7 +1,7 @@
 # MOB-08 — Tablet: 768 e 1024
 
 > Stato: da fare · riletta in modo adversariale il 2026-10-10: 30 rilievi, 5 decisioni · Priorità: 3 (il telefono prima; qui si raddrizza il landscape) · Sforzo: M · Dipende da: MOB-02..07
-> (MOB-02 ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450, e quindi MOB-01, ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448; MOB-03 ritirata il 2026-10-11, PR #452; MOB-04 ritirata il 2026-10-12, PR #454; PERF-01, PERF-02, PERF-14 ritirate, in develop) · Sblocca: MOB-09
+> (MOB-02 ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450, e quindi MOB-01, ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448; MOB-03 ritirata il 2026-10-11, PR #452; MOB-04 ritirata il 2026-10-12, PR #454; MOB-05 ritirata il 2026-10-14, PR #459: il progetto `degraded-mobile` e `/degraded\./` nel `testIgnore` di `mobile` vivono in `playwright.config.ts`; PERF-01, PERF-02, PERF-14 ritirate, in develop) · Sblocca: MOB-09
 
 ## 1. Il problema, misurato
 
@@ -24,7 +24,7 @@ Analisi 1/1): il landscape è il tablet peggiore. Righe del 2026-09-26, da river
   container query interna a una tessera senza un `desktop:` sulla stessa proprietà (`BaseDiCalcoloTile.tsx:81`,
   `ValoreStrumentoTile.tsx:154`) vale apposta anche a 1440.
 - `playwright.config.ts` non ha progetti tablet; `desktop` ignora `/\.(mobile|degraded)\.spec\.ts/` e le fixture
-  proprie (`:92`): un `*.tablet.spec.ts` girerebbe anche a 1440.
+  proprie (`:98`, dal 2026-10-14): un `*.tablet.spec.ts` girerebbe anche a 1440.
 - Divisione tiene le tessere per persona dentro UNA cella (`ExpenseSplitTab.tsx:303`, dal 2026-10-12).
 
 ## 2. Obiettivo misurabile
@@ -44,7 +44,10 @@ Analisi 1/1): il landscape è il tablet peggiore. Righe del 2026-09-26, da river
   blind spots: una proiezione che cambia di cifre, una riga che va a capo — non isolato). Prima di stringere con `--tighten`
   questa spec isola la causa sulle quattro superfici (una corsa il giorno N e una il giorno N+1 sullo stesso codice, le
   cifre sopra la piega a confronto) e la scrive nel seed come stato che vale dal 5 al penultimo giorno, oppure la dichiara
-  nel punto cieco della guida come limite del fixture; mai una tolleranza (README § 9, 23).
+  nel punto cieco della guida come limite del fixture; mai una tolleranza (README § 9, 23). **Lo stesso per le cinque voci di
+  Patrimonio allargate il 2026-10-14** (`raisedBy: "MOB-05: deriva del giorno del mese…"`: 390 `screens`, 768 `figuresAboveFold`,
+  1024 `screens`, `figuresAboveFold` e `tilesAboveFold`; README § 3.1 e § 9, 77), misurate identiche sulla build di develop lo
+  stesso giorno — MOB-06 ricompone Patrimonio e le ristringe, questa spec ne isola la causa.
 - La barra misurata come in § 4.3, trigger ≥ 44×44 (README § 9, 48). A 1440 le due pagine campione hanno 12 colonne e
   nessuna griglia di § 5 porta una classe `@[…]` fuori dalle costanti di `tabletComposition.ts` (guardia Vitest).
 
@@ -155,7 +158,7 @@ delle tre viewport). «Aggiungi» diventa `h-11` (il suo contenitore è `desktop
 ### 4.4 Playwright
 
 Due progetti dopo `mobile`, copiati da lui (`isMobile`, `hasTouch`, `STORAGE_STATE`, `dependencies: ['setup']`, lo
-stesso `testIgnore`, `:191-200`) con `testMatch: /\.tablet\.spec\.ts/`: `tablet` 768×1024, `tablet-landscape` 1024×768.
+stesso `testIgnore` con `/degraded\./`, `:207-222` dal 2026-10-14) con `testMatch: /\.tablet\.spec\.ts/`: `tablet` 768×1024, `tablet-landscape` 1024×768.
 `desktop` ignora `/\.(mobile|degraded|tablet)\.spec\.ts/`; `workers: 1` resta. Una spec gira nei due progetti e ramifica
 su `page.viewportSize().width`. Pagine campione, account base, forma e mai importi: **Panoramica** (`e2e/overview.tablet.spec.ts`:
 la risposta di `/api/dashboard/overview` patchata con `e2e/overviewFixture.ts` (2026-10-11), con `flags.hasTERTracking: true` e nessun

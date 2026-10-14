@@ -56,7 +56,7 @@ Righe del 2026-09-26 (chi implementa le riverifica):
 ## 3. Non-obiettivi
 
 B e C; le primitive (un campo nuovo solo additivo); il tablet (MOB-08); DESIGN.md (MOB-09); la Panoramica (composta il 2026-10-11, doc/guide/panoramica.md § Composizione mobile);
-Plusvalenze (MOB-05); le sparkline e i dialog (in develop dal 2026-10-07, doc/guide/patrimonio.md); la matematica; le azioni della navbar; le azioni
+Plusvalenze (Rendimenti, composta il 2026-10-14: `resolveRealizedGainsState` in `lib/utils/performanceSummary.ts`, doc/guide/rendimenti.md § Composizione mobile); le sparkline e i dialog (in develop dal 2026-10-07, doc/guide/patrimonio.md); la matematica; le azioni della navbar; le azioni
 di Hall of Fame (già in fondo da MOB-02). Sono di altre spec, chiuse prima (README § 9, 9), e qui si usano con i loro
 nomi: `PatrimonioTile.liftedFigures`, `id`, `isPatrimonioLiftedBlock` e la curva a 120 px, `ComposizioneTile` con
 `collapse`/`asideWhenClosed`, i `binding` di `describeSales` (`lib/utils/salesNarrative.ts`, dal 2026-10-11); `describeTrackingScope` e il blocco

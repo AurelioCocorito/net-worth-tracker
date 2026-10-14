@@ -113,9 +113,11 @@ export interface RealizedGainsStateInput {
 }
 
 /**
- * Whether Plusvalenze realizzate is a tile, an `ErrorNotice` or nothing (doc/mobile/README.md
- * § 9, decision 35 for the shape; the spec of 2026-10-14 for the rule). Until then a meta in
- * error read as «not migrated» and the tile vanished in silence.
+ * Whether Plusvalenze realizzate is a tile, an `ErrorNotice` or nothing (the failed-row shape of
+ * doc/mobile/README.md § 9, decision 36, and the owner's choice of 2026-09-26 that a silent
+ * Plusvalenze becomes a notice; the rule since 2026-10-14, doc/guide/rendimenti.md
+ * § Composizione mobile). Before that day a meta in error read as «not migrated» and the tile
+ * vanished in silence.
  *
  *   failed  the meta's read failed WITHOUT a document to show (`data === undefined`): a reread
  *           that fails over a document already held — the persisted cache included — stays
@@ -280,6 +282,16 @@ export function deannualizeReturn(annualizedPct: number, numberOfMonths: number)
  * @param annualizedReturn - TWR as computed by the service (annualized), or null
  * @param numberOfMonths - Length of the measured period
  */
+/**
+ * «nei N mesi» or «negli N mesi»: the Italian article before a count of months spoken aloud —
+ * «otto» and «undici» open with a vowel, every other count below a year (where this label
+ * lives) with a consonant. Until 2026-10-14 the hero said «nei 8 mesi» and the strip cell
+ * and the verdict repeated it.
+ */
+export function inMonths(numberOfMonths: number): 'nei' | 'negli' {
+  return numberOfMonths === 8 || numberOfMonths === 11 ? 'negli' : 'nei';
+}
+
 export function resolveHeroReturn(
   annualizedReturn: number | null,
   numberOfMonths: number
@@ -296,7 +308,7 @@ export function resolveHeroReturn(
   return {
     value: isFinite(periodReturn) ? periodReturn : null,
     isPeriodReturn: true,
-    label: numberOfMonths === 1 ? 'nel mese' : `nei ${numberOfMonths} mesi`,
+    label: numberOfMonths === 1 ? 'nel mese' : `${inMonths(numberOfMonths)} ${numberOfMonths} mesi`,
   };
 }
 

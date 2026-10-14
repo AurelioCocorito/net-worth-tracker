@@ -191,7 +191,7 @@ export default defineConfig({
     },
     {
       // Rendimenti composed for a phone, on the degraded account's `performance` fixture
-      // (2026-10-14, MOB-05): the one page whose composition spec needs a fixture with a measured
+      // (2026-10-14): the one page whose composition spec needs a fixture with a measured
       // return. `mobile` ignores `degraded.` below, or it would collect this file on the base account.
       name: 'degraded-mobile',
       use: {

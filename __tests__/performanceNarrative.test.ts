@@ -30,6 +30,7 @@ import type {
   RealizedGainsSummary,
   ReturnConsistency,
 } from '@/lib/utils/performanceSummary';
+import { resolveHeroReturn } from '@/lib/utils/performanceSummary';
 import {
   describeAnalysisBase,
   describeReportAuthor,
@@ -273,7 +274,7 @@ describe('buildPerformanceVerdict', () => {
   });
 });
 
-// ─── The phone's cut (2026-10-14, MOB-05) ─────────────────────────────────────
+// ─── The phone's cut (2026-10-14) ─────────────────────────────────────────────
 //
 // Seen red, one at a time, the day they were written: (1) `leadLength: 0` with the model —
 // `cutSentence` returning the sentence bare; (2) the «.» at the first «;» — the prefix left as
@@ -647,6 +648,17 @@ describe('describeAttribution', () => {
     expect(plain(describeAttribution({ rows: [row('Vanguard All-World', 20000)], attributed: 20000, gain: 21000, unattributed: 1000, coverage, residualMonths }))).toBe(
       'Il mercato ha reso +21.000 € nei 10 mesi con il dettaglio per strumento (da dicembre 2025): Vanguard All-World ne ha portati +20.000 €; +1000 € non sono attribuibili a uno strumento.'
     );
+  });
+
+  it('says «negli 8 mesi», as the hero does — the vowel-initial count (2026-10-14)', () => {
+    // Seen red on 2026-10-14 with the window fixed on «nei» («nei 8 mesi con il dettaglio»).
+    const coverage = { measuredMonths: 44, attributedMonths: 8, firstAttributed: { year: 2026, month: 2 }, lastAttributed: { year: 2026, month: 9 } };
+    expect(plain(describeAttribution({ rows: [row('Vanguard All-World', 20000)], attributed: 20000, gain: 21000, unattributed: 1000, coverage, residualMonths }))).toContain(
+      'negli 8 mesi con il dettaglio per strumento (da febbraio 2026)'
+    );
+    // The verdict's sentence prints the hero's label as resolved: «negli 8 mesi (TWR)», never «nei 8 mesi».
+    const eightMonths = buildPerformanceVerdict({ ...baseInput, period: 'YTD', numberOfMonths: 8, heroReturn: resolveHeroReturn(7.3, 8), benchmark: null });
+    expect(plain(eightMonths.sentence)).toContain('negli 8 mesi (TWR)');
   });
 
   it('reads the coverage for the Dettaglio: instruments, months, window and residual', () => {

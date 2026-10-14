@@ -3,7 +3,7 @@
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { CompanionReturnChip, DrawdownStatus, GrowthOfHundredSeries, HeroReturn } from '@/lib/utils/performanceSummary';
-import { formatNumber, formatPercentage } from '@/lib/services/chartService';
+import { formatSignedPercentIt, formatSignedPoints, printedSign } from '@/lib/utils/formatters';
 import { getMetricValueColor, signChipClass } from '@/lib/utils/metricColors';
 import { useCountUp } from '@/lib/utils/useCountUp';
 import { cn } from '@/lib/utils';
@@ -66,21 +66,19 @@ interface RendimentoTileProps {
 function HeroValue({ value }: { value: number }) {
   const animated = useCountUp(value, { duration: 620, fromPrevious: true });
   const shown = animated ?? value;
-  return <>{`${shown > 0 ? '+' : shown < 0 ? '−' : ''}${formatPercentage(Math.abs(shown), 1)}`}</>;
+  // The sign follows the PRINTED value (decision 20, since 2026-10-14): «0,0%» for +0,03, as the strip cell prints it.
+  return <>{formatSignedPercentIt(shown, 1)}</>;
 }
 
-function formatPoints(delta: number): string {
-  const points = Math.round(Math.abs(delta) * 10) / 10;
-  return `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${formatNumber(points, points === Math.round(points) ? 0 : 1)} pt`;
-}
-
+/** A chip's tone follows its PRINTED value (one decimal): a figure that prints as zero is uncoloured, like the strip cell that repeats it. */
 function Chip({ value, caption, className, children }: { value: number | null; caption: string; className?: string; children: React.ReactNode }) {
+  const sign = value === null ? null : printedSign(value, 1);
   return (
     <div className={cn('flex min-w-0 flex-col gap-1', className)}>
       <span
         className={cn(
           'inline-flex w-fit max-w-full items-center gap-1.5 whitespace-nowrap rounded-[9px] px-[11px] py-[6px] font-mono text-[12px] font-semibold leading-none tracking-[-0.01em] tabular-nums',
-          value === null ? 'bg-muted text-foreground' : signChipClass(value),
+          sign === null || sign === 0 ? 'bg-muted text-foreground' : signChipClass(sign),
         )}
       >
         {children}
@@ -113,7 +111,7 @@ export function RendimentoTile({
   liftedFigures = [],
   className,
 }: RendimentoTileProps) {
-  const DeltaIcon = benchmark && benchmark.delta < 0 ? TrendingDown : TrendingUp;
+  const DeltaIcon = benchmark && printedSign(benchmark.delta, 1) < 0 ? TrendingDown : TrendingUp;
   const lifted = (block: RendimentoLiftedBlock) => liftedFigures.includes(block);
   // The chips' row hides whole when nothing of it would stay: a bare `gap` row is a hole on a phone.
   const benchmarkChipStays = benchmarkLoading || (benchmark !== null && !lifted(RENDIMENTO_BENCHMARK_CHIP_BLOCK));
@@ -128,7 +126,7 @@ export function RendimentoTile({
     <Tile id={PERFORMANCE_SECTION_IDS.twr} eyebrow="Rendimento (TWR)" aside={aside} reading={reading} className={className} ariaLabel="Rendimento">
       {/* The hero block is the figure WITH its qualifier: lifted, the strip's cell carries both («Rendimento nei 4 mesi»). */}
       <div className={cn('mt-3.5 flex flex-wrap items-baseline gap-x-3 gap-y-1', lifted(RENDIMENTO_HERO_BLOCK) && LIFTED_FIGURE_CLASS)}>
-        <p className={cn('font-mono text-[44px] font-bold leading-none tracking-[-0.03em] tabular-nums desktop:text-[54px]', getMetricValueColor(heroReturn.value, 'percentage'))}>
+        <p className={cn('font-mono text-[44px] font-bold leading-none tracking-[-0.03em] tabular-nums desktop:text-[54px]', getMetricValueColor(heroReturn.value === null ? null : printedSign(heroReturn.value, 1), 'percentage'))}>
           {heroReturn.value === null ? '—' : <HeroValue value={heroReturn.value} />}
         </p>
         {/* A period return already names its months («nei 9 mesi»); the annualised one needs them beside it. */}
@@ -153,14 +151,13 @@ export function RendimentoTile({
           benchmark && (
             <Chip value={benchmark.delta} caption={`vs ${benchmark.name}`} className={lifted(RENDIMENTO_BENCHMARK_CHIP_BLOCK) ? LIFTED_FIGURE_CLASS : undefined}>
               <DeltaIcon className="h-[13px] w-[13px] shrink-0" aria-hidden="true" />
-              {formatPoints(benchmark.delta)}
+              {formatSignedPoints(benchmark.delta)}
             </Chip>
           )
         )}
         {companionReturn && (
           <Chip value={companionReturn.value} caption={companionReturn.label}>
-            {companionReturn.value > 0 ? '+' : companionReturn.value < 0 ? '−' : ''}
-            {formatPercentage(Math.abs(companionReturn.value), 1)}
+            {formatSignedPercentIt(companionReturn.value, 1)}
           </Chip>
         )}
         {drawdown && (
@@ -169,7 +166,7 @@ export function RendimentoTile({
             caption={drawdown.atPeak ? 'oggi' : 'dal massimo del periodo'}
             className={lifted(RENDIMENTO_DRAWDOWN_CHIP_BLOCK) ? LIFTED_FIGURE_CLASS : undefined}
           >
-            {drawdown.atPeak ? <span className="font-sans font-medium">Massimo del periodo</span> : `−${formatPercentage(Math.abs(drawdown.current), 1)}`}
+            {drawdown.atPeak ? <span className="font-sans font-medium">Massimo del periodo</span> : formatSignedPercentIt(drawdown.current, 1)}
           </Chip>
         )}
       </div>
