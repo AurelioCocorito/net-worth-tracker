@@ -330,7 +330,7 @@ file used to carry.
 - `topMovers`/`marketEffect` are MARKET return, never the user's flows: `[]` when the previous snapshot has no `byAsset`, `null` when not attributable (≠ measured 0).
 - Every sentence comes from `overviewNarrative.ts`; a falling month blames the market only when `marketEffect < 0`. `resolveDeclineCause` (`lib/utils/periodSales.ts`) is the ONE decision for Panoramica, Patrimonio and the email (the tax in the headline, 2026-09-13), `resolveTaxedGrowth` its twin for a month that did NOT fall (2026-09-19).
 - A driver subject missing from `CLASS_SUBJECTS` drops the clause, never prints itself; the page has no «Dettaglio» of its own.
-- Il resto — `salesNarrative.ts` (the shared words), the tax headlines, the month's split, the trade-aware market, the lived savings rate, the category deep link, the hero step-down, the tile grid, the superseded-pattern rule, the Italian-copy test trap — in `doc/guide/panoramica.md`.
+- Il resto — `salesNarrative.ts` (the shared words), the tax headlines, the month's split and the user's money outside the cashflow it names (`monthFlows`: pension contributions, principal repaid per debt — 2026-10-14), the trade-aware market, the lived savings rate, the category deep link, the hero step-down, the tile grid, the superseded-pattern rule, the Italian-copy test trap — in `doc/guide/panoramica.md`.
 
 ### Patrimonio · Asset Pricing, FX and Assets → `doc/guide/patrimonio.md`
 - "Does this asset have a market price?" is ONE rule in `assetPricing.ts` (`hasMarketPrice`/`requiresManualPricing`); a new hand-valued type goes in `MANUALLY_VALUED_TYPES` and nowhere else.

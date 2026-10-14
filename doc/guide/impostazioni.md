@@ -149,6 +149,8 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   emails read**: `getSettingsAdmin` in `lib/server/monthlyEmailService.ts` is a third independent re-listing, narrow by
   default (it used to carry only the email fields). `familyMembers` was missing from BOTH server mappers until
   2026-08-31 and there is no type error for it — an absent field is simply `undefined` server-side.
+  `pensionReturnStartMonth` joined it on 2026-10-14 (the email names the month's pension contributions only from
+  there, doc/guide/email-pdf.md).
 - **Store a boolean explicitly, never derive it** from other fields. All feature toggles live in
   `AssetAllocationSettings`, never in `UserPreferences`, and dirty-state snapshot keys contain **only persisted
   fields**, captured *after* the Firestore state is applied.

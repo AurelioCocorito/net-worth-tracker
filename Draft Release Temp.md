@@ -19,6 +19,8 @@
 
 ## 🐛 Bug Fixes
 
+- **Panoramica · Patrimonio · Email periodiche** — Fixed the month's split calling «altre variazioni» the money you moved outside the cashflow: the payments into a pension fund (TFR, employer, voluntary) and the principal repaid on a mortgage or a loan now have their own names — «+2000 € dal mercato, +1000 € risparmiati, +300 € di debito rimborsato (Mutuo), +500 € versati nel fondo pensione» — each debt by the name of its asset, and «altre variazioni» is left for what nothing explains. The periodic email no longer counts them as «mercato».
+
 - **Email periodiche · email settimanale del budget** — Fixed an AI comment cut off halfway: when the model stops in the middle — it declines to go on, or reaches its length limit — the email now goes out without the comment instead of with half of it; when it declines for some reasons, another model writes the comment instead.
 
 - **Cashflow · Panoramica (uno zero)** — Fixed a figure that rounds to zero printed with a minus sign and a colour: the month's «Risparmio» on Tracciamento and on the Panoramica's Cashflow tile, the savings rate of a month, and what remains to a person on Divisione now read «0 €» in plain ink, as the cells under the title already did; an exact zero on Divisione is no longer green.

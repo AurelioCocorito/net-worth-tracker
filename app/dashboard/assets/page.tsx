@@ -340,6 +340,7 @@ export default function AssetsPage() {
       accountCount: cashAccounts.length,
       loanCount: heldLoans.length,
       marketEffect: overview.marketEffect ?? null,
+      monthFlows: overview.monthFlows ?? null,
       topMover: overview.topInstrumentMovers?.[0] ?? null,
       sales: overview.monthSales ?? null,
       savings: resolveLivedCashflow(overview.expenseStats)?.savings ?? null,

@@ -20,6 +20,7 @@ import {
 import {
   computeAllTimeHigh,
   computeMarketEffect,
+  computeMonthFlows,
   computeTopInstrumentMovers,
   computeTopMovers,
   rankCostDrivers,
@@ -28,7 +29,7 @@ import {
 } from '@/lib/utils/dashboardOverviewUtils';
 import { resolvePensionReturnStart } from '@/lib/utils/pensionReturn';
 import { summarizePeriodSales } from '@/lib/utils/periodSales';
-import { getAssetTransactionsAdmin } from '@/lib/server/assetAdminRepository';
+import { getAssetTransactionsAdmin, getPensionContributionsAdmin } from '@/lib/server/assetAdminRepository';
 import type { PensionContribution } from '@/types/pension';
 import type { AssetTransaction } from '@/types/assetTransactions';
 import {
@@ -119,29 +120,6 @@ async function getSnapshotsForUser(userId: string): Promise<MonthlySnapshot[]> {
       createdAt: toDate(data.createdAt),
     };
   }) as MonthlySnapshot[];
-}
-
-/**
- * The owner's pension contributions — read only when a pension fund is held, because the digest
- * needs them to split a fund's growth into contributions and return (see `computeTopMovers`).
- */
-async function getPensionContributionsForUser(userId: string): Promise<PensionContribution[]> {
-  const snapshot = await adminDb
-    // Literal on purpose: `pensionContributionService` exports the constant but top-level-imports
-    // the CLIENT Firebase SDK (the same trap as goalService — doc/guide/panoramica.md § Panoramica and Dashboard Data Isolation).
-    .collection('pensionContributions')
-    .where('userId', '==', userId)
-    .get();
-
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      ...data,
-      date: toDate(data.date),
-      createdAt: data.createdAt ? toDate(data.createdAt) : undefined,
-    };
-  }) as PensionContribution[];
 }
 
 async function getSettingsForUser(userId: string): Promise<AssetAllocationSettings | null> {
@@ -421,6 +399,7 @@ function buildLiveOverviewPayload(
   const topMovers = computeTopMovers(assets, previousSnapshot, totalValue, pensionMarketInput, monthTrades);
   const marketEffect = computeMarketEffect(assets, previousSnapshot, pensionMarketInput, monthTrades);
   const topInstrumentMovers = computeTopInstrumentMovers(assets, previousSnapshot, totalValue, pensionMarketInput, monthTrades);
+  const monthFlows = computeMonthFlows(assets, previousSnapshot, pensionMarketInput);
   const goalProgressList =
     settings?.goalBasedInvestingEnabled && goalData
       ? rankGoalProgress(goalData.goals, goalData.assignments, assets)
@@ -523,6 +502,7 @@ function buildLiveOverviewPayload(
     },
     topMovers,
     marketEffect,
+    monthFlows,
     topInstrumentMovers,
     goalProgress,
     goalProgressList,
@@ -614,7 +594,7 @@ async function readOverviewInputs(userId: string, now: Date): Promise<OverviewIn
       getGoalDataAdmin(userId),
     ]),
     Promise.allSettled([
-      getPensionContributionsForUser(userId),
+      getPensionContributionsAdmin(userId),
       getAssetTransactionsAdmin(userId),
       Promise.all([
         getExpensesForMonth(userId, currentYear, currentMonth),

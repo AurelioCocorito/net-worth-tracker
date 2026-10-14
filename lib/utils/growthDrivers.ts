@@ -58,7 +58,7 @@ import type { AssetTransaction } from '@/types/assetTransactions';
 import type { PensionContribution } from '@/types/pension';
 import { getItalyDateIso, getItalyMonth, getItalyYear, ITALY_TIMEZONE } from '@/lib/utils/dateHelpers';
 import { attributeSelectedChange } from '@/lib/utils/snapshotAssetBreakdown';
-import { pensionPaidInBetween, tradeAwarePriceEffect, type PositionValue } from '@/lib/utils/marketEffect';
+import { debtRepaymentsBetween, isLoanRowOf, pensionPaidInAcross, pensionPaidInBetween, tradeAwarePriceEffect, type PositionValue } from '@/lib/utils/marketEffect';
 import { summarizePeriodSales } from '@/lib/utils/periodSales';
 
 export interface GrowthDrivers {
@@ -149,8 +149,8 @@ export function createGrowthDriverMeter(context: GrowthDriverContext) {
   const pensionFundIds = new Set(context.assets.filter((a) => a.type === 'pensionFund').map((a) => a.id));
   // A loan's value is minus its principal; one deleted since (repaid in full, then removed) is
   // still read by its negative `totalValue` in the snapshots, which is why the set is not enough.
-  const loanIds = new Set(context.assets.filter(isLoanAsset).map((a) => a.id));
-  const isLoanRow = (row: SnapshotRow) => loanIds.has(row.assetId) || (row.totalValue < 0 && row.quantity > 0 && !realEstateIds.has(row.assetId));
+  const loans = context.assets.filter(isLoanAsset);
+  const isLoanRow = isLoanRowOf(new Set(loans.map((a) => a.id)), realEstateIds);
   // A property is measured GROSS of its debt: the snapshot's `price` is the property value.
   const grossRows = (rows: SnapshotRow[]) => rows.map((row) => (realEstateIds.has(row.assetId) ? { ...row, totalValue: row.quantity * row.price } : row));
 
@@ -161,18 +161,11 @@ export function createGrowthDriverMeter(context: GrowthDriverContext) {
   }
 
   /**
-   * The debt at `previous` minus the debt at `current`: the loans as a total (a loan on one side
-   * only is debt opened or closed), the legacy property debt (gross − net) paired per property —
-   * a property present on one side only was bought or sold, its debt moved with it, not repaid.
+   * The debt at `previous` minus the debt at `current`, summed over every debt — the rule the
+   * Panoramica lists by name (`debtRepaymentsBetween`, lib/utils/marketEffect.ts).
    */
   function debtRepaidBetween(previous: MonthlySnapshot, current: MonthlySnapshot): number {
-    const loansOf = (rows: SnapshotRow[]) => rows.filter(isLoanRow).reduce((sum, row) => sum - row.totalValue, 0);
-    let repaid = loansOf(previous.byAsset) - loansOf(current.byAsset);
-    const legacyDebtOf = (rows: SnapshotRow[]) => new Map(rows.filter((row) => realEstateIds.has(row.assetId)).map((row) => [row.assetId, row.quantity * row.price - row.totalValue]));
-    const before = legacyDebtOf(previous.byAsset);
-    const after = legacyDebtOf(current.byAsset);
-    for (const [assetId, debt] of before) if (after.has(assetId)) repaid += debt - after.get(assetId)!;
-    return repaid;
+    return debtRepaymentsBetween(previous.byAsset, current.byAsset, loans, realEstateIds).reduce((sum, debt) => sum + debt.repaid, 0);
   }
 
   function measuredMarket(previous: MonthlySnapshot, current: MonthlySnapshot, trades: AssetTransaction[]): number {
@@ -229,11 +222,7 @@ export function createGrowthDriverMeter(context: GrowthDriverContext) {
     const currentKey = monthKeyOfIndex(toIndex);
     // Named only once the contributions are complete (the Panoramica's rule): before `startMonth`
     // the fund's growth is not attributable, and naming half of it would push the other half negative.
-    const { startMonth } = context.pension;
-    let pensionContributions = 0;
-    if (startMonth !== null && startMonth <= previousKey) {
-      for (const assetId of pensionFundIds) pensionContributions += pensionPaidInBetween(context.pension.contributions, assetId, previousKey, currentKey);
-    }
+    const pensionContributions = pensionPaidInAcross(context.pension.contributions, pensionFundIds, context.pension.startMonth, previousKey, currentKey);
     const market = isMarketMeasured ? measuredMarket(previous, current, trades) : netWorthGrowth - netSavings + taxes - pensionContributions;
     const debtRepaid = isMarketMeasured ? debtRepaidBetween(previous, current) : 0;
     const other = netWorthGrowth - netSavings - market + taxes - debtRepaid - pensionContributions;
