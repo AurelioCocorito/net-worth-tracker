@@ -690,8 +690,9 @@ file used to carry.
   utilities in `main` at 0 — read from `classList` with `/^(?:[a-z-]+:)*order-/`, since `[class*="order-"]` matches
   every `border-*`, doc/guide/e2e-emulatori.md). The Panoramica lost its `order-1…8` on 2026-10-11
   (`e2e/overview.{mobile.,}spec.ts`), the five Cashflow tabs theirs on 2026-10-12 (Budget, Centri, the centre's detail,
-  Dividendi; `e2e/mobile-composition.cashflow.mobile.spec.ts`); every other page still carries `order-*` (Analisi, Storico,
-  Rendimenti, Allocazione, Previdenza, every FIRE tab) until MOB-05..07 compose them.
+  Dividendi; `e2e/mobile-composition.cashflow.mobile.spec.ts`), Rendimenti its `order-1…8` on 2026-10-14
+  (`e2e/mobile-composition.performance.degraded.mobile.spec.ts`); every other page still carries `order-*` (Analisi,
+  Storico, Allocazione, Previdenza, every FIRE tab) until MOB-06 and MOB-07 compose them.
 - **A row's caption WRAPS, it is never truncated, and the label column never grows to make room for it** (2026-09-14,
   `RankedRows`): a cut fact is no fact («30 set · Asilo nido · in calendario»); at 4 grid columns 46% is the most the
   label can take beside the bar's 40px floor, the amount and the share (58% painted the share outside the tile,
@@ -850,7 +851,7 @@ file used to carry.
 - **`workers: 1`, non-negotiable**, and **each suite its OWN fixture** (an `npm run e2e:seed:*` script plus one
   `spawnSync` in `e2e/global-setup.ts`). Re-seeding an account mid-suite logs it out: creation once, data-only per test.
 - **The FILENAME chooses the account**: `*.spec.ts` → `desktop`, `*.mobile.spec.ts` → `mobile`, `*.degraded.spec.ts` →
-  degraded, only `analisi.spec.ts` / `centri.spec.ts` / `split.spec.ts` / `hof.spec.ts` reach those fixtures — and each
+  degraded, `*.degraded.mobile.spec.ts` → `degraded-mobile` (2026-10-14), only `analisi.spec.ts` / `centri.spec.ts` / `split.spec.ts` / `hof.spec.ts` reach those fixtures — and each
   is ALSO excluded from `desktop`/`mobile` by `testIgnore`. A throwaway spec gets its own `playwright.<name>.config.ts`
   and is deleted before the full suite (2026-08-28).
 - **`localhost`, never `127.0.0.1`** (the page never hydrates and the login submits natively), and `storageState`

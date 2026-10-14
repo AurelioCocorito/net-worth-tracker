@@ -190,6 +190,21 @@ export default defineConfig({
       testMatch: /\.degraded\.spec\.ts/,
     },
     {
+      // Rendimenti composed for a phone, on the degraded account's `performance` fixture
+      // (2026-10-14, MOB-05): the one page whose composition spec needs a fixture with a measured
+      // return. `mobile` ignores `degraded.` below, or it would collect this file on the base account.
+      name: 'degraded-mobile',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+        storageState: DEGRADED_STORAGE_STATE,
+      },
+      dependencies: ['setup-degraded'],
+      testMatch: /\.degraded\.mobile\.spec\.ts/,
+    },
+    {
       name: 'mobile',
       // 390px is the width DESIGN.md designs against first. Chromium rather than the WebKit-backed
       // iPhone descriptor: one browser to install, and what is under test here is the layout at a
@@ -203,7 +218,7 @@ export default defineConfig({
       },
       dependencies: ['setup'],
       testMatch: /\.mobile\.spec\.ts/,
-      testIgnore: [/analisi\./, /centri\./, /split\./, /hof\./],
+      testIgnore: [/analisi\./, /centri\./, /split\./, /hof\./, /degraded\./],
     },
   ],
 

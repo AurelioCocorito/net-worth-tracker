@@ -4,10 +4,14 @@ import type { Narrative } from '@/lib/utils/narrative';
 import type { CapitalEnteredChannel, CapitalEnteredSummary } from '@/lib/utils/performanceSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 
 interface ContributiTileProps {
+  /** The row of the phone composition (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (`PERFORMANCE_CLOSED_ASIDES`). */
+  asideWhenClosed?: string;
   reading: Narrative;
   /** The capital the return formulas neutralised, channel by channel (`summarizeCapitalEntered`). */
   capital: CapitalEnteredSummary;
@@ -64,6 +68,8 @@ const Mono = ({ children }: { children: React.ReactNode }) => <span className="f
  * Patrimonio and Cashflow must be able to find them and see they are a different measure.
  */
 export function ContributiTile({
+  collapse,
+  asideWhenClosed,
   reading,
   capital,
   numberOfMonths,
@@ -128,7 +134,7 @@ export function ContributiTile({
   };
 
   return (
-    <Tile eyebrow="Contributi" aside="nel periodo" reading={reading} className={className}>
+    <Tile eyebrow="Contributi" aside="nel periodo" collapse={collapse} asideWhenClosed={asideWhenClosed} reading={reading} className={className}>
       <p className={cn(KPI_VALUE_CLASS, 'mt-4 text-foreground')}>{signedEuro(capital.total)}</p>
       <p className="mt-1.5 text-[11px] text-muted-foreground">entrati nella base misurata</p>
 

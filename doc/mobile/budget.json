@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-12",
+  "measuredAt": "2026-10-14",
   "account": "census@example.com",
   "tolerance": {},
   "informational": {
@@ -133,33 +133,34 @@
     },
     "patrimonio": {
       "390": {
-        "screens": 3.23,
+        "screens": 3.25,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 18,
+        "figuresAboveFold": 16,
         "figuresOutsideVerdict": 5,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-03: la curva di PatrimonioTile a 120 px sotto desktop (decisione 4, la stessa che MOB-06 usa) porta sopra la piega le etichette della curva, il digest e il conteggio: figuresAboveFold 12 → 18 a 390 (di cui +2 di deriva del giorno: il codice di develop misurato lo stesso giorno dava 14) e 22 → 25 a 768; screens scende (3,34 → 3,23 · 2,1 → 2,04 · 2,73 → 2,64)"
+        "raisedBy": "MOB-05: deriva del giorno del mese, non del codice — la build di develop (83de3f68) misurata lo stesso giorno (2026-10-14) dà esattamente questi valori prima e dopo la sessione: 390 screens 3,23 → 3,25; 768 figuresAboveFold 25 → 26; 1024 screens 2,64 → 2,67, figuresAboveFold 18 → 19, tilesAboveFold 3 → 1 (doc/guide/prima-schermata.md § Per-page blind spots, l'erede è MOB-08 § 2)"
       },
       "768": {
         "screens": 2.04,
         "tilesAboveFold": 5,
         "tilesFullyAboveFold": 3,
-        "figuresAboveFold": 25,
+        "figuresAboveFold": 26,
         "figuresOutsideVerdict": 15,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-03: la curva di PatrimonioTile a 120 px sotto desktop (decisione 4, la stessa che MOB-06 usa) porta sopra la piega le etichette della curva, il digest e il conteggio: figuresAboveFold 12 → 18 a 390 (di cui +2 di deriva del giorno: il codice di develop misurato lo stesso giorno dava 14) e 22 → 25 a 768; screens scende (3,34 → 3,23 · 2,1 → 2,04 · 2,73 → 2,64)"
+        "raisedBy": "MOB-05: deriva del giorno del mese, non del codice — la build di develop (83de3f68) misurata lo stesso giorno (2026-10-14) dà esattamente questi valori prima e dopo la sessione: 390 screens 3,23 → 3,25; 768 figuresAboveFold 25 → 26; 1024 screens 2,64 → 2,67, figuresAboveFold 18 → 19, tilesAboveFold 3 → 1 (doc/guide/prima-schermata.md § Per-page blind spots, l'erede è MOB-08 § 2)"
       },
       "1024": {
-        "screens": 2.64,
-        "tilesAboveFold": 3,
+        "screens": 2.67,
+        "tilesAboveFold": 1,
         "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 18,
+        "figuresAboveFold": 19,
         "figuresOutsideVerdict": 11,
         "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-05: deriva del giorno del mese, non del codice — la build di develop (83de3f68) misurata lo stesso giorno (2026-10-14) dà esattamente questi valori prima e dopo la sessione: 390 screens 3,23 → 3,25; 768 figuresAboveFold 25 → 26; 1024 screens 2,64 → 2,67, figuresAboveFold 18 → 19, tilesAboveFold 3 → 1 (doc/guide/prima-schermata.md § Per-page blind spots, l'erede è MOB-08 § 2)"
       }
     },
     "cashflow-tracciamento": {
@@ -353,28 +354,29 @@
     },
     "rendimenti": {
       "390": {
-        "screens": 4.09,
-        "tilesAboveFold": 1,
-        "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 8,
-        "figuresOutsideVerdict": 6,
-        "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "screens": 1.76,
+        "tilesAboveFold": 2,
+        "tilesFullyAboveFold": 1,
+        "figuresAboveFold": 5,
+        "figuresOutsideVerdict": 5,
+        "firstClosedRowAbovePill": false,
+        "overflowX": false,
+        "raisedBy": "MOB-05: la prima riga chiusa (Benchmark) finisce a 891 contro la pill a 767 — il verdetto è alto 267 (titolo, asse 44 con l'icona del calendario, striscia di due celle, la riga «Base: …» su due righe, «Il perché»), LA tessera 377 con la curva già a 120 px (decisione 4) e la lettura intera, «Il resto» 44; decisione 19 estesa a Rendimenti (README § 9, 77)"
       },
       "768": {
-        "screens": 2.47,
-        "tilesAboveFold": 3,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 16,
-        "figuresOutsideVerdict": 11,
-        "firstClosedRowAbovePill": null,
+        "screens": 1.28,
+        "tilesAboveFold": 5,
+        "tilesFullyAboveFold": 5,
+        "figuresAboveFold": 7,
+        "figuresOutsideVerdict": 7,
+        "firstClosedRowAbovePill": true,
         "overflowX": false
       },
       "1024": {
-        "screens": 3.25,
+        "screens": 1.62,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 8,
+        "figuresAboveFold": 7,
         "figuresOutsideVerdict": 6,
         "firstClosedRowAbovePill": null,
         "overflowX": false

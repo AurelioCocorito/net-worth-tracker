@@ -74,7 +74,10 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   reads is `PageRest`'s `describeFailedSections` («Una sezione non è stata letta: Benchmark.» / «2 sezioni non sono state
   lette: Benchmark, Contributi.» / `null`). At 1440 nothing changes: `collapse` is `undefined`, `live` true. Hall of Fame
   has one payload and renders neither a row nor an announcement for a failure; the first row in error is Dividendi's
-  Rendimento (since 2026-10-12), then MOB-05 (Benchmark) and MOB-07 (Esposizione). **A failed read of a WHOLE tab is
+  Rendimento (since 2026-10-12), then Rendimenti's Benchmark and Plusvalenze realizzate (since 2026-10-14: every one
+  of the six model series failed, or the ledger's meta failed with no document to show — `ErrorNotice` in the cell at
+  every width, a failed row below `desktop:`; doc/guide/rendimenti.md § Composizione mobile), then MOB-07
+  (Esposizione). **A failed read of a WHOLE tab is
   the verdict's `pending` notice** (`PageVerdict.pending`, `{ kind: 'failed', notice }`, since 2026-10-12: Tracciamento,
   Divisione and — from the spec's retirement — Centri di Costo, whose empty summary's verdict «Nessun centro di costo.»
   stood above the notice until then): the `section` stays, the axis keeps its slot and its focus, the notice takes the
@@ -131,4 +134,4 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
 ## Per-page blind spots
 
-- **Il ramo `isError` copre 20 superfici, non ogni query**: cablate quelle da cui dipende il verdetto o l'inventario, non le secondarie (prezzi, benchmark, FX) — una di quelle che fallisce degrada ancora in silenzio. (moved from `CLAUDE.md` → Known Issues on 2026-09-19)
+- **Il ramo `isError` copre 20 superfici, non ogni query**: cablate quelle da cui dipende il verdetto o l'inventario, non le secondarie (prezzi, FX) — una di quelle che fallisce degrada ancora in silenzio; i sei benchmark di Rendimenti lo fanno solo quando falliscono TUTTI (dal 2026-10-14: una serie sola mancante resta un «—» nella riga del modello). (moved from `CLAUDE.md` → Known Issues on 2026-09-19)

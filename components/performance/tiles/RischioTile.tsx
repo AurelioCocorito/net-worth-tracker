@@ -6,10 +6,14 @@ import type { DrawdownStory } from '@/lib/utils/performanceSummary';
 import { formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 
 interface RischioTileProps {
+  /** The row of the phone composition (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (`PERFORMANCE_CLOSED_ASIDES`). */
+  asideWhenClosed?: string;
   reading: Narrative;
   /** Months of return in the window and the risk-free rate the ratios use — the aside. */
   monthsMeasured: number;
@@ -54,7 +58,7 @@ function Value({ value, className }: { value: string | null; className?: string 
  * sign colour a Sharpe of 0,20 was green under a reading that said the risk is poorly paid — the
  * judgement belongs to the reading, which knows the thresholds. Max drawdown IS a loss and stays red.
  */
-export function RischioTile({ reading, monthsMeasured, riskFreeRate, volatility, sharpeRatio, sortinoRatio, drawdown, className }: RischioTileProps) {
+export function RischioTile({ collapse, asideWhenClosed, reading, monthsMeasured, riskFreeRate, volatility, sharpeRatio, sortinoRatio, drawdown, className }: RischioTileProps) {
   const duration = drawdown
     ? drawdown.recovery
       ? `${monthShort(drawdown.peak)} – ${monthShort(drawdown.recovery)}`
@@ -64,6 +68,8 @@ export function RischioTile({ reading, monthsMeasured, riskFreeRate, volatility,
   return (
     <Tile
       eyebrow="Rischio"
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       aside={
         <span>
           <span className="font-mono tabular-nums">{monthsMeasured}</span> {monthsMeasured === 1 ? 'mese' : 'mesi'} · RF{' '}

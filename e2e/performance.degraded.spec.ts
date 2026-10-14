@@ -70,8 +70,9 @@ function contributi(page: Page) {
   return page.getByRole('region', { name: 'Contributi', exact: true });
 }
 
+/** The measured base is the verdict's `scope` since 2026-10-14, rendered once per width: the visible copy. */
 function baseCaption(page: Page) {
-  return page.getByText(/^Base: /);
+  return page.getByText(/^Base: /).locator('visible=true');
 }
 
 async function gotoPerformance(page: Page): Promise<void> {
@@ -257,9 +258,14 @@ test('a reload paints the last known figures — no page skeleton, the header sa
   await expect(baseCaption(page)).toBeVisible({ timeout: 30_000 });
   const firstVisit = await readRecording(page);
   expect(firstVisit.pageSkeletonSeen, 'the first visit is the anchor: its skeleton must have been seen').toBe(true);
-  // `textContent`, what `toHaveText` compares below (`innerText` would add the line breaks).
-  const verdict = (await page.getByRole('region', { name: 'Verdetto sui rendimenti' }).textContent()) ?? '';
-  expect(verdict).toContain('%');
+  // The title and the paragraph, not the whole region (since 2026-10-14 it also holds the phone's
+  // axis, strip and scope, hidden at 1440 but in the DOM — and the strip's gap cell changes with
+  // the benchmark series, which are not persisted). `textContent`, what `toHaveText` compares
+  // below (`innerText` would add the line breaks). At 1440 the paragraph is the one `<p>`.
+  const region = page.getByRole('region', { name: 'Verdetto sui rendimenti' });
+  const headline = (await region.locator('h2').textContent()) ?? '';
+  const paragraph = (await region.locator('p').first().textContent()) ?? '';
+  expect(paragraph).toContain('%');
 
   // The metrics and the yields of THIS account are on disk (the persister writes on a throttle).
   await expect
@@ -280,7 +286,8 @@ test('a reload paints the last known figures — no page skeleton, the header sa
   expect(reload.pageSkeletonSeen, 'the reload must paint the restored figures, not a skeleton').toBe(false);
   expect(reload.freshnessTexts.some((text) => text.includes('Aggiornato alle')), `texts seen: ${JSON.stringify(reload.freshnessTexts)}`).toBe(true);
   // The same verdict, and the header silent once the fresh reads have landed (both copies emptied, never removed).
-  await expect(page.getByRole('region', { name: 'Verdetto sui rendimenti' })).toHaveText(verdict);
+  await expect(region.locator('h2')).toHaveText(headline);
+  await expect(region.locator('p').first()).toHaveText(paragraph);
   await expect(page.locator('[data-freshness]')).toHaveText(['', '']);
 });
 

@@ -2,11 +2,15 @@
 
 import type { Narrative } from '@/lib/utils/narrative';
 import type { MonthlyReturnHeatmapData } from '@/types/performance';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 import { HeatmapLegend, MonthlyReturnsHeatmap } from '@/components/performance/MonthlyReturnsHeatmap';
 
 interface ConsistenzaTileProps {
+  /** The row of the phone composition (`useMobileSections().collapse(id)`); `undefined` at 1440. The heatmap mounts on the first opening. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (`PERFORMANCE_CLOSED_ASIDES`). */
+  asideWhenClosed?: string;
   reading: Narrative;
   heatmap: MonthlyReturnHeatmapData[];
   className?: string;
@@ -19,9 +23,9 @@ interface ConsistenzaTileProps {
  * of investment RETURN (cash-flow isolated), not net-worth growth months like Storico's — a
  * different question, a different number.
  */
-export function ConsistenzaTile({ reading, heatmap, className }: ConsistenzaTileProps) {
+export function ConsistenzaTile({ collapse, asideWhenClosed, reading, heatmap, className }: ConsistenzaTileProps) {
   return (
-    <Tile eyebrow="Consistenza" aside="mesi misurati" reading={reading} className={className}>
+    <Tile eyebrow="Consistenza" aside="mesi misurati" collapse={collapse} asideWhenClosed={asideWhenClosed} reading={reading} className={className}>
       {heatmap.length > 0 && (
         <>
           <MonthlyReturnsHeatmap data={heatmap} className="mt-4" />
