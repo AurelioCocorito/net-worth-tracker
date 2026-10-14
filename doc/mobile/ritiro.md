@@ -2,7 +2,7 @@
 
 > Il prompt che il proprietario incolla per ritirare UNA spec di questa serie dopo che il suo codice è in `develop`
 > (WORKFLOW.md § 3 «Where things are recorded»: una spec si ritira in una sessione sua). Compilato il 2026-10-10,
-> rimisurato il 2026-10-12 dopo i ritiri di MOB-01..03: ogni segnaposto del corpo è sostituito con ciò che il repo dice,
+> rimisurato il 2026-10-12 dopo i ritiri di MOB-01..03, i precedenti aggiornati il 2026-10-14 dopo il ritiro di MOB-04: ogni segnaposto del corpo è sostituito con ciò che il repo dice,
 > e ogni conteggio, numero di riga, totale o «nessuna ancora» è scritto come il COMANDO che lo misura (`grep`, `wc`),
 > non come il valore di un giorno — i valori scritti invecchiavano a ogni ritiro (il tagliando del 2026-10-12 ne trovò
 > tre falsi). Chi lo usa dopo un cambiamento della serie aggiorna i precedenti e lascia il corpo com'è. Il ritiro
@@ -57,8 +57,17 @@ DEVELOPMENT_GUIDELINES.md, la guida del dominio): README.md § Documentation · 
 della serie per intero · la spec INTERA, compresa l'intestazione con lo stato scritto
 dalla sessione che l'ha implementata e le divergenze dichiarate lì · `git log
 --format="%h %s" -- <SPEC>` · i precedenti da imitare (`git log --grep=retire -i
---format="%h %ad %s" --date=short` li elenca tutti): adc2572 (2026-10-11, MOB-03: l'ultimo
+--format="%h %ad %s" --date=short` li elenca tutti): ba9198c5 (2026-10-12, MOB-04: l'ultimo
 ritiro con la serie ancora viva E l'ultimo che ha corretto codice a runtime — un workflow
+in sola lettura sui 205 criteri (sei lettori e tre scettici, tutto Opus), quattro difetti a
+runtime corretti su decisione del proprietario (README § 9, 72–75) ciascuno visto rosso
+prima del fix, due di loro preesistenti e corretti perché la lettura li ha trovati, la
+CLASSE del difetto cercata con un grep su tutto il repo (`< 0 ? '−'`) e dichiarato dove non
+si tocca, tre prove E2E promesse da § 7 aggiunte e viste rosse più una falsificazione
+riscritta perché la prova vera era un'altra, un tetto del budget allargato con `raisedBy`
+dopo averne provato l'oscillazione a parità di codice, ogni «MOB-04» in codice, test ed
+e2e riscritto con la data, MOB-06 e MOB-08 ripuntate al codice, Playwright intero e
+`mobile:budget` rifatti prima e dopo i fix) · adc2572 (2026-10-11, MOB-03: un workflow
 in sola lettura sui criteri, lo zero firmato corretto su decisione del proprietario (README
 § 9, 66) e visto rosso in Vitest, due asserzioni promesse aggiunte, una decisione presa in
 sessione rinumerata ovunque perché il suo numero era già di un'altra spec, ogni «MOB-03» in
