@@ -140,6 +140,70 @@ describe('describeMonthSplit', () => {
   });
 });
 
+describe("describeMonthSplit — the user's money outside the cashflow", () => {
+  /**
+   * A month whose «altre variazioni» was exactly the pension contributions (owner, 2026-10-14: the
+   * TFR and the voluntary payments read as «+1792 € di altre variazioni», which looked like an
+   * error). 2500 = 2000 − 1500 + 2000: named, nothing is left over, and the clause goes.
+   */
+  it('should name the pension contributions and leave nothing to «altre variazioni»', () => {
+    const split = { delta: 2500, marketEffect: 2000, savings: -1500, flows: { pensionPaidIn: 2000, debts: [] } };
+    expect(plain(describeMonthSplit(split))).toBe(
+      'Di quel movimento: +2000 € dal mercato, −1500 € spesi oltre le entrate, +2000 € versati nel fondo pensione.',
+    );
+  });
+
+  it('should name each debt repaid by its asset, and keep a material residual', () => {
+    const split = {
+      delta: 4000,
+      marketEffect: 1000,
+      savings: 1500,
+      flows: { pensionPaidIn: 500, debts: [{ name: 'Mutuo', repaid: 300 }, { name: 'Prestito auto', repaid: 150 }] },
+    };
+    expect(plain(describeMonthSplit(split))).toBe(
+      'Di quel movimento: +1000 € dal mercato, +1500 € risparmiati, +450 € di debito rimborsato (Mutuo +300 €, Prestito auto +150 €), +500 € versati nel fondo pensione, +550 € di altre variazioni.',
+    );
+  });
+
+  it('should list one debt by its name alone, and call a debt that went up «nuovo debito»', () => {
+    expect(plain(describeMonthSplit({ delta: 2300, marketEffect: 1000, savings: 1000, flows: { pensionPaidIn: 0, debts: [{ name: 'Mutuo', repaid: 300 }] } }))).toBe(
+      'Di quel movimento: +1000 € dal mercato, +1000 € risparmiati, +300 € di debito rimborsato (Mutuo).',
+    );
+    // A new loan: the cash it brought in has no cashflow row (+20.000 € of residual), the debt −20.000 €.
+    expect(plain(describeMonthSplit({ delta: 2000, marketEffect: 1000, savings: 1000, flows: { pensionPaidIn: 0, debts: [{ name: 'Prestito auto', repaid: -20000 }] } }))).toBe(
+      'Di quel movimento: +1000 € dal mercato, +1000 € risparmiati, −20.000 € di nuovo debito (Prestito auto), +20.000 € di altre variazioni.',
+    );
+  });
+
+  it('should print the flows signed but uncoloured, and drop a debt that prints as zero', () => {
+    const segments = describeMonthSplit({
+      delta: 3800,
+      marketEffect: 1000,
+      savings: 1000,
+      flows: { pensionPaidIn: 1500, debts: [{ name: 'Mutuo', repaid: 300 }, { name: 'Prestito chiuso', repaid: 0.2 }] },
+    });
+    expect(plain(segments)).toContain('+300 € di debito rimborsato (Mutuo), +1500 € versati nel fondo pensione');
+    expect(segments.find((segment) => text(segment) === '+1500 €')).toMatchObject({ mono: true });
+    expect(segments.find((segment) => text(segment) === '+1500 €')?.sign).toBeUndefined();
+    expect(segments.find((segment) => text(segment) === '+300 €')?.sign).toBeUndefined();
+    expect(segments.find((segment) => text(segment) === '+1000 €')).toMatchObject({ sign: 'positive' });
+  });
+
+  it('should name the flows before the part that holds the savings when the savings are not known', () => {
+    expect(plain(describeMonthSplit({ delta: 3000, marketEffect: 1000, savings: null, flows: { pensionPaidIn: 500, debts: [] } }))).toBe(
+      'Di quel movimento: +1000 € dal mercato, +500 € versati nel fondo pensione, +1500 € tra risparmio e altre variazioni.',
+    );
+  });
+
+  it("should carry the flows into the taxed sale's month without the tax", () => {
+    const sale = { ...SEPTEMBER_SALE, estimatedTax: 1000, instruments: [{ ...SEPTEMBER_SALE.instruments[0], estimatedTax: 1000 }] };
+    const split = { delta: 1500, marketEffect: 1000, savings: 1000, flows: { pensionPaidIn: 500, debts: [] } };
+    expect(plain(describeSales(sale, split))).toContain(
+      'senza, il mese avrebbe fatto +2500 € (+1000 € dal mercato, +1000 € risparmiati, +500 € versati nel fondo pensione).',
+    );
+  });
+});
+
 describe('isMaterialOtherChange', () => {
   it('should say «altre variazioni» only from max(100 €, 5% of the change)', () => {
     expect(isMaterialOtherChange(99.99, 500)).toBe(false);

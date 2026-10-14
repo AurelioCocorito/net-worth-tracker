@@ -25,7 +25,9 @@ import { MONTH_NAMES } from '@/lib/constants/months';
 import { ASSET_CLASS_LABELS } from '@/lib/utils/allocationUtils';
 import { atThePercent, pluralArticleFor } from '@/lib/utils/patrimonioNarrative';
 import { resolveDeclineCause, resolveTaxedGrowth, type PeriodSalesSummary } from '@/lib/utils/periodSales';
-import { declineHeadlineTail, describePurchases, describeSales, taxedGrowthHeadline } from '@/lib/utils/salesNarrative';
+import { debtRepaidTotal, declineHeadlineTail, describeDebtNames, describePurchases, describeSales, taxedGrowthHeadline } from '@/lib/utils/salesNarrative';
+import { isPrintedZero } from '@/lib/utils/verdictStrip';
+import type { MonthFlows } from '@/lib/utils/marketEffect';
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
 
 export type { Narrative, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
@@ -206,6 +208,32 @@ function signedEuro(value: number, compact = true): NarrativeSegment {
   };
 }
 
+/** A signed figure WITHOUT a sign colour: the user's own money moving is a flow, not a gain or a loss. */
+function signedFlow(value: number): NarrativeSegment {
+  const { text, mono } = signedEuro(value);
+  return { text, mono };
+}
+
+const printsAsZero = (value: number) => isPrintedZero(cachedFormatCurrencyEUR(Math.abs(value), true));
+
+/**
+ * «+300 € dal debito rimborsato (Mutuo)», «+1792 € da quanto hai versato nel fondo pensione» —
+ * the user's money that moved outside the cashflow, in the verdict's «da …» form (the
+ * Panoramica's words, owner 2026-10-14). A part that prints as zero is dropped.
+ */
+function describeFlowParts(flows: MonthFlows | null | undefined): Narrative[] {
+  if (!flows) return [];
+  const parts: Narrative[] = [];
+  const debtTotal = debtRepaidTotal(flows.debts);
+  if (!printsAsZero(debtTotal)) {
+    parts.push([signedFlow(debtTotal), prose(debtTotal > 0 ? ' dal debito rimborsato' : ' dal nuovo debito'), ...describeDebtNames(flows.debts)]);
+  }
+  if (!printsAsZero(flows.pensionPaidIn)) {
+    parts.push([signedFlow(flows.pensionPaidIn), prose(' da quanto hai versato nel fondo pensione')]);
+  }
+  return parts;
+}
+
 function signedPercent(value: number, decimals = 2): NarrativeSegment {
   return {
     text: `${value >= 0 ? '+' : '−'}${formatPercentage(Math.abs(value), decimals)}`,
@@ -250,6 +278,12 @@ export interface PeriodEmailVerdictInput {
    * nothing was sold, absent on data built before the field existed.
    */
   sales?: PeriodSalesSummary | null;
+  /**
+   * The pension contributions and the principal repaid per debt between the two snapshots, already
+   * taken OUT of `marketEffect` and named beside it; null or absent when not measured (they then
+   * stay inside the residual, unnamed).
+   */
+  flows?: MonthFlows | null;
   /**
    * Hall of Fame standing of this period's net-worth change; absent when not computable.
    * `trend` matters: a period can rank because it grew the most OR because it fell the most,
@@ -337,22 +371,15 @@ export function buildPeriodEmailVerdict(input: PeriodEmailVerdictInput): PageVer
   sentence.push(prose('.'));
 
   // The split is exact by construction — `marketEffect` is DEFINED as Δ minus net savings (plus
-  // the tax the ledger knows) — so it is stated only when both halves exist, and never inferred
-  // from one of them. With a taxed sale the split has three parts, and they still sum to Δ.
-  const salesTax = input.sales?.estimatedTax ?? null;
+  // the tax the ledger knows, minus the flows it names) — so it is stated only when both halves
+  // exist, and never inferred from one of them. Every part sums to Δ.
   if (hasBaseline && input.marketEffect !== null) {
+    const parts = [[signedEuro(savings), prose(' da quanto hai risparmiato')], ...describeFlowParts(input.flows)];
+    const salesTax = input.sales?.estimatedTax ?? null;
+    if (salesTax !== null && salesTax > 0) parts.push([signedEuro(-salesTax), prose(' dalle tasse sulle vendite')]);
     sentence.push(prose(' Di quel movimento, '), signedEuro(input.marketEffect), prose(' viene dal mercato'));
-    if (salesTax !== null && salesTax > 0) {
-      sentence.push(
-        prose(', '),
-        signedEuro(savings),
-        prose(' da quanto hai risparmiato e '),
-        signedEuro(-salesTax),
-        prose(' dalle tasse sulle vendite.'),
-      );
-    } else {
-      sentence.push(prose(' e '), signedEuro(savings), prose(' da quanto hai risparmiato.'));
-    }
+    parts.forEach((part, index) => sentence.push(prose(index === parts.length - 1 ? ' e ' : ', '), ...part));
+    sentence.push(prose('.'));
   } else if (input.totalIncome > 0) {
     sentence.push(
       prose(' Hai messo da parte '),
@@ -420,9 +447,17 @@ export function describeMarketSplit(
   marketEffect: number | null,
   savings: number,
   salesTax: number | null = null,
+  flows: MonthFlows | null = null,
 ): Narrative | null {
   if (marketEffect === null) return null;
   const narrative: Narrative = [prose('Mercato '), signedEuro(marketEffect), prose(', risparmio '), signedEuro(savings)];
+  const debtTotal = debtRepaidTotal(flows?.debts ?? []);
+  if (!printsAsZero(debtTotal)) {
+    narrative.push(prose(debtTotal > 0 ? ', debito rimborsato ' : ', nuovo debito '), signedFlow(debtTotal));
+  }
+  if (flows && !printsAsZero(flows.pensionPaidIn)) {
+    narrative.push(prose(', fondo pensione '), signedFlow(flows.pensionPaidIn));
+  }
   if (salesTax !== null && salesTax > 0) {
     narrative.push(prose(', tasse sulle vendite circa '), signedEuro(-salesTax));
   }

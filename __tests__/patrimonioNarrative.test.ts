@@ -111,6 +111,14 @@ describe('buildPatrimonioVerdict — sentence', () => {
     );
   });
 
+  it('should name the debts repaid and the pension contributions in the split, like the Panoramica', () => {
+    // 3214,20 = 2000 + 300 + 500 + 414,20 (owner, 2026-10-14: the user's money has a name).
+    const verdict = buildPatrimonioVerdict({ ...AUGUST, monthFlows: { pensionPaidIn: 500, debts: [{ name: 'Mutuo', repaid: 300 }] } });
+    expect(plain(verdict.sentence)).toContain(
+      'Di quel movimento: +2000 € dal mercato, +300 € di debito rimborsato (Mutuo), +500 € versati nel fondo pensione, +414 € tra risparmio e altre variazioni.',
+    );
+  });
+
   it('should name the tax over the market and tell the sale, like the Panoramica', () => {
     const verdict = buildPatrimonioVerdict({
       ...AUGUST,

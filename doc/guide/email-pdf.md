@@ -124,6 +124,15 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   dalle tasse sulle vendite»), the sale is told by `describeSales` and the Patrimonio tile's footer names the tax
   «circa». The AI prompt's market block is unchanged (it still prints `Δ − risparmio`): a known asymmetry, and a
   tax the owner ALSO records as a cashflow expense would be counted twice in the split (doc/guide/panoramica.md § Per-page blind spots).
+- **…and the user's money that moved outside the cashflow** (owner, 2026-10-14): `marketEffectOf` also subtracts
+  `MonthlyEmailData.periodFlows` — the pension contributions and the principal repaid per debt between the two
+  snapshots (`buildPeriodFlows`, Storico's rules from `lib/utils/marketEffect.ts`; `null` without `byAsset` on both
+  snapshots or on a failed read, never blocking, and then they stay in the residual as before). The verdict names them
+  in its «da …» form («+300 € dal debito rimborsato (Mutuo) e +1800 € da quanto hai versato nel fondo pensione»), the
+  Patrimonio tile's footer as «debito rimborsato +300 €, fondo pensione +1800 €», both uncoloured. Why: the month's TFR
+  read as «mercato» — the Panoramica printed the same euro as «altre variazioni». `getSettingsAdmin` reads
+  `pensionReturnStartMonth` for it (the seventh place, doc/guide/impostazioni.md). The AI prompt's market block is
+  still `Δ − risparmio` (the asymmetry above). Pinned by `__tests__/{emailNarrative,monthlyEmailService}.test.ts`.
 - **Every email cap is stated in the prompt**: `MAX_CATEGORY_DELTAS` (12) is named in the section header together with
   how many categories were left out. The selection is by SPEND, not by size of variation — describe it as it is.
 - **`max_tokens` scales with the period** (6000/8000/8000/10000), and the format contract names the period in its

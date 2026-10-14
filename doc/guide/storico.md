@@ -71,7 +71,9 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   principal by the principal on its date, before the snapshot of that evening (doc/guide/cashflow.md), so the
   Driver's «mutuo» measures the plan without a monthly edit; a debt typed by hand still lands there too.
 - **«Mutuo» reads the LOAN rows since 2026-10-10** (doc/guide/patrimonio.md: a debt is a `loan` asset worth minus its
-  principal, `byAsset.totalValue < 0`): `debtRepaidBetween` sums the loans as a TOTAL (previous − current) — a loan
+  principal, `byAsset.totalValue < 0`): `debtRepaidBetween` sums `debtRepaymentsBetween` (`lib/utils/marketEffect.ts`
+  since 2026-10-14, the per-debt rule the Panoramica and the email name by asset — a property's legacy debt is
+  credited to the loan that finances it, the total unchanged) over the loans as a TOTAL (previous − current) — a loan
   opened in the month is debt that went up (negative «mutuo»), one deleted after its payoff is repaid — and keeps the
   legacy property pairing (gross − net, per property on both sides) for the snapshots written before the migration and
   for a property the migration never reaches; the two parts cross the migration month without a jump (the legacy

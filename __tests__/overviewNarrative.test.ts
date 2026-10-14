@@ -385,6 +385,15 @@ describe('buildOverviewVerdict — the month split and the savings already made'
     expect(text).toContain('Di quel movimento: +3980 € dal mercato, +1180 € risparmiati, −1040 € di altre variazioni.');
   });
 
+  it("should name the month's pension contributions instead of «altre variazioni»", () => {
+    // 4120,18 = 3980 + 1180 − 1039,82 of which −1039,82 is nothing the flows explain; with 1000 €
+    // paid into the fund the rest is −2040 € (owner, 2026-10-14: the contributions are named).
+    const withFlows = { ...WITH_CASHFLOW, monthFlows: { pensionPaidIn: 1000, debts: [] } };
+    expect(plain(buildOverviewVerdict(withFlows).sentence)).toContain(
+      'Di quel movimento: +3980 € dal mercato, +1180 € risparmiati, +1000 € versati nel fondo pensione, −2040 € di altre variazioni.',
+    );
+  });
+
   it('should drop the other changes under 1 €, and say «spesi oltre le entrate» for negative savings', () => {
     const exact = { ...WITH_CASHFLOW, cashflow: { ...WITH_CASHFLOW.cashflow!, savings: 140.5 } };
     expect(plain(buildOverviewVerdict(exact).sentence)).toContain('Di quel movimento: +3980 € dal mercato e +141 € risparmiati.');

@@ -285,6 +285,7 @@ export default function DashboardPage() {
       savingsRate: cashflow ? cashflow.savingsRate : savingsRate,
       cashflow,
       marketEffect: overview.marketEffect ?? null,
+      monthFlows: overview.monthFlows ?? null,
       topMover: overview.topMovers?.[0] ?? null,
       sales: overview.monthSales ?? null,
     };

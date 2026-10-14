@@ -57,7 +57,7 @@ import {
 import { printChartHexForAssetClass, PRINT_COLORS } from '@/lib/constants/printTokens';
 import { cachedFormatCurrencyEUR, formatPercentageIt } from '@/lib/utils/formatters';
 import { getItalyDate } from '@/lib/utils/dateHelpers';
-import { AssetAllocationSettings } from '@/types/assets';
+import { AssetAllocationSettings, isLoanAsset } from '@/types/assets';
 import { ASSET_CLASS_LABELS } from '@/lib/utils/allocationUtils';
 import { getDefaultAssistantPreferences } from '@/lib/server/assistant/webSearchPolicy';
 import { getAssistantMemoryDocument } from '@/lib/server/assistant/store';
@@ -86,7 +86,10 @@ import type { BudgetAlert, BudgetItem } from '@/types/budget';
 import { type Expense, type ExpenseType, EXPENSE_TYPE_LABELS } from '@/types/expenses';
 import { summarizeExpenseSplit, type ExpenseSplitSummary } from '@/lib/utils/expenseSplitSummary';
 import { summarizePeriodSales, type PeriodSalesSummary } from '@/lib/utils/periodSales';
-import { getAssetTransactionsAdmin, getUserAssetsAdmin } from '@/lib/server/assetAdminRepository';
+import { getAssetTransactionsAdmin, getPensionContributionsAdmin, getUserAssetsAdmin } from '@/lib/server/assetAdminRepository';
+import { debtRepaymentsBetween, pensionPaidInAcross, type DebtPositionRow, type MonthFlows } from '@/lib/utils/marketEffect';
+import { resolvePensionReturnStart } from '@/lib/utils/pensionReturn';
+import { debtRepaidTotal } from '@/lib/utils/salesNarrative';
 import {
   describeCommonIncome,
   describeMemberBalance,
@@ -163,6 +166,11 @@ export interface MonthlyEmailData {
   // verdict can name a taxed sale instead of calling it a market loss (lib/utils/periodSales.ts).
   // null = nothing sold; undefined on data built before the field existed.
   periodSales?: PeriodSalesSummary | null;
+  // The pension contributions and the principal repaid per debt between the two snapshots — the
+  // user's money that moved outside the cashflow, taken OUT of the «mercato» residual and named
+  // beside it (lib/utils/marketEffect.ts). null when either snapshot has no `byAsset` or a read
+  // failed: the residual then keeps them, as before.
+  periodFlows?: MonthFlows | null;
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -862,6 +870,8 @@ export async function getSettingsAdmin(
     expenseSplitEnabled: data.expenseSplitEnabled,
     familyMembers: data.familyMembers ?? [],
     laborIncomeCategoryIds: data.laborIncomeCategoryIds ?? [],
+    // Read by `buildPeriodFlows`: the pension contributions are named only from this month on.
+    pensionReturnStartMonth: data.pensionReturnStartMonth,
     targets: data.targets,
   } as AssetAllocationSettings;
 }
@@ -1261,6 +1271,7 @@ export async function buildPeriodEmailData(
 
   const expenseSplit = await buildExpenseSplitForPeriod(userId, expensesSnap.docs, new Date());
   const periodSales = await buildPeriodSales(userId, windowStart, windowEnd);
+  const periodFlows = await buildPeriodFlows(userId, previous, current, monthKeyOf(prevYear, prevMonth), monthKeyOf(year, month));
 
   return {
     periodType,
@@ -1289,7 +1300,47 @@ export async function buildPeriodEmailData(
     budgetAlerts,
     expenseSplit,
     periodSales,
+    periodFlows,
   };
+}
+
+const monthKeyOf = (year: number, month: number) => `${year}-${String(month).padStart(2, '0')}`;
+
+/**
+ * The user's money that moved the net worth between the two snapshots without a cashflow row —
+ * the pension contributions and the principal repaid per debt — measured with Storico's rules
+ * (`pensionPaidInAcross`, `debtRepaymentsBetween`), so the email's «mercato» stops holding the
+ * month's TFR (owner, 2026-10-14). Never blocks the email: a failed read leaves them in the
+ * residual, as before this field existed.
+ */
+async function buildPeriodFlows(
+  userId: string,
+  previous: FirebaseFirestore.DocumentData | null,
+  current: FirebaseFirestore.DocumentData,
+  previousKey: string,
+  currentKey: string
+): Promise<MonthFlows | null> {
+  const previousRows: DebtPositionRow[] = previous?.byAsset ?? [];
+  const currentRows: DebtPositionRow[] = current.byAsset ?? [];
+  if (previousRows.length === 0 || currentRows.length === 0) return null;
+  try {
+    const [assets, contributions, settings] = await Promise.all([
+      getUserAssetsAdmin(userId),
+      getPensionContributionsAdmin(userId),
+      getSettingsAdmin(userId),
+    ]);
+    const fundIds = assets.filter((asset) => asset.type === 'pensionFund').map((asset) => asset.id);
+    const startMonth = resolvePensionReturnStart(contributions, settings?.pensionReturnStartMonth);
+    const realEstateIds = new Set(assets.filter((asset) => asset.type === 'realestate').map((asset) => asset.id));
+    const loans = assets.filter(isLoanAsset).map((loan) => ({ id: loan.id, name: loan.name, financedAssetId: loan.financedAssetId }));
+    return {
+      pensionPaidIn: pensionPaidInAcross(contributions, fundIds, startMonth, previousKey, currentKey),
+      debts: debtRepaymentsBetween(previousRows, currentRows, loans, realEstateIds),
+    };
+  } catch (error) {
+    console.error(`[periodFlows] Read failed for user ${userId}:`, error);
+    return null;
+  }
 }
 
 /**
@@ -1376,7 +1427,10 @@ const RANKED_ROWS_SHOWN = 6;
  */
 function marketEffectOf(data: MonthlyEmailData): number | null {
   if (data.previousNetWorth <= 0) return null;
-  return data.netWorthDelta - (data.totalIncome - data.totalExpenses) + (data.periodSales?.estimatedTax ?? 0);
+  // The pension contributions and the debts repaid are the user's money, named beside the market
+  // (`periodFlows`); left in, the month's TFR read as «mercato» (owner, 2026-10-14).
+  const flows = (data.periodFlows?.pensionPaidIn ?? 0) + debtRepaidTotal(data.periodFlows?.debts ?? []);
+  return data.netWorthDelta - (data.totalIncome - data.totalExpenses) + (data.periodSales?.estimatedTax ?? 0) - flows;
 }
 
 /** The Hall of Fame standing, in the shape the verdict expects. */
@@ -1635,6 +1689,7 @@ export function generateEmailHtml(data: MonthlyEmailData, comparisonData?: Perio
     totalExpenses: data.totalExpenses,
     marketEffect,
     sales: data.periodSales ?? null,
+    flows: data.periodFlows ?? null,
     rank: verdictRank(data),
   });
 
@@ -1680,7 +1735,7 @@ export function generateEmailHtml(data: MonthlyEmailData, comparisonData?: Perio
         netWorthDeltaPct: data.netWorthDeltaPct,
       }),
       body: emailHero(formatEur(data.currentNetWorth)) + emailKeyFigures(netWorthFigures),
-      footer: describeMarketSplit(marketEffect, savings, data.periodSales?.estimatedTax ?? null),
+      footer: describeMarketSplit(marketEffect, savings, data.periodSales?.estimatedTax ?? null, data.periodFlows ?? null),
     }),
   );
 

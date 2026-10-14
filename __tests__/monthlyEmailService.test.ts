@@ -1005,6 +1005,18 @@ describe('generateEmailHtml', () => {
     expect(html).toContain('tasse sulle vendite circa');
   });
 
+  it('takes the pension contributions and the debts repaid out of the «mercato» residual and names them', () => {
+    // Δ 5000 € with 1500 € saved: the residual was 3500 € of «mercato»; 1500 € paid into the fund
+    // and 500 € of principal repaid are the user's money, so the market is 1500 € (owner, 2026-10-14).
+    const html = generateEmailHtml(
+      makeMonthlyData({ periodFlows: { pensionPaidIn: 1500, debts: [{ name: 'Mutuo', repaid: 500 }] } }),
+    );
+    expect(html).toMatch(/\+1500[\s ]*€<\/span> viene dal mercato/);
+    expect(html).toContain('dal debito rimborsato (Mutuo)');
+    expect(html).toContain('da quanto hai versato nel fondo pensione');
+    expect(html).toMatch(/Mercato <span[^>]*>\+1500[\s ]*€/);
+  });
+
   it('carries no arrow glyphs: the sign is the colour and the sign of the figure', () => {
     const html = generateEmailHtml(makeMonthlyData());
     expect(html).not.toContain('▲');

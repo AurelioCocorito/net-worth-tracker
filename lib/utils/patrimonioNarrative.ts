@@ -29,6 +29,7 @@ import {
   taxedGrowthHeadline,
 } from '@/lib/utils/salesNarrative';
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
+import type { MonthFlows } from '@/lib/utils/marketEffect';
 import type { MortgageSummary, MortgageYear } from '@/lib/utils/mortgageSummary';
 
 export interface PatrimonioVerdictInput {
@@ -45,6 +46,8 @@ export interface PatrimonioVerdictInput {
   loanCount?: number;
   /** Portfolio-wide market effect this month; null when not attributable. */
   marketEffect: number | null;
+  /** The pension contributions and the debts repaid this month, named in the split; absent on an older payload. */
+  monthFlows?: MonthFlows | null;
   /** The instrument whose market price moved the most; null when none. */
   topMover: { id: string; name: string; delta: number } | null;
   /**
@@ -276,7 +279,7 @@ export function buildPatrimonioVerdict(input: PatrimonioVerdictInput): Patrimoni
   // plain split is printed only when there is no tax to take out.
   const split =
     input.monthlyVariation && input.marketEffect !== null
-      ? { delta: input.monthlyVariation.value, marketEffect: input.marketEffect, savings: input.savings ?? null }
+      ? { delta: input.monthlyVariation.value, marketEffect: input.marketEffect, savings: input.savings ?? null, flows: input.monthFlows ?? null }
       : undefined;
   const saleCarriesSplit = split !== undefined && (input.sales?.estimatedTax ?? 0) > 0;
   if (split && !saleCarriesSplit) {

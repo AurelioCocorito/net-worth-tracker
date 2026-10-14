@@ -6,10 +6,10 @@
 
 Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
-- **Overview**: `app/dashboard/page.tsx`, `app/api/dashboard/overview/route.ts`, `lib/services/dashboardOverviewService.ts`, `lib/hooks/useDashboardOverview.ts`, `components/dashboard/overview/*` (`PatrimonioTile` exports `resolveHeroValueClass`, and since 2026-10-11 `isPatrimonioLiftedBlock` + `PATRIMONIO_CURVE_ID_SUFFIX`; `OverviewVerdict` exports `OVERVIEW_VERDICT_ID`), pure `lib/utils/{overviewNarrative,overviewSummary,dashboardOverviewUtils,sparklinePeriod,savingsRateBadge}.ts` (`overviewSummary.ts`, 2026-10-11: the strip, the two cashflow ratios, the rows' ids and asides, `verdictNamesMarket`); `lib/utils/periodSales.ts` (`summarizePeriodSales` = the month's sells from the ledger with the estimated tax, `resolveDeclineCause` = the ONE cause of a falling month for Panoramica, Patrimonio and the email) + `lib/utils/salesNarrative.ts` (the shared words; its `binding` clauses and its unsigned zero are this page's since 2026-10-11, MOB-06 inherits them)
+- **Overview**: `app/dashboard/page.tsx`, `app/api/dashboard/overview/route.ts`, `lib/services/dashboardOverviewService.ts`, `lib/hooks/useDashboardOverview.ts`, `components/dashboard/overview/*` (`PatrimonioTile` exports `resolveHeroValueClass`, and since 2026-10-11 `isPatrimonioLiftedBlock` + `PATRIMONIO_CURVE_ID_SUFFIX`; `OverviewVerdict` exports `OVERVIEW_VERDICT_ID`), pure `lib/utils/{overviewNarrative,overviewSummary,dashboardOverviewUtils,sparklinePeriod,savingsRateBadge}.ts` (`overviewSummary.ts`, 2026-10-11: the strip, the two cashflow ratios, the rows' ids and asides, `verdictNamesMarket`); `lib/utils/periodSales.ts` (`summarizePeriodSales` = the month's sells from the ledger with the estimated tax, `resolveDeclineCause` = the ONE cause of a falling month for Panoramica, Patrimonio and the email), `lib/utils/marketEffect.ts` (`MonthFlows`, `pensionPaidInAcross`, `debtRepaymentsBetween` — shared with Storico and the email, since 2026-10-14) + `lib/utils/salesNarrative.ts` (the shared words; its `binding` clauses and its unsigned zero are this page's since 2026-10-11, MOB-06 inherits them)
 - **Server-Timing**: `lib/server/serverTiming.ts` (`startTiming` → `mark` → `toHeader`, pure, the clock injected) — the route's header since 2026-10-03
 - **Browser**: `e2e/overview.mobile.spec.ts` (390, the composition — nine tests) and `e2e/overview.spec.ts` (1440), both on the base account with the overview response patched on the wire by `e2e/overviewFixture.ts`; `e2e/panoramica.snapshot.spec.ts` («Crea snapshot»), `e2e/motion.layout{,.mobile}.spec.ts` (the period switch, the cascade, the pill)
-- **Suites to run after a change here — Overview / materialized summary** (moved from `AGENTS.md` § Commands on 2026-09-30): `apiAuthRoutes`, `dashboardOverviewService`, `dashboardOverviewUtils`, `serverTiming` · **Verdetto e letture** `overviewNarrative`, `salesNarrative`, `narrative` · **Composizione mobile** `overviewSummary`, `verdictStrip`, `mobileSections` · **Badge** `savingsRateBadge` · **A writer of an overview input** (the invalidation it owes, § The materialized summary): `expenseCategoryRewriteInvalidation`, `goalWritesInvalidation`, `dividendIncomeService`, `pensionContributionService`, `settingsRoundTrip`
+- **Suites to run after a change here — Overview / materialized summary** (moved from `AGENTS.md` § Commands on 2026-09-30): `apiAuthRoutes`, `dashboardOverviewService`, `dashboardOverviewUtils`, `monthFlows`, `serverTiming` · **Verdetto e letture** `overviewNarrative`, `salesNarrative`, `narrative` · **Composizione mobile** `overviewSummary`, `verdictStrip`, `mobileSections` · **Badge** `savingsRateBadge` · **A writer of an overview input** (the invalidation it owes, § The materialized summary): `expenseCategoryRewriteInvalidation`, `goalWritesInvalidation`, `dividendIncomeService`, `pensionContributionService`, `settingsRoundTrip`
 
 ## Panoramica and Dashboard Data Isolation
 
@@ -241,6 +241,19 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   The split reads «dal mercato · risparmiati · di altre variazioni» on the savings already happened, the last only
   when material (`isMaterialOtherChange`: max(100 €, 5% of the change) — below it is card-debit timing, not a cause;
   shared with Storico).
+- **The user's money outside the cashflow has its own name** (owner, 2026-10-14): the payload's `monthFlows`
+  (`computeMonthFlows`, source version 21) carries the pension contributions since the previous snapshot — the same
+  ones the market takes out of a fund — and the principal repaid PER DEBT, by the name of its asset, and the split
+  names them between the savings and the residual: «+2100 € dal mercato, −1500 € spesi oltre le entrate, +300 € di
+  debito rimborsato (Mutuo), +1800 € versati nel fondo pensione», two debts as «+450 € di debito rimborsato (Mutuo
+  +300 €, Prestito auto +150 €)», a debt that went up «di nuovo debito». Both are flows: signed, never coloured. Why:
+  on the real account ottobre 2026 read «+1792 € di altre variazioni», which were exactly the month's TFR, employer and
+  voluntary contributions, and looked like an error. The rules are Storico's Driver's (`pensionPaidInAcross`,
+  `debtRepaymentsBetween` in `lib/utils/marketEffect.ts`), measured against the LIVE portfolio like the market; a
+  property's legacy debt is credited to the loan that finances it (`financedAssetId`), so the migration month of
+  2026-10-10 reads one debt that crossed from the house to its loan (0 on the real account), not −X and +X.
+  Patrimonio's verdict and the periodic email name the same two parts (doc/guide/email-pdf.md). Pinned by
+  `__tests__/{monthFlows,salesNarrative,overviewNarrative,patrimonioNarrative}.test.ts`.
 - **The verdict's savings rate is what has already happened** (owner's call): `resolveLivedCashflow` in
   `overviewNarrative.ts` subtracts `expensesScheduled` and the new `incomeScheduled` — Tracciamento's `settleTotals` —
   and names the calendar beside it: «Hai messo da parte il 45% delle entrate finora (altri 1297 € di spese in
@@ -279,8 +292,8 @@ The second page composed for a small screen (2026-10-11, PR #452; its spec, reti
   finora» — and, since 2026-10-11, beside the strip's «Messo da parte finora», which is the verdict's figure:
   the tile shows the month's three figures and its projection, the verdict and the cell judge the days lived, and the
   calendar's caption under the figures says why the two differ. Seen by the owner on the mirror (2026-09-19) and left as is.
-- **The email's «mercato» is still a residual** (`Δ − risparmio + tasse`): it holds the month's traded quotes, as the
-  page now does, but also the page's «altre variazioni».
+- **The email's «mercato» is still a residual** (`Δ − risparmio + tasse − versamenti al fondo − debito rimborsato`): it
+  holds the month's traded quotes, as the page now does, but also the page's «altre variazioni».
 
 - **The sale clause moves before the savings clause only when the headline names the tax**; on every other falling month
   the sentence keeps its order (variation · savings and driver · split · sale).

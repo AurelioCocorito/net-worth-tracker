@@ -29,6 +29,7 @@ import {
 } from '@/lib/utils/salesNarrative';
 
 import type { Narrative, NarrativeSegment, VerdictTone } from '@/lib/utils/narrative';
+import type { MonthFlows } from '@/lib/utils/marketEffect';
 import type { CategoryRanking } from '@/lib/utils/tracciamentoSummary';
 import type { DashboardOverviewCategoryAmount, DashboardOverviewExpenseStats } from '@/types/dashboardOverview';
 
@@ -58,6 +59,8 @@ export interface OverviewVerdictInput {
   cashflow?: LivedCashflow | null;
   /** Portfolio-wide market effect this month; null when not attributable. */
   marketEffect: number | null;
+  /** The pension contributions and the debts repaid this month, named in the split; absent on an older payload. */
+  monthFlows?: MonthFlows | null;
   /** The asset class whose market price moved the most; null when none. */
   topMover: { assetClass: string; delta: number } | null;
   /**
@@ -346,6 +349,7 @@ export function buildOverviewVerdict(input: OverviewVerdictInput): OverviewVerdi
           delta: input.monthlyVariation.value,
           marketEffect: input.marketEffect,
           savings: input.cashflow?.savings ?? null,
+          flows: input.monthFlows ?? null,
         }
       : undefined;
   const saleCarriesSplit = split !== undefined && (input.sales?.estimatedTax ?? 0) > 0;

@@ -165,6 +165,23 @@ describe('buildPeriodEmailVerdict', () => {
     );
   });
 
+  /**
+   * The pension contributions and the debts repaid are the user's money, taken out of the
+   * residual by the caller (`marketEffectOf`) and named here (owner, 2026-10-14): left in, the
+   * month's TFR read as «mercato». 4310 = 2130 + 1180 + 300 + 700.
+   */
+  it('names the pension contributions and each debt repaid beside the market, uncoloured', () => {
+    const verdict = buildPeriodEmailVerdict({
+      ...GROWING,
+      marketEffect: 2130,
+      flows: { pensionPaidIn: 700, debts: [{ name: 'Mutuo', repaid: 300 }] },
+    });
+    expect(plain(verdict.sentence)).toContain(
+      'Di quel movimento, +2130 € viene dal mercato, +1180 € da quanto hai risparmiato, +300 € dal debito rimborsato (Mutuo) e +700 € da quanto hai versato nel fondo pensione.',
+    );
+    expect(verdict.sentence.find((segment) => segment.text.replace(/ /g, ' ') === '+700 €')?.sign).toBeUndefined();
+  });
+
   it('splits the movement into market and savings, exactly', () => {
     expect(plain(buildPeriodEmailVerdict(GROWING).sentence)).toBe(
       'Il patrimonio vale 312.480 €: +4310 € (+1,40%) su luglio. ' +
@@ -325,6 +342,15 @@ describe('describeMarketSplit', () => {
       'Mercato −1837 €, risparmio +988 €, tasse sulle vendite circa −4089 €. È un residuo strutturale: assorbe anche i movimenti non tracciati.',
     );
     expect(plain(describeMarketSplit(3130, 1180, 0))).not.toContain('tasse');
+  });
+
+  it('names the debt repaid and the pension contributions as their own parts', () => {
+    expect(plain(describeMarketSplit(2130, 1180, null, { pensionPaidIn: 700, debts: [{ name: 'Mutuo', repaid: 300 }] }))).toBe(
+      'Mercato +2130 €, risparmio +1180 €, debito rimborsato +300 €, fondo pensione +700 €. È un residuo strutturale: assorbe anche i movimenti non tracciati.',
+    );
+    expect(plain(describeMarketSplit(2130, 1180, null, { pensionPaidIn: 0, debts: [] }))).toBe(
+      'Mercato +2130 €, risparmio +1180 €. È un residuo strutturale: assorbe anche i movimenti non tracciati.',
+    );
   });
 });
 

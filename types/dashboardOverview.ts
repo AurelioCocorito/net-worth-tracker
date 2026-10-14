@@ -1,6 +1,7 @@
 import { PieChartData } from '@/types/assets';
 import type { ExpenseType } from '@/types/expenses';
 import type { PeriodSalesSummary } from '@/lib/utils/periodSales';
+import type { MonthFlows } from '@/lib/utils/marketEffect';
 
 export interface DashboardOverviewSparklinePoint {
   month: number;
@@ -178,6 +179,11 @@ export interface DashboardOverviewPayload {
   // snapshot, or one without a per-asset breakdown), distinct from a measured 0.
   // Optional so old cached docs degrade gracefully.
   marketEffect?: number | null;
+  // The user's money that moved the net worth outside the cashflow since the previous snapshot:
+  // the pension contributions and the principal repaid per debt (lib/utils/marketEffect.ts →
+  // `MonthFlows`), named in the month's split instead of «altre variazioni». null exactly when
+  // `marketEffect` is; optional so old cached docs degrade to the split without them.
+  monthFlows?: MonthFlows | null;
   // The instruments behind `topMovers`, each by its own price effect (capped at ten). Optional
   // so old cached docs degrade gracefully (Patrimonio's verdict drops its driver clause).
   topInstrumentMovers?: DashboardOverviewInstrumentMover[];
