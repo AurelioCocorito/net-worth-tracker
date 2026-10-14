@@ -18,7 +18,9 @@
  * Below `desktop:` the table becomes a flat list of expandable rows (`AssetRow`): a card per
  * row would be a card inside the tile. ONE of the two is in the DOM, chosen by the width (since
  * 2026-10-07): until then both were, the hidden copy included, with every phone row's sparkline
- * mounted inside it. The two toggles are remembered per browser
+ * mounted inside it. Since 2026-10-14 (MOB-06) the tile itself is a closed ROW below `desktop:`
+ * (`collapse`, `patrimonio-strumenti`): the list mounts at its first opening, and each row draws
+ * its sparkline at ITS first opening. The two toggles are remembered per browser
  * (localStorage): a reader who compares the Δ windows every month should not re-enable them.
  *
  * The numbers are not computed here. Δ columns and the unit-price series come from
@@ -54,7 +56,7 @@ import { calculateAssetValue } from '@/lib/services/assetService';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { useDeleteAsset } from '@/lib/hooks/useAssets';
 import { useArmedDelete } from '@/lib/hooks/useArmedDelete';
-import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
+import { useCompactLayout } from '@/lib/hooks/useCompactLayout';
 import { resolveDisplayAssetClass } from '@/lib/utils/assetDisplayClass';
 import { getAssetDisplayTicker } from '@/lib/utils/assetDisplay';
 import { hasMarketPrice, requiresManualPricing } from '@/lib/utils/assetPricing';
@@ -67,7 +69,7 @@ import { describeWriteError } from '@/lib/utils/dialogNarrative';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { usePreloadWhenIdle } from '@/components/ui/lazy-component';
 import {
   ASSET_ROW_LAZY_CHARTS,
@@ -233,8 +235,18 @@ interface StrumentiTileProps {
   onRegisterTrade: (asset: Asset) => void;
   onMovements: (asset: Asset) => void;
   onCalculateTaxes: (asset: Asset) => void;
+  /**
+   * The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440, where the
+   * tile keeps the anchor `#strumenti` the hero's count links to.
+   */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow: the count of the hero («12 strumenti e 1 prestito»). */
+  asideWhenClosed?: string;
   className?: string;
 }
+
+/** The tile's anchor at 1440 (the hero's count links to it); below `desktop:` the section takes the row's id. */
+export const STRUMENTI_ANCHOR_ID = 'strumenti';
 
 export function StrumentiTile({
   assets,
@@ -250,14 +262,17 @@ export function StrumentiTile({
   onRegisterTrade,
   onMovements,
   onCalculateTaxes,
+  collapse,
+  asideWhenClosed,
   className,
 }: StrumentiTileProps) {
   const deleteAssetMutation = useDeleteAsset(ownerId || '');
-  // The table OR the rows, never both. Read on the first render with the true value: the page is
-  // behind `ProtectedRoute` and mounts this tile after its data, long after hydration, so the
-  // store's server snapshot (`false`) is never what decides it. 1440 is inclusive, as `desktop:` is
-  // (AGENTS.md § Tailwind Breakpoints) and as the Playwright desktop project runs.
-  const isDesktop = useMediaQuery('(min-width: 1440px)');
+  // The table OR the rows, never both, on the composition's ONE query (`useCompactLayout`, the
+  // `max-desktop:` of the CSS, since 2026-10-14): the server snapshot is `false` — not compact — so
+  // a first frame would be the TABLE; the page is behind `ProtectedRoute` and mounts this tile
+  // after its data, long after hydration, so that frame never paints. 1440 is a desktop, as
+  // `desktop:` is (AGENTS.md § Tailwind Breakpoints) and as the Playwright desktop project runs.
+  const isDesktop = !useCompactLayout();
   // Only a phone row draws a sparkline: the desktop never downloads recharts for this page.
   usePreloadWhenIdle(ASSET_ROW_LAZY_CHARTS, !isDesktop);
 
@@ -588,11 +603,13 @@ export function StrumentiTile({
 
   return (
     <Tile
-      id="strumenti"
+      {...(collapse ? { collapse } : { id: STRUMENTI_ANCHOR_ID })}
+      asideWhenClosed={asideWhenClosed}
       eyebrow="Strumenti"
       ariaLabel="Strumenti"
       aside={
-        assets.length > 0 ? (
+        // The two toggles exist at 1440 only (their columns are the table's).
+        assets.length > 0 && !collapse ? (
           <div className="hidden items-center gap-1.5 desktop:flex">
             <Button
               type="button"

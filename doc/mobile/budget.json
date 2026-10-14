@@ -133,34 +133,34 @@
     },
     "patrimonio": {
       "390": {
-        "screens": 3.25,
+        "screens": 1.67,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 16,
-        "figuresOutsideVerdict": 5,
-        "firstClosedRowAbovePill": null,
+        "figuresAboveFold": 7,
+        "figuresOutsideVerdict": 4,
+        "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-05: deriva del giorno del mese, non del codice — la build di develop (83de3f68) misurata lo stesso giorno (2026-10-14) dà esattamente questi valori prima e dopo la sessione: 390 screens 3,23 → 3,25; 768 figuresAboveFold 25 → 26; 1024 screens 2,64 → 2,67, figuresAboveFold 18 → 19, tilesAboveFold 3 → 1 (doc/guide/prima-schermata.md § Per-page blind spots, l'erede è MOB-08 § 2)"
+        "raisedBy": "MOB-06: la prima riga chiusa (Movimenti) finisce a 976 contro la pill a 767 — il verdetto è alto 243 (titolo, primo enunciato su due righe, la striscia G/P su una riga sua perché «+9183,42 €» supera i 9 caratteri e Liquidità sotto, «Il perché»), LA tessera 494 con la curva già a 120 px e il conteggio, «Il resto» 44; decisione 19 estesa a Patrimonio (README § 9, 84)"
       },
       "768": {
-        "screens": 2.04,
+        "screens": 1.25,
         "tilesAboveFold": 5,
         "tilesFullyAboveFold": 3,
-        "figuresAboveFold": 26,
-        "figuresOutsideVerdict": 15,
+        "figuresAboveFold": 16,
+        "figuresOutsideVerdict": 13,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
         "raisedBy": "MOB-05: deriva del giorno del mese, non del codice — la build di develop (83de3f68) misurata lo stesso giorno (2026-10-14) dà esattamente questi valori prima e dopo la sessione: 390 screens 3,23 → 3,25; 768 figuresAboveFold 25 → 26; 1024 screens 2,64 → 2,67, figuresAboveFold 18 → 19, tilesAboveFold 3 → 1 (doc/guide/prima-schermata.md § Per-page blind spots, l'erede è MOB-08 § 2)"
       },
       "1024": {
-        "screens": 2.67,
+        "screens": 1.58,
         "tilesAboveFold": 1,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 19,
-        "figuresOutsideVerdict": 11,
+        "tilesFullyAboveFold": 0,
+        "figuresAboveFold": 10,
+        "figuresOutsideVerdict": 7,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-05: deriva del giorno del mese, non del codice — la build di develop (83de3f68) misurata lo stesso giorno (2026-10-14) dà esattamente questi valori prima e dopo la sessione: 390 screens 3,23 → 3,25; 768 figuresAboveFold 25 → 26; 1024 screens 2,64 → 2,67, figuresAboveFold 18 → 19, tilesAboveFold 3 → 1 (doc/guide/prima-schermata.md § Per-page blind spots, l'erede è MOB-08 § 2)"
+        "raisedBy": "MOB-06: LA tessera non sta più intera sopra la piega — il verdetto prende la striscia e «Il perché» (la composizione vale fino a 1439), e Patrimonio totale lordo scende sotto i 768 px; 1024 è di MOB-08, che ne decide le colonne (README § 9, 84)"
       }
     },
     "cashflow-tracciamento": {
@@ -325,31 +325,33 @@
     },
     "analisi": {
       "390": {
-        "screens": 3.68,
+        "screens": 1.86,
+        "tilesAboveFold": 1,
+        "tilesFullyAboveFold": 0,
+        "figuresAboveFold": 8,
+        "figuresOutsideVerdict": 5,
+        "firstClosedRowAbovePill": false,
+        "overflowX": false,
+        "raisedBy": "MOB-06: la prima riga chiusa (Fuori scala) finisce a 1031 contro la pill a 767 — il verdetto è alto 392 (titolo su due righe, l'asse 2×2 e il mese, il primo enunciato, le due celle, lo scope del calendario, «Il perché»), LA tessera (Periodo) 392 con le barre già a 120 px; decisione 19 estesa ad Analisi (README § 9, 84)"
+      },
+      "768": {
+        "screens": 1.27,
+        "tilesAboveFold": 6,
+        "tilesFullyAboveFold": 5,
+        "figuresAboveFold": 12,
+        "figuresOutsideVerdict": 9,
+        "firstClosedRowAbovePill": true,
+        "overflowX": false
+      },
+      "1024": {
+        "screens": 1.61,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 12,
         "figuresOutsideVerdict": 7,
         "firstClosedRowAbovePill": null,
-        "overflowX": false
-      },
-      "768": {
-        "screens": 2.43,
-        "tilesAboveFold": 3,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 20,
-        "figuresOutsideVerdict": 13,
-        "firstClosedRowAbovePill": null,
-        "overflowX": false
-      },
-      "1024": {
-        "screens": 3.25,
-        "tilesAboveFold": 1,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 12,
-        "figuresOutsideVerdict": 7,
-        "firstClosedRowAbovePill": null,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-06: LA tessera (Periodo) non sta più intera sopra la piega — l'asse sotto il titolo, la striscia, lo scope e «Il perché» (la composizione vale fino a 1439); 1024 è di MOB-08, che ne decide le colonne (README § 9, 84)"
       }
     },
     "rendimenti": {
@@ -384,27 +386,27 @@
     },
     "storico": {
       "390": {
-        "screens": 4.71,
+        "screens": 1.86,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 16,
-        "figuresOutsideVerdict": 9,
-        "firstClosedRowAbovePill": null,
+        "figuresAboveFold": 12,
+        "figuresOutsideVerdict": 7,
+        "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
+        "raisedBy": "MOB-06: la prima riga chiusa (Composizione) finisce a 994 contro la pill a 767 — il verdetto è alto 260 (titolo su due righe, il primo enunciato su tre, le due celle), LA tessera (Evoluzione) 495 con la curva già a 120 px e la lettura intera; decisione 19 estesa a Storico (README § 9, 84)"
       },
       "768": {
-        "screens": 3.03,
-        "tilesAboveFold": 3,
-        "tilesFullyAboveFold": 1,
-        "figuresAboveFold": 29,
-        "figuresOutsideVerdict": 19,
-        "firstClosedRowAbovePill": null,
+        "screens": 1.31,
+        "tilesAboveFold": 5,
+        "tilesFullyAboveFold": 5,
+        "figuresAboveFold": 16,
+        "figuresOutsideVerdict": 12,
+        "firstClosedRowAbovePill": true,
         "overflowX": false,
         "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       },
       "1024": {
-        "screens": 3.96,
+        "screens": 1.66,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 16,

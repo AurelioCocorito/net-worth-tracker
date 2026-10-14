@@ -31,10 +31,11 @@ import {
   describeMortgageScope,
   describeMortgageYearScope,
   formatHoldingCounts,
+  patrimonioRestLabel,
   pluralArticleFor,
   type PatrimonioVerdictInput,
 } from '@/lib/utils/patrimonioNarrative';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import type { MortgageSummary } from '@/lib/utils/mortgageSummary';
 
 // Intl 'it-IT' puts a no-break space before "€" (see AGENTS.md → Italian Localization); the
@@ -105,8 +106,8 @@ describe('buildPatrimonioVerdict — headline and tone', () => {
 describe('buildPatrimonioVerdict — sentence', () => {
   it('should state value, monthly change, the counts and the instrument that drove the month', () => {
     expect(plain(buildPatrimonioVerdict(AUGUST).sentence)).toBe(
-      'Il portafoglio vale 412.425,85 €: +3214,20 € (+0,79%) su luglio, 16 strumenti e 3 conti; ' +
-        'sul mercato ha spinto soprattutto Vanguard FTSE All-World (+2140 €). ' +
+      'Il portafoglio vale 412.425,85 €: +3214,20 € (+0,79%) su luglio, 16 strumenti e 3 conti. ' +
+        'Sul mercato ha spinto soprattutto Vanguard FTSE All-World (+2140 €). ' +
         'Di quel movimento: +2000 € dal mercato e +1214 € tra risparmio e altre variazioni.',
     );
   });
@@ -177,7 +178,7 @@ describe('buildPatrimonioVerdict — sentence', () => {
       topMover: { id: 'btc', name: 'Bitcoin', delta: -1800 },
     }).sentence;
     expect(plain(sentence)).toBe(
-      'Il portafoglio vale 412.425,85 €: −2100,00 € (−0,50%) su luglio, 16 strumenti e 3 conti; sul mercato ha pesato soprattutto Bitcoin (−1800 €). ' +
+      'Il portafoglio vale 412.425,85 €: −2100,00 € (−0,50%) su luglio, 16 strumenti e 3 conti. Sul mercato ha pesato soprattutto Bitcoin (−1800 €). ' +
         'Di quel movimento: −1500 € dal mercato e −600 € tra risparmio e altre variazioni.',
     );
   });
@@ -385,5 +386,77 @@ describe('describeMortgageYearScope — a partial year says so', () => {
 
   it('should leave a whole past year bare', () => {
     expect(describeMortgageYearScope(year(2027, null), 2028)).toBeNull();
+  });
+});
+
+/**
+ * The phone's cut of the verdict (MOB-06, 2026-10-14; doc/mobile/README.md § 9, decisions 3, 5,
+ * 20 and 81). Seen red: the market sentence glued back with «; sul mercato» (the lead swallowed
+ * it); the `binding` flag dropped from `describeSales` (the rest of a taxed month went behind
+ * «Il perché»); the zero signed again with `value >= 0 ? '+'` («+0,00 €»).
+ */
+describe('buildPatrimonioVerdict — the phone composition', () => {
+  const YEAR = { value: 4500, percentage: 4.1 };
+
+  it('should close the lead on the first sentence — the total, the month and the counts', () => {
+    const verdict = buildPatrimonioVerdict({ ...AUGUST, yearlyVariation: YEAR });
+    const split = splitVerdict(verdict);
+    expect(plain(split.lead)).toBe('Il portafoglio vale 412.425,85 €: +3214,20 € (+0,79%) su luglio, 16 strumenti e 3 conti.');
+    expect(plain(split.rest)).toBe(
+      ' Da inizio anno +4,10% (+4500,00 €). Sul mercato ha spinto soprattutto Vanguard FTSE All-World (+2140 €). ' +
+        'Di quel movimento: +2000 € dal mercato e +1214 € tra risparmio e altre variazioni.',
+    );
+    expect(split.restLabel).toBe("l'anno e il mercato del mese");
+  });
+
+  it('should keep the market a sentence of its own, at 1440 too', () => {
+    expect(plain(buildPatrimonioVerdict(AUGUST).sentence)).toContain('3 conti. Sul mercato ha spinto');
+  });
+
+  it('should keep the whole paragraph under the title in a month whose sale carries a tax', () => {
+    const verdict = buildPatrimonioVerdict({
+      ...AUGUST,
+      month: 9,
+      monthlyVariation: { value: -4937.74, percentage: -1.66 },
+      marketEffect: -1078.73,
+      topMover: { id: 'vwce', name: 'Un ETF', delta: -600 },
+      sales: {
+        proceeds: 39000,
+        realizedGain: 15700,
+        estimatedTax: 4100,
+        instruments: [{ id: 'vwce', name: 'Un ETF', proceeds: 39000, realizedGain: 15700, estimatedTax: 4100 }],
+        brokenLedgers: 0,
+      },
+    });
+    const split = splitVerdict(verdict);
+    expect(verdict.leadLength).toBeDefined();
+    expect(split.rest).toEqual([]);
+    expect(plain(split.lead)).toBe(plain(verdict.sentence));
+  });
+
+  it('should name what the rest holds, the year first', () => {
+    expect(patrimonioRestLabel({ year: false, market: true, sale: false })).toBe('il mercato del mese');
+    expect(patrimonioRestLabel({ year: false, market: false, sale: true })).toBe('la vendita del mese');
+    expect(patrimonioRestLabel({ year: false, market: true, sale: true })).toBe('mercato e vendita del mese');
+    expect(patrimonioRestLabel({ year: true, market: false, sale: false })).toBe("l'anno");
+    expect(patrimonioRestLabel({ year: true, market: true, sale: false })).toBe("l'anno e il mercato del mese");
+    expect(patrimonioRestLabel({ year: true, market: false, sale: true })).toBe("l'anno e la vendita del mese");
+    expect(patrimonioRestLabel({ year: true, market: true, sale: true })).toBe("l'anno, il mercato e la vendita del mese");
+  });
+
+  it('should not cut a verdict with nothing behind its first sentence', () => {
+    const verdict = buildPatrimonioVerdict({ ...AUGUST, marketEffect: null, topMover: null });
+    expect(verdict.leadLength).toBeUndefined();
+    expect(verdict.restLabel).toBeUndefined();
+  });
+
+  it('should print a zero without a sign and without a colour', () => {
+    const verdict = buildPatrimonioVerdict({ ...AUGUST, monthlyVariation: { value: -0.004, percentage: -0.001 }, yearlyVariation: { value: 0.002, percentage: 0 } });
+    const text = plain(verdict.sentence);
+    expect(text).toContain(': 0,00 € (0,00%) su luglio');
+    expect(text).toContain('Da inizio anno 0,00% (0,00 €).');
+    const zeros = verdict.sentence.filter((segment) => ['0,00 €', '0,00%'].includes(plain([segment])));
+    expect(zeros.length).toBe(4);
+    expect(zeros.every((segment) => segment.sign === undefined)).toBe(true);
   });
 });

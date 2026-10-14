@@ -20,7 +20,7 @@ import type { Narrative } from '@/lib/utils/narrative';
 import type { DoublingProjection, GrowthPace } from '@/lib/utils/storicoSummary';
 import { formatDurationLong, formatDurationShort, formatPeriodMonthShort } from '@/lib/utils/storicoNarrative';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 import { AsideToggle } from '@/components/ui/aside-toggle';
 
@@ -38,6 +38,10 @@ interface RaddoppiTileProps {
   pace: GrowthPace;
   /** The latest snapshot's value — the row's centre figure; never rebuilt from the 99-capped progress. */
   latestValue: number;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -111,7 +115,7 @@ function InProgressRow({ milestone, latestValue }: { milestone: DoublingMileston
   );
 }
 
-export function RaddoppiTile({ reading, summary, mode, onModeChange, projection, pace, latestValue, className }: RaddoppiTileProps) {
+export function RaddoppiTile({ reading, summary, mode, onModeChange, projection, pace, latestValue, collapse, asideWhenClosed, className }: RaddoppiTileProps) {
   const completed = summary.milestones.filter((m) => m.isComplete);
   const current = summary.currentDoublingInProgress;
 
@@ -120,6 +124,8 @@ export function RaddoppiTile({ reading, summary, mode, onModeChange, projection,
   return (
     <Tile
       eyebrow="Raddoppi"
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       aside={<AsideToggle options={MODE_OPTIONS} value={mode} onChange={onModeChange} ariaLabel="Lettura dei raddoppi" />}
       reading={reading}
       className={className}

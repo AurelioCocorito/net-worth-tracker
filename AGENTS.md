@@ -693,8 +693,9 @@ file used to carry.
   every `border-*`, doc/guide/e2e-emulatori.md). The Panoramica lost its `order-1…8` on 2026-10-11
   (`e2e/overview.{mobile.,}spec.ts`), the five Cashflow tabs theirs on 2026-10-12 (Budget, Centri, the centre's detail,
   Dividendi; `e2e/mobile-composition.cashflow.mobile.spec.ts`), Rendimenti its `order-1…8` on 2026-10-14
-  (`e2e/mobile-composition.performance.degraded.mobile.spec.ts`); every other page still carries `order-*` (Analisi,
-  Storico, Allocazione, Previdenza, every FIRE tab) until MOB-06 and MOB-07 compose them.
+  (`e2e/mobile-composition.performance.degraded.mobile.spec.ts`), Analisi its `order-1…7` and Storico its `order-*` on
+  2026-10-14 (`e2e/mobile-composition.{analisi,history}.mobile.spec.ts`); every other page still carries `order-*`
+  (Allocazione, Previdenza, every FIRE tab) until MOB-07 composes them.
 - **A row's caption WRAPS, it is never truncated, and the label column never grows to make room for it** (2026-09-14,
   `RankedRows`): a cut fact is no fact («30 set · Asilo nido · in calendario»); at 4 grid columns 46% is the most the
   label can take beside the bar's 40px floor, the amount and the share (58% painted the share outside the tile,

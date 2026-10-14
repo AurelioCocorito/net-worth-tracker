@@ -26,7 +26,8 @@ import { useCssColorTokens } from '@/lib/hooks/useCssColorTokens';
 import { SPENDING_ROLE_TOKEN } from '@/lib/constants/spendingRoleColors';
 import { narrativeToText } from '@/lib/utils/narrative';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
+import { ANALISI_CLOSED_ASIDES } from '@/lib/utils/analisiNarrative';
 import { AsideToggle } from '@/components/ui/aside-toggle';
 import { DrillBreadcrumb } from '@/components/ui/drill-breadcrumb';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -59,7 +60,29 @@ interface FlussoTileProps {
    * them to the one entity-focus path every other entry point uses.
    */
   onEntityClick: (target: { expenseType: ExpenseType; categoryKey: string; subCategoryKey?: string }) => void;
+  /**
+   * The row below `desktop:` (`useMobileSections().collapse(id)`). Closed it says its view in words
+   * («per ruolo» / «per tipo»), which only this tile knows; the toggle is a control, so it opens the
+   * panel. The view is the tile's own state: not in the page's memory, «Per ruolo» at every mount.
+   */
+  collapse?: TileCollapse;
+  /**
+   * The strip's «Risparmio» cell prints the surplus (The Lifted-Figure Rule): below 640px the
+   * blocks that print it again hide — the type view's «Risparmio», the roles view's note (and
+   * «Risparmi» whole without a saving row). The bar stays: its legend prints shares, not euro.
+   */
+  liftedFigures?: readonly FlussoLiftedBlock[];
+  /** The figures the first screen prints: a caption of the bar drops an amount among them (decision 82). */
+  printedFigures?: ReadonlySet<string>;
   className?: string;
+}
+
+/** The blocks of the Flusso a phone's strip repeats (MOB-06, 2026-10-14). */
+export type FlussoLiftedBlock = 'risparmio';
+
+/** Narrows the `string[]` of `liftedBlocks(strip, section)` to this tile's blocks at the call site. */
+export function isFlussoLiftedBlock(block: string): block is FlussoLiftedBlock {
+  return block === 'risparmio';
 }
 
 /**
@@ -112,7 +135,8 @@ type DrillState =
  * roles view, SpendingTypesMobileFlow for the type view, both drawn by FlowShareMobile. Below 640
  * no Sankey model is built at all (no view, no height, no label), and the role colours are not read.
  */
-export function FlussoTile({ expenses, isMobile, reading, flow, spendingRoles, scheduled, scheduledHorizon, onEntityClick, className }: FlussoTileProps) {
+export function FlussoTile({ expenses, isMobile, reading, flow, spendingRoles, scheduled, scheduledHorizon, onEntityClick, collapse, liftedFigures = [], printedFigures, className }: FlussoTileProps) {
+  const savingsLifted = liftedFigures.includes('risparmio');
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [preferredMode, setPreferredMode] = useState<FlowMode>('roles');
   // A drill is a place INSIDE the Sankey, and the Sankey exists only from 640px. Stored WITH the
@@ -202,6 +226,8 @@ export function FlussoTile({ expenses, isMobile, reading, flow, spendingRoles, s
   return (
     <Tile
       eyebrow="Flusso"
+      collapse={collapse}
+      asideWhenClosed={mode === 'roles' ? ANALISI_CLOSED_ASIDES.flussoRoles : ANALISI_CLOSED_ASIDES.flussoTypes}
       aside={
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
           {view && (
@@ -249,10 +275,24 @@ export function FlussoTile({ expenses, isMobile, reading, flow, spendingRoles, s
       )}
       {isMobile ? (
         spendingRoles && mode === 'roles' ? (
-          <SpendingRolesMobileFlow summary={spendingRoles.summary} scheduled={scheduled} horizon={scheduledHorizon} onEntityClick={onEntityClick} />
+          <SpendingRolesMobileFlow
+            summary={spendingRoles.summary}
+            scheduled={scheduled}
+            horizon={scheduledHorizon}
+            onEntityClick={onEntityClick}
+            savingsLifted={savingsLifted}
+            printedFigures={printedFigures}
+          />
         ) : (
           typeBreakdown && (
-            <SpendingTypesMobileFlow breakdown={typeBreakdown} scheduled={scheduled} horizon={scheduledHorizon} onEntityClick={onEntityClick} />
+            <SpendingTypesMobileFlow
+              breakdown={typeBreakdown}
+              scheduled={scheduled}
+              horizon={scheduledHorizon}
+              onEntityClick={onEntityClick}
+              savingsLifted={savingsLifted}
+              printedFigures={printedFigures}
+            />
           )
         )
       ) : (

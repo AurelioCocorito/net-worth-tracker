@@ -18,7 +18,9 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(),
 }));
 
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
+import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import type { PeriodCashflowTotals, ScheduledSlice } from '@/lib/utils/tracciamentoSummary';
 import type { CategoryDeltaRow, TotalsPacing } from '@/lib/utils/comparisonDeltas';
 import type { SpendingAnomaly } from '@/lib/utils/cashflowComposition';
@@ -27,6 +29,8 @@ import { summarizeSpendingRoleShares, type SpendingRolesSummary } from '@/lib/ut
 import { scheduledSentence } from '@/lib/utils/cashflowNarrative';
 import {
   buildAnalisiVerdict,
+  collectPrintedFigures,
+  describeAnalisiScope,
   describeAnalisiSubject,
   describeAnalisiScheduledHorizon,
   describeAnomalies,
@@ -202,7 +206,7 @@ describe('buildAnalisiVerdict', () => {
     expect(verdict.headline).toBe("Nel 2026 spendi più dell'anno scorso.");
     expect(verdict.tone).toBe('warning');
     expect(plain(verdict.sentence)).toBe(
-      'Nel 2026 hai speso 31.200 €, +4,2% su gen–ago 2025; Casa pesa un terzo e Vacanze è la categoria cresciuta di più (+1100 €); ad agosto 2 categorie sono fuori scala: Ristoranti e Auto.',
+      'Nel 2026 hai speso 31.200 €, +4,2% su gen–ago 2025. Casa pesa un terzo e Vacanze è la categoria cresciuta di più (+1100 €); ad agosto 2 categorie sono fuori scala: Ristoranti e Auto.',
     );
     const rise = segmentOf(verdict.sentence, '+4,2%');
     expect(rise).toMatchObject({ mono: true, sign: 'negative' });
@@ -218,7 +222,7 @@ describe('buildAnalisiVerdict', () => {
     });
     expect(falling.headline).toBe("Nel 2026 spendi meno dell'anno scorso.");
     expect(falling.tone).toBe('positive');
-    expect(plain(falling.sentence)).toContain('hai speso 31.200 €, −6,5% su gen–ago 2025;');
+    expect(plain(falling.sentence)).toContain('hai speso 31.200 €, −6,5% su gen–ago 2025.');
     expect(segmentOf(falling.sentence, '−6,5%')).toMatchObject({ sign: 'positive' });
 
     const flat = buildAnalisiVerdict({
@@ -228,26 +232,26 @@ describe('buildAnalisiVerdict', () => {
     });
     expect(flat.headline).toBe("Nel 2026 spendi come l'anno scorso.");
     expect(flat.tone).toBe('neutral');
-    expect(plain(flat.sentence)).toContain('hai speso 31.200 €, in linea con gen–ago 2025;');
+    expect(plain(flat.sentence)).toContain('hai speso 31.200 €, in linea con gen–ago 2025.');
   });
 
   it('should conjugate a closed year in the past and compare it with the year before', () => {
     const verdict = buildAnalisiVerdict({ ...INPUT, period: PAST_YEAR, baseline: '2024', anomalies: [], anomalyMonth: null });
     expect(verdict.headline).toBe('Nel 2025 hai speso più del 2024.');
-    expect(plain(verdict.sentence)).toBe('Nel 2025 hai speso 31.200 €, +4,2% su 2024; Casa pesa un terzo e Vacanze è la categoria cresciuta di più (+1100 €).');
+    expect(plain(verdict.sentence)).toBe('Nel 2025 hai speso 31.200 €, +4,2% su 2024. Casa pesa un terzo e Vacanze è la categoria cresciuta di più (+1100 €).');
   });
 
   it('should drop the month count clause for a month and name the anomalies without repeating the month', () => {
     const verdict = buildAnalisiVerdict({ ...INPUT, period: CURRENT_MONTH, baseline: 'agosto 2025', grown: null, shrunk: null });
     expect(verdict.headline).toBe('Ad agosto finora spendi più di agosto 2025.');
-    expect(plain(verdict.sentence)).toBe('Ad agosto finora hai speso 31.200 €, +4,2% su agosto 2025; Casa pesa un terzo; 2 categorie sono fuori scala: Ristoranti e Auto.');
+    expect(plain(verdict.sentence)).toBe('Ad agosto finora hai speso 31.200 €, +4,2% su agosto 2025. Casa pesa un terzo; 2 categorie sono fuori scala: Ristoranti e Auto.');
   });
 
   it('should fall back to the heaviest category when there is nothing to compare', () => {
     const history = buildAnalisiVerdict({ ...INPUT, period: HISTORY, pacing: null, baseline: null, grown: null, shrunk: null, anomalies: [], anomalyMonth: null });
     expect(history.headline).toBe('Casa è la voce più pesante.');
     expect(history.tone).toBe('neutral');
-    expect(plain(history.sentence)).toBe('Dal 2024 al 2026 hai speso 31.200 €; Casa pesa un terzo.');
+    expect(plain(history.sentence)).toBe('Dal 2024 al 2026 hai speso 31.200 €. Casa pesa un terzo.');
   });
 
   it('should say «ed è anche» when the heaviest category is the one that moved the most', () => {
@@ -277,9 +281,13 @@ describe('buildAnalisiVerdict', () => {
     expect(plain(many.sentence)).toContain('; ad agosto 5 categorie sono fuori scala: Ristoranti, Auto, Sport e altre 2.');
   });
 
-  it('should close by naming what the period still has in the calendar', () => {
-    const verdict = buildAnalisiVerdict({ ...INPUT, scheduled: { count: 3, expenses: 1850, income: 500, throughMonth: 12 } });
-    expect(plain(verdict.sentence)).toContain('Nel totale ci sono ancora 1850 € di spese e 500 € di entrate già in calendario da qui a fine anno.');
+  it('should name what the period still has in the calendar in the scope, never in the sentence', () => {
+    // Since 2026-10-14 (MOB-06, decision 14): the clause left the sentence and became the verdict's
+    // `scope`, rendered at every width. Seen red with `scheduledSentence` left at the sentence's end.
+    const input = { ...INPUT, scheduled: { count: 3, expenses: 1850, income: 500, throughMonth: 12 } };
+    expect(plain(buildAnalisiVerdict(input).sentence)).not.toContain('in calendario');
+    expect(plain(describeAnalisiScope(input)!)).toBe('Nel totale ci sono ancora 1850 € di spese e 500 € di entrate già in calendario da qui a fine anno.');
+    expect(describeAnalisiScope(INPUT)).toBeNull();
   });
 
   it('should drop the pacing clause when the baseline is zero and keep the rest', () => {
@@ -290,7 +298,7 @@ describe('buildAnalisiVerdict', () => {
     });
     expect(verdict.headline).toBe('Casa è la voce più pesante.');
     // No baseline → no pacing AND no mover: «cresciuta» against nothing would name no window.
-    expect(plain(verdict.sentence)).toBe('Nel 2026 hai speso 31.200 €; Casa pesa un terzo.');
+    expect(plain(verdict.sentence)).toBe('Nel 2026 hai speso 31.200 €. Casa pesa un terzo.');
   });
 
   it('should refuse a verdict on a month that has not started, naming what is already in the calendar', () => {
@@ -714,5 +722,60 @@ describe('describeComparisonSummary', () => {
   it('should restate the module baseline caption and the signed difference', () => {
     expect(plain(describeComparisonSummary(2026, PACING))).toBe('2026 vs 2025 (stessi mesi, gen–ago) · +1257 €');
     expect(plain(describeComparisonSummary(2026, { ...PACING, expenses: { current: 100, previous: 300, delta: -200, deltaPercent: -66.7 } }))).toBe('2026 vs 2025 (stessi mesi, gen–ago) · −200 €');
+  });
+});
+
+/**
+ * The phone's cut of the verdict and the Flusso's captions on the first screen (MOB-06,
+ * 2026-10-14; doc/mobile/README.md § 9, decisions 3, 5, 14 and 82). Seen red: «; Casa pesa» glued
+ * back (the lead swallowed the categories); `scheduledSentence` left at the sentence's end (the
+ * scope test above); the caption's amount kept with `printed` ignored.
+ */
+describe('buildAnalisiVerdict — the phone composition', () => {
+  it('should close the lead on the total and its pacing, the categories behind «Il perché»', () => {
+    const split = splitVerdict(buildAnalisiVerdict(INPUT));
+    expect(plain(split.lead)).toBe('Nel 2026 hai speso 31.200 €, +4,2% su gen–ago 2025.');
+    expect(plain(split.rest)).toBe(' Casa pesa un terzo e Vacanze è la categoria cresciuta di più (+1100 €); ad agosto 2 categorie sono fuori scala: Ristoranti e Auto.');
+    expect(split.restLabel).toBe('categorie e fuori scala');
+    expect(splitVerdict(buildAnalisiVerdict({ ...INPUT, anomalies: [] })).restLabel).toBe('le categorie');
+  });
+
+  it('should open a sentence of their own for anomalies without a category', () => {
+    const verdict = buildAnalisiVerdict({ ...INPUT, topCategory: null });
+    expect(plain(verdict.sentence)).toBe('Nel 2026 hai speso 31.200 €, +4,2% su gen–ago 2025. Ad agosto 2 categorie sono fuori scala: Ristoranti e Auto.');
+    expect(verdict.restLabel).toBe('il fuori scala');
+  });
+
+  it('should not cut a verdict with nothing after its first sentence, nor one without spending', () => {
+    expect(buildAnalisiVerdict({ ...INPUT, topCategory: null, anomalies: [] }).leadLength).toBeUndefined();
+    expect(buildAnalisiVerdict({ ...INPUT, totals: { ...TOTALS, expenses: 0, net: TOTALS.income } }).leadLength).toBeUndefined();
+  });
+});
+
+describe('the Flusso captions beside the first screen', () => {
+  const strip: StripFigure[] = [
+    { label: 'Entrate', value: 1000, format: 'currency', opens: 'analisi-entrate' },
+    { label: 'Risparmio', value: -250, format: 'currency', opens: 'analisi-flusso' },
+  ];
+
+  it('should collect the magnitudes the lead and the strip print', () => {
+    const printed = collectPrintedFigures([{ text: 'Nel 2026 hai speso ' }, { text: '1250 €', mono: true }, { text: ', ' }, { text: '+4,2%', mono: true }], strip);
+    expect([...printed].map((text) => text.replace(/[  ]/g, ' ')).sort()).toEqual(['1000 €', '1250 €', '250 €', '4,2%']);
+  });
+
+  it('should drop an amount the first screen prints and keep one it does not', () => {
+    const printed = collectPrintedFigures([{ text: cachedFormatCurrencyEUR(2000, true), mono: true }], [{ label: 'Risparmio', value: -500, format: 'currency', opens: 'analisi-flusso' }]);
+    const deficit = { blocks: [], spending: 2000, income: 1500, surplus: 0, deficit: 500, incomeEdge: 75, noIncome: false, absence: null } satisfies TypeFlowBreakdown;
+    expect(plain(describeTypeFlowBar(deficit, printed))).toBe('Quote delle spese. Oltre la linea delle entrate, il resto viene dal patrimonio.');
+    // The roles' base in a deficit is what left (1250 €), not the income: it stays.
+    const roles = summarizeSpendingRoleShares(rolesSummary({ income: 1000, need: 1250 }));
+    const rolesPrinted = collectPrintedFigures([{ text: '1250 €', mono: false }], [{ label: 'Entrate', value: 1000, format: 'currency', opens: 'analisi-entrate' }, { label: 'Risparmio', value: -250, format: 'currency', opens: 'analisi-flusso' }]);
+    expect(plain(describeSpendingRolesBar(roles, rolesPrinted))).toBe(
+      'Quote di quanto è uscito (1250 €); tacche a 50 e 80, il riferimento 50/30/20. Oltre la linea delle entrate, il resto viene dal patrimonio.',
+    );
+    // Without a deficit the base IS the income the strip prints.
+    const balanced = summarizeSpendingRoleShares(rolesSummary({ income: 3000, need: 1500, want: 900 }));
+    const incomePrinted = collectPrintedFigures([], [{ label: 'Entrate', value: 3000, format: 'currency', opens: 'analisi-entrate' }]);
+    expect(plain(describeSpendingRolesBar(balanced, incomePrinted))).toBe('Quote di quanto è uscito; tacche a 50 e 80, il riferimento 50/30/20.');
   });
 });

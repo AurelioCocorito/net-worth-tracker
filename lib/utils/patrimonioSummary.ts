@@ -16,6 +16,8 @@ import { costBasisPerUnitEur } from '@/lib/utils/costBasisEur';
 import { hasMarketPrice } from '@/lib/utils/assetPricing';
 import { getItalyMonthYear, toDate } from '@/lib/utils/dateHelpers';
 import { getNextCouponDate, hasCouponPayments } from '@/lib/utils/couponUtils';
+import { narrativeToText, type PageVerdictModel } from '@/lib/utils/narrative';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
 
 // ─── Bond row facts ───────────────────────────────────────────────────────────
 
@@ -292,4 +294,79 @@ export function resolveLastPriceUpdate(assets: Asset[]): Date | null {
     if (!latest || asset.lastPriceUpdate.getTime() > latest.getTime()) latest = asset.lastPriceUpdate;
   }
   return latest;
+}
+
+// ─── The phone composition (MOB-06, 2026-10-14) ───────────────────────────────
+
+/** THE tile of the page (Patrimonio totale lordo): open at every width, never a row (decision 21). */
+export const PATRIMONIO_PATRIMONIO_ID = 'patrimonio-patrimonio';
+
+/**
+ * The rows below `desktop:`, in the DOM's order (decision 11). A loan's «Mutuo» row is
+ * `patrimonio-mutuo-<loanId>` (`patrimonioMutuoSectionId`), one per loan with linked instalments;
+ * a failed read of the instalments is ONE row, `mutuo`.
+ */
+export const PATRIMONIO_SECTION_IDS = {
+  movimenti: 'patrimonio-movimenti',
+  liquidita: 'patrimonio-liquidita',
+  classi: 'patrimonio-classi',
+  rendimento: 'patrimonio-rendimento',
+  mutuo: 'patrimonio-mutuo',
+  strumenti: 'patrimonio-strumenti',
+} as const;
+
+/** The row of one loan's «Mutuo» tile: a row opened before the first-visit migration closes after it (its id changes). */
+export function patrimonioMutuoSectionId(loanId: string): string {
+  return `${PATRIMONIO_SECTION_IDS.mutuo}-${loanId}`;
+}
+
+/** The block of `RendimentoTile` the strip lifts: the «G/P non realizzato» KPI. */
+export const PATRIMONIO_GAIN_BLOCK = 'gain';
+
+/**
+ * The two figures under the verdict on a phone (The First-Screen Rule; decision 40): the
+ * unrealized gain over the cost basis, with the cents the Rendimento tile prints (its KPI is
+ * lifted), and the share of the gross total on the accounts, which repeats the Liquidità
+ * READING — a reading stays whole (decision 15). The month's change is in the verdict's first
+ * sentence, the total is THE tile's hero (decision 24). If the census counts more than five
+ * figures outside the verdict, the Liquidità cell is the one to go (decision 40).
+ */
+export function selectPatrimonioStrip({ gains, cash }: { gains: UnrealizedGainsSummary; cash: CashAccountsSummary }): StripFigure[] {
+  const cashReason =
+    cash.accounts.length === 0
+      ? 'nessun conto registrato'
+      : cash.shareOfTotal === null
+        ? 'nessun totale su cui misurarla'
+        : cash.shareOfTotal <= 0
+          ? 'i debiti superano i conti'
+          : null;
+  return [
+    {
+      label: 'G/P non realizzato',
+      value: gains.count > 0 ? gains.gainLoss : null,
+      format: 'signed-currency',
+      decimals: 2,
+      opens: PATRIMONIO_SECTION_IDS.rendimento,
+      lifts: { section: PATRIMONIO_SECTION_IDS.rendimento, block: PATRIMONIO_GAIN_BLOCK },
+      ...(gains.count > 0 ? {} : { reason: 'nessuna posizione con un prezzo di carico' }),
+    },
+    {
+      label: 'Liquidità',
+      value: cashReason === null ? cash.shareOfTotal : null,
+      format: 'percent',
+      decimals: 1,
+      opens: PATRIMONIO_SECTION_IDS.liquidita,
+      ...(cashReason === null ? {} : { reason: cashReason }),
+    },
+  ];
+}
+
+/**
+ * Whether the verdict names the market in words — then THE tile's «Mercato:» digest is lifted on a
+ * phone (its words are behind «Il perché»), otherwise it stays. The Panoramica's
+ * `verdictNamesMarket` on the built model: the sentence names it only with a top mover and a
+ * measured market effect, or with the month's split.
+ */
+export function patrimonioVerdictNamesMarket(verdict: PageVerdictModel): boolean {
+  return /mercato/.test(narrativeToText(verdict.sentence));
 }

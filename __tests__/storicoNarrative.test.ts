@@ -46,9 +46,10 @@ import {
   formatDurationLong,
   formatDurationShort,
   formatPeriodMonth,
+  STORICO_REST_LABEL,
   type StoricoVerdictInput,
 } from '@/lib/utils/storicoNarrative';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 
 // Intl 'it-IT' puts a no-break space before "€"; expectations are written as the screen prints them.
 const plain = (narrative: Narrative | null) => (narrative ? narrativeToText(narrative).replace(/ /g, ' ') : null);
@@ -591,5 +592,35 @@ describe('buildStoricoVerdict without a snapshot', () => {
     const verdict = buildStoricoVerdict({ growth: null, moves: { best: null, worst: null, risingMonths: 0, measuredMonths: 0 }, pace: { verdict: null, trailingDelta: null, trailingPct: null, trailingMonthly: null, lifetimeMonthly: null }, lastDoubling: null });
     expect(plain(verdict.sentence)).toContain('ne viene salvato uno da solo ogni sera');
     expect(plain(verdict.sentence)).not.toMatch(/cron/i);
+  });
+});
+
+/**
+ * The phone's cut of the verdict (MOB-06, 2026-10-14; decision 3). Seen red: the cut moved before
+ * the parenthesis with `binding` dropped from «versamenti inclusi» (the base of the rate went behind
+ * «Il perché»).
+ */
+describe('buildStoricoVerdict — the phone composition', () => {
+  it('should close the lead on the growth and its best month, the last year behind «Il perché»', () => {
+    const verdict = buildStoricoVerdict(FULL);
+    const split = splitVerdict(verdict);
+    expect(plain(split.lead)).toBe(
+      "Dal primo snapshot (settembre 2019) il patrimonio è cresciuto di 174.900 € (+236,4%, il 19,4% l'anno, versamenti inclusi): il mese migliore è stato marzo 2024 (+9840 €), l'ultimo raddoppio ad ottobre 2022.",
+    );
+    expect(plain(split.rest)).toBe(" Nell'ultimo anno è salito di 34.000 €, sopra la media di 25.600 € l'anno.");
+    expect(split.restLabel).toBe(STORICO_REST_LABEL);
+  });
+
+  it('should mark «versamenti inclusi» binding, so no cut can leave it behind', () => {
+    const verdict = buildStoricoVerdict(FULL);
+    expect(verdict.sentence.find((segment) => segment.text.includes('versamenti inclusi'))?.binding).toBe(true);
+    // A cut placed before it is cancelled: the whole paragraph stays.
+    const early = splitVerdict({ ...verdict, leadLength: 1 });
+    expect(early.rest).toEqual([]);
+  });
+
+  it('should not cut a verdict without the last year', () => {
+    const verdict = buildStoricoVerdict({ ...FULL, pace: { trailingDelta: null, trailingPct: null, trailingMonthly: null, lifetimeMonthly: 2000, verdict: null } });
+    expect(verdict.leadLength).toBeUndefined();
   });
 });

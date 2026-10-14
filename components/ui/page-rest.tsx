@@ -6,6 +6,12 @@ import { TILE_EYEBROW_CLASS } from '@/components/ui/tile';
 
 interface PageRestProps {
   sections: MobileSections;
+  /**
+   * An id for the «Apri tutte» button, where a page sends the focus when the row it was in goes away
+   * (Analisi's Scheda closed from a deep link, since 2026-10-14). Unique per page: Cashflow mounts
+   * five of these.
+   */
+  buttonId?: string;
   className?: string;
 }
 
@@ -21,13 +27,14 @@ interface PageRestProps {
  * node that changes text and empties (doc/guide/dialog.md), never one that appears.
  * A page with no rows does not render this.
  */
-export function PageRest({ sections, className }: PageRestProps) {
+export function PageRest({ sections, buttonId, className }: PageRestProps) {
   return (
     <>
       <div className={cn('col-span-full flex items-center justify-between gap-3 desktop:hidden', className)}>
         <h2 className={cn(TILE_EYEBROW_CLASS, 'm-0')}>Il resto della pagina</h2>
         <button
           type="button"
+          id={buttonId}
           onClick={() => sections.setAll(!sections.allOpen)}
           className="inline-flex min-h-11 items-center rounded-lg px-2 text-[13px] font-medium text-foreground active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >

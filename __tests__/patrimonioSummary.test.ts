@@ -22,7 +22,18 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(),
 }));
 
+import { formatSignedEuro } from '@/lib/utils/formatters';
+import { narrativeToText } from '@/lib/utils/narrative';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { describeCashAccounts } from '@/lib/utils/patrimonioNarrative';
+import { formatStripFigure, liftedBlocks, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
 import {
+  PATRIMONIO_GAIN_BLOCK,
+  PATRIMONIO_SECTION_IDS,
+  patrimonioMutuoSectionId,
+  selectPatrimonioStrip,
+  type CashAccountsSummary,
+  type UnrealizedGainsSummary,
   computeTopWeightShare,
   computeUnrealizedGain,
   hasCostBasis,
@@ -416,5 +427,68 @@ describe('resolveBondRowFacts — the dates under a bond row', () => {
     );
     expect(zero).toMatchObject({ hasCoupons: false, nextCoupon: null });
     expect(resolveBondRowFacts(makeAsset())).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// selectPatrimonioStrip — the phone's two cells (MOB-06, 2026-10-14)
+// ---------------------------------------------------------------------------
+
+/**
+ * Each cell prints EXACTLY what its tile prints: the G/P through the formatter `RendimentoTile`
+ * calls for its KPI (`formatSignedEuro`, with the cents), the Liquidità share as the tile's
+ * reading prints it (`describeCashAccounts`). Seen red: `decimals: 2` dropped from the G/P cell
+ * (it printed the compact «+1235 €» beside the tile's «+1234,56 €»).
+ */
+describe('selectPatrimonioStrip', () => {
+  const plain = (text: string) => text.replace(/[  ]/g, ' ');
+  const cellText = (figure: StripFigure) => plain(narrativeToText([formatStripFigure(figure)!]));
+  const gains = (gainLoss: number, count = 4): UnrealizedGainsSummary => ({ gainLoss, costBasis: 20000, gainPercent: (gainLoss / 20000) * 100, count });
+  const cash = (shareOfTotal: number | null, accounts = 2): CashAccountsSummary => ({
+    accounts: Array.from({ length: accounts }, (_, i) => ({ id: `c${i}`, name: `Conto ${i}`, balance: 1000, shareOfCash: 50 })),
+    total: 2000,
+    shareOfTotal,
+    largest: accounts > 0 ? { id: 'c0', name: 'Conto 0', balance: 1000, shareOfCash: 50 } : null,
+  });
+  const KNOWN = [...Object.values(PATRIMONIO_SECTION_IDS), VERDICT_REST_SECTION];
+
+  it('should open the Rendimento and Liquidità rows, lift only the G/P KPI and pass the strip rules', () => {
+    const strip = selectPatrimonioStrip({ gains: gains(1234.56), cash: cash(12.34) });
+    expect(strip.map((figure) => figure.label)).toEqual(['G/P non realizzato', 'Liquidità']);
+    expect(strip.map((figure) => figure.opens)).toEqual([PATRIMONIO_SECTION_IDS.rendimento, PATRIMONIO_SECTION_IDS.liquidita]);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    expect(liftedBlocks(strip, PATRIMONIO_SECTION_IDS.rendimento)).toEqual([PATRIMONIO_GAIN_BLOCK]);
+    expect(liftedBlocks(strip, PATRIMONIO_SECTION_IDS.liquidita)).toEqual([]);
+  });
+
+  it('should print the G/P as the tile prints its KPI — with the cents, the U+2212, a zero unsigned', () => {
+    for (const value of [1234.56, -80, -0.004, 0]) {
+      const [gain] = selectPatrimonioStrip({ gains: gains(value), cash: cash(10) });
+      expect(cellText(gain)).toBe(plain(formatSignedEuro(value)));
+    }
+    expect(formatStripFigure(selectPatrimonioStrip({ gains: gains(-0.004), cash: cash(10) })[0])!.sign).toBeUndefined();
+  });
+
+  it('should print the Liquidità share as the tile reading does', () => {
+    const [, share] = selectPatrimonioStrip({ gains: gains(100), cash: cash(7.96) });
+    const reading = plain(narrativeToText(describeCashAccounts(7.96, { name: 'Conto 0', balance: 1000 }, 2)!));
+    expect(reading).toContain(cellText(share));
+    expect(cellText(share)).toBe('8,0%');
+  });
+
+  it('should say why a cell has no figure', () => {
+    const [gain] = selectPatrimonioStrip({ gains: gains(0, 0), cash: cash(10) });
+    expect(gain.value).toBeNull();
+    expect(gain.reason).toBe('nessuna posizione con un prezzo di carico');
+    expect(liftedBlocks([gain], PATRIMONIO_SECTION_IDS.rendimento)).toEqual([]);
+    expect(selectPatrimonioStrip({ gains: gains(1), cash: cash(null) })[1].reason).toBe('nessun totale su cui misurarla');
+    expect(selectPatrimonioStrip({ gains: gains(1), cash: cash(-3) })[1].reason).toBe('i debiti superano i conti');
+    expect(selectPatrimonioStrip({ gains: gains(1), cash: cash(0) })[1].reason).toBe('i debiti superano i conti');
+    expect(selectPatrimonioStrip({ gains: gains(1), cash: cash(0, 0) })[1].reason).toBe('nessun conto registrato');
+    for (const strip of [selectPatrimonioStrip({ gains: gains(0, 0), cash: cash(null, 0) })]) expect(validateStrip(strip, KNOWN)).toEqual([]);
+  });
+
+  it('should give each loan a row of its own', () => {
+    expect(patrimonioMutuoSectionId('loan-7')).toBe('patrimonio-mutuo-loan-7');
   });
 });

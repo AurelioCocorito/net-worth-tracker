@@ -2,13 +2,38 @@
  * Tests for lib/utils/analisiSummary.ts — every number the Analisi page prints that is not
  * already born in comparisonDeltas / cashflowComposition / expenseEntityStats: the period's
  * month count and single-month context, the top expenses, the spending series (per month
- * against the previous year, per year), the flow summary and the year-over-year movers.
+ * against the previous year, per year), the flow summary and the year-over-year movers; since
+ * 2026-10-14 the phone's strip, whose identity with the Flusso reads analisiNarrative — so
+ * chartService's Firebase chain is mocked as in analisiNarrative.test.ts.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/firebase/config', () => ({ db: {} }));
+vi.mock('@/lib/utils/authFetch', () => ({ authenticatedFetch: vi.fn() }));
+vi.mock('@/lib/services/dashboardOverviewInvalidation', () => ({
+  invalidateDashboardOverviewSummary: vi.fn(),
+}));
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  getDoc: vi.fn(),
+  setDoc: vi.fn(),
+  deleteField: vi.fn(),
+}));
 import type { Expense, ExpenseType } from '@/types/expenses';
 import type { CategoryDeltaRow } from '@/lib/utils/comparisonDeltas';
+import { cachedFormatCurrencyEUR, formatEuroMinus } from '@/lib/utils/formatters';
+import { narrativeToText } from '@/lib/utils/narrative';
+import { formatFlowAmount } from '@/lib/utils/analisiNarrative';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { summarizePeriodCashflow } from '@/lib/utils/tracciamentoSummary';
+import { formatStripFigure, liftedBlocks, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
 import {
+  ANALISI_PERIODO_ID,
+  ANALISI_SAVINGS_BLOCK,
+  ANALISI_SECTION_IDS,
+  ANALISI_TRIO_BLOCK,
+  selectAnalisiStrip,
   buildMonthlySpending,
   buildTypeFlowBreakdown,
   buildYearlySpending,
@@ -415,5 +440,58 @@ describe('resolveCategoryMovers', () => {
   it('should return null on a side with no mover', () => {
     expect(resolveCategoryMovers([row('Auto', 300)])).toMatchObject({ grown: { label: 'Auto' }, shrunk: null });
     expect(resolveCategoryMovers([])).toEqual({ grown: null, shrunk: null });
+  });
+});
+
+/**
+ * The phone's two cells (MOB-06, 2026-10-14). Each prints EXACTLY what the tile it lifts prints:
+ * «Entrate» the trio's value (`cachedFormatCurrencyEUR(v, true)`), «Risparmio» the trio's net
+ * (`formatEuroMinus`: «−» only on a negative, a printed zero unsigned) AND the header of the
+ * Flusso's «Risparmio» block on a phone (`FlowShareMobile`'s header, `formatFlowAmount` of the
+ * surplus, which is the net on this fixture). Seen red: `signed-currency` on
+ * «Risparmio» («+1150 €» against the trio's «1150 €»); the block's header printed with the cents.
+ */
+describe('selectAnalisiStrip', () => {
+  const plain = (text: string) => text.replace(/[  ]/g, ' ');
+  const cellText = (figure: StripFigure) => plain(narrativeToText([formatStripFigure(figure)!]));
+  const KNOWN = [...Object.values(ANALISI_SECTION_IDS), VERDICT_REST_SECTION];
+  const rows = [
+    on(2026, 1, { type: 'income', amount: 3000, categoryId: 'cat-stip', categoryName: 'Stipendio' }),
+    on(2026, 1, { type: 'fixed', amount: -1200, categoryId: 'cat-casa', categoryName: 'Casa' }),
+    on(2026, 1, { type: 'variable', amount: -650, categoryId: 'cat-cibo', categoryName: 'Cibo' }),
+  ];
+
+  it('should open the Entrate and Flusso rows, lift the trio and the Flusso block, and pass the strip rules', () => {
+    const strip = selectAnalisiStrip(summarizePeriodCashflow(rows));
+    expect(strip.map((figure) => figure.label)).toEqual(['Entrate', 'Risparmio']);
+    expect(strip.map((figure) => figure.opens)).toEqual([ANALISI_SECTION_IDS.entrate, ANALISI_SECTION_IDS.flusso]);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    expect(liftedBlocks(strip, ANALISI_PERIODO_ID)).toEqual([ANALISI_TRIO_BLOCK]);
+    expect(liftedBlocks(strip, ANALISI_SECTION_IDS.flusso)).toEqual([ANALISI_SAVINGS_BLOCK]);
+  });
+
+  it('should print each cell as the trio prints it — positive, negative with the U+2212, zero unsigned', () => {
+    const totals = summarizePeriodCashflow(rows);
+    const [income, net] = selectAnalisiStrip(totals);
+    expect(cellText(income)).toBe(plain(cachedFormatCurrencyEUR(totals.income, true)));
+    expect(cellText(net)).toBe(plain(formatEuroMinus(totals.net)));
+    for (const value of [-430, -0.3, 0]) {
+      const [, cell] = selectAnalisiStrip({ income: 1000, expenses: 1000 - value, net: value });
+      expect(cellText(cell)).toBe(plain(formatEuroMinus(value)));
+    }
+  });
+
+  it('should print «Risparmio» as the Flusso block on a phone prints what was put aside', () => {
+    const totals = summarizePeriodCashflow(rows);
+    const breakdown = buildTypeFlowBreakdown(rows, summarizeFlow(rows));
+    expect(breakdown.surplus).toBe(totals.net);
+    const [, net] = selectAnalisiStrip(totals);
+    expect(cellText(net)).toBe(plain(formatFlowAmount(breakdown.surplus)));
+  });
+
+  it('should have no strip with nothing flowed or before the period starts', () => {
+    expect(selectAnalisiStrip({ income: 0, expenses: 0, net: 0 })).toEqual([]);
+    expect(selectAnalisiStrip(summarizePeriodCashflow(rows), { notStarted: true })).toEqual([]);
+    expect(selectAnalisiStrip({ income: 0, expenses: 300, net: -300 })).toHaveLength(2);
   });
 });

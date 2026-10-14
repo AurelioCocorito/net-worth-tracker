@@ -31,9 +31,13 @@ interface Props {
   /** How far that calendar reaches (`describeAnalisiScheduledHorizon`). */
   horizon: string | null;
   onEntityClick: (target: { expenseType: ExpenseType; categoryKey: string }) => void;
+  /** The strip's «Risparmio» cell prints the surplus: «Risparmi» hides what repeats it (The Lifted-Figure Rule). */
+  savingsLifted?: boolean;
+  /** The figures the first screen prints (`collectPrintedFigures`): the caption drops an amount among them (decision 82). */
+  printedFigures?: ReadonlySet<string>;
 }
 
-export function SpendingRolesMobileFlow({ summary, scheduled, horizon, onEntityClick }: Props) {
+export function SpendingRolesMobileFlow({ summary, scheduled, horizon, onEntityClick, savingsLifted = false, printedFigures }: Props) {
   const roleShares = summarizeSpendingRoleShares(summary);
 
   const groups: FlowShareGroup[] = roleShares.shares.map((share) => ({
@@ -49,6 +53,9 @@ export function SpendingRolesMobileFlow({ summary, scheduled, horizon, onEntityC
       share.bucket === 'saving'
         ? describeFlowSurplus({ surplus: roleShares.surplus, afterRows: roleShares.saved > 0, scheduled, horizon })
         : null,
+    // The note always prints the surplus; without a row classified as saving the group's header is
+    // saved + surplus = the surplus too, so the whole group goes (MOB-06, 2026-10-14).
+    ...(savingsLifted && share.bucket === 'saving' ? { lifted: roleShares.saved > 0 ? ('note' as const) : ('group' as const) } : {}),
   }));
 
   return (
@@ -65,7 +72,7 @@ export function SpendingRolesMobileFlow({ summary, scheduled, horizon, onEntityC
         ariaLabel: 'Quote per ruolo, sul riferimento 50/30/20',
         ticks: RULE_TICKS,
         incomeEdge: roleShares.incomeEdge,
-        caption: describeSpendingRolesBar(roleShares),
+        caption: describeSpendingRolesBar(roleShares, printedFigures),
       }}
       groups={groups}
       onEntityClick={onEntityClick}
