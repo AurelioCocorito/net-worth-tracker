@@ -118,6 +118,17 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   terminal that started them, so `--export-on-exit` runs) and rerun.
 
 ## Browser-Driven E2E (Playwright)
+- **Rendimenti's composition spec runs on the degraded account at 390, with the model series answered by the browser**
+  (2026-10-14, `e2e/mobile-composition.performance.degraded.mobile.spec.ts`, project `degraded-mobile`:
+  `testMatch: /\.degraded\.mobile\.spec\.ts/`, `DEGRADED_STORAGE_STATE`; `mobile` ignores `degraded.`, or it would
+  collect the file on the base account): the only composition that needs a measured return, so it seeds the
+  `performance` scenario in `beforeAll` like `e2e/performance.degraded.spec.ts`. The six `/api/benchmarks/returns` and
+  the FX are `route.fulfill`ed with a flat invented month (+1% a month, 0,92 € a dollar, last year and this one), so the
+  gap cell and the Benchmark row depend on nothing outside the emulator — Yahoo and Frankfurter included; the failed-row
+  test aborts the six instead (`retry: 1`: each is asked twice, then fails for good). `**/api/ai/**` is routed to a
+  counter that must read 0 at the end of the file: no test opens «Analizza con AI». A sentence rendered by
+  `NarrativeSegments` is matched on its PROSE («a fine maggio 2026 oggi valgono»), never on `/^100 €/`: the unit is its
+  own span, so «100» and «€» are two text nodes (seen red that day).
 - **Cashflow's composition specs bend the base fixture through the emulator's REST API and undo it** (2026-10-12,
   `e2e/mobile-composition.cashflow.mobile.spec.ts` on `mobile`, `…cashflow.split.mobile.spec.ts` on `split-mobile`): a
   decoy expense at NOON UTC of the month's last day (the scope line; its late evening is 00:30 of the NEXT month in Rome
@@ -389,7 +400,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   `*.spec.ts`, so a spec written for its own fixture account fails under the base account in a full run — give it
   `playwright.<name>.config.ts` with its own setup project and a narrow `testMatch`, run with `--config=`, delete it
   before the full suite (2026-08-28). The FILENAME chooses the account: `*.spec.ts` → `desktop`, `*.mobile.spec.ts` →
-  `mobile`, `*.degraded.spec.ts` → degraded, and only a name containing `analisi.spec.ts` reaches the Analisi fixture
+  `mobile`, `*.degraded.spec.ts` → degraded, `*.degraded.mobile.spec.ts` → `degraded-mobile` (2026-10-14), and only a name containing `analisi.spec.ts` reaches the Analisi fixture
   (`desktop` carries `testIgnore: /analisi\./`), only one containing `centri.spec.ts` the Centri di Costo one — a name after what it verifies is not collected, or collected against
   the WRONG fixture. It asserts on Firestore, plants a decoy word absent from the seed, and removes its fixture BY THE
   APP, not by `curl -X DELETE` (2026-08-31: deleting a trade through the ledger's button re-ran the replay a REST delete

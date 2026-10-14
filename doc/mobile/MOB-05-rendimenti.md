@@ -1,6 +1,6 @@
 # MOB-05 — Rendimenti
 
-> Stato: da fare · riletta in modo adversariale il 2026-10-10: 25 rilievi, 4 decisioni · Priorità: 2 (la base è una clausola vincolante; Plusvalenze sparisce in silenzio) · Sforzo: M ·
+> Stato: **implementata il 2026-10-14** (PR #459, da ritirare: § 13) · riletta in modo adversariale il 2026-10-10: 25 rilievi, 4 decisioni · Priorità: 2 (la base è una clausola vincolante; Plusvalenze sparisce in silenzio) · Sforzo: M ·
 > Dipende da: MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450; PERF-09 chiusa il 2026-10-04, in develop) · Sblocca: MOB-06..08, MOB-09
 
 ## 1. Il problema, misurato
@@ -256,6 +256,46 @@ slot (2, 12); LA tessera sempre aperta (21); l'ordine del DOM (11).
   `degraded-mobile`, la serie fissa dei benchmark); AGENTS.md § Hierarchy, Density and Disclosure (la riga riscritta da MOB-02
   il 2026-10-10 elenca le pagine che portano ancora `order-*`: Rendimenti si toglie); `Draft Release Temp.md` (una riga, senza dati privati);
   `doc/mobile/README.md` § 6 e § 3.1.
+
+## 13. Per il ritiro (scritto nella sessione di implementazione, 2026-10-14)
+
+Divergenze dal testo della spec, tutte dichiarate, da leggere contro il codice prima di dare un verdetto:
+
+- **§ 4.3, `restLabel` senza il 60/40**: «drawdown e mesi positivi», non «Sharpe, drawdown e mesi positivi» — il taglio
+  cade al primo «;», che viene DOPO la clausola dello Sharpe, e un'etichetta che nomina ciò che è in vista mentirebbe
+  (proprietario, README § 9, 76). Con il 60/40 l'etichetta è quella della spec.
+- **§ 2, `firstClosedRowAbovePill: true`**: non raggiunto. Sul fixture la prima riga chiusa (Benchmark) finisce a 891 contro la
+  pill a 767, con la curva già a 120 px: `budget.json` registra `false` a 390 con `raisedBy`, 768 `true`, 1024 informativa
+  (proprietario, README § 9, 77 — decisione 19 estesa, come la 65 e la 71). `screens` 1,76 (≤ 2,0) e 5 cifre fuori dal
+  verdetto (≤ 5) sono raggiunti. Lo stesso giorno cinque metriche di Patrimonio si sono mosse per la deriva del giorno,
+  identiche sulla build di develop: allargate con `raisedBy` (77).
+- **§ 7, test (1) «chip sull'altra base visibile»**: non asserito. Il fixture `performance` misura 3 mesi, sotto i 6 che
+  `resolveCompanionReturnChip` chiede: il chip non esiste lì, e un'asserzione sulla sua assenza non proverebbe nulla.
+  L'intestazione della spec E2E lo dice; il chip resta nella tessera per costruzione (`liftedFigures` non lo nomina).
+- **§ 7, falsificazione (3) «senza `returnFocusTo`»**: vista VERDE, non rossa. Sotto 769 px il drawer non prende il fuoco
+  (vaul, `autoFocus` spento) e `ResponsiveModal` ha il suo ripristino: il fuoco torna all'icona anche senza la prop, che
+  serve a Safari. L'asserzione resta come guardia; dichiarato nell'intestazione della spec (regola di WORKFLOW § 2, 4).
+- **§ 7, il test del reload a 1440**: confronta `section h2` e il primo `p` del verdetto, non `section > div` — a 1440 il
+  paragrafo è il `<p>` di `NarrativeText` (`PageVerdict` senza `restCollapse`); `baseCaption` prende la copia visibile dello
+  `scope`, che il DOM tiene due volte.
+- **§ 4.3, il chip «dal massimo» al picco**: si nasconde intero anche al picco (nessuna cifra; la frase dice già «mai sotto
+  il massimo» o «recuperato») e la clausola entra nel seguito solo con una cifra stampata (`printed(current) < 0`).
+- **§ 5, la pagina**: il blocco della composizione (sezioni, striscia, blocchi sollevati) sta PRIMA del memo del verdetto —
+  `selectPerformanceStrip` prende lo scarto, che il React Compiler legge come alias della riga del modello, e una chiamata
+  dopo il memo valeva una mutazione successiva («Compilation Skipped»); per la stessa ragione «Riprova» del Benchmark rilegge
+  le sei chiavi con `queryClient.refetchQueries`, non `result.refetch()`. Gli id del DOM e la striscia stanno in
+  `performanceSummary.ts`, le aside chiuse in `performanceNarrative.ts` (il precedente della Panoramica); il test
+  dell'identità cella = frase sta in `__tests__/performanceSummary.test.ts` con i mock di Firebase del file gemello.
+- **§ 7, `resolveRealizedGainsState`**: un caso in più, «meta non ancora letta (`data === undefined`, nessun errore) →
+  `absent`» — senza, la falsificazione «failed letto da `data` soltanto» restava verde. E «senza rendimento nessun taglio» è
+  provato con il caso dell'overflow (`annualizedReturn: Infinity`, valore `null`): la frase senza rendimento non ha un «; »
+  da tagliare, quindi la guardia si vede solo da lì.
+- **§ 9, fuori scope e non toccato**: «nei 8 mesi» / «nei 11 mesi» di `resolveHeroReturn` (`performanceSummary.ts`) sono
+  sgrammaticati («negli»); la cella della striscia lo ristampa («Rendimento nei 8 mesi»). Da correggere nel ritiro con
+  `tsc`, lint e Vitest (la frase è nel verdetto e nella cella: `__tests__/performanceSummary.test.ts`,
+  `performanceNarrative.test.ts`), o rinviare.
+- **Giro F**: fatto nella sessione di implementazione sul mirror (390 e 1440, cinque punti, nulla da correggere), più uno
+  smoke automatico con uno script usa-e-getta; nessuna cifra del mirror nel repo.
 
 ## 11. Prompt di implementazione
 

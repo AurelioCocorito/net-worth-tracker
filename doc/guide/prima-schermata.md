@@ -127,7 +127,10 @@ si legge prima di stringere o allargare.
   prima schermata segue il giorno (una proiezione che cambia di cifre, una riga che va a capo): non isolato. Finché non lo è,
   una voce che si allarga di 1–2 col giorno porta `raisedBy: "MOB-NN: deriva del giorno…"` dopo la prova sul codice di develop
   nello stesso giorno (uno `stash`, una build, il census sulle superfici mosse), mai una tolleranza (decisione 23). L'erede
-  che la isola è MOB-08 § 2 (scritto nel ritiro di MOB-03, 2026-10-11), prima di rendere vincolanti 768 e 1024. **Le
+  che la isola è MOB-08 § 2 (scritto nel ritiro di MOB-03, 2026-10-11), prima di rendere vincolanti 768 e 1024. Rivista il
+  2026-10-14 (MOB-05): Patrimonio di nuovo, cinque metriche sulle tre viewport (390 `screens` 3,25, 768 `figuresAboveFold` 26,
+  1024 `screens` 2,67, `figuresAboveFold` 19, `tilesAboveFold` 1) identiche sulla build di develop misurata lo stesso giorno
+  PRIMA del codice nuovo e sulla build dopo — allargate con `raisedBy` su decisione del proprietario (README § 9, 77). **Le
   informative a 768/1024 oscillano anche nello STESSO giorno** (2026-10-12, il ritiro della composizione di Cashflow, stesso
   portatile e stesso codice della misura di sessione): `figuresOutsideVerdict` Tracciamento 1024 8 contro il tetto 5, Budget
   1024 11 contro 9, Previdenza 768 17 contro 12, What If 1024 10 contro 8 — stampate, non rosse; non è il giorno del

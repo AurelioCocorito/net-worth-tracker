@@ -39,13 +39,14 @@ import type {
   BenchmarkRanking,
   CapitalEnteredChannel,
   CapitalEnteredSummary,
+  DrawdownStatus,
   DrawdownStory,
   HeroReturn,
   PerformanceVerdict,
   RealizedGainsSummary,
   ReturnConsistency,
 } from '@/lib/utils/performanceSummary';
-import { deannualizeReturn, printedGap } from '@/lib/utils/performanceSummary';
+import { deannualizeReturn, PERFORMANCE_SECTION_IDS, printedGap } from '@/lib/utils/performanceSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, monthWithPrepositionA, ofThePercent, startsWithVowel } from '@/lib/utils/patrimonioNarrative';
@@ -148,10 +149,26 @@ function inTheName(name: string): string {
   return /^[aeiou]/i.test(name) ? `nell'${name}` : `nel ${name}`;
 }
 
-/** «60/40» out of «Portafoglio 60/40» — the headline names the model, not its label. */
-function shortBenchmarkName(name: string): string {
+/** «60/40» out of «Portafoglio 60/40» — the headline names the model, not its label; the phone's strip cell too («Sul 60/40»). */
+export function shortBenchmarkName(name: string): string {
   return name.replace(/^Portafoglio\s+/i, '');
 }
+
+/**
+ * What a CLOSED row says beside its eyebrow on a phone (The Closed-Row Rule), by section: words
+ * only, never a figure — the asides of the open tiles carry the months, the risk-free rate and
+ * the window, which the budget would count outside the verdict. Held by
+ * `__tests__/performanceNarrative.test.ts` (no digit, no «€», no «%»).
+ */
+export const PERFORMANCE_CLOSED_ASIDES = {
+  [PERFORMANCE_SECTION_IDS.benchmark]: 'contro i portafogli modello',
+  [PERFORMANCE_SECTION_IDS.contributi]: 'capitale entrato nel periodo',
+  [PERFORMANCE_SECTION_IDS.attribuzione]: 'per strumento',
+  [PERFORMANCE_SECTION_IDS.capitale]: 'versato e mercato',
+  [PERFORMANCE_SECTION_IDS.rischio]: 'volatilità, Sharpe e drawdown',
+  [PERFORMANCE_SECTION_IDS.consistenza]: 'mese per mese',
+  [PERFORMANCE_SECTION_IDS.plusvalenze]: 'per anno fiscale',
+} as const;
 
 // ─── The period as a grammatical subject ──────────────────────────────────────
 
@@ -244,6 +261,13 @@ export interface PerformanceVerdictInput extends PerformancePeriodInput {
   benchmark: { name: string; annualized: number } | null;
   /** The deepest drawdown of the period; null when the portfolio never fell. */
   drawdown: DrawdownStory | null;
+  /**
+   * Where the portfolio stands TODAY against the period's peak (`computeDrawdownStatus`): below
+   * it, the figure joins the drawdown clause («…; oggi a −1,2% dal massimo del periodo») — the
+   * Rendimento tile's «dal massimo del periodo» chip, which the phone hides (doc/mobile/README.md
+   * § 9, decision 38; at 1440 a declared addition). Absent or at the peak, no clause.
+   */
+  drawdownToday?: DrawdownStatus | null;
   consistency: ReturnConsistency;
 }
 
@@ -342,6 +366,14 @@ function buildSentence(input: PerformanceVerdictInput, gap: number | null): Narr
     out.push(prose('; mai sotto il massimo del periodo'));
   }
 
+  // Today's distance from the peak, where the sentence already speaks of the drawdown: the
+  // tile's chip on a phone (decision 38). Only a printed figure is a clause — at the peak, or a
+  // dip that prints as zero, the chip has none and the sentence says nothing more.
+  const today = input.drawdownToday;
+  if (today && !today.atPeak && printed(today.current) < 0) {
+    out.push(prose('; oggi a '), percentSegment(today.current), prose(' dal massimo del periodo'));
+  }
+
   const c = input.consistency;
   if (c.totalMonths > 0) {
     out.push(prose('; '), figure(`${c.positiveMonths} ${pluralize(c.positiveMonths, 'mese', 'mesi')} su ${c.totalMonths}`), prose(` ${pluralize(c.positiveMonths, 'positivo', 'positivi')}.`));
@@ -351,11 +383,47 @@ function buildSentence(input: PerformanceVerdictInput, gap: number | null): Narr
   return out;
 }
 
-/** The page's opening: a headline whose tone is the risk-adjusted quality, then the facts. */
+/** The segment a «; » clause opens with: a prose segment, never a figure. */
+const CLAUSE_PREFIX = '; ';
+
+/**
+ * Where a phone cuts the paragraph (The Binding-Clause Rule, doc/mobile/README.md § 9, decisions
+ * 3, 5 and 18), on the strip's two cells — the return and the gap against the model:
+ *
+ *   - with the model, the first sentence would reprint BOTH cells («+2,1%», «0,4 punti»): title
+ *     only (`leadLength: 0`), the whole paragraph behind «Il perché»;
+ *   - without it, the first sentence reprints one cell: the paragraph is cut at its first «;»,
+ *     which becomes a full stop — at 1440 too, so the two widths read one punctuation — and the
+ *     clause after it opens with a capital («Il drawdown massimo…», «Mai sotto il massimo…»; a
+ *     clause that opens with a figure stays as it is). The Sharpe clause sits before that «;»
+ *     and stays in sight, so the label names only the drawdown and the months (owner, 2026-10-14);
+ *   - without a return there is nothing to cut.
+ *
+ * No clause here is `binding`: the measured base is the verdict's `scope`, visible at every width.
+ */
+function cutSentence(sentence: Narrative, hasBenchmark: boolean): Pick<PageVerdictModel, 'sentence' | 'leadLength' | 'restLabel'> {
+  if (hasBenchmark) return { sentence, leadLength: 0, restLabel: 'rendimento, Sharpe, drawdown e mesi positivi' };
+
+  const at = sentence.findIndex((segment) => !segment.mono && segment.text.startsWith(CLAUSE_PREFIX));
+  if (at === -1) return { sentence };
+
+  const clause = sentence[at].text.slice(CLAUSE_PREFIX.length);
+  // The space after the full stop rides with the clause: the lead ends on «.», as every sentence does.
+  const next: Narrative = clause.length > 0 ? [prose(` ${clause.charAt(0).toUpperCase()}${clause.slice(1)}`)] : [prose(' ')];
+  return {
+    sentence: [...sentence.slice(0, at), prose('.'), ...next, ...sentence.slice(at + 1)],
+    leadLength: at + 1,
+    restLabel: 'drawdown e mesi positivi',
+  };
+}
+
+/** The page's opening: a headline whose tone is the risk-adjusted quality, then the facts, cut for a phone where a cut exists. */
 export function buildPerformanceVerdict(input: PerformanceVerdictInput): PageVerdictModel {
   const gap = resolveBenchmarkGap(input);
   const { headline, tone } = resolveHeadline(input, gap);
-  return { headline, tone, sentence: buildSentence(input, gap) };
+  const sentence = buildSentence(input, gap);
+  if (input.heroReturn.value === null) return { headline, tone, sentence };
+  return { headline, tone, ...cutSentence(sentence, !!input.benchmark && gap !== null) };
 }
 
 // ─── Tile readings ────────────────────────────────────────────────────────────

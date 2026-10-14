@@ -21,7 +21,7 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(),
 }));
 
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import type { PerformanceBaseOptions } from '@/lib/utils/performanceBase';
 import type {
   BenchmarkRanking,
@@ -49,6 +49,7 @@ import {
   describeRisk,
   describeReturnMetrics,
   describeYields,
+  PERFORMANCE_CLOSED_ASIDES,
   resolveBenchmarkGap,
   signedPercent,
   type PerformanceVerdictInput,
@@ -171,7 +172,8 @@ describe('buildPerformanceVerdict', () => {
     const v = buildPerformanceVerdict({ ...baseInput, benchmark: null });
     expect(v.headline).toBe("Nell'ultimo anno il portafoglio rende bene.");
     expect(plain(v.sentence)).toBe(
-      'Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08; il drawdown massimo è stato −4,1% a marzo, recuperato in 2 mesi; 9 mesi su 12 positivi.',
+      // The first «;» is a full stop since 2026-10-14 (the phone's cut, decision 5: at 1440 too).
+      'Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08. Il drawdown massimo è stato −4,1% a marzo, recuperato in 2 mesi; 9 mesi su 12 positivi.',
     );
   });
 
@@ -268,6 +270,98 @@ describe('buildPerformanceVerdict', () => {
   it('one point is singular', () => {
     const v = buildPerformanceVerdict({ ...baseInput, benchmark: { name: 'Portafoglio 60/40', annualized: 6.28 } });
     expect(plain(v.sentence)).toContain('1 punto sopra il Portafoglio 60/40');
+  });
+});
+
+// ─── The phone's cut (2026-10-14, MOB-05) ─────────────────────────────────────
+//
+// Seen red, one at a time, the day they were written: (1) `leadLength: 0` with the model —
+// `cutSentence` returning the sentence bare; (2) the «.» at the first «;» — the prefix left as
+// «; il» (the first-sentence expectation and `leadLength` both red); (3) the capital — the clause
+// pushed as it was; (4) no cut without a return — `cutSentence` called whatever the value;
+// (5) the «dal massimo» clause — the push removed; (6) the asides — «8 mesi» in place of «mese
+// per mese».
+
+describe('buildPerformanceVerdict — the cut for a phone', () => {
+  it('with the model the title stands alone: leadLength 0, the whole paragraph as it was behind «Il perché»', () => {
+    const v = buildPerformanceVerdict(baseInput);
+    expect(v.leadLength).toBe(0);
+    expect(v.restLabel).toBe('rendimento, Sharpe, drawdown e mesi positivi');
+    // The paragraph itself is untouched (the first two expectations of this file hold its text).
+    expect(plain(v.sentence)).toContain('con uno Sharpe di 1,08; il drawdown massimo');
+    expect(splitVerdict(v)).toEqual({ lead: [], rest: v.sentence, restLabel: 'rendimento, Sharpe, drawdown e mesi positivi' });
+  });
+
+  it('without the model the first «;» becomes a full stop and the next clause a capital, at 1440 too', () => {
+    const v = buildPerformanceVerdict({ ...baseInput, benchmark: null });
+    expect(plain(v.sentence)).toBe(
+      'Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08. Il drawdown massimo è stato −4,1% a marzo, recuperato in 2 mesi; 9 mesi su 12 positivi.',
+    );
+    // The lead ends on the full stop; the Sharpe stays in sight, so the label names what is behind the tap.
+    expect(v.leadLength).toBe(6);
+    expect(v.restLabel).toBe('drawdown e mesi positivi');
+    const split = splitVerdict(v);
+    expect(plain(split.lead)).toBe('Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08.');
+    // The space after the full stop rides with the rest, so the two read as one paragraph at 1440.
+    expect(plain(split.rest)).toBe(' Il drawdown massimo è stato −4,1% a marzo, recuperato in 2 mesi; 9 mesi su 12 positivi.');
+  });
+
+  it('a portfolio that never fell opens the rest on «Mai sotto il massimo»', () => {
+    const v = buildPerformanceVerdict({ ...baseInput, benchmark: null, drawdown: null });
+    expect(plain(v.sentence)).toBe('Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08. Mai sotto il massimo del periodo; 9 mesi su 12 positivi.');
+    expect(plain(splitVerdict(v).rest)).toBe(' Mai sotto il massimo del periodo; 9 mesi su 12 positivi.');
+  });
+
+  it('without a return there is nothing to cut: no leadLength, no label', () => {
+    const v = buildPerformanceVerdict({
+      ...baseInput,
+      heroReturn: { value: null, isPeriodReturn: false, label: 'annualizzato' },
+      annualizedReturn: null,
+      quality: { tone: 'neutral', headline: 'Dati insufficienti', detail: '' },
+      benchmark: null,
+    });
+    expect(v.leadLength).toBeUndefined();
+    expect(v.restLabel).toBeUndefined();
+    expect(plain(v.sentence)).toContain('; il verdetto arriva');
+    // The one-segment sentence has no «; » clause to cut, so the guard is seen only through the
+    // model: a hero with no figure beside a gap that exists (a de-annualisation that overflowed)
+    // must not become «title only» with a label promising a return. Seen red with the guard
+    // removed on 2026-10-14; without this case it stayed green.
+    const overflow = buildPerformanceVerdict({
+      ...baseInput,
+      heroReturn: { value: null, isPeriodReturn: true, label: 'nei 2 mesi' },
+      annualizedReturn: Number.POSITIVE_INFINITY,
+      quality: { tone: 'neutral', headline: 'Dati insufficienti', detail: '' },
+    });
+    expect(overflow.leadLength).toBeUndefined();
+    expect(overflow.restLabel).toBeUndefined();
+  });
+
+  it("today's distance from the peak joins the drawdown clause — only when it prints as a figure", () => {
+    const below = buildPerformanceVerdict({ ...baseInput, drawdownToday: { atPeak: false, current: -1.24 } });
+    expect(plain(below.sentence)).toContain('recuperato in 2 mesi; oggi a −1,2% dal massimo del periodo; 9 mesi su 12 positivi.');
+    expect(below.sentence.find((segment) => flat(segment.text) === '−1,2%')?.sign).toBe('negative');
+    // At the peak, or a dip that prints as zero, the chip has no figure and the sentence adds nothing.
+    expect(plain(buildPerformanceVerdict({ ...baseInput, drawdownToday: { atPeak: true, current: 0 } }).sentence)).not.toContain('oggi a');
+    expect(plain(buildPerformanceVerdict({ ...baseInput, drawdownToday: { atPeak: false, current: -0.04 } }).sentence)).not.toContain('oggi a');
+    // Behind the cut in both branches: after the first «;» without the model too.
+    const noModel = buildPerformanceVerdict({ ...baseInput, benchmark: null, drawdownToday: { atPeak: false, current: -1.24 } });
+    expect(plain(splitVerdict(noModel).rest)).toContain('oggi a −1,2% dal massimo del periodo');
+  });
+});
+
+describe('PERFORMANCE_CLOSED_ASIDES', () => {
+  it('says in words what every closed row holds — never a figure', () => {
+    expect(Object.values(PERFORMANCE_CLOSED_ASIDES).every((aside) => !/\d|€|%/.test(aside))).toBe(true);
+    expect(PERFORMANCE_CLOSED_ASIDES).toEqual({
+      'rend-benchmark': 'contro i portafogli modello',
+      'rend-contributi': 'capitale entrato nel periodo',
+      'rend-attribuzione': 'per strumento',
+      'rend-capitale': 'versato e mercato',
+      'rend-rischio': 'volatilità, Sharpe e drawdown',
+      'rend-consistenza': 'mese per mese',
+      'rend-plusvalenze': 'per anno fiscale',
+    });
   });
 });
 

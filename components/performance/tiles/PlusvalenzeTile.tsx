@@ -5,10 +5,14 @@ import type { RealizedGainsSummary } from '@/lib/utils/performanceSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { signTextClass } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 
 interface PlusvalenzeTileProps {
+  /** The row of the phone composition (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (`PERFORMANCE_CLOSED_ASIDES`). */
+  asideWhenClosed?: string;
   reading: Narrative;
   summary: RealizedGainsSummary;
   /** Assets left out because their ledger replay failed — the total is then incomplete, and says so. */
@@ -33,12 +37,12 @@ function signedEuro(value: number): string {
  * The skipped-assets warning is a fact about the figure, not method: it stays on the tile, above
  * the one-line footer, never inside the popover.
  */
-export function PlusvalenzeTile({ reading, summary, skippedAssets, className }: PlusvalenzeTileProps) {
+export function PlusvalenzeTile({ collapse, asideWhenClosed, reading, summary, skippedAssets, className }: PlusvalenzeTileProps) {
   const maxAbs = Math.max(...summary.years.map((y) => Math.abs(y.amount)), 1);
   const hasList = summary.years.length >= 2;
 
   return (
-    <Tile eyebrow="Plusvalenze realizzate" aside="per anno fiscale · tutto lo storico" reading={reading} className={className}>
+    <Tile eyebrow="Plusvalenze realizzate" aside="per anno fiscale · tutto lo storico" collapse={collapse} asideWhenClosed={asideWhenClosed} reading={reading} className={className}>
       {hasList && (
         <ul className="mt-3 flex flex-col divide-y divide-border">
           {summary.years.map((y) => (
