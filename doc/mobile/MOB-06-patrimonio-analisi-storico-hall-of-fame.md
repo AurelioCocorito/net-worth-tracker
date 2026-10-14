@@ -1,6 +1,6 @@
 # MOB-06 — Patrimonio · Analisi · Storico · Hall of Fame
 
-> Stato: da fare · riletta in modo adversariale il 2026-10-10: 35 rilievi, 8 decisioni · Priorità: 3 (quattro pagine su un contratto già scritto) · Sforzo: L · Dipende da: MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450), MOB-03 (ritirata il 2026-10-11, in develop dal 2026-10-11, PR #452:
+> Stato: implementata il 2026-10-14 (decisioni 81–85, README § 9; misura in § 3.1) · riletta in modo adversariale il 2026-10-10: 35 rilievi, 8 decisioni · Priorità: 3 (quattro pagine su un contratto già scritto) · Sforzo: L · Dipende da: MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450), MOB-03 (ritirata il 2026-10-11, in develop dal 2026-10-11, PR #452:
 > `PatrimonioTile`, `ComposizioneTile` e `describeSales` vivono nel codice con quei nomi), MOB-04 (ritirata il 2026-10-12, in develop dal 2026-10-12, PR #454: `describeTrackingScope`, `scheduledScope` e `CashflowKpiTrio` vivono nel codice con quei nomi) — sequenza, README § 9, 9; PERF-11 ritirata, in develop · Sblocca: MOB-07, MOB-08, MOB-09
 
 ## 1. Il problema, misurato

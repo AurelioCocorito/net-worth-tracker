@@ -154,7 +154,9 @@ function growthParenthesis(growth: GrowthSummary): Narrative {
   const inner: Narrative = [signedPercent(growth.growthPct, 1)];
   if (growth.cagr !== null) {
     const article = growth.cagr < 0 ? '' : articleForPercent(growth.cagr, 1);
-    inner.push(prose(`, ${article}`), growth.cagr < 0 ? signedPercent(growth.cagr, 1) : figure(formatPercentage(Math.abs(growth.cagr), 1)), prose(" l'anno, versamenti inclusi"));
+    // «versamenti inclusi» is the base of the rate printed before it (The Binding-Clause Rule): it
+    // sits in the first sentence anyway, and the flag keeps it there if the cut ever moves.
+    inner.push(prose(`, ${article}`), growth.cagr < 0 ? signedPercent(growth.cagr, 1) : figure(formatPercentage(Math.abs(growth.cagr), 1)), { text: " l'anno, versamenti inclusi", binding: true });
   }
   return [prose(' ('), ...inner, prose(')')];
 }
@@ -198,9 +200,23 @@ export function buildStoricoVerdict(input: StoricoVerdictInput): PageVerdictMode
   if (lastDoubling) clauses.push([prose(`l'ultimo raddoppio ${atPeriodMonth(lastDoubling)}`)]);
   if (clauses.length > 0) sentence.push(prose(': '), ...joinClauses(clauses, ', '));
   sentence.push(prose('.'));
-  sentence.push(...paceSentence(pace));
-  return { headline, tone, sentence };
+  // Where a phone cuts (MOB-06, 2026-10-14; decision 3): after the first sentence — the growth since
+  // the first snapshot and its best month. The last year's pace goes behind «Il perché».
+  const leadLength = sentence.length;
+  const pacePart = paceSentence(pace);
+  if (pacePart.length === 0) return { headline, tone, sentence };
+  sentence.push(...pacePart);
+  return { headline, tone, sentence, leadLength, restLabel: STORICO_REST_LABEL };
 }
+
+/** What «Il perché» opens on Storico: the last year's pace. */
+export const STORICO_REST_LABEL = "l'ultimo anno";
+
+/** What a closed row of Storico says beside its eyebrow (The Closed-Row Rule): words, never an amount. */
+export const STORICO_CLOSED_ASIDES = {
+  composizione: 'per classe',
+  valore: 'per strumento',
+} as const;
 
 // ─── Evoluzione ───────────────────────────────────────────────────────────────
 
@@ -434,6 +450,16 @@ export function describeDriverRest(row: Omit<GrowthDrivers, 'isMarketMeasured'>)
  */
 export function reconcileRemainder(total: number, parts: number[]): number {
   return Math.round(total) - parts.reduce((sum, part) => sum + Math.round(part), 0);
+}
+
+/**
+ * «+5364 €», «−130 €», «0 €» — a Driver figure in whole euros, signed, a printed zero bare: the
+ * ledger's rows, the bars' hover and their table (`DriverTile`). The strip's «Risparmio {anno}» cell
+ * prints the same text (`__tests__/storicoSummary.test.ts` holds the identity, since 2026-10-14).
+ */
+export function formatDriverEuro(value: number): string {
+  if (Math.abs(Math.round(value)) < 1) return cachedFormatCurrencyEUR(0, true);
+  return `${value >= 0 ? '+' : MINUS}${cachedFormatCurrencyEUR(Math.abs(value), true)}`;
 }
 
 /** How a ledger row is printed: a `flow` signed and uncoloured, the `market` and the `total` coloured by their sign, a `loss` always in the loss token. */

@@ -7,7 +7,7 @@ import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
  * `(max-width: 1439px)`, which would leave a fractional zoom width (1439.5) in neither branch.
  * `useMediaQuery` is `false` on the server and during hydration (`lib/hooks/useMediaQuery.ts`).
  */
-const COMPACT_QUERY = '(width < 1440px)';
+export const COMPACT_QUERY = '(width < 1440px)';
 
 /**
  * Whether the page is composed for a small screen (The Closed-Row Rule, doc/mobile/README.md):

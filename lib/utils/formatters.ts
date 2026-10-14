@@ -75,6 +75,18 @@ export function printedSign(value: number, decimals: number): -1 | 0 | 1 {
   return value < 0 ? -1 : 1;
 }
 
+/**
+ * «+1234,56 €», «−80,00 €», «0,00 €» — a euro amount signed on the PRINTED value (`isPrintedZero`),
+ * «−» typographic; `compact` drops the cents («+1235 €»). The figure of a tile that a strip cell
+ * repeats (Patrimonio's G/P, Storico's twelve months, since 2026-10-14): the cell's
+ * `formatStripFigure` decides the same way, so the two never disagree on a zero.
+ */
+export function formatSignedEuro(value: number, compact = false): string {
+  const magnitude = cachedFormatCurrencyEUR(Math.abs(value), compact);
+  if (isPrintedZero(magnitude)) return magnitude;
+  return `${value < 0 ? '−' : '+'}${magnitude}`;
+}
+
 /** «+7,3%», «−4,1%», «0,0%» — the it-IT percent signed on the PRINTED value, «−» typographic. */
 export function formatSignedPercentIt(value: number, decimals = 1): string {
   const magnitude = formatPercentageIt(Math.abs(value), decimals);

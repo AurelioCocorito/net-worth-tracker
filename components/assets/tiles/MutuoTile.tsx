@@ -4,13 +4,17 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { describeMortgage, describeMortgageScope, describeMortgageYearScope, loanNoun } from '@/lib/utils/patrimonioNarrative';
 import type { MortgageSummary } from '@/lib/utils/mortgageSummary';
 import { MONTH_NAMES } from '@/lib/constants/months';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 
 interface MutuoTileProps {
   summary: MortgageSummary;
   /** Several loans with linked instalments: the aside names which one this tile is. */
   showPropertyName: boolean;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -42,7 +46,7 @@ function Kpi({ label, value, caption }: { label: string; value: string; caption?
  * Interest is neither a gain nor a loss of the portfolio but a cost already counted in Cashflow,
  * so no figure here takes a sign colour (AGENTS.md → sign tokens mean gain and loss).
  */
-export function MutuoTile({ summary, showPropertyName, className }: MutuoTileProps) {
+export function MutuoTile({ summary, showPropertyName, collapse, asideWhenClosed, className }: MutuoTileProps) {
   const payoff = summary.payoff;
   const payoffValue = payoff?.kind === 'date' ? shortMonthYear(payoff.date) : payoff?.kind === 'repaid' ? 'estinto' : '—';
   const payoffCaption =
@@ -59,6 +63,8 @@ export function MutuoTile({ summary, showPropertyName, className }: MutuoTilePro
   return (
     <Tile
       eyebrow={eyebrow}
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       ariaLabel={showPropertyName ? `${eyebrow} · ${aside}` : eyebrow}
       aside={showPropertyName ? aside : undefined}
       reading={describeMortgage(summary)}

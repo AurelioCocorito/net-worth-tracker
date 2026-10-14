@@ -1,6 +1,6 @@
 import type { Narrative } from '@/lib/utils/narrative';
 import type { TopExpenseRow, TopExpenses } from '@/lib/utils/analisiSummary';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { RankedRows, type RankedRow } from '@/components/ui/ranked-rows';
 
 interface SpeseMaggioriTileProps {
@@ -8,6 +8,10 @@ interface SpeseMaggioriTileProps {
   reading: Narrative | null;
   /** A row opens the Scheda of its category (or subcategory). */
   onSelect: (row: TopExpenseRow) => void;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -16,15 +20,20 @@ interface SpeseMaggioriTileProps {
  * the category, the day and the subcategory as the caption, the amount, its share of the
  * period's spending. Only the top rows are carried, so the aside says «5 di 412».
  */
-export function SpeseMaggioriTile({ top, reading, onSelect, className }: SpeseMaggioriTileProps) {
+export function SpeseMaggioriTile({ top, reading, onSelect, collapse, asideWhenClosed, className }: SpeseMaggioriTileProps) {
   const byKey = new Map(top.rows.map((row) => [row.key, row]));
   const rows: RankedRow[] = top.rows.map((row) => ({ key: row.key, label: row.label, caption: row.caption, amount: row.amount, percentage: row.percentage }));
 
   return (
     <Tile
       eyebrow="Spese maggiori"
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       aside={
-        top.count > 0 ? (
+        // A row keeps a TEXT aside beside its eyebrow (`Tile`): the same words there, without the mono spans.
+        top.count > 0 && collapse ? (
+          `${top.rows.length} di ${top.count}`
+        ) : top.count > 0 ? (
           <span>
             <span className="font-mono tabular-nums">{top.rows.length}</span> di <span className="font-mono tabular-nums">{top.count}</span>
           </span>

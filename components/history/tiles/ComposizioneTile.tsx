@@ -19,7 +19,7 @@ import { Info } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from '@/components/ui/charts/recharts';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_FOOTER_ACTION_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_FOOTER_ACTION_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { AsideToggle } from '@/components/ui/aside-toggle';
 import { CHART_TICK_STYLE } from '@/components/cashflow/costCenterStyles';
 import { useChartColors } from '@/lib/hooks/useChartColors';
@@ -164,10 +164,14 @@ interface ComposizioneTileProps {
   liquidityHistory: LiquidityHistoryPoint[];
   /** True when the user holds at least one `pensionFund` asset — gates the method note. */
   hasPensionFunds: boolean;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
-export function ComposizioneTile({ assetClassHistory, liquidityHistory, hasPensionFunds, className }: ComposizioneTileProps) {
+export function ComposizioneTile({ assetClassHistory, liquidityHistory, hasPensionFunds, collapse, asideWhenClosed, className }: ComposizioneTileProps) {
   const [cut, setCut] = useState<CompositionCut>('assetClass');
   const chartColors = useChartColors();
   const prefersReducedMotion = useReducedMotion();
@@ -222,7 +226,7 @@ export function ComposizioneTile({ assetClassHistory, liquidityHistory, hasPensi
   );
 
   return (
-    <Tile eyebrow="Composizione" aside={aside} reading={reading} className={className} ariaLabel="Composizione del patrimonio">
+    <Tile eyebrow="Composizione" aside={aside} collapse={collapse} asideWhenClosed={asideWhenClosed} reading={reading} className={className} ariaLabel="Composizione del patrimonio">
       {!hasData ? (
         <p className="mt-3 text-[13px] leading-[1.45] text-muted-foreground">
           Nessuno storico disponibile: la composizione compare dal primo rilevamento.

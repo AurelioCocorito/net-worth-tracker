@@ -6,7 +6,7 @@ import type { Narrative } from '@/lib/utils/narrative';
 import type { CategorySlice } from '@/lib/utils/cashflowComposition';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_FOOTER_ACTION_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_FOOTER_ACTION_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { RankedRows } from '@/components/ui/ranked-rows';
 
 /** Rows shown before «Mostra tutte» takes over — enough for the shape, not a whole taxonomy. */
@@ -24,6 +24,10 @@ interface CategorieTileProps {
   onSelect: (slice: CategorySlice) => void;
   emptyCopy: string;
   labelClassName?: string;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -33,7 +37,7 @@ interface CategorieTileProps {
  * first eight rows show by default and the rest fold into a residual row, so the tile keeps
  * the grid's rhythm and the list still visibly adds up to its total.
  */
-export function CategorieTile({ eyebrow, kind, slices, total, reading, activeKey, onSelect, emptyCopy, labelClassName, className }: CategorieTileProps) {
+export function CategorieTile({ eyebrow, kind, slices, total, reading, activeKey, onSelect, emptyCopy, labelClassName, collapse, asideWhenClosed, className }: CategorieTileProps) {
   const [showAll, setShowAll] = useState(false);
   const bySliceKey = new Map(slices.map((slice) => [slice.key, slice]));
 
@@ -48,7 +52,10 @@ export function CategorieTile({ eyebrow, kind, slices, total, reading, activeKey
   return (
     <Tile
       eyebrow={eyebrow}
-      aside={<span className="font-mono tabular-nums">{cachedFormatCurrencyEUR(total, true)}</span>}
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
+      // A row keeps a TEXT aside beside its eyebrow (`Tile`), open; closed it says words, never this amount.
+      aside={collapse ? cachedFormatCurrencyEUR(total, true) : <span className="font-mono tabular-nums">{cachedFormatCurrencyEUR(total, true)}</span>}
       reading={reading}
       className={className}
     >

@@ -118,6 +118,21 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   terminal that started them, so `--export-on-exit` runs) and rerun.
 
 ## Browser-Driven E2E (Playwright)
+- **Patrimonio, Analisi and Storico are composed at 390: a spec opens the row before it reads inside it** (2026-10-14,
+  MOB-06): `#patrimonio-strumenti-trigger` before an `AssetRow` exists (`assets.rows.mobile.spec.ts`, the 390 case of
+  `assets.composite-chip.spec.ts` — a `desktop` project resized, but the composition reads the width), `#analisi-flusso-trigger`
+  before «Quote del flusso» (`analisi.mobile.spec.ts`, `bundle.lazy.mobile.spec.ts`: closed, the legend is not in the DOM
+  and the absence of the Sankey would pass empty), «Apri tutte» before `history.mobile.spec.ts` measures `main`. A
+  lifted block is asserted HIDDEN with its positive anchor beside it (the legend, the strip's own cell): `getByRole`
+  skips a `display: none` node, so `toHaveCount(0)` and `toBeHidden()` pass alike — the falsification (the
+  `liftedFigures` dropped) is what proves either. The specs: `mobile-composition.{patrimonio,history}.mobile.spec.ts`
+  (base account; Patrimonio's overview patched by `overviewFixture.ts`, a top instrument added so the sentence names the
+  market), `mobile-composition.patrimonio.spec.ts` (1440), `mobile-composition.analisi.mobile.spec.ts` (`analisi-mobile`).
+  **On the `analisi` projects never pass `--no-deps`**: `global-setup` re-seeds `analisi@example.com` and the parked
+  session no longer opens (the login page, seen that day) — on `mobile`/`desktop` the base account survives it. A row
+  «still in the calendar» is planted on the 28th of December at noon UTC (`ornitorinco` in its note) and removed after,
+  the test skipped from that day on. Storico's ledger is summed on its VISIBLE rows inside `#storico-driver-panel`, the
+  featured year being the panel's `button[aria-expanded="true"]`.
 - **Rendimenti's composition spec runs on the degraded account at 390, with the model series answered by the browser**
   (2026-10-14, `e2e/mobile-composition.performance.degraded.mobile.spec.ts`, project `degraded-mobile`:
   `testMatch: /\.degraded\.mobile\.spec\.ts/`, `DEGRADED_STORAGE_STATE`; `mobile` ignores `degraded.`, or it would

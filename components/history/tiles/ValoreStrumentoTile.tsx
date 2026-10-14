@@ -34,7 +34,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { signTextClass } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 import { useRovingFocus } from '@/lib/hooks/useRovingFocus';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -54,6 +54,10 @@ interface ValoreStrumentoTileProps {
   onToggleAllInMonth: () => void;
   selection: SelectionSummary | null;
   trend: SelectedAssetTrendPoint[];
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -244,6 +248,8 @@ export function ValoreStrumentoTile({
   onToggleAllInMonth,
   selection,
   trend,
+  collapse,
+  asideWhenClosed,
   className,
 }: ValoreStrumentoTileProps) {
   const [showAll, setShowAll] = useState(false);
@@ -348,7 +354,7 @@ export function ValoreStrumentoTile({
   );
 
   return (
-    <Tile eyebrow="Valore per strumento" aside={aside} reading={reading} className={className} ariaLabel="Valore per strumento">
+    <Tile eyebrow="Valore per strumento" aside={aside} collapse={collapse} asideWhenClosed={asideWhenClosed} reading={reading} className={className} ariaLabel="Valore per strumento">
       {!breakdown ? (
         <p className="mt-3 text-[13px] leading-[1.45] text-muted-foreground">
           Nessuno snapshot con il dettaglio per strumento: viene salvato negli snapshot più recenti, dal prossimo in poi.

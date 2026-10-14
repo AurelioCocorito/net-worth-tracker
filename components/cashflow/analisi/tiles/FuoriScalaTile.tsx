@@ -3,7 +3,7 @@ import type { SpendingAnomaly } from '@/lib/utils/cashflowComposition';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent } from '@/lib/utils/patrimonioNarrative';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 
 interface FuoriScalaTileProps {
   anomalies: SpendingAnomaly[];
@@ -17,6 +17,10 @@ interface FuoriScalaTileProps {
    * produce two distinct rows that must lead to two distinct Schede.
    */
   onSelect: (anomaly: SpendingAnomaly) => void;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -26,9 +30,9 @@ interface FuoriScalaTileProps {
  * period is (an Off-Axis tile): the aside names it, and the page omits the tile when no month
  * can be meant (a past year without a month, the history).
  */
-export function FuoriScalaTile({ anomalies, monthLabel, reading, followsPeriod, onSelect, className }: FuoriScalaTileProps) {
+export function FuoriScalaTile({ anomalies, monthLabel, reading, followsPeriod, onSelect, collapse, asideWhenClosed, className }: FuoriScalaTileProps) {
   return (
-    <Tile eyebrow="Fuori scala" aside={<span>{monthLabel}</span>} reading={reading} className={className}>
+    <Tile eyebrow="Fuori scala" aside={monthLabel} collapse={collapse} asideWhenClosed={asideWhenClosed} reading={reading} className={className}>
       {anomalies.length > 0 && (
         <ul className="mt-2 flex flex-col divide-y divide-border" aria-label={`Categorie fuori scala, ${monthLabel}`}>
           {anomalies.map((anomaly) => (

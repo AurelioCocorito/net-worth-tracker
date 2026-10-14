@@ -333,3 +333,57 @@ test.describe('Flusso by 50/30/20 role', () => {
     await expect(chart.locator('text').filter({ hasText: /^Necessità$/ })).toHaveCount(0);
   });
 });
+
+// ── The calendar as the verdict's scope (MOB-06, 2026-10-14; decision 14) ───────────────────────
+//
+// The fixture has nothing in the calendar (every row in January), so one row is planted on the 28th
+// of December of this year, at noon UTC, and removed after: the scope renders under the paragraph
+// at 1440, and the sentence no longer closes on it.
+
+const OWNER = { Authorization: 'Bearer owner', 'Content-Type': 'application/json' };
+const CALENDAR_ROW_ID = 'e2e-exp-mob06-ornitorinco-desktop';
+
+test.describe('the calendar at 1440', () => {
+  test.beforeAll(async () => {
+    const date = new Date(Date.UTC(CURRENT_YEAR, 11, 28, 12)).toISOString();
+    const res = await fetch(`${FIRESTORE}/expenses/${CALENDAR_ROW_ID}`, {
+      method: 'PATCH',
+      headers: OWNER,
+      body: JSON.stringify({
+        fields: {
+          userId: { stringValue: 'test-user-analisi' },
+          type: { stringValue: 'variable' },
+          categoryId: { stringValue: 'e2e-cat-alimentari' },
+          categoryName: { stringValue: 'Alimentari' },
+          amount: { doubleValue: -50 },
+          currency: { stringValue: 'EUR' },
+          notes: { stringValue: 'ornitorinco' },
+          date: { timestampValue: date },
+          createdAt: { timestampValue: date },
+          updatedAt: { timestampValue: date },
+        },
+      }),
+    });
+    expect(res.ok).toBe(true);
+  });
+  test.afterAll(async () => {
+    await fetch(`${FIRESTORE}/expenses/${CALENDAR_ROW_ID}`, { method: 'DELETE', headers: OWNER });
+    expect((await fetch(`${FIRESTORE}/expenses/${CALENDAR_ROW_ID}`, { headers: OWNER })).status).toBe(404);
+  });
+
+  test('the calendar is a caption under the paragraph, not the sentence\'s last clause', async ({ page }) => {
+    test.skip(new Date().getMonth() === 11 && new Date().getDate() >= 28, 'the planted row is no longer ahead');
+    await gotoAnalisi(page);
+    const verdict = page.getByRole('region', { name: 'Verdetto del periodo' });
+    const scope = verdict.getByText(/Nel totale ci sono ancora 50\s?€ di spese già in calendario da qui a fine anno\./).filter({ visible: true });
+    await expect(scope).toBeVisible();
+    // The paragraph (the first sentence and «Casa pesa…») ends before the caption: two elements.
+    const sentence = verdict.getByText(/hai speso/).filter({ visible: true });
+    await expect(sentence).not.toContainText('in calendario');
+    const [sentenceBottom, scopeTop] = await Promise.all([
+      sentence.evaluate((el) => el.getBoundingClientRect().bottom),
+      scope.evaluate((el) => el.getBoundingClientRect().top),
+    ]);
+    expect(scopeTop).toBeGreaterThanOrEqual(sentenceBottom - 1);
+  });
+});

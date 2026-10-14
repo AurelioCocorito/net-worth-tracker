@@ -5,6 +5,14 @@
  * with nothing scrolling sideways, the Flusso draws no Sankey (below 640px it is a bar of the
  * spending by type — or of the 50/30/20 roles — and the categories as rows), and the row-to-Scheda
  * flow works under touch at the narrow layout.
+ *
+ * Since 2026-10-14 (MOB-06) every tile under the Periodo is a closed ROW at 390, in the DOM's order
+ * (the `order-1…7` are gone): a test opens the row before reading inside it — closed, the Flusso's
+ * legend is not in the DOM and the absence of the chart would pass empty. The strip's «Risparmio»
+ * cell prints the surplus, so the Flusso's «Risparmio» block (and «Risparmi» whole, with no row
+ * classified as saving on this fixture) is hidden at 390, the legend the positive anchor; the bar's
+ * caption drops an amount the first screen prints (decision 82). The composition itself:
+ * `mobile-composition.analisi.mobile.spec.ts`.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -17,6 +25,13 @@ const OWNER = { Authorization: 'Bearer owner', 'Content-Type': 'application/json
 
 /** The Sankey's accessible name (CashflowSankeyChart): its absence is what «no Sankey» means. */
 const SANKEY_NAME = /^Flusso del periodo/;
+
+/** Opens a closed row of the composition (`#<id>-trigger`) and waits for it to say so. */
+async function openRow(page: Page, id: string): Promise<void> {
+  const trigger = page.locator(`#${id}-trigger`);
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+}
 
 /**
  * `main` is the horizontal scroll container (AGENTS.md → Tailwind Breakpoints), and an overflow
@@ -46,7 +61,8 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('region', { name: 'Verdetto del periodo' })).toBeVisible({ timeout: 30_000 });
 });
 
-test('stacks the tiles in the declared order with no horizontal overflow', async ({ page }) => {
+test('stacks the tiles in the DOM\'s order with no horizontal overflow', async ({ page }) => {
+  // The DOM order is the reading order (decision 11): Spese maggiori before the two category rows.
   const order = await page.evaluate(() =>
     Array.from(document.querySelectorAll('main section[aria-label]'))
       .map((section) => ({ name: section.getAttribute('aria-label')!, top: section.getBoundingClientRect().top }))
@@ -54,7 +70,7 @@ test('stacks the tiles in the declared order with no horizontal overflow', async
       .sort((a, b) => a.top - b.top)
       .map((section) => section.name),
   );
-  expect(order).toEqual(['Periodo', 'Fuori scala', 'Spese per categoria', 'Entrate per categoria', 'Spese maggiori', 'Flusso']);
+  expect(order).toEqual(['Periodo', 'Fuori scala', 'Spese maggiori', 'Spese per categoria', 'Entrate per categoria', 'Flusso']);
 
   // `main` is the horizontal scroll container (AGENTS.md): measure it and every element in it.
   const overflow = await page.evaluate(() => {
@@ -67,6 +83,7 @@ test('stacks the tiles in the declared order with no horizontal overflow', async
 });
 
 test('draws the Flusso by type as a bar of the spending and rows, never a Sankey, on the reading\'s own shares', async ({ page }) => {
+  await openRow(page, 'analisi-flusso');
   const flusso = page.getByRole('region', { name: 'Flusso', exact: true });
   const legend = flusso.getByRole('list', { name: 'Quote del flusso' });
   // Positive anchor first: the legend and the bar are there, so the absence of the chart below means something.
@@ -79,9 +96,12 @@ test('draws the Flusso by type as a bar of the spending and rows, never a Sankey
   await expect(legend.getByRole('listitem')).toHaveText([/^Variabili\s*51%$/, /^Fisse\s*49%$/]);
   await expect(flusso).toContainText(/variabili 51%, fisse 49%/i);
 
-  // Savings stay out of the bar: a closing block with the amount (every row is in January, so
-  // nothing is in the calendar and the note carries no scheduled clause).
-  await expect(flusso.getByRole('region', { name: 'Risparmio' }).getByText(/^1220[\s ]*€ avanzati nel periodo\.$/)).toBeVisible();
+  // Savings stay out of the bar, in a closing block — hidden at 390, where the strip's «Risparmio»
+  // cell prints the same 1220 € (the legend above is the positive anchor). The caption drops the
+  // spending the first sentence prints.
+  await expect(flusso.locator('section[aria-label="Risparmio"]')).toBeHidden();
+  await expect(page.getByRole('list', { name: 'Le cifre del verdetto' }).getByRole('button', { name: /^Risparmio/ })).toContainText(/1220\s?€/);
+  await expect(flusso.getByText('Quote delle spese.', { exact: true })).toBeVisible();
 
   // A row opens the Scheda, like every other entry point.
   await flusso.getByRole('region', { name: 'Spese Variabili' }).getByRole('button', { name: /^Alimentari, / }).click();
@@ -90,6 +110,7 @@ test('draws the Flusso by type as a bar of the spending and rows, never a Sankey
 });
 
 test('opens the Scheda from a category row under touch', async ({ page }) => {
+  await openRow(page, 'analisi-spese');
   await page.getByRole('region', { name: 'Spese per categoria' }).getByRole('button', { name: /^Casa, / }).click();
 
   await expect(page.getByText(`Totale · ${CURRENT_YEAR}`)).toBeVisible();
@@ -117,6 +138,7 @@ test.describe('Flusso by 50/30/20 role at 390', () => {
   test.afterAll(async () => setSpendingRolesEnabled(false));
 
   test('draws the 50/30/20 bar and each role\'s categories as rows, no Sankey, nothing past the tile', async ({ page }) => {
+    await openRow(page, 'analisi-flusso');
     const flusso = page.getByRole('region', { name: 'Flusso', exact: true });
     await flusso.scrollIntoViewIfNeeded();
     // The view switch is the AsideToggle: one named group, the pressed option its only Tab stop.
@@ -132,23 +154,29 @@ test.describe('Flusso by 50/30/20 role at 390', () => {
     await expect(flusso.getByRole('img', { name: 'Quote per ruolo, sul riferimento 50/30/20' })).toBeVisible();
     await expect(flusso.getByRole('img', { name: SANKEY_NAME })).toHaveCount(0);
 
-    // Casa sits under both roles its rows resolve to; the surplus is named under Risparmi.
+    // Casa sits under both roles its rows resolve to. «Risparmi» has no row classified as saving on
+    // this fixture, so its header IS the surplus the strip prints: the group is hidden at 390 whole.
     await expect(flusso.getByRole('region', { name: 'Necessità' }).getByRole('button', { name: /^Casa, / })).toBeVisible();
     await expect(flusso.getByRole('region', { name: 'Desideri' }).getByRole('button', { name: /^Casa, / })).toBeVisible();
     await expect(flusso.getByRole('region', { name: 'Da classificare' }).getByRole('button', { name: /^Alimentari, / })).toBeVisible();
-    await expect(flusso.getByRole('region', { name: 'Risparmi' })).toContainText(/1220[\s ]*€ avanzati nel periodo\./);
+    await expect(flusso.locator('section[aria-label="Risparmi"]')).toBeHidden();
+    await expect(flusso.getByText(/1220[\s ]*€ avanzati nel periodo\./)).toBeHidden();
+    // The base is the 2000 € of income the strip prints: the caption names no amount.
+    await expect(flusso).toContainText('Quote di quanto è uscito; tacche a 50 e 80');
 
     // The rows' 140px label column is what could run past the tile: measured against the section.
     expect(await measureFlussoOverflow(page)).toEqual({ scroll: 0, culprits: [] });
   });
 
   test('a role\'s row opens the Scheda under touch', async ({ page }) => {
+    await openRow(page, 'analisi-flusso');
     const flusso = page.getByRole('region', { name: 'Flusso', exact: true });
     await flusso.getByRole('region', { name: 'Da classificare' }).getByRole('button', { name: /^Alimentari, / }).click();
     await expect(page.getByRole('region', { name: /^Scheda di / })).toContainText('Alimentari');
   });
 
   test('«Per tipo» swaps the 50/30/20 bar for the bar of the spending by type, still no Sankey', async ({ page }) => {
+    await openRow(page, 'analisi-flusso');
     const flusso = page.getByRole('region', { name: 'Flusso', exact: true });
     await flusso.getByRole('button', { name: 'Per tipo' }).click();
     await expect(flusso.getByRole('list', { name: 'Quote del flusso' }).getByRole('listitem')).toHaveText([/^Variabili\s*51%$/, /^Fisse\s*49%$/]);
@@ -210,13 +238,15 @@ test.describe('Flusso in deficit at 390', () => {
 
   test('the income line sits on the bar where the income ends, its word inside the tile', async ({ page }) => {
     await page.goto(`/dashboard/analisi?period=year&year=${PREVIOUS_YEAR}&month=3`);
+    await page.locator('#analisi-flusso-trigger').click({ timeout: 30_000 });
     const flusso = page.getByRole('region', { name: 'Flusso', exact: true });
     const legend = flusso.getByRole('list', { name: 'Quote del flusso' });
     await expect(legend).toBeVisible({ timeout: 30_000 });
     await expect(legend.getByRole('listitem')).toHaveText([/^Variabili\s*100%$/]);
 
-    // 1500 spent on 30 of income: the caption names the 1470 the wealth covered, and nothing was put aside.
-    await expect(flusso).toContainText(/Quote delle spese \(1500[\s ]*€\)\. Oltre la linea delle entrate: 1470[\s ]*€ dal patrimonio\./);
+    // 1500 spent on 30 of income, nothing put aside. The first sentence prints the 1500 and the strip's
+    // «Risparmio» the −1470 the wealth covered, so the caption says both in words (decision 82).
+    await expect(flusso).toContainText('Quote delle spese. Oltre la linea delle entrate, il resto viene dal patrimonio.');
     await expect(flusso.getByRole('region', { name: 'Risparmio' })).toHaveCount(0);
 
     // The line is at 2% of the bar: its word must take the right of it, or it paints left of the tile.
@@ -230,10 +260,11 @@ test.describe('Flusso in deficit at 390', () => {
 
   test('with no income there is no income line, and the caption says so', async ({ page }) => {
     await page.goto(`/dashboard/analisi?period=year&year=${PREVIOUS_YEAR}&month=4`);
+    await page.locator('#analisi-flusso-trigger').click({ timeout: 30_000 });
     const flusso = page.getByRole('region', { name: 'Flusso', exact: true });
     // Positive anchor: the bar's legend is drawn, so the missing line below is a decision, not a blank page.
     await expect(flusso.getByRole('list', { name: 'Quote del flusso' }).getByRole('listitem')).toHaveText([/^Variabili\s*100%$/], { timeout: 30_000 });
-    await expect(flusso).toContainText(/Quote delle spese \(200[\s ]*€\)\. Nessuna entrata: tutto è coperto dal patrimonio\./);
+    await expect(flusso).toContainText('Quote delle spese. Nessuna entrata: tutto è coperto dal patrimonio.');
     await expect(flusso.getByText('entrate', { exact: true })).toHaveCount(0);
   });
 });
