@@ -26,6 +26,7 @@ import {
   RENDIMENTO_BENCHMARK_CHIP_BLOCK,
   RENDIMENTO_HERO_BLOCK,
   resolveHeroReturn,
+  inMonths,
   resolveCompanionReturnChip,
   resolveRealizedGainsState,
   selectPerformanceStrip,
@@ -228,6 +229,17 @@ describe('resolveHeroReturn', () => {
     expect(resolveHeroReturn(12.68, 1).label).toBe('nel mese');
   });
 
+  it('says «negli» before 8 and 11 months — the vowel-initial counts below a year — and the strip cell inherits it', () => {
+    // Seen red on 2026-10-14 with the label fixed on «nei» («nei 8 mesi», «nei 11 mesi»).
+    expect(resolveHeroReturn(16.0, 8).label).toBe('negli 8 mesi');
+    expect(resolveHeroReturn(16.0, 11).label).toBe('negli 11 mesi');
+    expect(resolveHeroReturn(16.0, 9).label).toBe('nei 9 mesi');
+    expect(inMonths(2)).toBe('nei');
+    expect(inMonths(8)).toBe('negli');
+    const cell = selectPerformanceStrip({ heroReturn: resolveHeroReturn(16.0, 8), benchmarkGap: null, benchmarkShortName: '60/40', benchmarkLoading: false, hasAttribution: true })[0];
+    expect(cell.label).toBe('Rendimento negli 8 mesi');
+  });
+
   it('is the exact inverse of the annualization, so nothing is invented', () => {
     const annualized = 15.93;
     const months = 3;
@@ -329,7 +341,7 @@ describe('summarizeCapitalEntered', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The phone composition (2026-10-14, MOB-05): the strip and the Plusvalenze state
+// The phone composition (2026-10-14): the strip and the Plusvalenze state
 // ---------------------------------------------------------------------------
 //
 // Seen red, one at a time, the day they were written: (1) the identity — the cell with

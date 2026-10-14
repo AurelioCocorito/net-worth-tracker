@@ -130,8 +130,10 @@ holds it): how it was learned is `git log`'s.
   neutral delta (a class gaining share) stays `text-muted-foreground`. **A figure that PRINTS as zero takes no sign and
   no sign token, whatever the raw value** (doc/mobile/README.md § 9, decision 20; on the tiles since 2026-10-12): decide
   the «−» on the formatted text with `withTypographicMinus`/`formatEuroMinus` (`lib/utils/formatters.ts`, where
-  `isPrintedZero` lives, pinned by `__tests__/formatters.test.ts`), never on `value < 0`. The sites outside the composed
-  surfaces (Rendimenti, Storico, email, PDF) still decide on the raw value, on purpose — count them with
+  `isPrintedZero` lives, pinned by `__tests__/formatters.test.ts`), never on `value < 0`; a percent or a gap in points
+  takes `printedSign`/`formatSignedPercentIt`/`formatSignedPoints` from the same module (the Rendimento (TWR) tile since
+  2026-10-14: its hero and chips repeat a strip cell). The sites outside the composed surfaces (the rest of Rendimenti,
+  Storico, email, PDF) still decide on the raw value, on purpose — count them with
   `grep -rnE "< 0 \? ['\"]−" lib components app`, never quote a number (the helper itself is among the hits).
 - **`--warning` is near-white in light mode**: text on a `bg-warning` fill MUST be `text-warning-foreground`; a caution
   reading and the verdict's dot use `text-warning-foreground` too.

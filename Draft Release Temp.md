@@ -19,6 +19,9 @@
 
 ## 🐛 Bug Fixes
 
+- **Rendimenti** — Fixed «nei 8 mesi» and «nei 11 mesi»: the return's label now reads «negli 8 mesi» / «negli 11 mesi» in the verdict, in the figure under the title on a phone, in the tile and in «Da dove viene il rendimento».
+- **Rendimenti** — Fixed a return or a gap that rounds to zero printed with a sign and a colour in the Rendimento (TWR) tile («+0,0%» in green, «+0 pt») while the figure under the title said «0,0%» and «0 pt»: the tile now reads «0,0%» and «0 pt» in plain ink, as the rest of the page does.
+- **Rendimenti › Analizza con AI** — Fixed the button staying enabled while the page is still loading or could not read its data: pressing it there opened nothing at once and started the analysis later, when the page came back; it is now disabled until the page is ready.
 - **Panoramica · Patrimonio · Email periodiche** — Fixed the month's split calling «altre variazioni» the money you moved outside the cashflow: the payments into a pension fund (TFR, employer, voluntary) and the principal repaid on a mortgage or a loan now have their own names — «+2000 € dal mercato, +1000 € risparmiati, +300 € di debito rimborsato (Mutuo), +500 € versati nel fondo pensione» — each debt by the name of its asset, and «altre variazioni» is left for what nothing explains. The periodic email no longer counts them as «mercato».
 
 - **Email periodiche · email settimanale del budget** — Fixed an AI comment cut off halfway: when the model stops in the middle — it declines to go on, or reaches its length limit — the email now goes out without the comment instead of with half of it; when it declines for some reasons, another model writes the comment instead.

@@ -644,7 +644,10 @@ export default function PerformancePage() {
 
   const currentYear = getItalyMonthYear().year;
 
-  const aiDisabled = isDemo || !metrics || metrics.hasInsufficientData;
+  // Disabled while the page waits or failed a read too (2026-10-14): the metrics can be held from
+  // the persisted cache in those branches, where the dialog is not mounted — a press there left
+  // `showAIAnalysisDialog` true, and the dialog opened (and spent) when the main branch came back.
+  const aiDisabled = isDemo || loading || loadFailed || !metrics || metrics.hasInsufficientData;
   const openCustomDialog = (event: React.MouseEvent<HTMLButtonElement>) => {
     customOpenerRef.current = event.currentTarget;
     setCustomDialogOrigin(resolveCenteredModalOrigin(event.currentTarget.getBoundingClientRect()));

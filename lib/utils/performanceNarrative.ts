@@ -46,7 +46,7 @@ import type {
   RealizedGainsSummary,
   ReturnConsistency,
 } from '@/lib/utils/performanceSummary';
-import { deannualizeReturn, PERFORMANCE_SECTION_IDS, printedGap } from '@/lib/utils/performanceSummary';
+import { deannualizeReturn, inMonths, PERFORMANCE_SECTION_IDS, printedGap } from '@/lib/utils/performanceSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, monthWithPrepositionA, ofThePercent, startsWithVowel } from '@/lib/utils/patrimonioNarrative';
@@ -774,7 +774,7 @@ export function describeAttribution(attribution: ReturnAttribution): Narrative {
 
   const partial = coverage.attributedMonths < coverage.measuredMonths && coverage.firstAttributed;
   const window = partial
-    ? ` nei ${coverage.attributedMonths} ${pluralize(coverage.attributedMonths, 'mese', 'mesi')} con il dettaglio per strumento (da ${monthAndYear(coverage.firstAttributed!)})`
+    ? ` ${inMonths(coverage.attributedMonths)} ${coverage.attributedMonths} ${pluralize(coverage.attributedMonths, 'mese', 'mesi')} con il dettaglio per strumento (da ${monthAndYear(coverage.firstAttributed!)})`
     : '';
   const shownGain = Math.round(gain);
   const lead: Narrative =
