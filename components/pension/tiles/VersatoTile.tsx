@@ -21,7 +21,7 @@
 
 import type { Narrative } from '@/lib/utils/narrative';
 import type { VersatoRow } from '@/lib/utils/pensionSummary';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { RankedRows } from '@/components/ui/ranked-rows';
 
@@ -36,6 +36,9 @@ export interface VersatoTileProps {
   footer: Narrative;
   /** Natures with something paid in the year, largest first, shares of the year's total. */
   rows: VersatoRow[];
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   /** Passed through to the tile's `section`. */
   className?: string;
 }
@@ -43,10 +46,10 @@ export interface VersatoTileProps {
 /** Row list name — the list reads as the tile's body. */
 const ROWS_ARIA_LABEL = 'Versato per natura';
 
-export function VersatoTile({ taxYear, reading, aside, footer, rows, className }: VersatoTileProps) {
+export function VersatoTile({ taxYear, reading, aside, footer, rows, collapse, asideWhenClosed, className }: VersatoTileProps) {
   return (
     // The tile's name is its visible eyebrow, year included (WCAG 2.5.3: the name contains the label).
-    <Tile eyebrow={`Versato nel ${taxYear}`} aside={aside} reading={reading} ariaLabel={`Versato nel ${taxYear}`} className={className}>
+    <Tile eyebrow={`Versato nel ${taxYear}`} aside={aside} asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel={`Versato nel ${taxYear}`} className={className} collapse={collapse}>
       {/* Without a contribution in the year the reading already says so; an empty list would only
           add a border under the sentence. */}
       {rows.length > 0 && (

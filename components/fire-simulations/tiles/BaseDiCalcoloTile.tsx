@@ -24,7 +24,7 @@ import { NO_HONEST } from '@/lib/utils/fireSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface BaseDiCalcoloTileProps {
@@ -42,6 +42,9 @@ interface BaseDiCalcoloTileProps {
   footer: Narrative;
   /** The calendar year, for «già in corso» on a pension that has started. */
   currentYear: number;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -60,7 +63,7 @@ function Row({ label, caption, value }: { label: string; caption?: string; value
   );
 }
 
-export function BaseDiCalcoloTile({ reading, aside, base, lock, lockCaption, onLockChange, lockDisabled, lockDisabledReason, footer, currentYear, className }: BaseDiCalcoloTileProps) {
+export function BaseDiCalcoloTile({ reading, aside, base, lock, lockCaption, onLockChange, lockDisabled, lockDisabledReason, footer, currentYear, collapse, asideWhenClosed, className }: BaseDiCalcoloTileProps) {
   const honest = base.honest ?? NO_HONEST;
   const pensionRow = describePensionRow(honest, currentYear);
   const taxRow = describeTaxRow(honest);
@@ -72,7 +75,7 @@ export function BaseDiCalcoloTile({ reading, aside, base, lock, lockCaption, onL
     .join(' · ');
 
   return (
-    <Tile eyebrow="Base di calcolo" aside={aside ?? undefined} reading={reading} ariaLabel="Base di calcolo del FIRE" className={cn('@container', className)}>
+    <Tile eyebrow="Base di calcolo" aside={aside ?? undefined} asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Base di calcolo del FIRE" className={cn('@container', className)} collapse={collapse}>
       {/* On a wide cell (the 7-column slot from desktop:) the lock block sits BESIDE the rows, in a
           second column, so the tile is as tall as its four rows and not as tall as their sum: it
           shares a row with nothing, and it must not stretch past its own content. Below that width

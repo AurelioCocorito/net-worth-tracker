@@ -23,7 +23,7 @@ import type { Narrative } from '@/lib/utils/narrative';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface SensibilitaTileProps {
@@ -37,6 +37,9 @@ interface SensibilitaTileProps {
   actualAnnualExpenses: number;
   matrix: FIRESensitivityMatrix | null;
   footer: Narrative;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -54,7 +57,7 @@ function cellText(cell: FIRESensitivityCell): string {
   return `${cell.yearsToFIRE} ${cell.yearsToFIRE === 1 ? 'anno' : 'anni'}`;
 }
 
-export function SensibilitaTile({ reading, aside, baselineInput, onBaselineInputChange, actualAnnualExpenses, matrix, footer, className }: SensibilitaTileProps) {
+export function SensibilitaTile({ reading, aside, baselineInput, onBaselineInputChange, actualAnnualExpenses, matrix, footer, collapse, asideWhenClosed, className }: SensibilitaTileProps) {
   const control = (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
       <span>{aside}</span>
@@ -76,7 +79,7 @@ export function SensibilitaTile({ reading, aside, baselineInput, onBaselineInput
   );
 
   return (
-    <Tile eyebrow="Sensibilità" aside={control} reading={reading} ariaLabel="Sensibilità degli anni al FIRE" className={className}>
+    <Tile eyebrow="Sensibilità" aside={control} asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Sensibilità degli anni al FIRE" className={className} collapse={collapse}>
       {matrix ? (
         <>
           {/* Desktop: the full matrix as a table, headers with scope. */}

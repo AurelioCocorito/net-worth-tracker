@@ -1,7 +1,7 @@
 /**
  * Cashflow › Divisione composed for a phone (since 2026-10-12; doc/guide/cashflow-divisione.md
  * § Composizione mobile), on the split account over «Quest'anno» — the window the fixture is
- * written for (`scripts/seedSplitE2E.mts`: Ghiandaia keeps 2200 € of what has moved, Tarsio
+ * written for (`scripts/seedSplitE2E.mts`: Ghiandaia keeps 2200 € of what has moved, Nibbio
  * +500 € today and −100 € once the 1500 € still in the calendar is paid).
  *
  * What a browser alone can prove: the strip is one cell per person on the BOOKED residual, in
@@ -12,7 +12,7 @@
  *
  * `.split.mobile.spec.ts`: collected by `split-mobile` alone (`playwright.config.ts`).
  *
- * Seen red on 2026-10-12: the strip reading `remaining` instead of `remainingBooked` (Tarsio
+ * Seen red on 2026-10-12: the strip reading `remaining` instead of `remainingBooked` (Nibbio
  * «−100 €»); `residualTone` with its two tones swapped (Ghiandaia's cell without the gain token);
  * both tabs on the default `restId` (two `perche-panel` in `main`). The scope rendered only when
  * `compact` goes red at 1440, in `cashflow.split.spec.ts` — at 390 `compact` is always true.
@@ -41,12 +41,12 @@ test.describe('Cashflow › Divisione, composed for a phone', () => {
     const cells = strip(page).getByRole('button');
     await expect(cells).toHaveCount(2);
     await expect(cells.nth(0)).toContainText(/Ghiandaia\s*2200\s?€/);
-    await expect(cells.nth(1)).toContainText(/Tarsio\s*500\s?€/);
+    await expect(cells.nth(1)).toContainText(/Nibbio\s*500\s?€/);
     await expect(cells.nth(1)).not.toContainText('100');
     // Both residuals in the gain tone (`residualTone`, the tile's own rule).
     await expect(cells.nth(0).locator('span.text-positive')).toHaveCount(1);
     await expect(cells.nth(1).locator('span.text-positive')).toHaveCount(1);
-    await expect(cells.nth(1)).toHaveAccessibleName(/, apre Tarsio$/);
+    await expect(cells.nth(1)).toHaveAccessibleName(/, apre Nibbio$/);
 
     // The scope line: the calendar's clause, under the strip and before «Il perché» — the three
     // boxes read in ONE pass, before any tap scrolls the page (a `reveal` scrolls smoothly, and
@@ -60,13 +60,13 @@ test.describe('Cashflow › Divisione, composed for a phone', () => {
     expect(percheBox!.y).toBeGreaterThanOrEqual(scopeBox!.y + scopeBox!.height - 1);
 
     // The people are closed rows, their hero hidden where the strip prints it (decision 15).
-    const tarsioRow = page.getByRole('region', { name: 'Quanto resta a Tarsio' });
-    await expect(tarsioRow.locator('[id$="-trigger"]')).toHaveAttribute('aria-expanded', 'false');
-    await expect(tarsioRow.locator('[id$="-trigger"]')).toContainText('quanto resta');
+    const nibbioRow = page.getByRole('region', { name: 'Quanto resta a Nibbio' });
+    await expect(nibbioRow.locator('[id$="-trigger"]')).toHaveAttribute('aria-expanded', 'false');
+    await expect(nibbioRow.locator('[id$="-trigger"]')).toContainText('quanto resta');
     await cells.nth(1).click();
-    await expect(tarsioRow.locator('[id$="-trigger"]')).toHaveAttribute('aria-expanded', 'true');
-    await expect(tarsioRow.locator('p.font-mono').first()).toBeHidden();
-    await expect(tarsioRow).toContainText(/Con le spese ancora in calendario mancano\s*100\s?€/);
+    await expect(nibbioRow.locator('[id$="-trigger"]')).toHaveAttribute('aria-expanded', 'true');
+    await expect(nibbioRow.locator('p.font-mono').first()).toBeHidden();
+    await expect(nibbioRow).toContainText(/Con le spese ancora in calendario mancano\s*100\s?€/);
 
     // The verdict's first part stops at the shares; the rest — what remains to each, then the
     // calendar's turn — is behind «Il perché».

@@ -23,6 +23,7 @@ import {
   resolveAllocationRole,
   type AllocatableHolding,
   type AllocationAction,
+  type BalanceScore,
   type PlanNode,
   type RebalanceMove,
 } from '@/lib/utils/allocationUtils';
@@ -36,9 +37,70 @@ import {
 } from '@/lib/utils/leverageAwareAllocationUtils';
 import { assetClassLegs } from '@/lib/utils/assetDisplayClass';
 import { estimateSaleTax } from '@/lib/utils/saleTax';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
 
 /** Rows below this amount are noise, not a plan (shared with `PlanRow`). */
 export const MIN_VISIBLE_AMOUNT = 0.5;
+
+// ─── The phone composition (2026-10-15) ───────────────────────────────────────
+
+/**
+ * The ids of the page's rows below `desktop:` (`useMobileSections`, The Closed-Row Rule): THE
+ * tile, Bilanciamento, is among them only as the target of a lifted block — it never closes
+ * (doc/mobile/README.md § 9, decision 21). The DOM ids are not narrative, so they live here
+ * (the precedent of `overviewSummary.ts` and `performanceSummary.ts`).
+ */
+export const ALLOCAZIONE_SECTION_IDS = {
+  bilanciamento: 'alloc-bilanciamento',
+  perClasse: 'alloc-per-classe',
+  piano: 'alloc-piano',
+  esposizione: 'alloc-esposizione',
+  previdenza: 'alloc-previdenza',
+} as const;
+
+/** The block of `BilanciamentoTile` the strip lifts: the KPI «Fuori posizione» — its VALUE only, the caption stays (decision 17). */
+export const BILANCIAMENTO_MISALLOCATION_BLOCK = 'fuori-posizione';
+
+/** Below this share nothing is out of position: the threshold `describeBalance` prints «nulla» under. */
+export const MISALLOCATION_FLOOR_PCT = 0.05;
+
+export interface AllocazioneStripInput {
+  /** `computeBalanceScore(byAssetClass)` — band-independent. */
+  balance: Pick<BalanceScore, 'misallocationPct'>;
+  /** `summarizeClassGaps(byAssetClass)`: the raw list; the dormant classes are dropped here. */
+  gaps: ClassGap[];
+}
+
+/**
+ * The two figures of a phone's first screen (decision 45): the share out of position — the
+ * KPI of Bilanciamento, lifted from the tile — opening the Piano, and the largest drift in
+ * points of the classes the band puts off target («Azioni sopra 3,3 pp»), opening Per classe.
+ * Both are read from the figures the verdict and the readings already print, with the same
+ * decimals (`__tests__/allocazioneSummary.test.ts` holds the identity). Neither is a gain or a
+ * loss, so the tone is `neutral`. The score itself is never a cell: it is the headline and the ring.
+ */
+export function selectAllocazioneStrip({ balance, gaps }: AllocazioneStripInput): StripFigure[] {
+  const [largest] = offTargetGaps(activeClassGaps(gaps));
+  const outOfPosition = balance.misallocationPct >= MISALLOCATION_FLOOR_PCT;
+  return [
+    {
+      label: 'Fuori posizione',
+      value: outOfPosition ? balance.misallocationPct : null,
+      format: 'percent',
+      tone: 'neutral',
+      opens: ALLOCAZIONE_SECTION_IDS.piano,
+      ...(outOfPosition ? { lifts: { section: ALLOCAZIONE_SECTION_IDS.bilanciamento, block: BILANCIAMENTO_MISALLOCATION_BLOCK } } : { reason: 'nulla' }),
+    },
+    {
+      label: largest ? `${largest.label} ${largest.differencePp > 0 ? 'sopra' : 'sotto'}` : 'Scarto maggiore',
+      value: largest ? Math.abs(largest.differencePp) : null,
+      format: 'pp',
+      tone: 'neutral',
+      opens: ALLOCAZIONE_SECTION_IDS.perClasse,
+      ...(largest ? {} : { reason: 'tutte in soglia' }),
+    },
+  ];
+}
 
 // ─── Per classe ───────────────────────────────────────────────────────────────
 

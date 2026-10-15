@@ -32,7 +32,7 @@ import type { Narrative } from '@/lib/utils/narrative';
 import { NATURE_LABELS, type LedgerRow } from '@/lib/utils/pensionSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { useArmedDelete } from '@/lib/hooks/useArmedDelete';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
@@ -53,6 +53,9 @@ export interface VersamentiTileProps {
   showFund: boolean;
   /** Called on the confirming click; the parent owns the mutation and the toast. */
   onDelete: (row: LedgerRow) => void;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   /** Demo mode: every delete is disabled and the aside says so. */
   isDemo: boolean;
   className?: string;
@@ -167,7 +170,7 @@ function DeleteButton({ row, onDelete, disabled, announce, onArmedChange }: Dele
   );
 }
 
-export function VersamentiTile({ taxYear, reading, aside, footer, rows, showFund, onDelete, isDemo, className }: VersamentiTileProps) {
+export function VersamentiTile({ taxYear, reading, aside, footer, rows, showFund, onDelete, isDemo, collapse, asideWhenClosed, className }: VersamentiTileProps) {
   // Session-only: the ledger opens on its first twelve rows and the reader unfolds the rest.
   const [showAll, setShowAll] = useState(false);
   const [announcement, setAnnouncement] = useState('');
@@ -185,6 +188,8 @@ export function VersamentiTile({ taxYear, reading, aside, footer, rows, showFund
       eyebrow={`Versamenti ${taxYear}`}
       ariaLabel={`Versamenti ${taxYear}`}
       aside={isDemo ? `${aside} · non modificabile in demo` : aside}
+      asideWhenClosed={asideWhenClosed}
+      collapse={collapse}
       reading={reading}
       className={className}
     >

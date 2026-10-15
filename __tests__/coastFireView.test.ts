@@ -13,6 +13,8 @@ import {
   buildCoastInflowEvents,
   buildCoastVerdict,
   buildPensionDraftIssues,
+  COAST_SECTION_IDS,
+  selectCoastStrip,
   buildPensionSnapshotKey,
   describeCoastDettaglio,
   describeCoastEmptyTiles,
@@ -40,7 +42,9 @@ import {
   type CoastTarget,
 } from '@/lib/utils/coastFireView';
 import { INACTIVE_LOCK, type FireLock } from '@/lib/utils/fireSummary';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
+import { formatStripFigure, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   calculateCoastFIREProjection,
   getDefaultCoastFireTaxBrackets,
@@ -668,5 +672,61 @@ describe('coastFireView — parity with the projection', () => {
     printed.forEach((printedAmount) => {
       expect(allowed).toContain(printedAmount);
     });
+  });
+});
+
+// ─── The phone's cut and the strip (2026-10-15, MOB-07) ───────────────────────
+// Seen red one at a time: «Margine» printed «0 €» at a surplus under 0,5 (the floor removed);
+// the bear cell on the base scenario's number; `leadLength` left `undefined` with a pace.
+
+describe('coastFireView — the cut (doc/mobile/README.md § 9, decisions 5 and 44)', () => {
+  it('keeps the walk under the title, the pace and the lock behind «Il perché»', () => {
+    const { target } = buildTarget();
+    const verdict = buildCoastVerdict({ target, incompleteReason: null, pace: buildPace()!, lock: LOCK });
+    const { lead, rest } = splitVerdict(verdict);
+    expect(plain(lead)).toMatch(/^Ti mancano .* richiesti\.$/);
+    expect(plain(rest)).toMatch(/^ Al ritmo attuale, .* I 29\.800 € nel fondo pensione sono esclusi .* in poi\.$/);
+    expect(verdict.restLabel).toBe('il ritmo e il fondo pensione');
+    expect(buildCoastVerdict({ target, incompleteReason: null, pace: buildPace()!, lock: INACTIVE_LOCK }).restLabel).toBe('il ritmo');
+    expect(buildCoastVerdict({ target, incompleteReason: null, pace: null, lock: LOCK }).restLabel).toBe('il fondo pensione');
+    expect(buildCoastVerdict({ target, incompleteReason: null, pace: null, lock: INACTIVE_LOCK }).leadLength).toBeUndefined();
+  });
+
+  it('cuts a reached target before the lock sentence, and never a verdict that cannot run', () => {
+    const { target } = buildTarget(base0().coastFireNumberToday + 10_000);
+    const reached = buildCoastVerdict({ target, incompleteReason: null, pace: null, lock: LOCK });
+    expect(plain(splitVerdict(reached).lead)).toMatch(/richiesti\.$/);
+    expect(reached.restLabel).toBe('il fondo pensione');
+    expect(buildCoastVerdict({ target: null, incompleteReason: 'Serve un patrimonio FIRE positivo.', pace: null, lock: LOCK }).leadLength).toBeUndefined();
+  });
+});
+
+describe('selectCoastStrip — the two cells of the Coast tab', () => {
+  const cellText = (figure: StripFigure) => narrativeToText([formatStripFigure(figure)!]).replace(/[\u00a0\u202f]/g, ' ');
+  const KNOWN = [...Object.values(COAST_SECTION_IDS), VERDICT_REST_SECTION];
+
+  it('prints the gap the verdict prints and the bear scenario\'s Coast number the row prints', () => {
+    const { target } = buildTarget();
+    const projection = buildProjection();
+    const scenarios = summarizeCoastScenarios(projection.scenarios, getDefaultScenarios(), NET_WORTH);
+    const strip = selectCoastStrip({ target, scenarios });
+    expect(strip.map((figure) => figure.label)).toEqual(['Ti mancano', "Nell'orso"]);
+    expect(strip.map((figure) => figure.opens)).toEqual([COAST_SECTION_IDS.afflussi, COAST_SECTION_IDS.scenari]);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    const verdict = plain(buildCoastVerdict({ target, incompleteReason: null, pace: null, lock: INACTIVE_LOCK }).sentence);
+    expect(verdict).toContain(`Ti mancano ${cellText(strip[0])} al numero Coast FIRE`);
+    expect(cellText(strip[1])).toBe(euro(scenarios.find((row) => row.key === 'bear')!.coastNumberToday));
+    expect(plain(describeCoastScenarios(scenarios))).toContain(cellText(strip[1]));
+  });
+
+  it('reads the margin once the target is behind, and «raggiunto» when it is met to the euro', () => {
+    const { target } = buildTarget(base0().coastFireNumberToday + 10_000);
+    const [margin] = selectCoastStrip({ target, scenarios: [] });
+    expect(margin.label).toBe('Margine');
+    expect(cellText(margin)).toBe(euro(10_000));
+    const [met] = selectCoastStrip({ target: { ...target, surplus: 0.2 }, scenarios: [] });
+    expect(met.value).toBeNull();
+    expect(met.reason).toBe('raggiunto');
+    expect(validateStrip([met], KNOWN)).toEqual([]);
   });
 });

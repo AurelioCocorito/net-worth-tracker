@@ -10,7 +10,7 @@
  * benchmark must contend with neither.
  *
  * Where `server.js` lives is SEARCHED, never assumed: Next mirrors the project's path below the
- * tracing root it infers, so on the Windows laptop it lands in
+ * tracing root it infers, so on a Windows checkout it lands in
  * `.next-perf/standalone/Documents/GitHub/net-worth-tracker/` and on another machine elsewhere.
  */
 import { cpSync, existsSync, readdirSync } from 'node:fs';

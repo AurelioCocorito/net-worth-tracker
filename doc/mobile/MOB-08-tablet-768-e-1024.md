@@ -249,7 +249,7 @@ baseline (51).
   `centri-mobile`, `split`, `split-mobile`, `degraded`, `degraded-mobile` e i due tablet); sul mirror a 1440 Panoramica e
   Rendimenti uguali a prima (screenshot).
 - **C**: § 7, e `mobile:budget` rosso con una falsificazione.
-- **F** (mirror; DevTools a 768×1024 e 1024×768 sul portatile): 1) Panoramica orizzontale, LA tessera intera e le righe
+- **F** (mirror; DevTools a 768×1024 e 1024×768): 1) Panoramica orizzontale, LA tessera intera e le righe
   accanto; 2) aprirne una: dove va, e se la pagina la segue; 3) ruotare, da tre a due colonne senza perdere le aperte;
   4) il menu della barra col pollice; 5) «Aggiungi» in Tracciamento orizzontale. In più, fuori dai cinque: Analisi a 768
   e a 1024, il Flusso aperto disegna il Sankey e si legge.

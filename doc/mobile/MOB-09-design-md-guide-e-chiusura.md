@@ -27,7 +27,7 @@ Righe del 2026-10-10 (MOB-02..08 possono spostarle: riverificare).
 - `AGENTS.md:682-695` (§ Hierarchy, Density and Disclosure; era `:733` il 2026-09-26) «Keep the DOM in the desktop order so Tab follows the eye; the phone re-orders with `order-*` (Storico
   and Rendimenti are the worked examples)» (riscritta da MOB-02 il 2026-10-10: «Keep ONE sequence…» con l'elenco delle pagine che portano ancora `order-*`; qui si verifica che l'elenco sia vuoto).
 - `grep -rn "Composizione mobile" doc/guide` → 0 oggi; MOB-02..08 ne scrivono una per pagina, ognuna a modo suo.
-- `.impeccable/critique/`: 16 snapshot `closed: true` (2026-09-13 → 09-24) sulla composizione di PRIMA.
+- `.impeccable/critique/`: 16 snapshot `closed: true` (2026-09-13 → 09-24) sulla composizione di PRIMA, redatti il 2026-10-15 (README § 9, 93: cifre «x.xxx €», conto «Banca X»).
   `doc/mobile/README.md` § 6 tiene tutte le spec «da fare»: qui si chiude, una riga per spec con data e misura.
 - `lib/firebase/config.ts:61-62` collega l'app degli emulatori a `127.0.0.1`: un telefono vero non entra (README § 9, 56).
 
@@ -262,7 +262,7 @@ senza eccezioni oltre `raisedBy` (16, 19, 22).
 
 ## 8. Collaudo guidato
 
-- A: `npm run test:e2e` intero verde. C: § 7. F (mirror; DevTools sul portatile a 390 e 1024×768, README § 9, 56): 1) tre
+- A: `npm run test:e2e` intero verde. C: § 7. F (mirror; DevTools a 390 e 1024×768, README § 9, 56): 1) tre
   pagine contro le quattro regole; 2) una riga in errore con l'eyebrow rosso, provocata da uno script Playwright
   usa-e-getta che fa abortire una lettura; 3) la memoria dopo aver chiuso il browser; 4) una pagina a 1024 orizzontale;
   5) PRODUCT.md § Platform letto. G: `npm run mirror:remove`, lo script cancellato.

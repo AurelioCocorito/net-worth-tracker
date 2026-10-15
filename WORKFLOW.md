@@ -4,7 +4,7 @@
 > per-session: they hold until this file says otherwise.
 >
 > **Why they live in the repo and not in agent memory**: agent memory is per-machine and per
-> install, so the same rules drift into different versions on the laptop, the desktop and a cloud
+> install, so the same rules drift into different versions on each machine and in a cloud
 > session. A tracked file travels with the clone and can be reviewed in a diff. If you are an agent
 > with persistent memory, do **not** re-save these rules there — save one pointer to this file. If
 > the owner states a new rule, it is added *here*, in that session's commit.
@@ -166,9 +166,9 @@ The app **is** locally runnable; there is no fallback to declare.
   | `analisi@example.com` | `test-user-analisi` | Everything dated to January, so year-to-date windows contain it whatever month it is |
   | `centri@example.com` | `test-user-centri` | Centri di Costo ON: «Fenicottero» (annual ceiling the calendar will cross) and «Ornitorinco» (dormant, 27 movements) — `npm run e2e:seed:centri` |
   | `degraded@example.com` | `test-user-degraded` | The states in which a return is *not* a measure — empty/degraded readings |
-  | `split@example.com` | `test-user-split` | Cashflow › Divisione ON: Ghiandaia and Tarsio at 60/40, with one row dated 31 December that stays «in calendario» all year — `npm run e2e:seed:split` |
+  | `split@example.com` | `test-user-split` | Cashflow › Divisione ON: Ghiandaia and Nibbio at 60/40, with one row dated 31 December that stays «in calendario» all year — `npm run e2e:seed:split` |
   | `hof@example.com` | `hof-user` | Hall of Fame: 47 monthly snapshots from novembre 2022 with a story (best month marzo 2024, worst ottobre 2023, a two-month first year); NO rankings document — the specs press «Aggiorna i record» — `npm run e2e:seed:hof` |
-  | `census@example.com` | `census-user` | The first-screen budget's fixture (MOB-01): every surface with data, each option in its default state — Centri and Divisione on, a coupon, a Budget ceiling, a pension fund, 47 snapshots ending last month, one row «in calendario» on the month's last day; FIRE › Obiettivi OFF until MOB-07 turns it on (doc/mobile/README.md § 9, 60) — dated relative to the run; `npm run mobile:census` re-seeds it and rebuilds its Hall of Fame (`npm run e2e:seed:census` alone does not) |
+  | `census@example.com` | `census-user` | The first-screen budget's fixture (MOB-01): every surface with data, each option in its default state — Centri and Divisione on, a coupon, a Budget ceiling, a pension fund, 47 snapshots ending last month, one row «in calendario» on the month's last day; FIRE › Obiettivi ON with ONE invented goal since 2026-10-15 (MOB-07; doc/mobile/README.md § 9, 60) — dated relative to the run; `npm run mobile:census` re-seeds it and rebuilds its Hall of Fame (`npm run e2e:seed:census` alone does not) |
 
 - **So the screen is not empty**: `npm run emulators:seed` for the base account, plus the fixture the
   page needs — `npm run e2e:seed` (Previdenza), `npm run e2e:seed:analisi` (Analisi),
@@ -209,7 +209,7 @@ The app **is** locally runnable; there is no fallback to declare.
   files 0): every Cashflow tab stays mounted and hidden (`forceMount`), so ~36 hits per scan were Tracciamento's; the
   9–11px «undersized text» is the enumerated ramp; the shell, the sidebar and the overlay's own yellow (`dark-glow
   #ffba00` on a second injection) are in there too. Count what belongs to the surface, say the rest is not its. **A probe never opens a control that SPENDS** (2026-09-20): «Analizza con AI» starts its analysis on open, and an evidence pass told to «open and press Escape» made five real Anthropic calls. Read what a control does before scripting a click on it; on Rendimenti that dialog is opened once, to check the abort, or not at all. **The session's background tasks die with it**: a restart of the Claude Code session, or its memory watchdog (on the
-  8 GB Mac and on the 16 GB Windows laptop, even with memory free and even mid-suite), kills the emulators and the dev
+  on both of the owner's machines, even with memory free and even mid-suite), kills the emulators and the dev
   server alike, and an emulator killed that way exports nothing. The safe default for the owner's tour: the emulators and
   the dev server run in the OWNER's terminals, which the watchdog does not touch; the agent re-seeds the mirror, checks
   the ports and reports the URLs, and does not restart a killed process on its own. When the owner asks the agent to
@@ -287,7 +287,10 @@ The app **is** locally runnable; there is no fallback to declare.
 - **Impeccable critiques are committed** (since 2026-09-12): `.impeccable/critique/*.md` is tracked,
   so the snapshot `polish` reads as its backlog is the same on every machine. A critique is
   committed in the session that produces it; one that describes a surface since rebuilt is
-  deleted, not kept as history (the eleven pre-«Verdict over Tiles» ones were removed that day).
+  deleted, not kept as history (the eleven pre-«Verdict over Tiles» ones were removed that day). **A critique is written
+  on the fixture, never on the mirror** (2026-10-15): the sixteen written «live sul mirror» printed the real account's
+  figures and accounts in a public repo and were redacted — amounts «x.xxx €», the account «Banca X» (doc/mobile/README.md
+  § 9, 93). The same rule as for the draft above: nothing of the real account in a tracked file.
   `.impeccable/hook.cache.json` stays local (`.git/info/exclude`). **A snapshot closes only through
   `polish`, never by fixing the code** (2026-09-13): `critique-storage latest` judges it current from the
   fingerprint of the ONE target file (`page.tsx`, a 32-line wrapper), so corrections made in the
@@ -303,9 +306,9 @@ The app **is** locally runnable; there is no fallback to declare.
   snapshot, not the exit code. **A snapshot's `target_path` and
   `target_fingerprint` are those of the machine that wrote it** (2026-09-14): `latest` accepts only the local
   absolute path and the local bytes (a Windows checkout is CRLF under `* text=auto`, so its fingerprint never
-  matches a Mac's), while `trend` and `signals` match by slug. On 2026-09-14 the four snapshots written on Windows
-  were rewritten to the Mac's path and LF fingerprint. The owner works from a Mac and from a Windows laptop, so close
-  a snapshot on the machine that wrote it.
+  matches a macOS checkout's), while `trend` and `signals` match by slug. On 2026-09-14 the four snapshots written on Windows
+  were rewritten to the macOS path and LF fingerprint. The owner works from two machines with different line endings, so
+  close a snapshot on the machine that wrote it.
 - **Do not duplicate project conventions here.** Code and comment conventions live in
   `DEVELOPMENT_GUIDELINES.md` and `COMMENTS.md`, repo-wide patterns and traps in `AGENTS.md`, the
   per-area rules in `doc/guide/<tema>.md`, the aesthetic in `DESIGN.md`, environment and emulators

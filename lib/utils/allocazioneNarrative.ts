@@ -26,16 +26,17 @@ import type { ExposureBucket, ExposureCoverage, ExposureNotApplicable } from '@/
 import { ASSET_CLASS_LABELS } from '@/lib/utils/allocationUtils';
 import type { OrphanedTarget, RebalanceBand, RebalanceMove } from '@/lib/utils/allocationUtils';
 import type { InstrumentTrade } from '@/lib/utils/leverageAwareAllocationUtils';
-import type {
-  ClassGap,
-  ClassSlice,
-  ExposureHighlights,
-  ExposureViewKey,
-  HoldingsGroup,
-  NextMoney,
-  PlanMode,
-  PlanView,
-  SaleTaxEstimate,
+import {
+  ALLOCAZIONE_SECTION_IDS,
+  type ClassGap,
+  type ClassSlice,
+  type ExposureHighlights,
+  type ExposureViewKey,
+  type HoldingsGroup,
+  type NextMoney,
+  type PlanMode,
+  type PlanView,
+  type SaleTaxEstimate,
 } from '@/lib/utils/allocazioneSummary';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
@@ -199,22 +200,43 @@ export function buildAllocazioneVerdict(input: AllocazioneVerdictInput): PageVer
   const score = Math.round(input.score);
   const headline = `Allineato ${atThePercent(score, 0)}${score}%.`;
 
-  const clauses: Narrative[] = [];
-  if (input.isBalanced || input.offTarget.length === 0) {
-    clauses.push([prose(input.band.type === 'rule525' ? 'Tutte le classi rispettano la regola 5/25' : `Tutte le classi sono ${bandClause(input.band)}`)]);
-  } else {
-    clauses.push(driftClause(input.offTarget));
-  }
-  const leverage = leverageClause(input.leverage);
-  if (leverage.length > 0) clauses.push(leverage);
-  const next = nextMoneyClause(input.nextMoney);
-  if (next.length > 0) clauses.push(next);
+  // The first sentence is the drift — what a phone shows under the title; the leverage and the
+  // next money follow as sentences of their own («. La leva è…», «. Con 1000 € in più…»), at
+  // 1440 too (doc/mobile/README.md § 9, decision 5): the cut needs a full stop, not a «;».
+  const lead: Narrative =
+    input.isBalanced || input.offTarget.length === 0
+      ? [prose(input.band.type === 'rule525' ? 'Tutte le classi rispettano la regola 5/25' : `Tutte le classi sono ${bandClause(input.band)}`)]
+      : driftClause(input.offTarget);
+  lead.push(prose('.'));
 
-  const sentence: Narrative = clauses.flatMap((clause, i) => (i === 0 ? clause : [prose('; '), ...clause]));
-  sentence.push(prose('.'));
-  sentence.push(...orphanSentence(input.orphans));
-  return { headline, tone, sentence };
+  const leverage = leverageClause(input.leverage);
+  const next = nextMoneyClause(input.nextMoney);
+  const rest: Narrative = [...asSentence(leverage), ...asSentence(next)];
+  const restLabel = leverage.length > 0 && next.length > 0 ? 'la leva e i prossimi soldi' : leverage.length > 0 ? 'la leva' : next.length > 0 ? 'dove vanno i prossimi soldi' : null;
+
+  // An unreachable target changes the meaning of every figure above: it stays on the first
+  // screen (`binding`, The Binding-Clause Rule), so the cut is cancelled by `splitVerdict`.
+  const orphans = orphanSentence(input.orphans).map((segment) => ({ ...segment, binding: true }));
+  const sentence: Narrative = [...lead, ...rest, ...orphans];
+  return restLabel ? { headline, tone, sentence, leadLength: lead.length, restLabel } : { headline, tone, sentence };
 }
+
+/** A clause as a sentence of its own: a leading space, a capital, a full stop; nothing from nothing. */
+function asSentence(clause: Narrative): Narrative {
+  if (clause.length === 0) return [];
+  const [first, ...others] = clause;
+  return [prose(` ${capitalize(first.text)}`), ...others, prose('.')];
+}
+
+// ─── The rows below `desktop:` ─────────────────────────────────────────────────
+
+/** What each closed row says beside its eyebrow — words, never a figure (The Closed-Row Rule). */
+export const ALLOCAZIONE_CLOSED_ASIDES = {
+  [ALLOCAZIONE_SECTION_IDS.perClasse]: 'corrente, target e gap',
+  [ALLOCAZIONE_SECTION_IDS.piano]: 'Ribilancia, Versa o Preleva',
+  [ALLOCAZIONE_SECTION_IDS.esposizione]: 'titoli, settori, emittenti',
+  [ALLOCAZIONE_SECTION_IDS.previdenza]: 'il fondo nel mix',
+} as const;
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 

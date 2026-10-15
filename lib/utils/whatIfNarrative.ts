@@ -22,7 +22,8 @@ import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent } from '@/lib/utils/patrimonioNarrative';
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
 import type { WhatIfEventType } from '@/types/whatIf';
-import type { MetricPair, SensitivityReading, WhatIfDivergence, WhatIfEvent, WhatIfSummary, WhatIfTimeline } from '@/lib/utils/whatIfSummary';
+import { isWhatIfChange, WHAT_IF_SECTION_IDS, type MetricPair, type SensitivityReading, type WhatIfDivergence, type WhatIfEvent, type WhatIfSummary, type WhatIfTimeline } from '@/lib/utils/whatIfSummary';
+import { cutAtFirstSentence, fireRestLabel } from '@/lib/utils/fireNarrative';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -63,8 +64,8 @@ function years(value: number): string {
   return `${value} ${value === 1 ? 'anno' : 'anni'}`;
 }
 
-/** A change smaller than half a unit is no change: it would print as «0 €». */
-const changed = (delta: number, unit = 0.5): boolean => Math.abs(delta) >= unit;
+/** A change smaller than half a unit is no change (`isWhatIfChange`, ONE threshold for the sentence, the rows and the strip). */
+const changed = isWhatIfChange;
 
 /** «a, b e c» — the Italian list. */
 function listOf(items: string[]): string {
@@ -225,11 +226,9 @@ export function buildWhatIfVerdict(input: WhatIfVerdictInput): PageVerdictModel 
   }
   const { event, summary } = input;
   if (event.isEmpty) {
-    return {
-      headline: 'Nessun evento da simulare.',
-      tone: 'neutral',
-      sentence: [prose('Il piano resta quello di oggi: '), ...planTodayClause(summary.timeline), prose('. Scegli un evento e inserisci un importo.')],
-    };
+    // Two sentences on purpose: the plan of today under the title, the instruction behind «Il perché».
+    const sentence: Narrative = [prose('Il piano resta quello di oggi: '), ...planTodayClause(summary.timeline), prose('.'), prose(' Scegli un evento e inserisci un importo.')];
+    return { headline: 'Nessun evento da simulare.', tone: 'neutral', sentence, ...cutAtFirstSentence(sentence, 'come simulare') };
   }
 
   const clauses: Narrative[] = [];
@@ -271,11 +270,25 @@ export function buildWhatIfVerdict(input: WhatIfVerdictInput): PageVerdictModel 
     ]);
   }
 
+  // The event and its clauses are the first sentence; the Coast and the bridge note follow it —
+  // behind «Il perché» on a phone, the bridge kept in sight by the scope line (decision 44).
+  const coast = coastSentence(summary);
+  const sentence: Narrative = [prose('Con '), ...eventClause(event), prose(' '), ...joinClauses(clauses), prose('.'), ...coast, ...(summary.isBridge ? BRIDGE_NOTE : [])];
   return {
     ...headlineOf(summary),
-    sentence: [prose('Con '), ...eventClause(event), prose(' '), ...joinClauses(clauses), prose('.'), ...coastSentence(summary), ...(summary.isBridge ? BRIDGE_NOTE : [])],
+    sentence,
+    ...cutAtFirstSentence(sentence, fireRestLabel(coast.length > 0 ? 'il Coast FIRE' : null, summary.isBridge)),
   };
 }
+
+// ─── The rows below `desktop:` ─────────────────────────────────────────────────
+
+/** What each closed row says beside its eyebrow — words, never a figure (The Closed-Row Rule). */
+export const WHAT_IF_CLOSED_ASIDES = {
+  [WHAT_IF_SECTION_IDS.primaDopo]: 'le due traiettorie',
+  [WHAT_IF_SECTION_IDS.delta]: 'prima → dopo',
+  [WHAT_IF_SECTION_IDS.sensibilita]: 'spese e risparmio',
+} as const;
 
 // ─── Prima e dopo ─────────────────────────────────────────────────────────────
 

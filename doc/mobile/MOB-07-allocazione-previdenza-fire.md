@@ -1,6 +1,6 @@
 # MOB-07 — Allocazione · Previdenza · FIRE
 
-> Stato: da fare · riletta in modo adversariale il 2026-10-10: 27 rilievi, 7 decisioni · Priorità: 3 (Pianificazione, la meno aperta dal telefono) · Sforzo: L · Dipende da: MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02
+> Stato: implementata il 2026-10-15 (decisioni 89–92, README § 9; misura in § 3.1) · riletta in modo adversariale il 2026-10-10: 27 rilievi, 7 decisioni · Priorità: 3 (Pianificazione, la meno aperta dal telefono) · Sforzo: L · Dipende da: MOB-01 (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448), MOB-02
 > (ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450; sequenza, README § 9, 9; PERF-04, PERF-05, PERF-10 e PERF-00 ritirate, in develop) · Sblocca: MOB-08, MOB-09
 
 ## 1. Il problema, misurato
@@ -270,7 +270,7 @@ cinque tab. 4. Playwright, tsc, lint, Vitest. 5. `mobile:census`/`mobile:budget 
 ## 8. Collaudo guidato
 
 - A: le spec desktop, Vitest nei due fusi. C: § 7.
-- F (mirror, DevTools a 390 sul portatile): 1) Allocazione; 2) Previdenza, tre cause o nessuna; 3) la riga del
+- F (mirror, DevTools a 390): 1) Allocazione; 2) Previdenza, tre cause o nessuna; 3) la riga del
   vincolo; 4) cambiare tab e tornare; 5) le tre pagine a 1440 come prima (salvo le due frasi ed Evento). G: `npm run mirror:remove`.
 
 ## 9. Rischi e rollback

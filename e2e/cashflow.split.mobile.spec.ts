@@ -66,10 +66,10 @@ test.describe('Cashflow › Divisione (phone)', () => {
 
   test('the people stack, one above the other, full width', async ({ page }) => {
     const ghiandaia = await page.getByRole('region', { name: 'Quanto resta a Ghiandaia' }).boundingBox();
-    const tarsio = await page.getByRole('region', { name: 'Quanto resta a Tarsio' }).boundingBox();
+    const nibbio = await page.getByRole('region', { name: 'Quanto resta a Nibbio' }).boundingBox();
 
-    expect(tarsio!.y).toBeGreaterThan(ghiandaia!.y + ghiandaia!.height - 2);
-    expect(Math.abs(ghiandaia!.width - tarsio!.width)).toBeLessThan(2);
+    expect(nibbio!.y).toBeGreaterThan(ghiandaia!.y + ghiandaia!.height - 2);
+    expect(Math.abs(ghiandaia!.width - nibbio!.width)).toBeLessThan(2);
   });
 });
 

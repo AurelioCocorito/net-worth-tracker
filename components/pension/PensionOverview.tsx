@@ -12,9 +12,18 @@
  *   Desktop (12 col): Il fondo oggi(5, 2 rows) | Rendimento(3) | Anno fiscale(4)
  *                                              | Versato nel {anno}(7)
  *                     Versamenti {anno}(12)
- *   Mobile (1 col):   Il fondo oggi → Rendimento → Anno fiscale → Versato → Versamenti
+ *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11,
+ *                     since 2026-10-15): the verdict's title → the year in its `axis` slot → with
+ *                     ONE contributor measured, no sentence but the strip of three causes («Mercato
+ *                     da…», «Datore nel…», «Fisco nel…, circa»: the whole sentence behind «Il
+ *                     perché»); with two or more, the whole verdict and no strip (decision 46) →
+ *                     Il fondo oggi open, its curve at 120px → «Il resto della pagina» →
+ *                     Rendimento, Anno fiscale, Versato, Versamenti as closed rows — a failed read
+ *                     a red row, silent (`useMobileSections`, doc/guide/previdenza.md
+ *                     § Composizione mobile) → the Dettaglio. No `order-*`: the phone reads the DOM.
  *
- * THE PAGE'S ONE AXIS IS THE FISCAL YEAR, beside the verdict from `desktop:` and under it below.
+ * THE PAGE'S ONE AXIS IS THE FISCAL YEAR, beside the verdict from `desktop:` and under its title
+ * below (a second instance of the same control, decision 12).
  * It governs the verdict's two ANNUAL clauses (the employer's share, the IRPEF saving), «Anno
  * fiscale», «Versato» and «Versamenti». «Il fondo oggi» and «Rendimento» are OFF the axis — the
  * fund's value is a running total and its return has its own trust-derived window
@@ -47,6 +56,8 @@ import { derivePensionContributionYears, resolveActivePensionYear } from '@/lib/
 import { calculateProgressiveTax, normalizeCoastFireTaxBrackets } from '@/lib/services/fireService';
 import { getItalyYear } from '@/lib/utils/dateHelpers';
 import {
+  PENSION_SECTION_IDS,
+  selectPensionStrip,
   summarizeFundToday,
   summarizeLedger,
   summarizePensionMembers,
@@ -54,8 +65,11 @@ import {
   type LedgerRow,
   type PensionSummaryInput,
 } from '@/lib/utils/pensionSummary';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   ANNO_FISCALE_FOOTER,
+  PENSION_CLOSED_ASIDES,
   buildFondoOggiChips,
   buildPensionLoadErrorVerdict,
   buildPensionVerdict,
@@ -81,8 +95,10 @@ import {
 import type { TileSkeletonCell } from '@/lib/utils/tileGridSkeleton';
 import { cn } from '@/lib/utils';
 import { PageVerdict } from '@/components/ui/page-verdict';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
 import { SegmentedPill } from '@/components/ui/segmented-pill';
-import { Tile, TILE_CELL_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure } from '@/lib/utils/statesNarrative';
@@ -106,6 +122,26 @@ const SKELETON_CELLS: TileSkeletonCell[] = [
 ];
 
 const VERDICT_LABEL = 'Verdetto sul fondo pensione';
+
+/**
+ * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but «Il fondo
+ * oggi», THE tile, which never closes (decision 21). Module-level, so the controller sees one
+ * stable list; `resolvePensionSections` flags the rows whose read failed (Rendimento on the
+ * contributions OR the snapshots, the other three on the contributions).
+ */
+const PENSION_SECTIONS: readonly SectionSpec[] = [
+  { id: PENSION_SECTION_IDS.rendimento, eyebrow: 'Rendimento' },
+  { id: PENSION_SECTION_IDS.annoFiscale, eyebrow: 'Anno fiscale' },
+  { id: PENSION_SECTION_IDS.versato, eyebrow: 'Versato' },
+  { id: PENSION_SECTION_IDS.versamenti, eyebrow: 'Versamenti' },
+];
+
+function resolvePensionSections(input: { contributionsError: boolean; snapshotsError: boolean }): readonly SectionSpec[] {
+  return PENSION_SECTIONS.map((section) => ({
+    ...section,
+    failed: section.id === PENSION_SECTION_IDS.rendimento ? input.contributionsError || input.snapshotsError : input.contributionsError,
+  }));
+}
 
 export function PensionOverview() {
   const { ownerId } = useActiveAccount();
@@ -178,6 +214,16 @@ export function PensionOverview() {
     [failures, blocks, activeYear, currentYear],
   );
 
+  // ─── The phone composition (2026-10-15) ──────────────────────────────────────
+  // The rows, each flagged when its read failed; the controller hands each tile its row and the
+  // verdict its «Il perché». The strip — three causes or none (decision 46) — is read from the
+  // same blocks the verdict reads, and from nothing once a read failed. Every cell opens a row, so
+  // `reveal` IS the handler.
+  const sectionSpecs = useMemo(() => resolvePensionSections({ contributionsError, snapshotsError }), [contributionsError, snapshotsError]);
+  const sections = useMobileSections({ route: 'pension', sections: sectionSpecs });
+  const { reveal: handleStripOpen } = sections;
+  const strip = failures.length > 0 ? [] : selectPensionStrip({ blocks, taxYear: activeYear });
+
   // ─── Delete: reverses the value/transfer effect (invariant #5) ───────────────
   const handleDelete = (row: LedgerRow) => {
     const contribution = contributions.find((c) => c.id === row.id);
@@ -244,14 +290,23 @@ export function PensionOverview() {
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* The verdict and the page's one axis: beside it from desktop, under it below. */}
+      {/* The verdict and the page's one axis: beside it from desktop, under its title below —
+          two instances of the same control, the same state (decision 12, `hidden desktop:block`). */}
       <div className="flex flex-col gap-3 pt-1 desktop:flex-row desktop:items-start desktop:justify-between desktop:gap-6">
-        <PageVerdict verdict={verdict} ariaLabel={VERDICT_LABEL} />
-        {yearAxis}
+        <PageVerdict
+          verdict={verdict}
+          ariaLabel={VERDICT_LABEL}
+          axis={yearAxis}
+          strip={<VerdictStrip figures={strip} onOpen={handleStripOpen} eyebrows={sections.eyebrows} />}
+          restCollapse={sections.collapse(VERDICT_REST_SECTION)}
+        />
+        {yearAxis && <div className="hidden desktop:block">{yearAxis}</div>}
       </div>
 
+      {/* ONE sequence: the DOM order is the reading order at every width, no `order-*` (decision 11).
+          Tablet (768-1439): Il fondo oggi full, Rendimento beside Anno fiscale, Versato and Versamenti full. */}
       <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className={cn(TILE_CELL_CLASS, 'order-1 tablet:col-span-2 desktop:order-none desktop:col-span-5 desktop:row-span-2')}>
+        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
           <FondoOggiTile
             reading={contributionsError ? null : describeFondoOggi(today)}
             aside={describeFondoOggiAside(today)}
@@ -264,37 +319,62 @@ export function PensionOverview() {
           />
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'order-2 desktop:order-none desktop:col-span-3')}>
+        <PageRest sections={sections} />
+
+        {/* A failed read is a red row below `desktop:`, silent — `PageRest` carries the one live node
+            (`live={!sections.compact}`); at 1440 the notice of today, in the cell. */}
+        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
           {contributionsError || snapshotsError ? (
             <ErrorNotice
               compact
+              collapse={sections.collapse(PENSION_SECTION_IDS.rendimento)}
+              live={!sections.compact}
               notice={describeReadFailure({
                 subject: 'Rendimento',
                 consequence: 'I dati da cui si calcola il rendimento non sono stati letti.',
               })}
             />
           ) : (
-            <RendimentoTile reading={describeRendimento(blocks)} aside={describeRendimentoAside(blocks)} footer={RENDIMENTO_FOOTER} blocks={blocks} />
+            <RendimentoTile
+              collapse={sections.collapse(PENSION_SECTION_IDS.rendimento)}
+              asideWhenClosed={describeRendimentoAside(blocks)}
+              reading={describeRendimento(blocks)}
+              aside={describeRendimentoAside(blocks)}
+              footer={RENDIMENTO_FOOTER}
+              blocks={blocks}
+            />
           )}
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'order-3 desktop:order-none desktop:col-span-4')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
           {contributionsError ? (
             <ErrorNotice
               compact
+              collapse={sections.collapse(PENSION_SECTION_IDS.annoFiscale)}
+              live={!sections.compact}
               notice={describeReadFailure({
                 subject: 'Anno fiscale',
                 consequence: 'I versamenti non sono stati letti: il beneficio fiscale non è calcolabile.',
               })}
             />
           ) : (
-            <AnnoFiscaleTile taxYear={activeYear} reading={describeAnnoFiscale(blocks, activeYear)} aside={describeAnnoFiscaleAside(blocks)} footer={ANNO_FISCALE_FOOTER} blocks={blocks} />
+            <AnnoFiscaleTile
+              collapse={sections.collapse(PENSION_SECTION_IDS.annoFiscale)}
+              asideWhenClosed={PENSION_CLOSED_ASIDES[PENSION_SECTION_IDS.annoFiscale]}
+              taxYear={activeYear}
+              reading={describeAnnoFiscale(blocks, activeYear)}
+              aside={describeAnnoFiscaleAside(blocks)}
+              footer={ANNO_FISCALE_FOOTER}
+              blocks={blocks}
+            />
           )}
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'order-4 tablet:col-span-2 desktop:order-none desktop:col-span-7')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
           {contributionsError ? (
             <ErrorNotice
+              collapse={sections.collapse(PENSION_SECTION_IDS.versato)}
+              live={!sections.compact}
               notice={describeReadFailure({
                 subject: 'Versato',
                 consequence: "I versamenti dell'anno non sono stati letti.",
@@ -302,13 +382,23 @@ export function PensionOverview() {
               })}
             />
           ) : (
-            <VersatoTile taxYear={activeYear} reading={describeVersato(versato, funds.length)} aside="per natura" footer={describeVersatoFooter(versato)} rows={versato.rows} />
+            <VersatoTile
+              collapse={sections.collapse(PENSION_SECTION_IDS.versato)}
+              asideWhenClosed={PENSION_CLOSED_ASIDES[PENSION_SECTION_IDS.versato]}
+              taxYear={activeYear}
+              reading={describeVersato(versato, funds.length)}
+              aside="per natura"
+              footer={describeVersatoFooter(versato)}
+              rows={versato.rows}
+            />
           )}
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'order-5 tablet:col-span-2 desktop:order-none desktop:col-span-12')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
           {contributionsError ? (
             <ErrorNotice
+              collapse={sections.collapse(PENSION_SECTION_IDS.versamenti)}
+              live={!sections.compact}
               notice={describeReadFailure({
                 subject: 'Versamenti',
                 consequence: 'Lo storico dei versamenti non è stato letto.',
@@ -317,6 +407,8 @@ export function PensionOverview() {
             />
           ) : (
             <VersamentiTile
+              collapse={sections.collapse(PENSION_SECTION_IDS.versamenti)}
+              asideWhenClosed={describeVersamentiAside(ledger)}
               taxYear={activeYear}
               reading={describeVersamenti(ledger)}
               aside={describeVersamentiAside(ledger)}

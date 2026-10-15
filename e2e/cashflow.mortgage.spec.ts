@@ -36,7 +36,7 @@ const CATEGORY_NAME = 'Mutuo Fenicottero';
 const NOTE = 'Rata Fenicottero';
 const LEGACY_NOTE = 'Rata Ornitorinco';
 const PAYOFF_NOTE = 'Estinzione Fenicottero';
-const MIGRATION_NOTE = 'Rata Tarsio';
+const MIGRATION_NOTE = 'Rata Nibbio';
 const DEBT = 200_000;
 const INSTALMENT = 1012;
 

@@ -19,7 +19,7 @@ Method: dual-agent (A: design review sub-agent · B: detector + Playwright evide
 | # | Heuristic | Score | Key Issue |
 |---|-----------|-------|-----------|
 | 1 | Visibility of System Status | 2 | Le letture si aggiornano dal vivo, ma il chip «Anteprima attiva: modifiche non salvate» è `hidden sm:inline-flex` (page.tsx:1729-1739): sotto 640 px non esiste; su telefono «Salva» scorre via (misurato `top −817px`); il chip non dice QUALE tab è sporco. |
-| 2 | Match System / Real World | 3 | Lingua fiscale italiana nativa (bollo 5.000 €, RAL, RITA, «67 anni · predefinita»), sporcata da anglicismi: «Azioni (Equity)», «Safe withdrawal rate», «Risk-free rate», «toggle», «tab», «dialog». |
+| 2 | Match System / Real World | 3 | Lingua fiscale italiana nativa (bollo x.xxx €, RAL, RITA, «67 anni · predefinita»), sporcata da anglicismi: «Azioni (Equity)», «Safe withdrawal rate», «Risk-free rate», «toggle», «tab», «dialog». |
 | 3 | User Control and Freedom | 2 | Nessun «Annulla modifiche» (ritorno all'ultimo salvato): «Ripristina default» torna ai valori di fabbrica; nessuna guardia all'uscita con modifiche; la revoca di un accesso è una × singola, senza conferma. |
 | 4 | Consistency and Standards | 2 | Cinque modelli di salvataggio su una pagina (Salva; tema/modalità da soli; accessi immediati; categorie immediate; sync/import immediati); due conferme a due click con timer di 3 s (page.tsx:817-823, 1023-1026) che AGENTS § 4 vieta. |
 | 5 | Error Prevention | 2 | «Salva» abilitato (`disabled={isDemo || saving}`, page.tsx:1748) mentre la lettura dice «il salvataggio è bloccato»; concedere pieno accesso al patrimonio non chiede conferma; placeholder col punto («es. 3.5»). |

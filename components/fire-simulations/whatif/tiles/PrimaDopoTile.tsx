@@ -18,7 +18,7 @@
 
 import type { ReactNode } from 'react';
 import type { Narrative } from '@/lib/utils/narrative';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface PrimaDopoTileProps {
@@ -32,12 +32,15 @@ interface PrimaDopoTileProps {
   targetsDiffer: boolean;
   /** `describeBeforeAfterFooter(...)` — the chart's legend in words, and the step when drawn. */
   footer: Narrative;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
-export function PrimaDopoTile({ reading, aside, chart, targetsDiffer, footer, className }: PrimaDopoTileProps) {
+export function PrimaDopoTile({ reading, aside, chart, targetsDiffer, footer, collapse, asideWhenClosed, className }: PrimaDopoTileProps) {
   return (
-    <Tile eyebrow="Prima e dopo" aside={aside} reading={reading} ariaLabel="Prima e dopo l'evento" className={className}>
+    <Tile eyebrow="Prima e dopo" aside={aside} asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Prima e dopo l'evento" className={className} collapse={collapse}>
       <div className="mt-3.5 flex flex-wrap gap-x-3.5 gap-y-1.5 text-[11px] text-muted-foreground" aria-hidden="true">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-[2px] w-3.5 rounded-full bg-muted-foreground" />

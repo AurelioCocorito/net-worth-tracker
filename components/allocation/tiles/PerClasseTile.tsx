@@ -27,7 +27,7 @@ import type { Narrative } from '@/lib/utils/narrative';
 import type { OrphanedTarget } from '@/lib/utils/allocationUtils';
 import type { AllocationResult, AssetAllocationTarget } from '@/types/assets';
 import { formatPercentage } from '@/lib/services/chartService';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { AllocationBreakdown } from '@/components/allocation/AllocationBreakdown';
 
 interface PerClasseTileProps {
@@ -42,6 +42,9 @@ interface PerClasseTileProps {
   orphans: OrphanedTarget[];
   /** Euro of each class sitting in EXCLUDED assets, so a dormant row can say where its money is. */
   excludedByClass?: Record<string, number>;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -80,9 +83,9 @@ function OrphanWarning({ orphans }: { orphans: OrphanedTarget[] }) {
   );
 }
 
-export function PerClasseTile({ reading, aside, allocation, targets, orphans, excludedByClass, className }: PerClasseTileProps) {
+export function PerClasseTile({ reading, aside, allocation, targets, orphans, excludedByClass, collapse, asideWhenClosed, className }: PerClasseTileProps) {
   return (
-    <Tile eyebrow="Per classe" aside={aside} reading={reading} className={className} ariaLabel="Allocazione per classe">
+    <Tile eyebrow="Per classe" aside={aside} asideWhenClosed={asideWhenClosed} reading={reading} className={className} ariaLabel="Allocazione per classe" collapse={collapse}>
       <AllocationBreakdown allocation={allocation} targets={targets} excludedByClass={excludedByClass} className="mt-3" />
 
       <div className="mt-auto border-t border-border pt-3.5 text-[11px] leading-[1.5] text-muted-foreground">

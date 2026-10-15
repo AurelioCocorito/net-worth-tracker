@@ -18,7 +18,7 @@
 import { Landmark, LockOpen } from 'lucide-react';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { CoastInflowEvent } from '@/lib/utils/coastFireView';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeSegments } from '@/components/ui/narrative-text';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 
@@ -30,6 +30,9 @@ interface AfflussiTileProps {
   footer: Narrative;
   /** The method, one paragraph per entry, behind «Come si calcola». */
   method: readonly string[];
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -38,9 +41,9 @@ const EVENT_ICON = {
   pensionFund: LockOpen,
 } as const;
 
-export function AfflussiTile({ reading, events, footer, method, className }: AfflussiTileProps) {
+export function AfflussiTile({ reading, events, footer, method, collapse, asideWhenClosed, className }: AfflussiTileProps) {
   return (
-    <Tile eyebrow="Afflussi" aside="in euro di oggi" reading={reading} ariaLabel="Afflussi già considerati" className={className}>
+    <Tile eyebrow="Afflussi" aside="in euro di oggi" asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Afflussi già considerati" className={className} collapse={collapse}>
       {events.length > 0 && (
         <ol aria-label="Afflussi già considerati" className="mt-5 grid gap-5 tablet:grid-flow-col tablet:auto-cols-fr tablet:gap-0">
           {events.map((event, index) => {

@@ -47,7 +47,7 @@ La pagina sa cosa dire e lo dice bene: verdetto onesto al euro e all'anno, il vi
 ## What's Working
 
 1. **Il verdetto è onesto al euro e all'anno** (`lib/utils/fireNarrative.ts:130-219`): reddito passivo in entrambe le monete con l'inflazione nominata; sotto il ponte la clausola diventa «gli asset liberi coprono … poi rientra il fondo pensione»; un'età mancante perde la clausola. L'anteprima lo tiene vero sotto modifica (misurato: 4 → 3,5 % riscrive «al 3,5% rende 152 €» all'istante).
-2. **Il vincolo pensionistico è nel posto giusto e si impegna da solo** (`tiles/BaseDiCalcoloTile.tsx:79-93`): accanto alla cifra che muove, con la regola in didascalia («29.800 € fino al 2048, a 57 anni (regola RITA)»), la ragione del disabilitato in copy visibile, e il footer che dice dove vivono i parametri digitati.
+2. **Il vincolo pensionistico è nel posto giusto e si impegna da solo** (`tiles/BaseDiCalcoloTile.tsx:79-93`): accanto alla cifra che muove, con la regola in didascalia («xx.xxx € fino al 2048, a 57 anni (regola RITA)»), la ragione del disabilitato in copy visibile, e il footer che dice dove vivono i parametri digitati.
 3. **Disclosure config-first con trigger veritiero** (`FireCalculatorTab.tsx:290-312`): nomina ogni impostazione salvata, accende il punto ambra «Anteprima non salvata» e si riapre su ogni modifica non salvata.
 
 ## Priority Issues
@@ -66,11 +66,11 @@ La pagina sa cosa dire e lo dice bene: verdetto onesto al euro e all'anno, il vi
 
 ## Persona Red Flags
 
-**Alex (power user)**: cambia lo SWR e l'eroe non si muove (il pavimento del ponte lega) senza una frase che lo dica — screenshot A-desktop-11: l'eroe resta 20.585 € mentre «senza il vincolo sarebbe» passa a 42.667 €; gli input scenari ignorano in silenzio i valori fuori range (`FireParametri.tsx:96-102`); col Ventaglio aperto ogni tasto su un campo scenario ri-esegue 1000 percorsi (`fanResult` dipende da `fanInputs` → `scenarios.base.inflationRate`, `FireCalculatorTab.tsx:388,396`).
+**Alex (power user)**: cambia lo SWR e l'eroe non si muove (il pavimento del ponte lega) senza una frase che lo dica — screenshot A-desktop-11: l'eroe resta xx.xxx € mentre «senza il vincolo sarebbe» passa a xx.xxx €; gli input scenari ignorano in silenzio i valori fuori range (`FireParametri.tsx:96-102`); col Ventaglio aperto ogni tasto su un campo scenario ri-esegue 1000 percorsi (`fanResult` dipende da `fanInputs` → `scenarios.base.inflationRate`, `FireCalculatorTab.tsx:388,396`).
 
 **Sam (screen reader + tastiera)**: sente «Orso (rosso)» che può essere verde; sente «252,4% verso FI» su un traguardo superato (`TraguardoTile.tsx:75-78`: «verso» è una direzione che non hai più); le legende sono nascoste da `role="img"`, quindi l'aria-label è l'unica chiave; SWR a 150 senza `aria-invalid`, l'unico errore è un toast dopo Salva; i paragrafi di aiuto sotto gli input non sono `aria-describedby`. L'ordine di Tab è sano (24 stop a Parametri, il tabpanel è uno stop, il focus resta sul trigger dopo Invio).
 
-**Giulia (38 anni, fondo pensione, guarda il piano ogni mese)**: la didascalia del vincolo «29.800 € fino al 2048, a 57 anni (regola RITA)» è la riga migliore della pagina; ma «Disoccupato ≥ 24 mesi dopo il FIRE» + «Anticipa lo sblocco a INPS − 10 anni» è una clausola legale senza popover, a differenza dello SWR; «manca la tua età (in Coast FIRE)» la manda in un altro tab senza link; il mese in cui supera la linea il confetti la accoglie su ogni dispositivo, poi la tessera Scenari le dice «tra 1 anno».
+**Giulia (38 anni, fondo pensione, guarda il piano ogni mese)**: la didascalia del vincolo «xx.xxx € fino al 2048, a 57 anni (regola RITA)» è la riga migliore della pagina; ma «Disoccupato ≥ 24 mesi dopo il FIRE» + «Anticipa lo sblocco a INPS − 10 anni» è una clausola legale senza popover, a differenza dello SWR; «manca la tua età (in Coast FIRE)» la manda in un altro tab senza link; il mese in cui supera la linea il confetti la accoglie su ogni dispositivo, poi la tessera Scenari le dice «tra 1 anno».
 
 ## Minor Observations
 

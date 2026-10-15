@@ -10,9 +10,10 @@
  * budget on an empty page would guard nothing: Centri di Costo and Divisione are ON, there is a
  * coupon, a Budget ceiling, a pension fund, 47 monthly snapshots for Hall of Fame, a row still in
  * the calendar at the end of the month. Every OPTION is measured in its default state (owner,
- * 2026-10-10): the 50/30/20 roles are off, and FIRE › Obiettivi is off too — the one surface
- * measured with nothing to show («Gli obiettivi non sono attivi», one tile) until the spec that
- * composes it turns it on here with an invented goal (doc/mobile/README.md § 9, 60).
+ * 2026-10-10): the 50/30/20 roles are off. FIRE › Obiettivi is ON since 2026-10-15 (MOB-07, the
+ * spec that composed it; doc/mobile/README.md § 9, 60), with ONE invented goal whose deadline is
+ * relative to the run — seven years out, a pace that keeps it «in rotta» from the 5th to the
+ * penultimate day — so the budget looks at the `goals-*` rows; the goal-driven targets stay off.
  *
  * THE DATES are relative to the day of the run, so every surface counts the same on any day of
  * the month: the month's rows sit on the 5th, the previous month is whole, the snapshots end last
@@ -43,7 +44,7 @@
  * writes (the census's warm-up lap opens every route once before measuring).
  *
  * Every proper noun is a decoy from the `centri` and `split` fixtures (Fenicottero, Ornitorinco,
- * Ghiandaia, Tarsio…): the data is invented, nothing of a real account belongs here.
+ * Ghiandaia, Nibbio…): the data is invented, nothing of a real account belongs here.
  *
  * Idempotent: every document of the account is removed first, then written whole.
  */
@@ -130,7 +131,7 @@ async function removeEverything(): Promise<void> {
 
 const MEMBERS = [
   { id: 'census-m-ghiandaia', name: 'Ghiandaia', grossAnnualIncome: 35000, isFirstEmploymentPost2007: true, firstEmploymentYear: 2015 },
-  { id: 'census-m-tarsio', name: 'Tarsio' },
+  { id: 'census-m-nibbio', name: 'Nibbio' },
 ];
 
 async function seedSettings(): Promise<void> {
@@ -149,7 +150,8 @@ async function seedSettings(): Promise<void> {
     expenseSplitEnabled: true,
     // The Flusso's 50/30/20 view stays off: the budget measures each option in its default state.
     spendingRolesEnabled: false,
-    goalBasedInvestingEnabled: false,
+    // Obiettivi on, with the one goal `seedGoals` writes; the goal-driven targets stay off (default).
+    goalBasedInvestingEnabled: true,
     familyMembers: MEMBERS,
     // FIRE and Coast FIRE (the values of scripts/seedCoastFireE2E.mts, without its pensions).
     userAge: 35,
@@ -325,12 +327,12 @@ const ROWS: SeedRow[] = [
   // This month, on the 5th — the Divisione's rows (60/40 salaries, income left «in comune», one
   // row of a member who is not in Famiglia) and Fenicottero's booked 800.
   { id: 'census-tm-in-ghiandaia', categoryId: 'census-cat-stipendio', date: BOOKED, amount: 2400, personalMemberId: 'census-m-ghiandaia' },
-  { id: 'census-tm-in-tarsio', categoryId: 'census-cat-stipendio', date: BOOKED, amount: 1600, personalMemberId: 'census-m-tarsio' },
+  { id: 'census-tm-in-nibbio', categoryId: 'census-cat-stipendio', date: BOOKED, amount: 1600, personalMemberId: 'census-m-nibbio' },
   { id: 'census-tm-in-common', categoryId: 'census-cat-stipendio', date: BOOKED, amount: 1000 },
   { id: 'census-tm-rent', categoryId: 'census-cat-affitto', date: BOOKED, amount: -1000 },
   { id: 'census-tm-food', categoryId: 'census-cat-alimentari', date: BOOKED, amount: -320 },
   { id: 'census-tm-fun', categoryId: 'census-cat-svago', date: BOOKED, amount: -200, personalMemberId: 'census-m-ghiandaia' },
-  { id: 'census-tm-car', categoryId: 'census-cat-auto', date: BOOKED, amount: -1100, personalMemberId: 'census-m-tarsio' },
+  { id: 'census-tm-car', categoryId: 'census-cat-auto', date: BOOKED, amount: -1100, personalMemberId: 'census-m-nibbio' },
   { id: 'census-tm-ghost', categoryId: 'census-cat-alimentari', date: BOOKED, amount: -120, personalMemberId: 'census-m-fantasma' },
   { id: 'census-tm-project', categoryId: 'census-cat-progetti', date: BOOKED, amount: -800, costCenterId: 'census-cc-fenicottero' },
 
@@ -454,6 +456,41 @@ async function seedPensionContributions(): Promise<void> {
   console.info('  ✓ 24 pension contributions (12 months)');
 }
 
+// ── Goals (FIRE › Obiettivi) ────────────────────────────────────────────────────────────────────
+
+/**
+ * ONE dated goal, well in time: half the Bitcoin and the whole World ETF assigned, 400 € a month
+ * planned, the deadline the first of this month seven years on. The verdict judges the projected
+ * value at the deadline against the target with a 1% tolerance (doc/guide/fire-obiettivi.md), so
+ * a plan this far ahead reads «in rotta» whatever the day of the month; the month count to the
+ * deadline is the one figure that follows the calendar, and it is neither a euro nor a percent.
+ */
+async function seedGoals(): Promise<void> {
+  const deadline = new Date(THIS_MONTH.year + 7, THIS_MONTH.month, 1);
+  const goal = {
+    id: 'census-goal-nibbio',
+    name: 'Casa al mare',
+    priority: 'alta',
+    color: '#2f6f8f',
+    targetAmount: 60000,
+    targetDate: deadline.toISOString(),
+    monthlyContribution: 400,
+    recommendedAllocation: { equity: 70, bonds: 30 },
+    createdAt: dayOf(monthAt(-12), PAST_DAY),
+    updatedAt: dayOf(monthAt(-12), PAST_DAY),
+  };
+  await db.collection('goalBasedInvesting').doc(UID).set({
+    userId: UID,
+    goals: [goal],
+    assignments: [
+      { goalId: goal.id, assetId: 'census-btc', percentage: 50 },
+      { goalId: goal.id, assetId: 'census-vwce', percentage: 100 },
+    ],
+    updatedAt: now,
+  });
+  console.info('  ✓ 1 goal (Obiettivi on, targets from the settings)');
+}
+
 console.info(`Seeding the census fixture for ${UID} on ${PROJECT_ID}…`);
 await seedAccount();
 await removeEverything();
@@ -465,5 +502,6 @@ await seedExpenses();
 await seedBudget();
 await seedCoupon();
 await seedPensionContributions();
+await seedGoals();
 console.info('Done.');
 process.exit(0);

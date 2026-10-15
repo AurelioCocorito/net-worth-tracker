@@ -326,8 +326,8 @@ describe('buildSplitVerdict', () => {
   // not a deficit: the page said «mancano 83 €» over money still in the account.
   it('judges on what has happened, then says where the calendar takes it', () => {
     const giuseppe = balance({ ...GIUSEPPE, name: 'Giuseppe', remaining: 1173, remainingBooked: 1300 });
-    const tarsio = balance({
-      name: 'Tarsio',
+    const nibbio = balance({
+      name: 'Nibbio',
       income:1700,
       share: 0.4,
       commonShare: 803,
@@ -337,7 +337,7 @@ describe('buildSplitVerdict', () => {
     });
     const verdict = buildSplitVerdict({
       summary: summary({
-        members: [giuseppe, tarsio],
+        members: [giuseppe, nibbio],
         common: pool({ total: 2030, rowCount: 8, scheduled: { expenses: 210, income: 0, count: 1, throughMonth: null } }),
       }),
       period: AUGUST,
@@ -347,10 +347,10 @@ describe('buildSplitVerdict', () => {
     // Nobody is short TODAY, so the month is not called short.
     expect(verdict.headline).toBe('Ad agosto resta qualcosa a tutti.');
     expect(verdict.tone).toBe('positive');
-    expect(plain(verdict.sentence)).toContain('A Giuseppe restano 1300 € dei 2400 € di entrate; a Tarsio restano 0 € dei 1700 €.');
+    expect(plain(verdict.sentence)).toContain('A Giuseppe restano 1300 € dei 2400 € di entrate; a Nibbio restano 0 € dei 1700 €.');
     // The clause names the calendar itself since 2026-10-12: its antecedent («Con quelle») left the
     // sentence with the scheduled clause, now the scope line.
-    expect(plain(verdict.sentence)).toContain('Con le spese in calendario, a fine periodo a Giuseppe restano 1173 € e a Tarsio mancano 83 €.');
+    expect(plain(verdict.sentence)).toContain('Con le spese in calendario, a fine periodo a Giuseppe restano 1173 € e a Nibbio mancano 83 €.');
     expect(plain(verdict.sentence)).not.toContain('Con quelle');
   });
 
@@ -513,8 +513,8 @@ describe('describeMemberBalance', () => {
   });
 
   it('reads the BOOKED residual, not the period one', () => {
-    const tarsio = balance({
-      name: 'Tarsio',
+    const nibbio = balance({
+      name: 'Nibbio',
       income:1700,
       share: 0.4,
       commonShare: 803,
@@ -522,8 +522,8 @@ describe('describeMemberBalance', () => {
       remaining: -83,
       remainingBooked: 0,
     });
-    expect(plain(describeMemberBalance(tarsio))).toContain('dai 1700 € di entrate restano 0 €.');
-    expect(plain(describeMemberBalance(tarsio))).not.toContain('mancano');
+    expect(plain(describeMemberBalance(nibbio))).toContain('dai 1700 € di entrate restano 0 €.');
+    expect(plain(describeMemberBalance(nibbio))).not.toContain('mancano');
   });
 
 });
@@ -531,7 +531,7 @@ describe('describeMemberBalance', () => {
 describe('describeMemberCalendar', () => {
   it('says where the rows still in the calendar take the residual', () => {
     expect(
-      plain(describeMemberCalendar(balance({ name: 'Tarsio', remaining: -83, remainingBooked: 0 })))
+      plain(describeMemberCalendar(balance({ name: 'Nibbio', remaining: -83, remainingBooked: 0 })))
     ).toBe('Con le spese ancora in calendario mancano 83 €.');
   });
 

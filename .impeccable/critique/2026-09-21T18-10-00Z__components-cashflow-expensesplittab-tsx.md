@@ -12,7 +12,7 @@ timestamp: 2026-09-21T18-10-00Z
 slug: components-cashflow-expensesplittab-tsx
 closed: true
 ---
-Method: dual-agent (A: design review sub-agent · B: detector/browser sub-agent). Estensione Chrome non connessa: l'evidenza live è di **Playwright headless** sugli emulatori, sulla fixture `divisione@example.com` (conto `test-user-divisione`, parole-civetta Ghiandaia/Tarsio/Quaglia/Lemure/Bradipo/Okapi/Narvalo/Pangolino/Vombato/Axolotl/Suricato), a 1440 e 390, light e dark, sui tre periodi (settembre calcolato · agosto `missing-salary` · luglio vuoto). L'overlay `detect.js` ha girato in una pagina headless: non c'è nessuna scheda visibile nel browser del proprietario. La feature non era mai stata eseguita end-to-end con il flag acceso (doc/guide/cashflow-divisione.md § Per-page blind spots): questa critique è la prima volta che la superficie è stata vista funzionare.
+Method: dual-agent (A: design review sub-agent · B: detector/browser sub-agent). Estensione Chrome non connessa: l'evidenza live è di **Playwright headless** sugli emulatori, sulla fixture `divisione@example.com` (conto `test-user-divisione`, parole-civetta Ghiandaia/Nibbio/Quaglia/Lemure/Bradipo/Okapi/Narvalo/Pangolino/Vombato/Axolotl/Suricato), a 1440 e 390, light e dark, sui tre periodi (settembre calcolato · agosto `missing-salary` · luglio vuoto). L'overlay `detect.js` ha girato in una pagina headless: non c'è nessuna scheda visibile nel browser del proprietario. La feature non era mai stata eseguita end-to-end con il flag acceso (doc/guide/cashflow-divisione.md § Per-page blind spots): questa critique è la prima volta che la superficie è stata vista funzionare.
 
 # Critique — Cashflow › Divisione (`components/cashflow/ExpenseSplitTab.tsx`)
 
@@ -27,7 +27,7 @@ Method: dual-agent (A: design review sub-agent · B: detector/browser sub-agent)
 | 5 | Prevenzione degli errori | 2 | `resolveSplitBasis` che rifiuta invece di regalare il 100% a chi ha registrato uno stipendio è esemplare — ma il reddito da lavoro non intestato sparisce dalla base in silenzio (P1-5) |
 | 6 | Riconoscimento più che ricordo | 2 | Nessuna superficie dice **dove** si attribuisce una riga; «Per categoria» non dichiara il perimetro; «Famiglia» è testo, non un link |
 | 7 | Flessibilità ed efficienza | 1 | Nessuna attribuzione in blocco, nessun deep link, nessun drill: un lettore di ritorno qui non ha niente da fare |
-| 8 | Estetica e minimalismo | 1 | **578×181 px di vuoto misurati** accanto a Tarsio a 1440; ad agosto verdetto e lettura della Quota sono le **stesse 18 parole**; `2600 €`, `1700 €`, `60%`, `40%` stampati quattro volte a testa |
+| 8 | Estetica e minimalismo | 1 | **578×181 px di vuoto misurati** accanto a Nibbio a 1440; ad agosto verdetto e lettura della Quota sono le **stesse 18 parole**; `2600 €`, `1700 €`, `60%`, `40%` stampati quattro volte a testa |
 | 9 | Recupero dagli errori | 2 | Diagnosi ottima (nomina l'input mancante e chi); recupero assente: il ramo `missing-salary` — l'unico che una famiglia incontra davvero — non nomina **nessuna** destinazione (`expenseSplitNarrative.ts:79-80`), mentre i due rari ne nominano una (`:69`, `:72`) |
 | 10 | Aiuto e documentazione | 3 | La lettura dichiara la base ad alta voce; non dichiara mai la sua volatilità (una tredicesima muove il rapporto) |
 | **Totale** | | **20/40** | **Acceptable**, al limite inferiore — con due P0 dentro |
@@ -36,7 +36,7 @@ Nessuna euristica `n/a`.
 
 ## Verdetto di specificità del design
 
-**Valutazione LLM.** Le parole sono scritte per questo prodotto e per nessun altro: «A settembre lo stipendio di Tarsio non basta.», «Se ne va il 105% dello stipendio.», «mancano» contro «restano», l'articolo che concorda con la percentuale *come stampata*, l'elenco all'italiana, il tempo verbale che segue se il mese è ancora in corso. `expenseSplitNarrative.ts` non è sollevabile in nessun altro prodotto. **La composizione sotto quella frase, invece, è intercambiabile — e a 1440 è rotta.** Le due persone che la pagina esiste per confrontare finiscono su righe diverse, a 482 px l'una dall'altra in orizzontale e 240 in verticale, con il 18% dell'area della griglia come vuoto in un angolo. La specificità è tutta nel modulo delle parole e non arriva mai al layout.
+**Valutazione LLM.** Le parole sono scritte per questo prodotto e per nessun altro: «A settembre lo stipendio di Nibbio non basta.», «Se ne va il 105% dello stipendio.», «mancano» contro «restano», l'articolo che concorda con la percentuale *come stampata*, l'elenco all'italiana, il tempo verbale che segue se il mese è ancora in corso. `expenseSplitNarrative.ts` non è sollevabile in nessun altro prodotto. **La composizione sotto quella frase, invece, è intercambiabile — e a 1440 è rotta.** Le due persone che la pagina esiste per confrontare finiscono su righe diverse, a 482 px l'una dall'altra in orizzontale e 240 in verticale, con il 18% dell'area della griglia come vuoto in un angolo. La specificità è tutta nel modulo delle parole e non arriva mai al layout.
 
 **Scansione deterministica.** CLI sui file della superficie: **0 finding, exit 0**; sui cinque primitivi che rende (`tile`, `page-verdict`, `ranked-rows`, `narrative-text`, `period-picker`): **0, exit 0**. Verificato che lo zero non sia un no-op (`components/cashflow/*`, `components/ui/*`, tutto `app/dashboard` → 0) e che nessuno dei cinque waiver in `.impeccable/config.json` copra questi file. In-page: **79 hit, di cui 12 dentro il tabpanel** — e tutte e 12 false. Le 8 `undersized-ui-text` sono esattamente `TILE_EYEBROW_CLASS` (10px) e `TILE_SUB_EYEBROW_CLASS` (9px), cioè i gradini della rampa enumerata; le 4 `nested-cards` sono state **falsificate, non assunte**: ogni `section` è stata risalita fino a `body` e non ha un solo antenato card-like. Le altre 67 (85%) vengono dalle tab sorelle montate con `forceMount` (48), dalla shell (17) e dal chrome di pagina (2) — esattamente la sovrastima registrata il 2026-09-18.
 
@@ -48,34 +48,34 @@ Una nota sul Known Issue aperto: `--muted-foreground` su `--background` in light
 
 ## Impressione generale
 
-Questa è la pagina con le frasi migliori dell'app montate su una griglia che non chiude. Il modello dei dati è severo dove conta: rifiuta di dividere quando non sa, nomina chi manca, tiene fuori dalla divisione gli euro di chi non è più in Famiglia e lo dice. Poi stampa quel rigore in quattro riquadri che non si allineano, senza un solo verbo: niente da premere, niente da attribuire, nessun numero cliccabile, e la frase più dura del prodotto — «lo stipendio di Tarsio non basta» — consegnata sopra denaro che non è ancora uscito dal conto.
+Questa è la pagina con le frasi migliori dell'app montate su una griglia che non chiude. Il modello dei dati è severo dove conta: rifiuta di dividere quando non sa, nomina chi manca, tiene fuori dalla divisione gli euro di chi non è più in Famiglia e lo dice. Poi stampa quel rigore in quattro riquadri che non si allineano, senza un solo verbo: niente da premere, niente da attribuire, nessun numero cliccabile, e la frase più dura del prodotto — «lo stipendio di Nibbio non basta» — consegnata sopra denaro che non è ancora uscito dal conto.
 
 La singola occasione più grande: **invertire la gerarchia**. La domanda è «quanto resta a ciascuno» e l'eroe da 40px risponde «quanto è costato in comune». Se le persone diventano la riga dominante, il confronto torna possibile, il vuoto sparisce con loro e la tessera «In comune» smette di essere la cosa più grande su una pagina che non parla di lei.
 
 ## Quello che funziona
 
-1. **Il rifiuto è reale, non dichiarato.** `resolveSplitBasis` restituisce `unavailable` con `missingNames`, ogni figura dipendente diventa `null`, e `personalSpending` sopravvive perché è un fatto qualunque cosa facciano le quote. Lo schermo di agosto lo prova: due «—», due letture che nominano Tarsio, e nessuna percentuale inventata. È il Principio 1 di PRODUCT.md implementato, non citato.
+1. **Il rifiuto è reale, non dichiarato.** `resolveSplitBasis` restituisce `unavailable` con `missingNames`, ogni figura dipendente diventa `null`, e `personalSpending` sopravvive perché è un fatto qualunque cosa facciano le quote. Lo schermo di agosto lo prova: due «—», due letture che nominano Nibbio, e nessuna percentuale inventata. È il Principio 1 di PRODUCT.md implementato, non citato.
 2. **La dichiarazione degli orfani.** «8 voci in comune; altre 2 per 120 € sono di qualcuno che non è più in Famiglia, e restano fuori dalla divisione.» Un prodotto che nomina gli euro che sta *escludendo* nello stesso respiro di quelli che conta è raro. (Ed è proprio questo che rende P1-5 più stridente.)
 3. **Il telefono è il progetto migliore, e la correzione è già nel file.** A 390 le due tessere persona si impilano a piena larghezza, verde sopra rosso: esattamente il confronto per cui la pagina esiste. Fra 768 e 1439 (`tablet:col-span-1`) stanno affiancate, larghe uguali, cime allineate. Solo il layout ≥1440 è rotto — il breakpoint di punta.
 
 ## Problemi prioritari
 
 ### [P0] La griglia a 12 colonne non chiude, e separa la coppia per cui la pagina esiste
-`ExpenseSplitTab.tsx:127,145,175,200`. «In comune» è `col-span-5 row-span-2`, «Quota» `col-span-7` (riga 1: 5+7 = 12 ✓), le tessere persona `col-span-6`. La riga 2 fa quindi **5 + 6 = 11** e Tarsio, che non ci sta, va a capo da solo. Misurato a 1440 light (griglia 1144px):
+`ExpenseSplitTab.tsx:127,145,175,200`. «In comune» è `col-span-5 row-span-2`, «Quota» `col-span-7` (riga 1: 5+7 = 12 ✓), le tessere persona `col-span-6`. La riga 2 fa quindi **5 + 6 = 11** e Nibbio, che non ci sta, va a capo da solo. Misurato a 1440 light (griglia 1144px):
 
 | tessera | x | y | l × a |
 |---|---|---|---|
 | In comune | 0 | 0 | 470 × 427 |
 | Quota | 482 | 0 | 662 × 187 (68px morti sotto il contenuto) |
 | Ghiandaia | 482 | 199 | 566 × 228 |
-| **Tarsio** | **0** | **439** | 566 × 181 — **vuoto di 578 × 181 px alla sua destra** |
+| **Nibbio** | **0** | **439** | 566 × 181 — **vuoto di 578 × 181 px alla sua destra** |
 
 **Perché conta**: l'unico confronto per cui la pagina esiste diventa impossibile — +1173 € in alto a destra contro −83 € in basso a sinistra è una saccade diagonale — e lo schermo legge come non finito. A tre membri (`col-span-4`) peggiora: 5+4 = 9 in riga 2, 4 da solo in riga 3.
 **Correzione**: avvolgere entrambe le tessere persona in **una** cella `desktop:col-span-7` contenente `grid grid-cols-2 gap-3`. Riga 2 = 5 + 7 = 12 esatto, la coppia torna affiancata, il vuoto sparisce. E allineare `SKELETON_CELLS` alla geometria che atterra.
 **Comando suggerito**: `/impeccable layout`
 
-### [P0] Il rosso di Tarsio è denaro che non è ancora uscito
-Il verdetto onora **The Scheduled-Is-Not-Spent Rule**: «Nel totale ci sono ancora 210 € di spese già in calendario da qui a fine mese». Il suo corollario — *una riga che non è successa è marcata ovunque sia elencata* — non è onorato da nessuna altra parte. I 210 € entrano in `common.total`, nella classifica (dove «Bollette Okapi» stampa 390 € = 180 già pagati + 210 in calendario, indistinguibili), in entrambi i `commonShare` e in entrambi i residui, non marcati. La quota di Tarsio su quei 210 € è 83,02 €; il suo residuo stampato è **−83 €**. Tutto il disavanzo è denaro non speso. `MemberBalance` non ha un campo per lo scheduled: è strutturale, non un caso della fixture.
+### [P0] Il rosso di Nibbio è denaro che non è ancora uscito
+Il verdetto onora **The Scheduled-Is-Not-Spent Rule**: «Nel totale ci sono ancora 210 € di spese già in calendario da qui a fine mese». Il suo corollario — *una riga che non è successa è marcata ovunque sia elencata* — non è onorato da nessuna altra parte. I 210 € entrano in `common.total`, nella classifica (dove «Bollette Okapi» stampa 390 € = 180 già pagati + 210 in calendario, indistinguibili), in entrambi i `commonShare` e in entrambi i residui, non marcati. La quota di Nibbio su quei 210 € è 83,02 €; il suo residuo stampato è **−83 €**. Tutto il disavanzo è denaro non speso. `MemberBalance` non ha un campo per lo scheduled: è strutturale, non un caso della fixture.
 
 **Perché conta**: la pagina consegna la frase più dura del prodotto sulla forza di soldi ancora in conto, e la colora col token del segno. È esattamente la classe di affermazione che `resolveSplitBasis` è stato scritto per impedire, entrata dall'altra porta. Centri di Costo distingue già `exceeded` (fatto) da `atRisk` (calendario); Divisione ha una parola sola per entrambi.
 **Correzione**: `MemberBalance` guadagna `scheduledShare`; la tessera stampa il residuo contabilizzato, col token del segno che segue quello, e un piede «di cui 83 € ancora in calendario»; il verdetto sceglie «mancano» solo sul contabilizzato.
@@ -87,7 +87,7 @@ Il pannello contiene **un elemento operabile**, misurato: il PeriodPicker. Tutto
 E il ramo che una famiglia incontra davvero non nomina nessuna destinazione: `:69` e `:72` finiscono con «aggiungile in Impostazioni → Preferenze → Famiglia» / «scegliile in … → Cashflow», mentre `:79-80` — `missing-salary` — finisce con «finché manca, le quote non si calcolano.» e basta. Intanto l'unico link in uscita della tab è l'ingranaggio d'intestazione, che porta a `?tab=spese`: la pagina indica a parole un posto dove il suo unico link non va.
 
 **Perché conta**: chi accende la funzione vede una divisione 60/40 completa e plausibile il primo giorno — perché ogni riga storica è «in comune» per default — e non scopre mai che l'attribuzione esiste. Crederà che la divisione sia reale.
-**Correzione**: i conteggi diventano link (`?tab=tracking&owner=common`, `&owner=unassigned`, col periodo al seguito); la tab prende un'azione d'intestazione «Attribuisci spese»; la tessera **Quota**, che possiede l'assenza, prende l'unica azione del ramo `missing-salary` («Registra lo stipendio di Tarsio»). Il fan-out di scrittura in quattro punti esiste già in `expenseService.ts`.
+**Correzione**: i conteggi diventano link (`?tab=tracking&owner=common`, `&owner=unassigned`, col periodo al seguito); la tab prende un'azione d'intestazione «Attribuisci spese»; la tessera **Quota**, che possiede l'assenza, prende l'unica azione del ramo `missing-salary` («Registra lo stipendio di Nibbio»). Il fan-out di scrittura in quattro punti esiste già in `expenseService.ts`.
 **Comando suggerito**: `/impeccable onboard`
 
 ### [P1] Il mese vuoto dà due spiegazioni e stampa uno zero da 40px
@@ -110,7 +110,7 @@ E la tessera «In comune» stampa un **`0 €` da 40px** con sotto «Nessuna spe
 
 **Casey (telefono, distratta).** Il layout migliore e zero overflow — ma l'unico controllo del pannello misura **190 × 36 px** a 390, otto sotto il pavimento di 44, con `pointer: coarse` confermato attivo. Il suo drawer, aperto da qui, ha **52 controlli su 52 sotto i 44px**, frecce mese a **28 × 28** e un `role="dialog"` senza nome accessibile. E la cifra per cui Casey ha aperto l'app — il proprio residuo — sta a y≈390 di uno scroll da 1556: seconda schermata.
 
-**Il co-intestatario del conto condiviso** (PRODUCT → *Users*). È letteralmente la persona per cui la funzione esiste, ed è dove la superficie è più sottile. **La pagina non sa chi la sta leggendo**: Tarsio, entrato col proprio account, si vede come una di due tessere simmetriche in terza persona. **La divisione è asserita, mai concordata**: «Le quote vengono dagli stipendi del periodo» presenta un accordo domestico come un fatto di sistema, e una tredicesima lo muove in silenzio senza che nulla dica che è cambiato. E **«mancano 83 €» sarà letto come un debito**: la guida è esplicita che la riconciliazione di chi ha pagato è fuori scopo, ma lo schermo non lo dice mai, e un co-intestatario a cui si dice che gli mancano 83 € su una pagina intitolata «quanto resta a ciascuno» concluderà di doverli a qualcuno.
+**Il co-intestatario del conto condiviso** (PRODUCT → *Users*). È letteralmente la persona per cui la funzione esiste, ed è dove la superficie è più sottile. **La pagina non sa chi la sta leggendo**: Nibbio, entrato col proprio account, si vede come una di due tessere simmetriche in terza persona. **La divisione è asserita, mai concordata**: «Le quote vengono dagli stipendi del periodo» presenta un accordo domestico come un fatto di sistema, e una tredicesima lo muove in silenzio senza che nulla dica che è cambiato. E **«mancano 83 €» sarà letto come un debito**: la guida è esplicita che la riconciliazione di chi ha pagato è fuori scopo, ma lo schermo non lo dice mai, e un co-intestatario a cui si dice che gli mancano 83 € su una pagina intitolata «quanto resta a ciascuno» concluderà di doverli a qualcuno.
 
 ## Osservazioni minori
 
@@ -118,7 +118,7 @@ E la tessera «In comune» stampa un **`0 €` da 40px** con sotto «Nessuna spe
 - Ad agosto la seconda clausola del verdetto e l'intera lettura della Quota sono le **stesse 18 parole**, a ~180px di distanza su desktop e impilate sul telefono: **The One-Tile-One-Question Rule**.
 - `SKELETON_CELLS` promette nel commento che «niente salta quando i dati atterrano», e dichiara tre celle contro quattro tessere.
 - «Ghiandaia» compare **cinque volte** sullo schermo di settembre, a tre dimensioni diverse (9px dentro Quota, 10px come occhiello, dentro due frasi).
-- La tonalità del verdetto è `negative` appena *una* persona è in rosso: il mese da +1173 € di Ghiandaia viene colorato dall'aritmetica di Tarsio, e la pagina non dice mai di chi sta giudicando il mese.
+- La tonalità del verdetto è `negative` appena *una* persona è in rosso: il mese da +1173 € di Ghiandaia viene colorato dall'aritmetica di Nibbio, e la pagina non dice mai di chi sta giudicando il mese.
 - A 1280 la tessera «In comune» va a piena larghezza e le barre da 3px si stirano a 564px con ~500px di corridoio vuoto; la riga «Altre» non ha barra affatto.
 - Il dark mode è un'inversione pulita: nessun difetto specifico del tema su sei viewport.
 

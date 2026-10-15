@@ -42,7 +42,7 @@ import {
 } from '@/lib/utils/allocazioneNarrative';
 import type { ClassGap, HoldingsGroup, PlanView } from '@/lib/utils/allocazioneSummary';
 import type { RebalanceMove } from '@/lib/utils/allocationUtils';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import type { ExposureBucket, ExposureCoverage, ExposureNotApplicable } from '@/types/exposure';
 
 /** The screen prints a no-break space before €; the tests read it as a normal one. */
@@ -118,7 +118,7 @@ describe('buildAllocazioneVerdict', () => {
     expect(verdict.headline).toBe('Allineato al 97%.');
     expect(verdict.tone).toBe('warning');
     expect(plain(verdict.sentence)).toBe(
-      'Le azioni pesano 3,3 pp più del target e le obbligazioni 3,3 pp meno; con 1000 € in più compreresti 940 € di obbligazioni e 60 € di liquidità.',
+      'Le azioni pesano 3,3 pp più del target e le obbligazioni 3,3 pp meno. Con 1000 € in più compreresti 940 € di obbligazioni e 60 € di liquidità.',
     );
   });
 
@@ -141,7 +141,7 @@ describe('buildAllocazioneVerdict', () => {
     const verdict = buildAllocazioneVerdict(verdictInput({ isBalanced: true, offTarget: [], score: 99 }));
     expect(verdict.tone).toBe('positive');
     expect(plain(verdict.sentence)).toBe(
-      'Tutte le classi sono entro la soglia del ±2%; con 1000 € in più compreresti 940 € di obbligazioni e 60 € di liquidità.',
+      'Tutte le classi sono entro la soglia del ±2%. Con 1000 € in più compreresti 940 € di obbligazioni e 60 € di liquidità.',
     );
   });
 
@@ -191,10 +191,10 @@ describe('buildAllocazioneVerdict', () => {
   it('states the leverage against its target, or in line with it', () => {
     const off = buildAllocazioneVerdict(verdictInput({ leverage: { current: 1.3, target: 1.5 }, nextMoney: null }));
     expect(plain(off.sentence)).toBe(
-      'Le azioni pesano 3,3 pp più del target e le obbligazioni 3,3 pp meno; la leva è 1,30× contro un target di 1,50×.',
+      'Le azioni pesano 3,3 pp più del target e le obbligazioni 3,3 pp meno. La leva è 1,30× contro un target di 1,50×.',
     );
     const inLine = buildAllocazioneVerdict(verdictInput({ leverage: { current: 1.5, target: 1.5 }, nextMoney: null }));
-    expect(plain(inLine.sentence)).toContain('; la leva è 1,50×, in linea col target.');
+    expect(plain(inLine.sentence)).toContain('. La leva è 1,50×, in linea col target.');
   });
 
   it('declares an orphaned target in a sentence of its own', () => {
@@ -755,5 +755,44 @@ describe('describeFrozen / describeExcluded', () => {
     expect(plain(describeExcluded(holdings(2, 200000)))).toBe(
       '2 asset, 200.000 €: nel patrimonio, fuori da ogni calcolo di questa pagina; per questo il totale allocato è più basso del patrimonio netto.',
     );
+  });
+});
+
+// ─── The phone's cut (2026-10-15, MOB-07) ─────────────────────────────────────
+// Seen red one at a time: `leadLength` left `undefined` (no cut: `rest` empty with a next-money
+// clause); the joiner put back to «; » (the lead no longer ends on «.»); `binding` dropped from
+// the orphan sentence (the cut survived an unreachable target).
+
+describe('buildAllocazioneVerdict — the cut (doc/mobile/README.md § 9, decision 5)', () => {
+  it('closes the first sentence on a full stop, at 1440 too, and names the rest', () => {
+    const { lead, rest, restLabel } = splitVerdict(buildAllocazioneVerdict(verdictInput()));
+    expect(plain(lead)).toBe('Le azioni pesano 3,3 pp più del target e le obbligazioni 3,3 pp meno.');
+    expect(plain(rest)).toBe(' Con 1000 € in più compreresti 940 € di obbligazioni e 60 € di liquidità.');
+    expect(restLabel).toBe('dove vanno i prossimi soldi');
+  });
+
+  it('labels the rest by what it holds: the leverage, the next money, or both', () => {
+    expect(buildAllocazioneVerdict(verdictInput({ leverage: { current: 1.3, target: 1.5 }, nextMoney: null })).restLabel).toBe('la leva');
+    expect(buildAllocazioneVerdict(verdictInput({ leverage: { current: 1.3, target: 1.5 } })).restLabel).toBe('la leva e i prossimi soldi');
+    expect(plain(splitVerdict(buildAllocazioneVerdict(verdictInput({ leverage: { current: 1.3, target: 1.5 } }))).rest)).toBe(
+      ' La leva è 1,30× contro un target di 1,50×. Con 1000 € in più compreresti 940 € di obbligazioni e 60 € di liquidità.',
+    );
+  });
+
+  it('does not cut a verdict with nothing after the first sentence', () => {
+    const verdict = buildAllocazioneVerdict(verdictInput({ nextMoney: null }));
+    expect(verdict.leadLength).toBeUndefined();
+    expect(verdict.restLabel).toBeUndefined();
+    expect(splitVerdict(verdict).rest).toEqual([]);
+  });
+
+  it('keeps an unreachable target on the first screen: the orphan sentence is binding and cancels the cut', () => {
+    const verdict = buildAllocazioneVerdict(
+      verdictInput({ orphans: [{ assetClass: 'realestate', subCategory: 'Prima casa', label: 'Immobili → Prima casa', targetPercentage: 70, excludedValue: 180000 }] }),
+    );
+    expect(verdict.leadLength).toBeDefined();
+    expect(verdict.sentence.filter((segment) => segment.binding).map((segment) => segment.text).join('')).toContain('non è raggiungibile');
+    expect(splitVerdict(verdict).rest).toEqual([]);
+    expect(plain(splitVerdict(verdict).lead)).toContain('Con 1000 € in più compreresti');
   });
 });

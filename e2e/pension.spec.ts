@@ -247,3 +247,15 @@ test('«Aggiorna valore» overwrites the fund from the statement, on the page, a
   await expect(again).toBeHidden();
   await expect(heroValue(page)).toBeVisible({ timeout: 15_000 });
 });
+
+test('at 1440 the page is the page of today: no closed row, no strip, the whole sentence, one axis beside the verdict', async ({ page }) => {
+  await gotoPension(page);
+  await expect(page.locator('main [id$="-trigger"]')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Le cifre del verdetto' })).toBeHidden();
+  await expect(page.getByRole('heading', { level: 2, name: 'Il resto della pagina' })).toBeHidden();
+  const verdict = page.getByRole('region', { name: 'Verdetto sul fondo pensione' });
+  await expect(verdict.getByText(/Il fondo di Marco vale/)).toBeVisible();
+  await expect(verdict.getByRole('button', { name: /^Il perché/ })).toHaveCount(0);
+  // The axis is mounted twice (decision 12); one is visible, and it is the one beside the verdict.
+  await expect(page.getByRole('radiogroup', { name: 'Anno fiscale' })).toHaveCount(1);
+});

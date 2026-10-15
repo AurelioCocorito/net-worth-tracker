@@ -251,3 +251,19 @@ test('la pagina non scorre di lato, misurato sugli elementi e non sul contenitor
   expect(overflow.scrollWidth).toBe(overflow.clientWidth);
   expect(overflow.offenders).toEqual([]);
 });
+
+test('a 1440 la pagina è quella di oggi: nessuna riga chiusa, nessuna striscia, il verdetto in due frasi', async ({ page }) => {
+  await openAllocazione(page);
+  // Nessun `-trigger`: Parametri e Dettaglio hanno il loro `aria-expanded`, le tessere no.
+  await expect(page.locator('main [id$="-trigger"]')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Le cifre del verdetto' })).toBeHidden();
+  await expect(page.getByRole('heading', { level: 2, name: 'Il resto della pagina' })).toBeHidden();
+  // Dal 2026-10-15 la deriva è una frase e i prossimi soldi la seguono con un punto, anche a 1440
+  // (doc/mobile/README.md § 9, decisione 5): «…meno. Con 1000 € in più compreresti…».
+  const verdict = page.getByRole('region', { name: "Verdetto sull'allocazione" });
+  await expect(verdict).toContainText(/\. Con 1000[\s ]*€ in più compreresti/);
+  await expect(verdict).not.toContainText(/; con 1000/);
+  // Il valore del KPI «Fuori posizione» è intero a 1440: nulla è sollevato.
+  const bilanciamento = page.getByRole('region', { name: "Bilanciamento dell'allocazione" });
+  await expect(bilanciamento.getByText('Fuori posizione', { exact: true }).locator('xpath=following-sibling::p[1]')).toBeVisible();
+});

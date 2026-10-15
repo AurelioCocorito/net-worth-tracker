@@ -44,8 +44,8 @@ chiamando `POST /api/hall-of-fame/recalculate` (solo il server li costruisce; pr
 1 al 4 del mese e l'ultimo giorno** (ora italiana): le righe del mese stanno al 5 e una sola è in calendario l'ultimo
 giorno, quindi solo dal 5 al penultimo giorno ogni superficie conta le stesse cose. **Ogni opzione è nel suo stato di
 default** (proprietario, 2026-10-10): Centri e Divisione accesi perché hanno una tab propria, i ruoli 50/30/20 spenti,
-e FIRE › Obiettivi SPENTO — l'unica superficie misurata senza dati («Gli obiettivi non sono attivi», una tessera,
-`screens` 1) finché MOB-07 non lo accende nel seed con un obiettivo inventato (`doc/mobile/README.md` § 9, 60).
+e FIRE › Obiettivi ACCESO con UN obiettivo inventato dal 2026-10-15 (MOB-07; `doc/mobile/README.md` § 9, 60 — fino ad allora
+spento, l'unica superficie misurata senza dati: una tessera, `screens` 1).
 Divisione si misura nello stato «quote calcolabili, resta qualcosa a tutti» (verdetto letto con `--texts` il
 2026-10-10). Il mirror non si risemina e non tocca i profili: serve al giro guidato e al confronto con la baseline,
 mai al budget.
@@ -135,8 +135,8 @@ si legge prima di stringere o allargare.
   2026-10-14 (MOB-05): Patrimonio di nuovo, cinque metriche sulle tre viewport (390 `screens` 3,25, 768 `figuresAboveFold` 26,
   1024 `screens` 2,67, `figuresAboveFold` 19, `tilesAboveFold` 1) identiche sulla build di develop misurata lo stesso giorno
   PRIMA del codice nuovo e sulla build dopo — allargate con `raisedBy` su decisione del proprietario (README § 9, 77). **Le
-  informative a 768/1024 oscillano anche nello STESSO giorno** (2026-10-12, il ritiro della composizione di Cashflow, stesso
-  portatile e stesso codice della misura di sessione): `figuresOutsideVerdict` Tracciamento 1024 8 contro il tetto 5, Budget
+  informative a 768/1024 oscillano anche nello STESSO giorno** (2026-10-12, il ritiro della composizione di Cashflow, stessa
+  macchina e stesso codice della misura di sessione): `figuresOutsideVerdict` Tracciamento 1024 8 contro il tetto 5, Budget
   1024 11 contro 9, Previdenza 768 17 contro 12, What If 1024 10 contro 8 — stampate, non rosse; non è il giorno del
   mese, e non è isolato (stesso erede). **Una causa isolata** (2026-10-15, ritiro di MOB-06): il confronto «sugli stessi giorni»
   del mese scorso prendeva le righe del seed ai giorni 5/10/15/20 una alla volta — Tracciamento 390 da 5 a 7 cifre fuori dal
@@ -145,6 +145,12 @@ si legge prima di stringere o allargare.
   390 `screens` 4,87 o 4,89 (~17 px) da una corsa all'altra sulla STESSA build — provato con uno `stash` su develop il
   2026-10-12, due corse consecutive — e allargato a 4,89 con `raisedBy` (proprietario); una stretta del `--tighten` su una
   voce che oscilla è rossa alla corsa dopo, e la si riconosce rimisurando la sola superficie (`--surfaces=`) due volte.
+- **Il budget ha UNA macchina di riferimento, quella di MOB-07** (2026-10-15; `doc/mobile/README.md` § 9, 89): stretto il
+  mattino stesso sull'altra macchina del proprietario (ritiro di MOB-06), era rosso su quella di riferimento su cinque celle
+  `screens` di pagine che la spec non toccava (+0,02…+0,08), sulla build di develop senza una modifica. La macchina di
+  riferimento misura qualche centesimo in più e `--tighten` si lancia da lì; l'altra vede le stesse celle più basse (verdi,
+  mai strette). Una cella rossa di pochi centesimi su una superficie che la
+  sessione non ha toccato si confronta prima con la macchina dell'ultimo `--tighten`.
 - **Il settle legge `main.textContent`, pannelli nascosti compresi**: su una tab di Cashflow la condizione «una cifra»
   è vera già con le cifre di Tracciamento (`forceMount`), quindi è lo skeleton assente, la riga di freschezza vuota e
   la coda di 500 ms a dire che la tab misurata è pronta — non la cifra. Una tab che resta senza cifre non si vede da qui.
