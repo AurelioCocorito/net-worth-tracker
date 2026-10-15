@@ -1,5 +1,5 @@
 /**
- * Patrimonio composed for a phone (MOB-06, since 2026-10-14; doc/guide/patrimonio.md § Composizione
+ * Patrimonio composed for a phone (since 2026-10-14; doc/guide/patrimonio.md § Composizione
  * mobile), on the base account at 390 (`mobile` project) with the overview patched on the wire
  * (`e2e/overviewFixture.ts`: round invented figures, nothing written) and one top instrument added,
  * so the sentence names the market.

@@ -444,7 +444,7 @@ describe('resolveCategoryMovers', () => {
 });
 
 /**
- * The phone's two cells (MOB-06, 2026-10-14). Each prints EXACTLY what the tile it lifts prints:
+ * The phone's two cells (2026-10-14). Each prints EXACTLY what the tile it lifts prints:
  * «Entrate» the trio's value (`cachedFormatCurrencyEUR(v, true)`), «Risparmio» the trio's net
  * (`formatEuroMinus`: «−» only on a negative, a printed zero unsigned) AND the header of the
  * Flusso's «Risparmio» block on a phone (`FlowShareMobile`'s header, `formatFlowAmount` of the

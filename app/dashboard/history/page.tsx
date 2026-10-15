@@ -13,7 +13,7 @@
  *   Desktop (12 col): Evoluzione(8, 2 rows) | Raddoppi(4, 2 rows)
  *                     Composizione(8)       | Driver(4)
  *                     Valore per strumento(12)
- *   Below desktop:    ONE sequence, the DOM above (decisions 1 and 11; since 2026-10-14, MOB-06 —
+ *   Below desktop:    ONE sequence, the DOM above (decisions 1 and 11; since 2026-10-14 —
  *                     the `order-*` are gone, the two column wrappers are `contents`): title → the
  *                     first sentence → the last twelve months and the featured year's savings as a
  *                     strip → «Il perché» → Evoluzione, open, its chips lifted and its curve at 120px
@@ -144,7 +144,7 @@ const EMPTY_TRANSACTIONS: AssetTransaction[] = [];
 const EMPTY_CONTRIBUTIONS: PensionContribution[] = [];
 
 /**
- * Every row of the phone composition, in the DOM's order (The Closed-Row Rule; MOB-06,
+ * Every row of the phone composition, in the DOM's order (The Closed-Row Rule;
  * 2026-10-14): every tile but Evoluzione, which is THE tile and never closes (decision 21). The
  * page composes its six reads into ONE state (`composeReadState`), so no row is ever `failed`.
  */
@@ -359,7 +359,7 @@ export default function HistoryPage() {
     });
   };
 
-  // ─── The phone composition (MOB-06, 2026-10-14) ──────────────────────────────
+  // ─── The phone composition (2026-10-14) ──────────────────────────────────────
   // Before the early returns: hooks run on every render.
   const sections = useMobileSections({ route: 'history', sections: STORICO_SECTIONS });
   const restCollapse = sections.collapse(VERDICT_REST_SECTION);

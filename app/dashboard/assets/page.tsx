@@ -9,7 +9,7 @@
  *                                           | Classi(3)    | Rendimento(4)
  *                     [Mutuo(12) — one per loan with instalments linked to it]
  *                     Strumenti(12)
- *   Below desktop:    ONE sequence, the DOM above (decisions 1 and 11; since 2026-10-14, MOB-06):
+ *   Below desktop:    ONE sequence, the DOM above (decisions 1 and 11; since 2026-10-14):
  *                     title → the verdict's first sentence → G/P and Liquidità as a strip → «Il
  *                     perché» → Patrimonio, open, its chips lifted and its curve at 120px → «Il
  *                     resto della pagina» → Movimenti, Liquidità, Classi, Rendimento, [Mutuo],
@@ -138,7 +138,7 @@ const OVERVIEW_FAILED_DEFAULT_OPEN: readonly string[] = [PATRIMONIO_SECTION_IDS.
 const NO_DEFAULT_OPEN: readonly string[] = [];
 
 /**
- * The rows of the phone composition, in the DOM's order (The Closed-Row Rule; MOB-06,
+ * The rows of the phone composition, in the DOM's order (The Closed-Row Rule;
  * 2026-10-14). Not a module constant: Classi and Rendimento exist with the overview, and «Mutuo»
  * is one row per loan with linked instalments — or ONE failed row when the instalments were not
  * read. The page memoizes it on these inputs, so the controller sees a stable list.
@@ -411,7 +411,7 @@ export default function AssetsPage() {
   // the verdict and the payload-fed tiles are replaced by one notice.
   const overviewUnavailable = overviewError || !overview || !verdict;
 
-  // ─── The phone composition (MOB-06, 2026-10-14) ───────────────────────────────
+  // ─── The phone composition (2026-10-14) ───────────────────────────────────────
   // Every hook before the early returns below. A failed read of the instalments is ONE row named
   // after what it would have shown: «Mutuo» when a loan finances a property, else «Prestito».
   const mortgageFailedEyebrow = assets.some((a) => (isLoanAsset(a) && Boolean(a.financedAssetId)) || (a.type === 'realestate' && (a.outstandingDebt ?? 0) > 0))

@@ -6,13 +6,17 @@
  * spending by type — or of the 50/30/20 roles — and the categories as rows), and the row-to-Scheda
  * flow works under touch at the narrow layout.
  *
- * Since 2026-10-14 (MOB-06) every tile under the Periodo is a closed ROW at 390, in the DOM's order
+ * Since 2026-10-14 every tile under the Periodo is a closed ROW at 390, in the DOM's order
  * (the `order-1…7` are gone): a test opens the row before reading inside it — closed, the Flusso's
  * legend is not in the DOM and the absence of the chart would pass empty. The strip's «Risparmio»
  * cell prints the surplus, so the Flusso's «Risparmio» block (and «Risparmi» whole, with no row
  * classified as saving on this fixture) is hidden at 390, the legend the positive anchor; the bar's
  * caption drops an amount the first screen prints (decision 82). The composition itself:
  * `mobile-composition.analisi.mobile.spec.ts`.
+ *
+ * Seen red on 2026-10-15 with `FlussoTile` ignoring its `liftedFigures` (`savingsLifted` fixed to
+ * false): the «Risparmio» block of the type view and the «Risparmi» group of the roles view both
+ * visible again, two tests red — the falsification the composition promised, recorded only then.
  */
 
 import { test, expect, type Page } from '@playwright/test';

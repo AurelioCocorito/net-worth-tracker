@@ -54,7 +54,7 @@ export function SpendingRolesMobileFlow({ summary, scheduled, horizon, onEntityC
         ? describeFlowSurplus({ surplus: roleShares.surplus, afterRows: roleShares.saved > 0, scheduled, horizon })
         : null,
     // The note always prints the surplus; without a row classified as saving the group's header is
-    // saved + surplus = the surplus too, so the whole group goes (MOB-06, 2026-10-14).
+    // saved + surplus = the surplus too, so the whole group goes (2026-10-14).
     ...(savingsLifted && share.bucket === 'saving' ? { lifted: roleShares.saved > 0 ? ('note' as const) : ('group' as const) } : {}),
   }));
 

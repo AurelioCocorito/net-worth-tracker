@@ -296,7 +296,7 @@ export function resolveLastPriceUpdate(assets: Asset[]): Date | null {
   return latest;
 }
 
-// ─── The phone composition (MOB-06, 2026-10-14) ───────────────────────────────
+// ─── The phone composition (2026-10-14) ───────────────────────────────────────
 
 /** THE tile of the page (Patrimonio totale lordo): open at every width, never a row (decision 21). */
 export const PATRIMONIO_PATRIMONIO_ID = 'patrimonio-patrimonio';

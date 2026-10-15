@@ -20,6 +20,13 @@
  * - from the 1st to the 4th the rows of the 5th are still «in calendario», and the Budget makes
  *   no forecast before day 4 (`MIN_FORECAST_DAYS`, lib/utils/budgetUtils.ts);
  * - on the month's last day the row «in calendario» comes due.
+ * Every past month's rows sit on the 5th too (`PAST`, 2026-10-15): Tracciamento and the
+ * Panoramica compare the running month with the SAME DAYS of the previous one («sui primi 15
+ * giorni di settembre»), and with last month's rows on the 5th, 10th, 15th and 20th each of those
+ * days let one more row into the comparison — the salary of the 15th put the two arrows of the trio
+ * on the first screen, Tracciamento 390 went from 5 to 7 figures outside the verdict with no code
+ * changed (proven on develop's build the same day). On the 5th they are all inside from the first
+ * day the census measures.
  * Across MONTHS the story slides by one: the month names move (a record of «maggio» becomes one
  * of «giugno») and a window over the calendar year (Analisi, Storico) reads one more month of
  * history — in January only January. The rows the month-bound surfaces read (Divisione, Centri,
@@ -91,6 +98,8 @@ const lastDayOf = (m: Month) => new Date(m.year, m.month + 1, 0).getDate();
 const LAST_MONTH = monthAt(-1);
 /** The day every booked row of the current month sits on. */
 const BOOKED = dayOf(THIS_MONTH, 5);
+/** The day every row of a past month sits on: inside any «same days» comparison from the 5th. */
+const PAST_DAY = 5;
 /** The one row still «in calendario»: the month's last day. */
 const SCHEDULED = dayOf(THIS_MONTH, lastDayOf(THIS_MONTH));
 const SNAPSHOT_COUNT = 47;
@@ -298,8 +307,8 @@ function historyRows(): SeedRow[] {
   for (let i = 0; i < SNAPSHOT_COUNT - 1; i++) {
     const m = monthAt(i - SNAPSHOT_COUNT);
     const key = `${m.year}-${String(m.month + 1).padStart(2, '0')}`;
-    rows.push({ id: `census-h-${key}-in`, categoryId: 'census-cat-stipendio', date: dayOf(m, 15), amount: 3000 + ((i * 13) % 5) * 40 });
-    rows.push({ id: `census-h-${key}-out`, categoryId: 'census-cat-spese', date: dayOf(m, 15), amount: -(1900 + ((i * 29) % 700)) });
+    rows.push({ id: `census-h-${key}-in`, categoryId: 'census-cat-stipendio', date: dayOf(m, PAST_DAY), amount: 3000 + ((i * 13) % 5) * 40 });
+    rows.push({ id: `census-h-${key}-out`, categoryId: 'census-cat-spese', date: dayOf(m, PAST_DAY), amount: -(1900 + ((i * 29) % 700)) });
   }
   return rows;
 }
@@ -308,10 +317,10 @@ const ROWS: SeedRow[] = [
   ...historyRows(),
 
   // Last month, whole: 3000 in, 2400 out — a savings rate of 20%, under the badge's 30%.
-  { id: 'census-lm-in', categoryId: 'census-cat-stipendio', date: dayOf(LAST_MONTH, 15), amount: 3000 },
-  { id: 'census-lm-food', categoryId: 'census-cat-alimentari', date: dayOf(LAST_MONTH, 10), amount: -600 },
-  { id: 'census-lm-rent', categoryId: 'census-cat-affitto', date: dayOf(LAST_MONTH, 5), amount: -1000 },
-  { id: 'census-lm-other', categoryId: 'census-cat-spese', date: dayOf(LAST_MONTH, 20), amount: -800 },
+  { id: 'census-lm-in', categoryId: 'census-cat-stipendio', date: dayOf(LAST_MONTH, PAST_DAY), amount: 3000 },
+  { id: 'census-lm-food', categoryId: 'census-cat-alimentari', date: dayOf(LAST_MONTH, PAST_DAY), amount: -600 },
+  { id: 'census-lm-rent', categoryId: 'census-cat-affitto', date: dayOf(LAST_MONTH, PAST_DAY), amount: -1000 },
+  { id: 'census-lm-other', categoryId: 'census-cat-spese', date: dayOf(LAST_MONTH, PAST_DAY), amount: -800 },
 
   // This month, on the 5th — the Divisione's rows (60/40 salaries, income left «in comune», one
   // row of a member who is not in Famiglia) and Fenicottero's booked 800.

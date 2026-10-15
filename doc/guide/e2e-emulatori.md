@@ -118,8 +118,8 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   terminal that started them, so `--export-on-exit` runs) and rerun.
 
 ## Browser-Driven E2E (Playwright)
-- **Patrimonio, Analisi and Storico are composed at 390: a spec opens the row before it reads inside it** (2026-10-14,
-  MOB-06): `#patrimonio-strumenti-trigger` before an `AssetRow` exists (`assets.rows.mobile.spec.ts`, the 390 case of
+- **Patrimonio, Analisi and Storico are composed at 390: a spec opens the row before it reads inside it** (since
+  2026-10-14): `#patrimonio-strumenti-trigger` before an `AssetRow` exists (`assets.rows.mobile.spec.ts`, the 390 case of
   `assets.composite-chip.spec.ts` — a `desktop` project resized, but the composition reads the width), `#analisi-flusso-trigger`
   before «Quote del flusso» (`analisi.mobile.spec.ts`, `bundle.lazy.mobile.spec.ts`: closed, the legend is not in the DOM
   and the absence of the Sankey would pass empty), «Apri tutte» before `history.mobile.spec.ts` measures `main`. A

@@ -165,34 +165,34 @@
     },
     "cashflow-tracciamento": {
       "390": {
-        "screens": 1.67,
+        "screens": 1.69,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 12,
-        "figuresOutsideVerdict": 5,
+        "figuresAboveFold": 13,
+        "figuresOutsideVerdict": 7,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-04: la prima riga chiusa sotto la pill a 390 (decisione 19): LA tessera Cashflow del periodo (grafico già a 120 px, trio sollevato) parte a 478 ed è alta 443, la prima riga chiusa inizia a 990 contro la pill a 767; la pill a 44 px da MOB-02"
+        "raisedBy": "MOB-06: deriva del giorno del mese, non del codice: il confronto «sui primi N giorni» del mese scorso prendeva le righe del seed ai giorni 5, 10, 15 e 20 una alla volta — dal 15 lo stipendio porta sulla prima schermata le due frecce del trio (la seconda ristampa il ritmo del primo enunciato); valori identici sulla build di develop prima di MOB-06 (4dc553c2) misurata il 2026-10-15, due corse. Il seed mette ora ogni mese passato al giorno 5 (scripts/seedCensusE2E.mts): dal 5 al penultimo questi sono i valori di ogni giorno. Ritiro di MOB-06, 2026-10-15, decisione 87; e la prima riga chiusa sotto la pill a 390 (decisione 19, da MOB-04: LA tessera Cashflow del periodo parte a 478 ed è alta 443, la riga inizia a 990 contro la pill a 767); la pill a 44 px da MOB-02"
       },
       "768": {
         "screens": 1.28,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 3,
-        "figuresAboveFold": 16,
+        "figuresAboveFold": 18,
         "figuresOutsideVerdict": 10,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-06: deriva del giorno del mese, non del codice: il confronto «sui primi N giorni» del mese scorso prendeva le righe del seed ai giorni 5, 10, 15 e 20 una alla volta — dal 15 lo stipendio porta sulla prima schermata le due frecce del trio (la seconda ristampa il ritmo del primo enunciato); valori identici sulla build di develop prima di MOB-06 (4dc553c2) misurata il 2026-10-15, due corse. Il seed mette ora ogni mese passato al giorno 5 (scripts/seedCensusE2E.mts): dal 5 al penultimo questi sono i valori di ogni giorno. Ritiro di MOB-06, 2026-10-15, decisione 87; la pill a 44 px da MOB-02"
       },
       "1024": {
         "screens": 1.6,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
-        "figuresAboveFold": 14,
+        "figuresAboveFold": 16,
         "figuresOutsideVerdict": 5,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-06: deriva del giorno del mese, non del codice: il confronto «sui primi N giorni» del mese scorso prendeva le righe del seed ai giorni 5, 10, 15 e 20 una alla volta — dal 15 lo stipendio porta sulla prima schermata le due frecce del trio (la seconda ristampa il ritmo del primo enunciato); valori identici sulla build di develop prima di MOB-06 (4dc553c2) misurata il 2026-10-15, due corse. Il seed mette ora ogni mese passato al giorno 5 (scripts/seedCensusE2E.mts): dal 5 al penultimo questi sono i valori di ogni giorno. Ritiro di MOB-06, 2026-10-15, decisione 87; la pill a 44 px da MOB-02"
       }
     },
     "cashflow-budget": {

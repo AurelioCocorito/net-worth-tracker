@@ -431,7 +431,7 @@ describe('resolveBondRowFacts — the dates under a bond row', () => {
 });
 
 // ---------------------------------------------------------------------------
-// selectPatrimonioStrip — the phone's two cells (MOB-06, 2026-10-14)
+// selectPatrimonioStrip — the phone's two cells (2026-10-14)
 // ---------------------------------------------------------------------------
 
 /**

@@ -44,10 +44,15 @@ Analisi 1/1): il landscape è il tablet peggiore. Righe del 2026-09-26, da river
   blind spots: una proiezione che cambia di cifre, una riga che va a capo — non isolato). Prima di stringere con `--tighten`
   questa spec isola la causa sulle quattro superfici (una corsa il giorno N e una il giorno N+1 sullo stesso codice, le
   cifre sopra la piega a confronto) e la scrive nel seed come stato che vale dal 5 al penultimo giorno, oppure la dichiara
-  nel punto cieco della guida come limite del fixture; mai una tolleranza (README § 9, 23). **Lo stesso per le cinque voci di
-  Patrimonio allargate il 2026-10-14** (`raisedBy: "MOB-05: deriva del giorno del mese…"`: 390 `screens`, 768 `figuresAboveFold`,
-  1024 `screens`, `figuresAboveFold` e `tilesAboveFold`; README § 3.1 e § 9, 77), misurate identiche sulla build di develop lo
-  stesso giorno — MOB-06 ricompone Patrimonio e le ristringe, questa spec ne isola la causa.
+  nel punto cieco della guida come limite del fixture; mai una tolleranza (README § 9, 23). **Una causa è isolata e corretta nel
+  ritiro di MOB-06** (2026-10-15, README § 9, 87): le righe dei mesi passati del seed stavano ai giorni 5, 10, 15 e 20, e il
+  confronto «sugli stessi giorni» del mese scorso (Tracciamento, la Panoramica) le prendeva una alla volta — ora stanno tutte
+  al 5 (`PAST_DAY` in `scripts/seedCensusE2E.mts`). Le cinque voci di Patrimonio allargate il 2026-10-14 (`raisedBy` «MOB-05:
+  deriva del giorno del mese…», README § 9, 77) sono state ristrette da MOB-06 lo stesso giorno: a 390 e 1024 portano
+  un'etichetta «MOB-06: …», a 768 tiene il testo di MOB-05, che non descrive più i valori registrati (un `raisedBy` resta dopo
+  una stretta: doc/guide/prima-schermata.md § Il censimento). Restano da isolare le sei voci di MOB-03 e l'oscillazione nello
+  stesso giorno delle informative a 768/1024 (prima-schermata.md § Per-page blind spots): questa spec rifà la prova giorno N /
+  giorno N+1 con il seed del 2026-10-15 prima di stringere.
 - La barra misurata come in § 4.3, trigger ≥ 44×44 (README § 9, 48). A 1440 le due pagine campione hanno 12 colonne e
   nessuna griglia di § 5 porta una classe `@[…]` fuori dalle costanti di `tabletComposition.ts` (guardia Vitest).
 

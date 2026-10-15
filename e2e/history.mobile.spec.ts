@@ -13,7 +13,7 @@
  * La tabella `sr-only` delle barre del Driver è esclusa dalla misura: è ritagliata a 1px, ma i
  * rettangoli delle sue celle sporgono geometricamente e non dipingono nulla.
  *
- * Dal 2026-10-14 (MOB-06) le tessere sotto Evoluzione sono righe chiuse a 390: la misura apre
+ * Dal 2026-10-14 le tessere sotto Evoluzione sono righe chiuse a 390: la misura apre
  * tutte le righe («Apri tutte») oltre al Dettaglio, e «Seleziona tutti» si legge dentro Valore aperta.
  */
 

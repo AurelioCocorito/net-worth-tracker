@@ -14,7 +14,7 @@
  *   its 32px slot; released, the chart replaces it at the same height. A separate test, because a
  *   held chunk would keep the first one's «0 before opening» green whatever the rows mount.
  *
- * Since 2026-10-14 (MOB-06) Strumenti is itself a closed ROW at 390 (`#patrimonio-strumenti`):
+ * Since 2026-10-14 Strumenti is itself a closed ROW at 390 (`#patrimonio-strumenti`):
  * `openPatrimonio` opens it before waiting for the rows — closed, its panel is empty and no
  * `AssetRow` exists (`mobile-composition.patrimonio.mobile.spec.ts` holds that). The tile stays
  * mounted closed, so the sparkline's idle preload still runs: the first test's positive anchor.
