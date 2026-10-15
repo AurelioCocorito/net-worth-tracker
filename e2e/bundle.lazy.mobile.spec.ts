@@ -20,7 +20,7 @@ test('Analisi at 390 draws the Flusso as a bar and rows and never downloads the 
   await page.goto('/dashboard/analisi', { waitUntil: 'load' });
 
   // The phone's drawing of the Flusso is on screen: the page, and the tile's own chunks, are all in.
-  // A closed row since 2026-10-14 (MOB-06): closed, the legend is not in the DOM and the absence of
+  // A closed row since 2026-10-14: closed, the legend is not in the DOM and the absence of
   // the chart below would pass empty — the row opens first.
   await page.locator('#analisi-flusso-trigger').click({ timeout: 60_000 });
   const flusso = page.getByRole('region', { name: 'Flusso', exact: true });

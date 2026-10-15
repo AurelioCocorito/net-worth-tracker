@@ -280,7 +280,7 @@ export function scheduledScope(scheduled: ScheduledSlice, horizon: string | null
  * calendario da qui a fine mese.» under the three cells, which print the PERIOD's totals (decision
  * 31); `null` with nothing in the calendar, and the line is simply absent. Its words are
  * `scheduledSentence`'s, the one source of that clause. Analisi gets a scope line of its own in
- * the same form (MOB-06, `describeAnalisiScope` over its own horizon): what it shares is
+ * the same form (since 2026-10-14, `describeAnalisiScope` over its own horizon): what it shares is
  * `scheduledScope` above, not this function.
  */
 export function describeTrackingScope(period: Period, now: Date, scheduled: ScheduledSlice): Narrative | null {

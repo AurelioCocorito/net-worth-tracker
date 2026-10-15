@@ -14,9 +14,9 @@ import { LIFTED_FIGURE_CLASS } from '@/components/ui/tile';
 import { OverviewTile, TILE_SUB_EYEBROW_CLASS } from './OverviewTile';
 
 /**
- * The blocks of this tile a phone's strip can repeat (The Lifted-Figure Rule, since 2026-10-11;
- * Patrimonio lifts them with the same names when it is composed, doc/mobile/MOB-06 § 4.1): the month's chip, the year's chip, the «Mercato:»
- * digest, the right-hand label under the curve (the hero in compact form). A lifted block takes
+ * The blocks of this tile a phone's strip can repeat (The Lifted-Figure Rule: the Panoramica since
+ * 2026-10-11, Patrimonio with the same names since 2026-10-14 — doc/guide/patrimonio.md § Composizione
+ * mobile): the month's chip, the year's chip, the «Mercato:» digest, the right-hand label under the curve (the hero in compact form). A lifted block takes
  * `LIFTED_FIGURE_CLASS` and hides below `tablet:`; the hero itself is exempt (decision 24).
  */
 export type PatrimonioLiftedBlock = 'monthly' | 'yearly' | 'movers' | 'curve-end';
@@ -71,7 +71,7 @@ interface PatrimonioTileProps {
    * top instruments, so the two pages never print the same line.
    */
   movers?: MarketDigestEntry[];
-  /** The muted count line under the digest; defaults to "N asset in portafoglio". Patrimonio passes a link to its table. */
+  /** The muted count line under the digest; defaults to "N asset in portafoglio". Patrimonio passes its holdings count: a link to its table at 1440, a button opening the Strumenti row below `desktop:`. */
   countLine?: ReactNode;
   /** Feeds that default line; ignored once `countLine` is given. */
   assetCount?: number;
@@ -85,7 +85,7 @@ interface PatrimonioTileProps {
   /**
    * The blocks the page's strip already prints, hidden below `tablet:` (The Lifted-Figure Rule):
    * `[...liftedBlocks(strip, id).filter(isPatrimonioLiftedBlock), 'curve-end', 'movers' when the
-   * verdict names the market]`. Default none: Patrimonio and the landing keep every block.
+   * verdict names the market]` (the Panoramica, and Patrimonio with the year's chip too). Default none: the landing keeps every block.
    */
   liftedFigures?: readonly PatrimonioLiftedBlock[];
   className?: string;

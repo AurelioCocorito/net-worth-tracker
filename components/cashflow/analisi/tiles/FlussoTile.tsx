@@ -77,7 +77,7 @@ interface FlussoTileProps {
   className?: string;
 }
 
-/** The blocks of the Flusso a phone's strip repeats (MOB-06, 2026-10-14). */
+/** The blocks of the Flusso a phone's strip repeats (since 2026-10-14). */
 export type FlussoLiftedBlock = 'risparmio';
 
 /** Narrows the `string[]` of `liftedBlocks(strip, section)` to this tile's blocks at the call site. */

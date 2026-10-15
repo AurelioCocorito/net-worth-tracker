@@ -132,8 +132,9 @@ holds it): how it was learned is `git log`'s.
   the «−» on the formatted text with `withTypographicMinus`/`formatEuroMinus` (`lib/utils/formatters.ts`, where
   `isPrintedZero` lives, pinned by `__tests__/formatters.test.ts`), never on `value < 0`; a percent or a gap in points
   takes `printedSign`/`formatSignedPercentIt`/`formatSignedPoints` from the same module (the Rendimento (TWR) tile since
-  2026-10-14: its hero and chips repeat a strip cell). The sites outside the composed surfaces (the rest of Rendimenti,
-  Storico, email, PDF) still decide on the raw value, on purpose — count them with
+  2026-10-14: its hero and chips repeat a strip cell), a signed euro `formatSignedEuro` (Patrimonio's G/P and Storico's
+  «ultimi 12 mesi» chip since 2026-10-14, the chip's percentage since 2026-10-15, `__tests__/evoluzioneTileChips.test.ts`).
+  The sites outside the composed surfaces (the rest of Rendimenti and Storico, email, PDF) still decide on the raw value, on purpose — count them with
   `grep -rnE "< 0 \? ['\"]−" lib components app`, never quote a number (the helper itself is among the hits).
 - **`--warning` is near-white in light mode**: text on a `bg-warning` fill MUST be `text-warning-foreground`; a caution
   reading and the verdict's dot use `text-warning-foreground` too.

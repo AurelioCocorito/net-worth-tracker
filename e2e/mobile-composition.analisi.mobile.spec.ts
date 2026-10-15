@@ -1,5 +1,5 @@
 /**
- * Analisi composed for a phone (MOB-06, since 2026-10-14; doc/guide/cashflow-analisi.md
+ * Analisi composed for a phone (since 2026-10-14; doc/guide/cashflow-analisi.md
  * § Composizione mobile), on the analisi account at 390 (`analisi-mobile` project; every row in
  * January, `scripts/seedAnalisiE2E.mts`).
  *
@@ -8,7 +8,7 @@
  * keeps the focus); from a category row it opens and «Chiudi» hands the focus back to that row;
  * Escape on its trigger does nothing, inside its panel closes it; the calendar is the verdict's
  * `scope`, under the strip; the Periodo trio is lifted; the DOM order is the vertical order with no
- * `order-*`. (3) `expensesDeltaLifted` dropped from the Periodo: «↓ 13,3%» visible under the sentence that prints it.
+ * `order-*`.
  *
  * Seen red on 2026-10-14: (1) the `reveal` removed from the URL restore (`landOnScheda` scrolling
  * only) — the Scheda stayed closed after the reload; (2) the panel test dropped from the Scheda's

@@ -36,7 +36,7 @@ interface PeriodoTileProps {
   className?: string;
 }
 
-/** The blocks of the Periodo tile a phone's strip repeats (MOB-06, 2026-10-14). */
+/** The blocks of the Periodo tile a phone's strip repeats (since 2026-10-14). */
 export type PeriodoLiftedBlock = 'trio';
 
 /** Narrows the `string[]` of `liftedBlocks(strip, section)` to this tile's blocks at the call site. */

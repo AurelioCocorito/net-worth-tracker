@@ -10,7 +10,7 @@
  *                                        | Spese per categoria(4) | Entrate per categoria(3)
  *                     Scheda(12, only with a focus)
  *                     Flusso(12)
- *   Below desktop:    ONE sequence, the DOM above (decisions 1 and 11; since 2026-10-14, MOB-06 —
+ *   Below desktop:    ONE sequence, the DOM above (decisions 1 and 11; since 2026-10-14 —
  *                     the `order-1…7` are gone): title → the axis → the first sentence → Entrate and
  *                     Risparmio as a strip → the calendar's scope → «Il perché» → Periodo, open, its
  *                     trio lifted and its bars at 120px → «Il resto della pagina» → Fuori scala,
@@ -156,7 +156,7 @@ interface DrillDownState {
 const NO_FOCUS: DrillDownState = { level: 'category', chartType: null, selectedCategory: null, selectedSubCategory: null };
 
 /**
- * Every row of the phone composition, in the DOM's order (The Closed-Row Rule; MOB-06,
+ * Every row of the phone composition, in the DOM's order (The Closed-Row Rule;
  * 2026-10-14): every tile but Periodo, which is THE tile and never closes (decision 21).
  * Module-level, as the controller asks; the page hands it the rows PRESENT
  * (`resolveAnalisiSections`) — Fuori scala exists only on a month, the Scheda only with a focus,
@@ -340,7 +340,7 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
 
   // The ONE landing on entity focus — owned by the landing path (handleEntitySelect and the URL
   // restore), never by a parallel effect. Deferred one tick so the Scheda cell exists. Below
-  // `desktop:` the Scheda is a closed row (MOB-06, 2026-10-14): the controller's `reveal` opens it,
+  // `desktop:` the Scheda is a closed row (since 2026-10-14): the controller's `reveal` opens it,
   // scrolls to it and focuses its trigger, called here directly — it captures nothing of a render
   // (it reads the memory from the store and `#analisi-scheda` from the DOM when the timer fires),
   // and the timer is the effect's async callback, never a `setState` in an effect's body. The width
@@ -489,7 +489,7 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
     [allExpenses, singleMonth],
   );
 
-  // ─── The phone composition (MOB-06, 2026-10-14) ───────────────────────────────
+  // ─── The phone composition (2026-10-14) ───────────────────────────────────────
   // The rows present: Fuori scala on a month, the Scheda with a focus, the Flusso when something
   // flowed. Here, before every handler that lands on the Scheda: `sections.reveal` closes over
   // nothing of a tap (lib/hooks/useMobileSections.ts), so it is a stable dependency of theirs.

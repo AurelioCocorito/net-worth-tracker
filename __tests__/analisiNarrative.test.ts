@@ -282,7 +282,7 @@ describe('buildAnalisiVerdict', () => {
   });
 
   it('should name what the period still has in the calendar in the scope, never in the sentence', () => {
-    // Since 2026-10-14 (MOB-06, decision 14): the clause left the sentence and became the verdict's
+    // Since 2026-10-14 (decision 14): the clause left the sentence and became the verdict's
     // `scope`, rendered at every width. Seen red with `scheduledSentence` left at the sentence's end.
     const input = { ...INPUT, scheduled: { count: 3, expenses: 1850, income: 500, throughMonth: 12 } };
     expect(plain(buildAnalisiVerdict(input).sentence)).not.toContain('in calendario');
@@ -726,8 +726,8 @@ describe('describeComparisonSummary', () => {
 });
 
 /**
- * The phone's cut of the verdict and the Flusso's captions on the first screen (MOB-06,
- * 2026-10-14; doc/mobile/README.md § 9, decisions 3, 5, 14 and 82). Seen red: «; Casa pesa» glued
+ * The phone's cut of the verdict and the Flusso's captions on the first screen
+ * (2026-10-14; doc/mobile/README.md § 9, decisions 3, 5, 14 and 82). Seen red: «; Casa pesa» glued
  * back (the lead swallowed the categories); `scheduledSentence` left at the sentence's end (the
  * scope test above); the caption's amount kept with `printed` ignored.
  */
@@ -767,10 +767,17 @@ describe('the Flusso captions beside the first screen', () => {
     const printed = collectPrintedFigures([{ text: cachedFormatCurrencyEUR(2000, true), mono: true }], [{ label: 'Risparmio', value: -500, format: 'currency', opens: 'analisi-flusso' }]);
     const deficit = { blocks: [], spending: 2000, income: 1500, surplus: 0, deficit: 500, incomeEdge: 75, noIncome: false, absence: null } satisfies TypeFlowBreakdown;
     expect(plain(describeTypeFlowBar(deficit, printed))).toBe('Quote delle spese. Oltre la linea delle entrate, il resto viene dal patrimonio.');
-    // The roles' base in a deficit is what left (1250 €), not the income: it stays.
+    // The roles' base in a deficit is what left — income + deficit = the SPENDING, which the first
+    // sentence prints as a mono figure («hai speso 1250 €»): the amount drops there too (decision 88,
+    // 2026-10-15; until then this case built the lead without its mono figure and asserted it stayed).
     const roles = summarizeSpendingRoleShares(rolesSummary({ income: 1000, need: 1250 }));
-    const rolesPrinted = collectPrintedFigures([{ text: '1250 €', mono: false }], [{ label: 'Entrate', value: 1000, format: 'currency', opens: 'analisi-entrate' }, { label: 'Risparmio', value: -250, format: 'currency', opens: 'analisi-flusso' }]);
+    const rolesStrip: StripFigure[] = [{ label: 'Entrate', value: 1000, format: 'currency', opens: 'analisi-entrate' }, { label: 'Risparmio', value: -250, format: 'currency', opens: 'analisi-flusso' }];
+    const rolesPrinted = collectPrintedFigures([{ text: 'Nel 2026 hai speso ' }, { text: cachedFormatCurrencyEUR(1250, true), mono: true }], rolesStrip);
     expect(plain(describeSpendingRolesBar(roles, rolesPrinted))).toBe(
+      'Quote di quanto è uscito; tacche a 50 e 80, il riferimento 50/30/20. Oltre la linea delle entrate, il resto viene dal patrimonio.',
+    );
+    // A base the first screen does not print keeps its amount.
+    expect(plain(describeSpendingRolesBar(roles, collectPrintedFigures([], rolesStrip)))).toBe(
       'Quote di quanto è uscito (1250 €); tacche a 50 e 80, il riferimento 50/30/20. Oltre la linea delle entrate, il resto viene dal patrimonio.',
     );
     // Without a deficit the base IS the income the strip prints.

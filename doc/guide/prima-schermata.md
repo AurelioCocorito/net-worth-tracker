@@ -112,7 +112,11 @@ finché la sua spec non la compone.
 **Il fixture tiene STATI che non dipendono dal giorno** (2026-10-10, `scripts/seedCensusE2E.mts`): un tetto di Budget
 sopra lo speso è giudicato dal ritmo (`speso / giorno × giorni`), che lo sfora a inizio mese e non a fine mese — con
 4000 € su 3540 spesi il verdetto del 10 diceva «rischia di sforare» e quello del 28 non l'avrebbe detto; il fixture lo
-tiene già superato (3000 €) dal 5. Un dato nuovo nel seed si sceglie così: uno stato che vale dal 5 al penultimo giorno,
+tiene già superato (3000 €) dal 5. **Ogni riga di un mese passato sta al 5** (`PAST_DAY`, 2026-10-15): Tracciamento e la
+Panoramica confrontano il mese in corso con gli STESSI GIORNI del mese scorso, e con le righe ai giorni 5, 10, 15 e 20 ognuno
+di quei giorni ne faceva entrare una — dal 15 lo stipendio portava sulla prima schermata le due frecce del trio, e la
+corsa a tolleranza zero era rossa su Tracciamento senza codice nuovo (provato sulla build di develop lo stesso giorno). Un
+dato nuovo nel seed si sceglie così: uno stato che vale dal 5 al penultimo giorno,
 o la corsa a tolleranza zero diventa rossa a metà mese. E una serie lineare dà valori uguali (dodici record di Hall of
 Fame identici, la prima versione): le differenze mese su mese vengono da un residuo quadratico. Fra un mese e l'altro
 si spostano solo i NOMI dei mesi e le finestre sull'anno solare (Analisi, Storico): la prima corsa di un mese nuovo
@@ -134,7 +138,10 @@ si legge prima di stringere o allargare.
   informative a 768/1024 oscillano anche nello STESSO giorno** (2026-10-12, il ritiro della composizione di Cashflow, stesso
   portatile e stesso codice della misura di sessione): `figuresOutsideVerdict` Tracciamento 1024 8 contro il tetto 5, Budget
   1024 11 contro 9, Previdenza 768 17 contro 12, What If 1024 10 contro 8 — stampate, non rosse; non è il giorno del
-  mese, e non è isolato (stesso erede). **E una vincolante può oscillare fra due valori a parità di codice**: Monte Carlo
+  mese, e non è isolato (stesso erede). **Una causa isolata** (2026-10-15, ritiro di MOB-06): il confronto «sugli stessi giorni»
+  del mese scorso prendeva le righe del seed ai giorni 5/10/15/20 una alla volta — Tracciamento 390 da 5 a 7 cifre fuori dal
+  verdetto il 15, identico sulla build di develop prima del codice nuovo; il seed le mette ora tutte al 5 e le cinque metriche
+  mosse portano `raisedBy` «MOB-06: deriva del giorno…» (`doc/mobile/README.md` § 9, 87). **E una vincolante può oscillare fra due valori a parità di codice**: Monte Carlo
   390 `screens` 4,87 o 4,89 (~17 px) da una corsa all'altra sulla STESSA build — provato con uno `stash` su develop il
   2026-10-12, due corse consecutive — e allargato a 4,89 con `raisedBy` (proprietario); una stretta del `--tighten` su una
   voce che oscilla è rossa alla corsa dopo, e la si riconosce rimisurando la sola superficie (`--surfaces=`) due volte.

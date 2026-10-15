@@ -18,7 +18,7 @@
  * Below `desktop:` the table becomes a flat list of expandable rows (`AssetRow`): a card per
  * row would be a card inside the tile. ONE of the two is in the DOM, chosen by the width (since
  * 2026-10-07): until then both were, the hidden copy included, with every phone row's sparkline
- * mounted inside it. Since 2026-10-14 (MOB-06) the tile itself is a closed ROW below `desktop:`
+ * mounted inside it. Since 2026-10-14 the tile itself is a closed ROW below `desktop:`
  * (`collapse`, `patrimonio-strumenti`): the list mounts at its first opening, and each row draws
  * its sparkline at ITS first opening. The two toggles are remembered per browser
  * (localStorage): a reader who compares the Δ windows every month should not re-enable them.

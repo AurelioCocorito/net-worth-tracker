@@ -439,7 +439,7 @@ export function resolveCategoryMovers(rows: CategoryDeltaRow[]): { grown: Catego
   return { grown: grown ? toMover(grown) : null, shrunk: shrunk ? toMover(shrunk) : null };
 }
 
-// ─── The phone composition (MOB-06, 2026-10-14) ───────────────────────────────
+// ─── The phone composition (2026-10-14) ───────────────────────────────────────
 
 /** THE tile of the page (Periodo): open at every width, never a row (decision 21). */
 export const ANALISI_PERIODO_ID = 'analisi-periodo';

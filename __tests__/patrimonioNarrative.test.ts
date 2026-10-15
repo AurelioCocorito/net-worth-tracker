@@ -390,7 +390,7 @@ describe('describeMortgageYearScope — a partial year says so', () => {
 });
 
 /**
- * The phone's cut of the verdict (MOB-06, 2026-10-14; doc/mobile/README.md § 9, decisions 3, 5,
+ * The phone's cut of the verdict (2026-10-14; doc/mobile/README.md § 9, decisions 3, 5,
  * 20 and 81). Seen red: the market sentence glued back with «; sul mercato» (the lead swallowed
  * it); the `binding` flag dropped from `describeSales` (the rest of a taxed month went behind
  * «Il perché»); the zero signed again with `value >= 0 ? '+'` («+0,00 €»).

@@ -1,5 +1,5 @@
 /**
- * Storico composed for a phone (MOB-06, since 2026-10-14; doc/guide/storico.md § Composizione
+ * Storico composed for a phone (since 2026-10-14; doc/guide/storico.md § Composizione
  * mobile), on the base account at 390 (`mobile` project).
  *
  * What a browser alone can prove here: ONE cell of the Driver, «Risparmio {anno}» (the year written

@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { LIFTED_FIGURE_CLASS, Tile, TILE_FOOTER_ACTION_CLASS, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 
 /**
- * The block of this tile a phone's strip repeats (The Lifted-Figure Rule; MOB-06, 2026-10-14): the
+ * The block of this tile a phone's strip repeats (The Lifted-Figure Rule; since 2026-10-14): the
  * «G/P non realizzato» KPI, which the strip's first cell prints with its cents. Its percentage over
  * the cost basis stays.
  */

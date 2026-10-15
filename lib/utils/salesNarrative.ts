@@ -34,7 +34,7 @@ function signedCompactEuro(value: number): NarrativeSegment {
  * meaning of the variation already printed, so each of their segments is `binding` and
  * `splitVerdict` cancels any cut that would leave them in the rest. The proceeds, the gain, a loss
  * and a missing rate are facts beside the figure, not readings of it: they stay plain. The email
- * ignores the flag (it has no cut); Patrimonio inherits it with MOB-06.
+ * ignores the flag (it has no cut); Patrimonio's verdict reads it too since 2026-10-14.
  */
 const binding = (segments: Narrative): Narrative => segments.map((segment) => ({ ...segment, binding: true }));
 

@@ -252,7 +252,7 @@ export function formatHoldingCounts(instrumentCount: number, accountCount: numbe
  * its clause: no prior snapshot → no monthly clause; no attributable market effect → no
  * driver, even if a top mover was handed in.
  *
- * Where a phone cuts (MOB-06, 2026-10-14; decisions 3 and 5 of doc/mobile/README.md § 9): after
+ * Where a phone cuts (2026-10-14; decisions 3 and 5 of doc/mobile/README.md § 9): after
  * the first sentence — the total, the month and the counts. Behind «Il perché» go the year
  * (decision 81: its chip is lifted whole from THE tile, so its euro lives here, in brackets after
  * the percentage, at 1440 too), the market — a sentence of its own at every width, «; sul

@@ -18,7 +18,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import type { Narrative } from '@/lib/utils/narrative';
 import type { EvolutionPoint, GrowthPace, GrowthSummary } from '@/lib/utils/storicoSummary';
 import { formatPeriodMonth } from '@/lib/utils/storicoNarrative';
-import { cachedFormatCurrencyEUR, formatSignedEuro, printedSign } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatSignedEuro, formatSignedPercentIt, printedSign } from '@/lib/utils/formatters';
 import { formatCurrencyCompact, formatPercentage } from '@/lib/services/chartService';
 import { signChipClass, signTextClass } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
@@ -41,7 +41,7 @@ interface EvoluzioneTileProps {
   id?: string;
   /**
    * The blocks a phone's verdict already prints, hidden below `tablet:` (The Lifted-Figure Rule;
-   * MOB-06, 2026-10-14): `'growth'` and `'cagr'` — the first two chips, which the first sentence
+   * since 2026-10-14): `'growth'` and `'cagr'` — the first two chips, which the first sentence
    * restates —, `'trailing'` — the euro of the third chip, the strip's «Ultimi 12 mesi»; its
    * percentage stays (decision 17). Default none.
    */
@@ -143,9 +143,13 @@ const yearOfTick = (date: string) => `20${date.slice(3)}`;
 
 export function EvoluzioneTile({ aside, reading, growth, pace, points, noteCount, onAddNote, disabled = false, id, liftedFigures = [], className }: EvoluzioneTileProps) {
   const lifted = (block: EvoluzioneLiftedBlock) => liftedFigures.includes(block);
+  // The twelve months' chip keeps its percentage when its euro is lifted; without a percentage (no
+  // positive base a year back) the lifted euro was all it held, and it hides whole — an empty
+  // coloured pill otherwise (2026-10-15, `__tests__/evoluzioneTileChips.test.ts`).
+  const trailingChipLifted = lifted('trailing') && pace.trailingPct === null;
   // The chips' row hides whole when every chip in it is lifted, or it would leave its gap behind
-  // (PatrimonioTile's rule); the twelve months' chip keeps its percentage, so with it the row stays.
-  const chipsRowLifted = (growth.snapshotCount <= 1 || lifted('growth')) && (growth.cagr === null || lifted('cagr')) && pace.trailingDelta === null;
+  // (PatrimonioTile's rule).
+  const chipsRowLifted = (growth.snapshotCount <= 1 || lifted('growth')) && (growth.cagr === null || lifted('cagr')) && (pace.trailingDelta === null || trailingChipLifted);
   const prefersReducedMotion = useReducedMotion();
   const gradientId = `evo-${useId().replace(/:/g, '')}`;
 
@@ -186,13 +190,15 @@ export function EvoluzioneTile({ aside, reading, growth, pace, points, noteCount
         )}
         {pace.trailingDelta !== null && (
           // The euro is the strip's «Ultimi 12 mesi» cell: ONE formatter with it, a printed zero
-          // unsigned and uncoloured (decision 20); lifted on a phone, where the percentage stays alone.
-          <Chip value={printedSign(pace.trailingDelta, 0) === 0 ? null : pace.trailingDelta} caption="ultimi 12 mesi">
+          // unsigned and uncoloured (decision 20; at every width since 2026-10-14, the percentage
+          // beside it since 2026-10-15 — it read «0 € (+0,0%)»); lifted on a phone, where the
+          // percentage stays alone.
+          <Chip value={printedSign(pace.trailingDelta, 0) === 0 ? null : pace.trailingDelta} caption="ultimi 12 mesi" className={trailingChipLifted ? LIFTED_FIGURE_CLASS : undefined}>
             <span className={lifted('trailing') ? LIFTED_FIGURE_CLASS : undefined}>
               {formatSignedEuro(pace.trailingDelta, true)}
               {pace.trailingPct !== null && ' ('}
             </span>
-            {pace.trailingPct !== null && signedPct(pace.trailingPct)}
+            {pace.trailingPct !== null && formatSignedPercentIt(pace.trailingPct, 1)}
             {pace.trailingPct !== null && <span className={lifted('trailing') ? LIFTED_FIGURE_CLASS : undefined}>)</span>}
           </Chip>
         )}

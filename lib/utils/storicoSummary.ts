@@ -484,7 +484,7 @@ export function summarizeLaborMetrics(
   };
 }
 
-// ─── The phone composition (MOB-06, 2026-10-14) ───────────────────────────────
+// ─── The phone composition (2026-10-14) ───────────────────────────────────────
 
 /** THE tile of the page (Evoluzione): open at every width, never a row (decision 21). */
 export const STORICO_EVOLUZIONE_ID = 'storico-evoluzione';

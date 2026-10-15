@@ -55,7 +55,7 @@ const MINUS = '−';
  * no sign anywhere — the strip here, the Panoramica's `signedCurrency`/`signedPercent` and the
  * shared `salesNarrative` since 2026-10-11, the tiles whose figure a cell repeats since
  * 2026-10-12 (`withTypographicMinus`, the same rule, in `lib/utils/formatters.ts`), Patrimonio's
- * with MOB-06. Defined there since 2026-10-12, so a tile and its cell read ONE definition.
+ * since 2026-10-14. Defined there since 2026-10-12, so a tile and its cell read ONE definition.
  */
 export { isPrintedZero } from '@/lib/utils/formatters';
 
