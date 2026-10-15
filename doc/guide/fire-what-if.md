@@ -6,7 +6,7 @@
 
 - The tab answers «cosa cambia se…?» and computes nothing: `calculateWhatIfImpact` (service) perturbs and diffs, `whatIfSummary.ts`
   turns the impact into the event as stated, the before/after pairs, the merged series, the divergence and the sensitivity reading,
-  `whatIfNarrative.ts` puts them into words. The service now RETURNS the two base-scenario walks it runs (`projections`), so the
+  `whatIfNarrative.ts` puts them into words (the DOM ids of the phone composition in the summary, § Composizione mobile). The service now RETURNS the two base-scenario walks it runs (`projections`), so the
   chart draws the series the years were read from — never a third walk in a component. The job-loss decomposition (retained income
   covers the expenses first, the portfolio pays the uncovered part) is `decomposeJobLossHit`, out of the component.
 - **The headline and the tone come from the delta in years** (`timelineCase`: keeps · loses · gains · neverBoth · leaves · returns ·
@@ -24,7 +24,7 @@
 - **The event clause is household-agnostic**: months, the lost amount and its share of expenses + savings (`lostShareOfIncomePct`,
   null when the household earns nothing, and the clause drops). The names of the sources live only in the Evento tile's picker.
 - **The Prima e dopo tile has no hero on purpose** (the canvas's proposal): the year is the verdict's headline and the Delta's first
-  row. Its one figure is the divergence — both capitals at the FIRE year of the plan of today (`summarizeDivergence`; the
+  row. Its one figure is the divergence — the phone's second cell, § Composizione mobile — — both capitals at the FIRE year of the plan of today (`summarizeDivergence`; the
   after-event year when today's never gets there; null when neither does or the target is already reached), read from the merged
   series (`buildWhatIfComparisonSeries`: the union of the years, null where a walk stops — a walk ends five years after its last
   scenario reaches FIRE, so a purchase lengthens the after side and `connectNulls={false}` leaves the gap). The plan of today is
@@ -44,6 +44,16 @@
   list «Anni al FIRE per livello di spesa» (390). On the base account the target is REACHED (small expenses), so a spec asserts the
   headline against the set of live phrasings and the deltas against a typed amount, never a year.
 
+## Composizione mobile
+
+Composed on 2026-10-15 (MOB-07): the page-wide rules — one controller per tab, the lock as the scope line, the cut at the first full stop — are in `doc/guide/fire.md` § Composizione mobile.
+
+- **THE tile is the Evento** (decision 43): **first in the DOM at every width since 2026-10-15** — the left cell of the first row at 1440 (Evento 4 | Prima e dopo 5 | Delta 3, then Sensibilità 12; until then Prima e dopo 5 | Delta 3 | Evento 4 with `order-1` on a phone) — open and never a row. The Input Tile Rule's desktop sentence is MOB-09's to rewrite. It has no curve: the first closed row ends under the pill at 390, registered `false` with `raisedBy: "MOB-07: Evento è un modulo"` (decision 19).
+- **The strip** (`selectWhatIfStrip({ event, summary, divergence })`, `lib/utils/whatIfSummary.ts`): «Patrimonio FIRE scende|sale» → `Math.abs(netWorth.delta)` (`currency`, `tone` from the sign) → opens `whatif-delta`; «Distanza|Vantaggio nel {anno}» → `Math.abs(gapThen)` of the divergence (`currency`, `tone` from the sign; «Al FIRE di oggi» as the label of a `null` cell) → opens `whatif-prima-dopo`. The direction words are the sentences' own («scende», «di distanza allora», «di vantaggio»): the builders write no «+»/«−». A change under the threshold, or no divergence, is a `null` cell «invariato» — `isWhatIfChange(delta, unit = 0.5)`, exported from `whatIfSummary.ts` and the ONE threshold of the verdict's clauses, the Delta rows and the cells (`whatIfNarrative.ts` imports it in place of its private `changed`). `[]` on an empty event. Identity in `__tests__/whatIfNarrative.test.ts`.
+- **The cut** (`buildWhatIfVerdict`): the event and its clauses under the title; the Coast sentence and the bridge note behind «Il perché · il Coast FIRE» (« e il fondo pensione» with the bridge; «il fondo pensione» alone); without an event «Il piano resta quello di oggi: FIRE nel 2033.» under the title and «Scegli un evento e inserisci un importo.» behind «Il perché · come simulare»; «What If non calcolabile» is one sentence. The scope line is passed only with `summary.isBridge` — the bridge note (`BRIDGE_NOTE`) and the line always come together.
+- **The rows and their aside, in DOM order** (`WHAT_IF_SECTIONS` in the tab, ids `WHAT_IF_SECTION_IDS` in `whatIfSummary.ts`, the words `WHAT_IF_CLOSED_ASIDES` in `whatIfNarrative.ts`): `whatif-prima-dopo` «le due traiettorie» (the open aside «scenario base · crescita 7% · inflazione 2,5%» carries figures) · `whatif-delta` «prima → dopo» · `whatif-sensibilita` «spese e risparmio» (the open aside is the reference-expenses field, a control: it opens the panel's first row). `PageRest` right after the Evento's cell. Without a base there is no row and no `PageRest`; with an empty event the rows are there and the strip is empty. Prima e dopo's chart is in the tab's chunk (PERF-04): it mounts on the row's first opening without a download.
+- **768/1024 and the specs**: the same composition at 768 (every tile full width) and at 1024, until MOB-08. `e2e/fire.mobile.spec.ts` (`mobile`: the Evento first in the DOM, the three rows closed), `e2e/fire.spec.ts` (1440: the Evento the left cell of the first row, first in the DOM). The tab has no spec of its own.
+
 ## Per-page blind spots
 
-- **FIRE › What If**: no Playwright spec; every event is a year-0 perturbation, nothing persisted; the Coast block reads the SAVED age and pensions (no age → no block); the job-loss picker seeds from `laborIncomeCategoryIds` once per mount; the «Prima e dopo» walk of today stops five years after its last scenario reaches FIRE (a gap after a big purchase, by design); with the bridge on the FIRE numbers are bridge numbers while the chart reads `baseNetWorth`; the Sensibilità reference expenses are session-only; `isPrimaryResidence` is informational.
+- **FIRE › What If**: no Playwright spec of its own (its composition in `fire{,.mobile}.spec.ts`); every event is a year-0 perturbation, nothing persisted; the Coast block reads the SAVED age and pensions (no age → no block); the job-loss picker seeds from `laborIncomeCategoryIds` once per mount; the «Prima e dopo» walk of today stops five years after its last scenario reaches FIRE (a gap after a big purchase, by design); with the bridge on the FIRE numbers are bridge numbers while the chart reads `baseNetWorth`; the Sensibilità reference expenses are session-only; `isPrimaryResidence` is informational.

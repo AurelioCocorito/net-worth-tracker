@@ -169,3 +169,30 @@ test('the pension-lock switch in Base di calcolo persists and is reflected in th
   await page.getByRole('switch', { name: 'Considera il fondo pensione come capitale bloccato fino allo sblocco' }).click();
   await expect(page.getByText(initial ? 'Fondo pensione considerato bloccato' : 'Fondo pensione considerato disponibile')).toBeVisible({ timeout: 10_000 });
 });
+
+test('at 1440 the tabs are the tabs of today: no closed row, no strip, no scope line; «Da allora» is a sentence; the Evento is the left cell of What If', async ({ page }) => {
+  await gotoFire(page);
+  await expect(page.locator('main [id$="-trigger"]')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Le cifre del verdetto' })).toBeHidden();
+  const verdict = page.getByRole('region', { name: 'Verdetto sul FIRE' });
+  // The scope line exists below `desktop:` only (decision 44): at 1440 the paragraph states the lock.
+  await expect(verdict.getByText(/^Modello ponte: fondo pensione escluso/)).toHaveCount(0);
+  await expect(verdict.getByRole('button', { name: /^Il perché/ })).toHaveCount(0);
+  // Since 2026-10-15 the passive income is a sentence of its own, at 1440 too (decision 5) —
+  // on a plan that lands on a year; a reached target has no «Da allora».
+  const headline = await verdict.getByRole('heading', { level: 2 }).textContent();
+  if (/^FIRE nel/.test(headline ?? '')) {
+    await expect(verdict).toContainText(/anni?\. Da allora /);
+    await expect(verdict).not.toContainText(', e da allora');
+  }
+
+  // What If: the Evento is the first tile of the DOM and the left cell of the first row (decision 43).
+  await page.getByRole('tab', { name: 'What If' }).click();
+  await expect(page.getByRole('region', { name: 'Verdetto sul What If' })).toBeVisible({ timeout: 30_000 });
+  const evento = (await page.getByRole('region', { name: 'Evento simulato' }).boundingBox())!;
+  const primaDopo = (await page.getByRole('region', { name: "Prima e dopo l'evento" }).boundingBox())!;
+  expect(evento.x).toBeLessThan(primaDopo.x);
+  expect(Math.abs(evento.y - primaDopo.y)).toBeLessThan(2);
+  const panel = page.getByRole('tabpanel', { name: 'What If' });
+  expect((await panel.locator('section.rounded-2xl').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label'))))[0]).toBe('Evento simulato');
+});

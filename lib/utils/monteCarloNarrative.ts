@@ -20,7 +20,8 @@ import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, startsWithVowel } from '@/lib/utils/patrimonioNarrative';
 import type { FireLock } from '@/lib/utils/fireSummary';
 import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
-import { resolveSuccessTone, type MonteCarloPlan, type MonteCarloRun, type PlanInflow, type PlanStatePension, type PlanWithdrawalTax, type ScenarioComparison, type ScenarioRunSummary } from '@/lib/utils/monteCarloSummary';
+import { MONTE_CARLO_SECTION_IDS, rateDecimals, resolveSuccessTone, type MonteCarloPlan, type MonteCarloRun, type PlanInflow, type PlanStatePension, type PlanWithdrawalTax, type ScenarioComparison, type ScenarioRunSummary } from '@/lib/utils/monteCarloSummary';
+import { cutAtFirstSentence, fireRestLabel, isLockStated } from '@/lib/utils/fireNarrative';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -38,7 +39,7 @@ const year = (value: number): NarrativeSegment => figure(String(value));
 /** «84,2%», one decimal, or «95%» when the decimal is zero — the way the hero prints it. */
 function ratePct(value: number): string {
   const rounded = Math.round(value * 10) / 10;
-  return formatPercentage(rounded, Number.isInteger(rounded) ? 0 : 1);
+  return formatPercentage(rounded, rateDecimals(value));
 }
 
 /** «nel 57,3%» / «nell'84,2%» / «nello 0,5%» — the elision follows the printed figure. */
@@ -111,7 +112,7 @@ function scenariosSentence(scenarios: ScenarioComparison | null): Narrative {
 
 /** « Numeri con il modello ponte: i 31.400 € del fondo pensione entrano nel 2045 al valore di oggi.» */
 function bridgeSentence(lock: FireLock): Narrative {
-  if (!lock.active || lock.lockedValue <= 0 || lock.unlockCalendarYear === null) return [];
+  if (!isLockStated(lock)) return [];
   return [prose(' Numeri con il modello ponte: i '), amount(lock.lockedValue), prose(' del fondo pensione entrano nel '), year(lock.unlockCalendarYear), prose(' al valore di oggi.')];
 }
 
@@ -138,11 +139,32 @@ export function buildMonteCarloVerdict(input: MonteCarloVerdictInput): PageVerdi
     ? [prose('In tutte le '), count(run.simulations), prose(' simulazioni il capitale regge ')]
     : [prose(inThePercent(run.successRate).replace(/^n/, 'N')), figure(ratePct(run.successRate)), prose(' delle '), count(run.simulations), prose(' simulazioni il capitale regge ')];
 
+  // The base run is the first sentence; the bear and the bull, then the bridge, follow it —
+  // behind «Il perché» on a phone, the lock kept in sight by the scope line (decision 44).
+  const scenarios = scenariosSentence(input.scenarios);
+  const sentence: Narrative = [...opening, ...horizonClause(run), prose('; '), ...outcomesClause(run), prose('.'), ...scenarios, ...bridgeSentence(input.lock)];
   return {
     headline,
     tone: resolveSuccessTone(run.successRate),
-    sentence: [...opening, ...horizonClause(run), prose('; '), ...outcomesClause(run), prose('.'), ...scenariosSentence(input.scenarios), ...bridgeSentence(input.lock)],
+    sentence,
+    ...cutAtFirstSentence(sentence, fireRestLabel(scenarios.length > 0 ? 'orso e toro' : null, isLockStated(input.lock))),
   };
+}
+
+// ─── The rows below `desktop:` ─────────────────────────────────────────────────
+
+/** What each closed row says beside its eyebrow — words, never a figure (The Closed-Row Rule); Parametri's is `describeParametriClosedAside`. */
+export const MONTE_CARLO_CLOSED_ASIDES = {
+  [MONTE_CARLO_SECTION_IDS.distribuzione]: 'valori finali',
+  [MONTE_CARLO_SECTION_IDS.scenari]: 'orso, base e toro',
+} as const;
+
+/**
+ * The Parametri row's aside while closed: the plan the figures above run on, or the warning that
+ * the typed plan differs from it (The Stale-Run Rule holds from a closed row too).
+ */
+export function describeParametriClosedAside(stale: boolean): string {
+  return stale ? 'modificati: premi Esegui' : 'il piano di oggi';
 }
 
 // ─── Probabilità ──────────────────────────────────────────────────────────────

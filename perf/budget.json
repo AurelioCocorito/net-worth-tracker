@@ -17,8 +17,8 @@
       "raisedBy": "#436: firebase 12.13 → 12.19 (@firebase/firestore 4.14 → 4.17), +57 KB gz sui condivisi che Next 16.4 riduce di 16; richiesto da firebase-admin 14 (@firebase/app 0.16.2). Misura prima/dopo in doc/guide/velocita.md § Registro"
     },
     "/dashboard/assets": {
-      "initialJsGzKB": 702,
-      "raisedBy": "MOB-06: la composizione mobile di Patrimonio carica le primitive di MOB-02 (VerdictStrip, PageRest, useMobileSections, TileRowShell su Radix Collapsible): 696,1 → 701,4 KB gz, 33 → 34 chunk iniziali; tetto 702 per scelta del proprietario 2026-10-14 (README § 9, 85). Misura prima/dopo in doc/guide/velocita.md § Registro"
+      "initialJsGzKB": 703,
+      "raisedBy": "MOB-07: la composizione di Allocazione, Previdenza e FIRE porta le primitive di MOB-02 su nove route e Turbopack riequilibra i chunk comuni: Patrimonio 701,4 → 702,8 KB gz senza un modulo suo (Analisi +1,4, Storico +0,6, sotto i loro tetti); tetto 703 per scelta del proprietario 2026-10-15 (README § 9, 92). Prima: MOB-06 696,1 → 701,4 (33 → 34 chunk iniziali; README § 9, 85). Misura prima/dopo in doc/guide/velocita.md § Registro"
     },
     "/dashboard/assistant": {
       "initialJsGzKB": 700,

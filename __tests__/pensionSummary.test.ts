@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { fromZonedTime } from 'date-fns-tz';
+
+// The identity test below reads the verdict, whose formatter drags the Firebase chain in: mocked away.
+vi.mock('@/lib/firebase/config', () => ({ db: {}, auth: {} }));
+
 import {
   isPensionValueStale,
   resolveLastFundUpdate,
@@ -7,8 +11,16 @@ import {
   summarizeLedger,
   summarizePensionMembers,
   summarizeVersato,
+  hasPensionStrip,
+  PENSION_SECTION_IDS,
+  selectPensionStrip,
+  type PensionMemberBlock,
   type PensionSummaryInput,
 } from '@/lib/utils/pensionSummary';
+import { buildPensionVerdict } from '@/lib/utils/pensionNarrative';
+import { formatStripFigure, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
+import { narrativeToText } from '@/lib/utils/narrative';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { indexPensionSnapshots } from '@/lib/utils/pensionReturn';
 import type { Asset, FamilyMember, MonthlySnapshot } from '@/types/assets';
 import type { ContributionSource, PensionContribution } from '@/types/pension';
@@ -467,5 +479,65 @@ describe('summarizeLedger', () => {
     const ledger = summarizeLedger(CONTRIBUTIONS, [FUND], [FUND, CASH], 2024);
     expect(ledger.count).toBe(0);
     expect(ledger.latest).toBeNull();
+  });
+});
+
+// ─── selectPensionStrip — three cells or none (2026-10-15, MOB-07) ─────────────
+// Seen red one at a time: the predicate on `block.return !== null` instead of `returnState`
+// (three cells for a suspicious return); a `0` written as the employer's value (a «0 €» cell);
+// `decimals: 2` dropped from the market cell («+7,96%» against «+8,0%»).
+
+describe('selectPensionStrip', () => {
+  const plain = (text: string) => text.replace(/[  ]/g, ' ');
+  const cellText = (figure: StripFigure) => plain(narrativeToText([formatStripFigure(figure)!]));
+  const KNOWN = [...Object.values(PENSION_SECTION_IDS), VERDICT_REST_SECTION];
+  const measured = (): PensionMemberBlock => summarizePensionMembers(INPUT)[0];
+  const withTax = (tax: Partial<NonNullable<PensionMemberBlock['tax']>>): PensionMemberBlock => {
+    const block = measured();
+    return { ...block, tax: { ...block.tax!, ...tax } };
+  };
+
+  it('should lift the three causes of ONE measured contributor, each opening its row', () => {
+    const strip = selectPensionStrip({ blocks: [measured()], taxYear: 2026 });
+    expect(strip.map((figure) => figure.label)).toEqual(['Mercato da nov 2025', 'Datore nel 2026', 'Fisco nel 2026, circa']);
+    expect(strip.map((figure) => figure.opens)).toEqual([PENSION_SECTION_IDS.rendimento, PENSION_SECTION_IDS.versato, PENSION_SECTION_IDS.annoFiscale]);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    expect(hasPensionStrip([measured()])).toBe(true);
+  });
+
+  it('should print exactly what the verdict prints, the TWR with two decimals', () => {
+    const block = measured();
+    const strip = selectPensionStrip({ blocks: [block], taxYear: 2026 });
+    const verdict = plain(narrativeToText(buildPensionVerdict({ blocks: [block], taxYear: 2026, currentYear: 2026 }).sentence));
+    expect(verdict).toContain(`il mercato ha reso ${cellText(strip[0])} (TWR)`);
+    expect(verdict).toContain(`il datore ha aggiunto ${cellText(strip[1])}`);
+    expect(verdict).toContain(`il fisco restituisce circa ${cellText(strip[2])}`);
+    expect(cellText(strip[0])).toMatch(/^\+\d+,\d\d%$/);
+  });
+
+  it('should be empty with two contributors or a return that is not a measure', () => {
+    const block = measured();
+    expect(selectPensionStrip({ blocks: [block, { ...block, key: 'm2', name: 'Anna' }], taxYear: 2026 })).toEqual([]);
+    expect(selectPensionStrip({ blocks: [{ ...block, returnState: 'suspicious' }], taxYear: 2026 })).toEqual([]);
+    expect(selectPensionStrip({ blocks: [{ ...block, returnState: 'no-contributions', return: null }], taxYear: 2026 })).toEqual([]);
+    expect(selectPensionStrip({ blocks: [], taxYear: 2026 })).toEqual([]);
+  });
+
+  it('should say why a cause has nothing behind it, never a zero', () => {
+    const [, employer] = selectPensionStrip({ blocks: [withTax({ employerInYear: 0 })], taxYear: 2026 });
+    expect(employer.value).toBeNull();
+    expect(employer.reason).toBe('nessun versamento');
+    expect(selectPensionStrip({ blocks: [withTax({ ral: null, taxSaving: null })], taxYear: 2026 })[2].reason).toBe('senza RAL');
+    expect(selectPensionStrip({ blocks: [withTax({ taxSaving: 0 })], taxYear: 2026 })[2].reason).toBe('nessun versamento');
+    const unassigned = selectPensionStrip({ blocks: [{ ...measured(), kind: 'unassigned', name: null, tax: null }], taxYear: 2026 });
+    expect(unassigned.map((figure) => figure.reason)).toEqual([undefined, 'fondo non assegnato', 'fondo non assegnato']);
+    expect(validateStrip(unassigned, KNOWN)).toEqual([]);
+  });
+
+  it('should follow the axis year on the two annual cells and keep the market cell off it', () => {
+    const strip = selectPensionStrip({ blocks: summarizePensionMembers({ ...INPUT, taxYear: 2025 }), taxYear: 2025 });
+    expect(strip[0].label).toBe('Mercato da nov 2025');
+    expect(strip[1].label).toBe('Datore nel 2025');
+    expect(strip[1].reason).toBe('nessun versamento');
   });
 });

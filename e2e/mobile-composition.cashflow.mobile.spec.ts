@@ -383,7 +383,7 @@ test.describe('Cashflow › Budget, composed for a phone, with a ceiling of 1000
 
     // The tab click writes `?tab=budget` through `router.replace`, AFTER the panel shows: a reload
     // before the URL caught up landed on Tracciamento and read as a timeout on the Budget verdict
-    // (2026-10-12, twice in the full suite on the Windows laptop, green alone).
+    // (2026-10-12, twice in the full suite on the Windows machine, green alone).
     await expect(page).toHaveURL(/tab=budget/);
     await page.reload({ waitUntil: 'load' });
     await expect(page.getByRole('region', { name: 'Verdetto sul budget' })).toBeVisible({ timeout: 45_000 });

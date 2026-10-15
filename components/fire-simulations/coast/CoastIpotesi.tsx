@@ -11,9 +11,10 @@
  * Pensioni + Scaglioni 7), not two rows of a 12-column grid: paired by rows, Pensioni stretched
  * 127 px beside Profilo and Modello 251 px beside Scaglioni, measured (2026-09-23; AGENTS.md →
  * Hierarchy: a tile shares a row only with tiles of its own height). Below `desktop:` the
- * wrappers are `contents` and `order-*` restores the reading order — Profilo, Pensioni,
- * Scaglioni, Modello — while the DOM keeps Tab on the controls in that same order (Modello has
- * none). Every control is 44 px on touch (`h-11 desktop:h-9`), the app's dense-list idiom.
+ * wrappers are `contents` and the tiles read in the DOM's order — Profilo, Modello, Pensioni,
+ * Scaglioni — the same order Tab walks them (ONE sequence, no `order-*`: doc/mobile/README.md
+ * § 9, decisions 1 and 11; the `order-*` that put Pensioni second went on 2026-10-15). Every
+ * control is 44 px on touch (`h-11 desktop:h-9`), the app's dense-list idiom.
  *
  * Config-first: the disclosure opens by itself only while no age is saved, or when an unsaved
  * edit or an incomplete pension appears — the tab owns that state (`open`/`onOpenChange`) because
@@ -135,7 +136,7 @@ export function CoastIpotesi({
           {/* Left column from desktop: Profilo over Modello. Below it, the wrapper dissolves. */}
           <div className="contents desktop:col-span-5 desktop:flex desktop:flex-col desktop:gap-3">
           {/* Profilo */}
-          <div className={cn(TILE_CELL_CLASS, 'order-1 desktop:order-none')}>
+          <div className={TILE_CELL_CLASS}>
             <Tile eyebrow="Profilo" aside="salvato nel profilo" reading={describeProfilo(draft.hasUnsavedChanges)} ariaLabel="Profilo Coast FIRE">
               <div className="mt-3.5 grid grid-cols-2 gap-4">
                 <div>
@@ -247,7 +248,7 @@ export function CoastIpotesi({
           </div>
 
           {/* Modello della pensione */}
-          <div className={cn(TILE_CELL_CLASS, 'order-4 desktop:order-none')}>
+          <div className={TILE_CELL_CLASS}>
             <Tile eyebrow="Modello della pensione" reading={PENSION_MODEL_READING} ariaLabel="Modello della pensione">
               <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 text-[13px] leading-[1.5] text-muted-foreground">
                 <p>
@@ -270,7 +271,7 @@ export function CoastIpotesi({
           {/* Right column from desktop: Pensioni over Scaglioni. */}
           <div className="contents desktop:col-span-7 desktop:flex desktop:flex-col desktop:gap-3">
           {/* Pensioni statali */}
-          <div className={cn(TILE_CELL_CLASS, 'order-2 desktop:order-none')}>
+          <div className={TILE_CELL_CLASS}>
             <Tile eyebrow="Pensioni statali" aside="lordo mensile nominale alla decorrenza" reading={describePensioniStatali(draft.pensions.length, incompleteCount)} ariaLabel="Pensioni statali">
                             {draft.pensionIssues.length > 0 && (
                 <div className="mt-2 flex flex-col gap-0.5" role="status" aria-live="polite">
@@ -385,7 +386,7 @@ export function CoastIpotesi({
           </div>
 
           {/* Scaglioni IRPEF */}
-          <div className={cn(TILE_CELL_CLASS, 'order-3 desktop:order-none')}>
+          <div className={TILE_CELL_CLASS}>
             <Tile eyebrow="Scaglioni IRPEF" aside="sul lordo annuo reale" reading={describeScaglioni(draft.taxBrackets.length)} ariaLabel="Scaglioni IRPEF">
               <div className="mt-2.5 flex flex-col divide-y divide-border">
                 {draft.taxBrackets.map((bracket, index) => {

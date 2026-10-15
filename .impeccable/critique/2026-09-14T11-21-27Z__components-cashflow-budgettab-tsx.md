@@ -79,7 +79,7 @@ Il primo secondo è esatto: «Il budget di settembre tiene.», punto verde, «29
 
 ## Segnali di allarme per persona
 
-**Alex (power user)**: digita il tetto in fondo alla pagina e lo stato «Salvato / non salvato» compare a metà (`BudgetTab.tsx:276` vs `:300-311`); 31 voci nel select senza ricerca e due «Casa» identiche; il tetto è `parseFloat(v) || 0` (`BudgetImpostazioni.tsx:99-102`), «3.000» diventa 3 e viene salvato in 800 ms; nessun undo su un budget eliminato.
+**Alex (power user)**: digita il tetto in fondo alla pagina e lo stato «Salvato / non salvato» compare a metà (`BudgetTab.tsx:276` vs `:300-311`); 31 voci nel select senza ricerca e due «Casa» identiche; il tetto è `parseFloat(v) || 0` (`BudgetImpostazioni.tsx:99-102`), «x.xxx» diventa 3 e viene salvato in 800 ms; nessun undo su un budget eliminato.
 
 **Sam (screen reader / tastiera)**: il rifiuto del dialog non è in nessuna regione live e il submit è morto; il delete armato non è annunciato e il secondo Invio elimina; 11 progressbar con `aria-valuenow` clampato; le righe mobili sono `<button>` che contengono `<div role="progressbar">` (`PerCategoriaTile.tsx:193-231`), HTML non valido; il drawer a 390 non prende il fuoco; i bottoni demo con la spiegazione nell'`aria-label` non sono focalizzabili (`BudgetTab.tsx:210, 289`). Positivo: ogni tessera è una `<section aria-label>`, l'SVG ha la lettura completa, la tabella ha `caption` e `scope`, tutte le 18 fermate hanno l'anello di fuoco.
 

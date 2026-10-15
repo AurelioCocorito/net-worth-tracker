@@ -15,7 +15,7 @@ import type { DerivedAllocationRow } from '@/lib/utils/goalsSummary';
 import { ASSET_CLASS_CHART_INDEX } from '@/lib/utils/allocationUtils';
 import { formatPercentage } from '@/lib/services/chartService';
 import { useChartColors } from '@/lib/hooks/useChartColors';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { CompositionBar } from '@/components/ui/composition-bar';
 
@@ -24,6 +24,9 @@ interface AllocazioneDerivataTileProps {
   aside: string;
   rows: DerivedAllocationRow[];
   footer: Narrative;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -32,7 +35,7 @@ function pct(value: number): string {
   return formatPercentage(rounded, Number.isInteger(rounded) ? 0 : 1);
 }
 
-export function AllocazioneDerivataTile({ reading, aside, rows, footer, className }: AllocazioneDerivataTileProps) {
+export function AllocazioneDerivataTile({ reading, aside, rows, footer, collapse, asideWhenClosed, className }: AllocazioneDerivataTileProps) {
   const chartColors = useChartColors();
   const colorOf = (assetClass: string) => chartColors[ASSET_CLASS_CHART_INDEX[assetClass] ?? 0];
 
@@ -40,7 +43,7 @@ export function AllocazioneDerivataTile({ reading, aside, rows, footer, classNam
   const assigned = rows.filter((r) => r.assignedPct > 0).map((r) => ({ key: r.assetClass, label: r.label, pct: r.assignedPct, color: colorOf(r.assetClass) }));
 
   return (
-    <Tile eyebrow="Allocazione derivata" aside={aside} reading={reading} ariaLabel="Allocazione derivata" className={className}>
+    <Tile eyebrow="Allocazione derivata" aside={aside} asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Allocazione derivata" className={className} collapse={collapse}>
       <div className="mt-3.5 flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <p className={TILE_SUB_EYEBROW_CLASS}>Derivata dagli obiettivi</p>

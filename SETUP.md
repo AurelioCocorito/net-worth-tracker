@@ -448,7 +448,7 @@ node .next/standalone/server.js
 ```
 
 **`server.js` is not always at the top of `standalone/`.** Next copies the project's path below the tracing root it
-infers: on the Windows laptop the build lands in `.next/standalone/Documents/GitHub/net-worth-tracker/` (2026-09-28),
+infers: on a Windows checkout the build lands in `.next/standalone/Documents/GitHub/net-worth-tracker/` (2026-09-28),
 and the two copies go next to THAT `server.js` (`<dir>/.next/static`, `<dir>/public`). Search for it, never hard-code it.
 
 **Against the emulators, on its own port: `npm run perf:build` + `npm run perf:serve`**. The first builds into

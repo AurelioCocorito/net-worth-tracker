@@ -66,8 +66,9 @@ stati verificati nell'analizzatore: il dubbio sul tree-shaking di `radix-ui` res
 
 | Data | Route | Da → a (KB gz) | PR | Perché |
 |---|---|---|---|---|
-| 2026-10-14 | Patrimonio · Cashflow | Patrimonio 699 → 702 · Cashflow 763 → 764 | MOB-06 | **La composizione mobile di Patrimonio** (doc/guide/patrimonio.md § Composizione mobile): la route carica ora le primitive di MOB-02 — `VerdictStrip`, `PageRest`, `useMobileSections`, `TileRowShell` su Radix `Collapsible` — come la Panoramica il 2026-10-11. Misura sullo stesso portatile, stessa sessione, `perf:build` prima/dopo: Patrimonio 696,1 → 701,4 (33 → 34 chunk iniziali, condivisi fermi a 265); Analisi 640,5 → 645,2 e Storico 764,7 → 768,6, composte nella stessa spec, restano sotto i loro tetti (648, 772); Hall of Fame 612,8 → 612,9. **Cashflow** sfora senza codice suo: con sei route che caricano le primitive Turbopack le sposta in un chunk comune, che anche Cashflow carica — 761,6 → 763,1, 37 → 38 chunk iniziali (0,1 KB è la prop nuova di `CashflowKpiTrio`). I tetti sono 702 e 764, non la misura +2%: scelte del proprietario in sessione (doc/mobile/README.md § 9, 85) |
-| 2026-10-11 | Panoramica · / | Panoramica 608 → 623 · / 511 → 521 | MOB-03 | **La composizione mobile della Panoramica** (doc/guide/panoramica.md § Composizione mobile): la pagina carica ora le primitive di MOB-02 — `VerdictStrip`, `PageRest`, `useMobileSections`, `TileRowShell` su Radix `Collapsible` — e il nuovo `lib/utils/overviewSummary.ts`. Misura sullo stesso portatile, stessa sessione, `perf:build` prima/dopo: Panoramica 603,3 → 610,7 (29 → 30 chunk iniziali, condivisi fermi a 265); la landing, che rende le stesse tessere (`CashflowTile` con la didascalia del calendario e `NarrativeText`, `PatrimonioTile` con i blocchi sollevabili), 509,5 → 511,2; Patrimonio 693,8 → 695,1 e Hall of Fame 611,7 → 612 restano sotto i loro tetti. I due tetti sono la misura +2% come per #432 e #436; OK del proprietario in sessione |
+| 2026-10-15 | Patrimonio | 702 → 703 | MOB-07 | **La composizione mobile di Allocazione, Previdenza e FIRE** (le guide § Composizione mobile): Patrimonio non importa nulla della spec, ma con le primitive di MOB-02 su nove route Turbopack riequilibra i chunk comuni — stessa macchina, stessa sessione, `perf:build` prima/dopo: Patrimonio 701,4 → 702,8 (35 chunk iniziali, condivisi fermi a 265), Analisi 645,2 → 646,6 e Storico 768,6 → 769,2 sotto i loro tetti; le tre route della spec Allocazione 586,3 → 590,7, Previdenza 654,9 → 659,5, FIRE 728,4 → 734,1 (le primitive, i selettori, `FireLockScope`) sotto i loro. Il tetto è 703 per scelta del proprietario in sessione (doc/mobile/README.md § 9, 92) |
+| 2026-10-14 | Patrimonio · Cashflow | Patrimonio 699 → 702 · Cashflow 763 → 764 | MOB-06 | **La composizione mobile di Patrimonio** (doc/guide/patrimonio.md § Composizione mobile): la route carica ora le primitive di MOB-02 — `VerdictStrip`, `PageRest`, `useMobileSections`, `TileRowShell` su Radix `Collapsible` — come la Panoramica il 2026-10-11. Misura sulla stessa macchina, stessa sessione, `perf:build` prima/dopo: Patrimonio 696,1 → 701,4 (33 → 34 chunk iniziali, condivisi fermi a 265); Analisi 640,5 → 645,2 e Storico 764,7 → 768,6, composte nella stessa spec, restano sotto i loro tetti (648, 772); Hall of Fame 612,8 → 612,9. **Cashflow** sfora senza codice suo: con sei route che caricano le primitive Turbopack le sposta in un chunk comune, che anche Cashflow carica — 761,6 → 763,1, 37 → 38 chunk iniziali (0,1 KB è la prop nuova di `CashflowKpiTrio`). I tetti sono 702 e 764, non la misura +2%: scelte del proprietario in sessione (doc/mobile/README.md § 9, 85) |
+| 2026-10-11 | Panoramica · / | Panoramica 608 → 623 · / 511 → 521 | MOB-03 | **La composizione mobile della Panoramica** (doc/guide/panoramica.md § Composizione mobile): la pagina carica ora le primitive di MOB-02 — `VerdictStrip`, `PageRest`, `useMobileSections`, `TileRowShell` su Radix `Collapsible` — e il nuovo `lib/utils/overviewSummary.ts`. Misura sulla stessa macchina, stessa sessione, `perf:build` prima/dopo: Panoramica 603,3 → 610,7 (29 → 30 chunk iniziali, condivisi fermi a 265); la landing, che rende le stesse tessere (`CashflowTile` con la didascalia del calendario e `NarrativeText`, `PatrimonioTile` con i blocchi sollevabili), 509,5 → 511,2; Patrimonio 693,8 → 695,1 e Hall of Fame 611,7 → 612 restano sotto i loro tetti. I due tetti sono la misura +2% come per #432 e #436; OK del proprietario in sessione |
 | 2026-10-08 | (condivisi) e quattordici route (tutte tranne Assistente) | condivisi 483 → 534 · / 469 → 511 · Panoramica 569 → 608 · Allocazione 553 → 593 · Analisi 611 → 648 · Patrimonio 669 → 699 · Cashflow 732 → 763 · FIRE 698 → 736 · Hall of Fame 574 → 615 · Storico 735 → 772 · Previdenza 631 → 661 · Rendimenti 612 → 651 · Impostazioni 670 → 701 · login 424 → 474 · register 424 → 475 | #436 | **Una dipendenza, non una funzione**: `firebase` 12.13 → 12.19 (`@firebase/firestore` 4.14.1 → 4.17.2, +5% unpacked; auth e app invariati) porta +57 KB gz nel chunk vendor che ogni pagina carica (135,6 → 192,2), e `next` 16.2.12 → 16.4.0 ne toglie 16 (→ 190,7). Misurato a parità dell'altra: condivisi 482,8 → 539,5 con Next 16.2 + firebase 12.19, → 523,5 con Next 16.4. **Non si può restare a 12.13**: `firebase-admin` 14 vuole `@firebase/app` 0.16.2, che solo firebase ≥ 12.19 porta — con ogni versione inferiore `npm ls @firebase/app` ne mostra due e la build muore su «Component auth has not been registered yet» (provato su 12.13, 12.16, 12.18). Il tetto è la misura +2%; l'Assistente resta sotto il suo (680,8 su 700) |
 | 2026-10-05 | dodici route (tutte tranne Cashflow, login e register) | / 458 → 469 · Panoramica 546 → 569 · Allocazione 527 → 553 · Analisi 576 → 611 · Patrimonio 733 → 780 · Assistente 670 → 700 · FIRE 667 → 698 · Hall of Fame 545 → 574 · Storico 698 → 735 · Previdenza 601 → 631 · Rendimenti 578 → 612 · Impostazioni 625 → 670 | #432 | Il React Compiler acceso: ogni componente porta la sua memo cache, +20–26% gz sul codice dei componenti (stimato file per file e confermato dalla build). Misura senza / con il compiler, stessa sessione, Mac: condivisi 475,5 → 482,8 (dentro il tetto) · / 452,4 → 459,4 · Panoramica 538,3 → 557,0 · Allocazione 520,5 → 542,0 · Analisi 565,6 → 598,2 · Patrimonio 731,7 → 764,7 · Assistente 660,7 → 686,1 · FIRE 655,3 → 683,7 · Hall of Fame 541,3 → 562,5 · Storico 684,9 → 720,0 · Previdenza 593,5 → 618,0 · Rendimenti 569,4 → 599,5 · Impostazioni 624,3 → 656,7. **Cashflow SCENDE** 736,2 → 717,3 (tetto 744 → 732): con il compiler cresceva a 832,5 e il primo numero a freddo da 616 a 730 ms, quindi le quattro tab non di default sono diventate `lazyComponent` nella stessa spec. I tempi non regrediscono: A/B ravvicinato, 7 run, Cashflow 593 / 593 ms, long task 0 / 0; Analisi (controllo) 920 / 951 |
 | 2026-09-30 | (condivisi) | 470 → 483 | #418 | Il condiviso non sale perché una route è cresciuta: `date-fns`, `date-fns-tz`, `lib/utils/dateHelpers.ts` e `lib/utils/formatters.ts` (54 moduli, ~14 KB) che ogni pagina carica stavano in chunk PER PAGINA, una copia a pagina, e ora stanno nei chunk condivisi (analizzatore Turbopack, prima/dopo: l'insieme dei moduli che ogni pagina carica è lo stesso). Misura 464,6 → 473,5. Patrimonio cresce a parte (+7,4, dentro il suo tetto): recharts è ora UN chunk con i moduli di tutti i grafici |
@@ -92,7 +93,7 @@ leggendo, e da Git Bash i due comandi ricevono le opzioni. `--email=`
 `/dashboard/`, o il nome della pagina), `--warm-only`, `--cold-only`, `--mobile` (390×844 e CPU 4×), `--cpu=N`,
 `--revisit` (il secondo caricamento della route dopo una prima visita: la cache persistita, § Revisit). La porta è :3200 perché :3000 è
 il server del giro e :3100 quello di Playwright. `perf:serve` cerca `server.js` sotto `.next-perf/standalone/`, perché
-Next ci ricopia il percorso del progetto: sul laptop Windows sta in `Documents/GitHub/net-worth-tracker/`. Un `perf:serve`
+Next ci ricopia il percorso del progetto: su un checkout Windows sta in `Documents/GitHub/net-worth-tracker/`. Un `perf:serve`
 rimasto vivo tiene quella cartella e fa fallire il `perf:build` successivo con `EBUSY: rmdir …/standalone` (2026-10-12):
 prima della build si ferma per PID (`Get-CimInstance Win32_Process … -match 'perfServe'`), e un `curl 127.0.0.1:3200`
 che risponde 000 non prova che sia morto — ascolta su `localhost` (IPv6).
@@ -122,7 +123,7 @@ euro, nessuno skeleton, sulla pagina NUOVA: nulla conta finché il titolo della 
   tempo della route `/api/portfolio/instrument-profiles`, non come chiamata esterna.
 - I TEMPI si confrontano solo sulla stessa macchina, nella stessa sessione (rumore ±10%); i CONTEGGI ovunque.
 
-## Baseline in vigore (cold 2026-09-28 · warm 2026-09-29, laptop Windows, mirror, nessun throttling)
+## Baseline in vigore (cold 2026-09-28 · warm 2026-09-29, macchina Windows, mirror, nessun throttling)
 
 Build di `develop` con #400, #401, #403 e la nuova Esposizione (#407). Mirror: 1539 spese, 45 snapshot, 31 operazioni.
 
@@ -144,7 +145,7 @@ Build di `develop` con #400, #401, #403 e la nuova Esposizione (#407). Mirror: 1
 
 Auth risolto fra 92 e 227 ms su ogni pagina.
 
-**2026-09-28, la shell prima dell'auth (PR #411), due route rimisurate prima/dopo nella stessa sessione, laptop Windows,
+**2026-09-28, la shell prima dell'auth (PR #411), due route rimisurate prima/dopo nella stessa sessione, macchina Windows,
 mirror.** Cold, mediane di 3 — Panoramica: auth 102 → 135, primo numero 149 → 178 (run 1: 792 → 570), LCP 580 → 628;
 Cashflow: auth 159 → 171, primo numero 1895 → 1775, LCP 1956 → 1820, long task 234 → 176; CLS 0 in entrambe, Firestore e
 API invariati. Quello che il marcatore non dice: lo skeleton della shell è nel DOM a 23–31 ms (dall'HTML, prima di ogni
@@ -168,7 +169,7 @@ tetto alzato (`/dashboard` 535,0 → 535,7 gz KB, condivisi 459,9 → 461,4).
 | Previdenza | 0/3 | 76 | 0 | 0 | 0 |
 | Impostazioni | 3/3 | 307 | 0 | 0 | 0 |
 
-**2026-09-29, un solo binario per i dati (PR #413), warm rimisurato prima/dopo nella stessa sessione, laptop Windows,
+**2026-09-29, un solo binario per i dati (PR #413), warm rimisurato prima/dopo nella stessa sessione, macchina Windows,
 mirror.** Prima (la stessa build del 2026-09-28 rimisurata quel giorno): Patrimonio 108 · Cashflow 1478 · Analisi 177 ·
 Rendimenti 588 (13 Firestore) · Storico 1165 (6) · Hall of Fame 108 · Allocazione 209 (4) · FIRE 1556 (6) · Previdenza 112
 · Impostazioni 337 (6). Dopo, la tabella sopra: Storico e FIRE aprono dalla cache senza skeleton (0 letture), Patrimonio,
@@ -177,7 +178,7 @@ sono PERF-09). Il **cold** NON è stato rimisurato: la tabella cold sopra è que
 ora l'intera collezione delle spese (una volta per sessione) invece di due range — doc/guide/fire.md.
 
 **2026-09-30, le spese per finestra (PERF-06, branch `feat/perf-06-spese-per-finestra`), prima/dopo nella stessa
-sessione, laptop Windows, mirror (1547 spese: 838 nei 13 mesi di Tracciamento, 675 nel 2026 di Budget, 1299 + 48 nelle
+sessione, macchina Windows, mirror (1547 spese: 838 nei 13 mesi di Tracciamento, 675 nel 2026 di Budget, 1299 + 48 nelle
 due finestre di FIRE; Analisi resta sull'intera collezione per decisione del proprietario).** Cold, mediane di 5, primo
 numero · LCP · long task · Firestore: Cashflow 1898 → **1072** · 1936 → 1132 · 210 → 217 · 3 → 4 (la finestra più i due
 documenti dei bordi); FIRE 1737 → **1291** · 1748 → 1304 · 283 → 153 · 3 → 6 (la finestra recente, poi la vecchia
@@ -193,7 +194,7 @@ chi gira molte pagine. Nessuna route cresce oltre il tetto (Cashflow 735,4 → 7
 → 565,1).
 
 **2026-10-04, Rendimenti legge ogni collezione una volta (PERF-09, branch `perf/09-rendimenti-una-lettura`),
-prima/dopo nella stessa sessione, sul MAC del proprietario (i tempi non si confrontano con le tabelle sopra, del laptop
+prima/dopo nella stessa sessione, sulla seconda macchina (i tempi non si confrontano con le tabelle sopra, della macchina
 Windows; i conteggi sì), mirror (46 snapshot, 25 asset, 7 dividendi).** Solo `--routes=performance`. Cold, mediane di
 5: primo numero 511 → 311 ms, LCP 524 → 328, Firestore 10 → 5, API 17 → 8. Warm, mediane di 5: 424 → 241 ms, Firestore
 15 → 8, API 17 → 8, lo skeleton resta (5/5: una prima apertura in sessione legge comunque la cache delle metriche).
@@ -222,7 +223,7 @@ dell'assistente non rilegge memoria e impostazioni quando la pagina le manda la 
 serie prima del builder; tenuto da `__tests__/assistantRoutes.test.ts`).
 
 **2026-10-07, Patrimonio a righe leggere (PR #434, branch `perf/11-patrimonio-righe-leggere`), prima/dopo nella
-stessa sessione, laptop Windows, mirror (25 asset, 18 strumenti), mediane di 5.** Solo Patrimonio. Cold a 1440: primo
+stessa sessione, macchina Windows, mirror (25 asset, 18 strumenti), mediane di 5.** Solo Patrimonio. Cold a 1440: primo
 numero 521 → 443 ms, LCP 956 → 852, long task 73 → 54. Cold a 390 con CPU 4× (`--mobile`): primo numero 2001 → 1466 ms,
 LCP 2508 → 1712, long task 1327 → 754. Grafici montati a 390: 15 → 0 (1 dopo l'apertura di una riga); righe di
 Strumenti nel DOM 36 → 18 a ogni larghezza. Bundle: Patrimonio 764,7 → 655,8 gz KB, recharts fuori dal suo grafo
@@ -251,7 +252,7 @@ payload arrivano i chunk client di quella route — a freddo, la finestra di una
 `import()` (il PDF, il Sankey sul telefono, le icone, le tab di FIRE) non viene prefetchato; uno nel grafo iniziale di
 un'altra route sì. La colonna JS del benchmark lo include: è una traccia, non il budget.
 
-## Baseline storica (2026-09-26, laptop Windows, mirror, nessun throttling CPU)
+## Baseline storica (2026-09-26, macchina Windows, mirror, nessun throttling CPU)
 
 La misura usa-e-getta da cui sono partite le quattordici spec PERF (dossier `doc/perf/`, 2026-09-26 → 2026-10-08), presa su
 `develop` PRIMA dei contributi del 2026-09-27 (#400, #401, #403) e della nuova Esposizione (PERF-00, #407), con uno script
@@ -378,13 +379,13 @@ di React, non del DOM. Il benchmark completo prima/dopo di quella sessione (`per
 restano gli A/B ravvicinati di Cashflow (593 / 593 ms) e di Analisi (920 / 951) in § Registro, e la baseline in vigore
 resta quella sopra.
 
-**Prima/dopo delle righe leggere di Patrimonio** (PR #434, 2026-10-07, laptop Windows, mirror, mediane di 5, build `--profile`): **asset 562 → 0**
+**Prima/dopo delle righe leggere di Patrimonio** (PR #434, 2026-10-07, macchina Windows, mirror, mediane di 5, build `--profile`): **asset 562 → 0**
 componenti per tasto, commit 2 → 0 (render 1,8 ms → nessuno; script sulla finestra 93 → 7 ms); expense 1 → 1. Il
 compiler compilava `AssetDialog` ma lasciava il form del passo 2 fuori da ogni scope di memo, quindi un `useWatch` alla
 radice ri-renderizzava tutto: i campi digitati sono letti da foglie che li osservano (doc/guide/patrimonio.md § Two-Step).
 Per leggere i NOMI dei componenti al posto di `?`: `npm run perf:build -- --profile --no-mangling` (stessi conteggi).
 
-**Prima/dopo dei colori letti una volta e del motion senza misure** (PR #441, 2026-10-08, laptop Windows, mirror
+**Prima/dopo dei colori letti una volta e del motion senza misure** (PR #441, 2026-10-08, macchina Windows, mirror
 riseminato quel giorno, mediane di 5, build `--profile --no-mangling`): **mount Storico** commit 67 → 62, componenti
 11357 → 10859, render 416,9 → 352,0 ms, script 1024 → 854 ms, Layout 173 → 168; **mount FIRE** 3344 → 3203 componenti,
 render 123,4 → 96,8 ms, script 635 → 477 ms; **mount Panoramica** 1088 → 1046 (−13 `motion.div`, −6 `MeasureLayout`: il
@@ -395,7 +396,7 @@ sottoalbero `display:none` non forza layout, il guadagno è lavoro di React e Fr
 (quattro giri alternati prima/dopo) NON separa i due: anche `auth`, che il cambio non tocca, oscillava 136–201 ms; CLS 0
 ovunque, long task dentro il rumore.
 
-**Prima/dopo di Impostazioni per tab** (PR #439, 2026-10-08, laptop Windows, mirror riseminato quel giorno, mediane di 5,
+**Prima/dopo di Impostazioni per tab** (PR #439, 2026-10-08, macchina Windows, mirror riseminato quel giorno, mediane di 5,
 build `--profile`): **settings 286,1 → 32,1** componenti per tasto (commit 2 → 1, render 2,88 → 0,64 ms, script sulla
 finestra 85 → 31 ms — −64%, sotto il −70% che la spec chiedeva: lo script della finestra porta anche Radix e il DOM, non solo
 React —, task 185 → 97); **allocation 405,1 → 112,1** (render 2,43 → 1,33 ms, script 74 → 45 ms). Il 318 di
@@ -418,7 +419,7 @@ mount, è vuoto — una rivisita presa a `data` non ripristinava nulla e misurav
 run dura di più. Lo «skeleton della pagina» non è una colonna della tabella: si legge in `last-run.json` da
 `marks.skeletonGone − marks.auth` (0 = dopo l'attesa dell'auth nessun altro skeleton, la pagina è nata con le cifre).
 
-**Prima/dopo nella stessa sessione** (laptop Windows, mirror, 3 run, mediane, ms dal `navigationStart` al primo numero;
+**Prima/dopo nella stessa sessione** (macchina Windows, mirror, 3 run, mediane, ms dal `navigationStart` al primo numero;
 «prima» = la stessa build con il persister spento, «dopo» = con il persister; fra parentesi le richieste Firestore):
 
 | Pagina | prima | dopo | skeleton della pagina prima → dopo |

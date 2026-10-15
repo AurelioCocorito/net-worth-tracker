@@ -14,7 +14,7 @@
 import type { Narrative } from '@/lib/utils/narrative';
 import type { DeltaRow } from '@/lib/utils/whatIfNarrative';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface DeltaTileProps {
@@ -25,6 +25,9 @@ interface DeltaTileProps {
   coastRetirementAge: number | null;
   /** `describeDeltaFooter(hasCoast)`. */
   footer: Narrative;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -65,9 +68,9 @@ function RowList({ rows, ariaLabel }: { rows: DeltaRow[]; ariaLabel: string }) {
   );
 }
 
-export function DeltaTile({ reading, rows, coastRetirementAge, footer, className }: DeltaTileProps) {
+export function DeltaTile({ reading, rows, coastRetirementAge, footer, collapse, asideWhenClosed, className }: DeltaTileProps) {
   return (
-    <Tile eyebrow="Delta" aside="prima → dopo" reading={reading} ariaLabel="Delta dell'evento" className={className}>
+    <Tile eyebrow="Delta" aside="prima → dopo" asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Delta dell'evento" className={className} collapse={collapse}>
       <p className={cn(TILE_SUB_EYEBROW_CLASS, 'mt-3.5')}>FIRE</p>
       <RowList rows={rows.fire} ariaLabel="Prima e dopo per il FIRE" />
 

@@ -12,7 +12,13 @@
  *
  *   Desktop (12 col): Traguardo(5, 2 rows) | Afflussi(7)
  *                                          | Scenari(7)
- *   Mobile (1 col):   Traguardo → Afflussi → Scenari
+ *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11,
+ *                     since 2026-10-15): the verdict's title → the first sentence (the gap and the
+ *                     walk) → the strip of two figures («Ti mancano» or «Margine», «Nell'orso») →
+ *                     the lock as the scope line (decision 44) → «Il perché» (the pace, the lock
+ *                     sentence) → Traguardo open, its plot at 120px → «Il resto della pagina» →
+ *                     Afflussi, Scenari as closed rows (`useMobileSections` with `tab: 'coast'`,
+ *                     doc/guide/fire-coast.md § Composizione mobile) → Ipotesi → Dettaglio.
  *
  * Below the grid, two disclosures: «Ipotesi» (the form — ages, expenses, state pensions, IRPEF
  * brackets — config-first: open only while no age is saved, reopening on an unsaved edit or an
@@ -53,12 +59,17 @@ import { calculateAssetValue, calculateFIRENetWorth, calculateLiquidFIRENetWorth
 import { resolvePortfolioTaxProfile } from '@/lib/utils/withdrawalTax';
 import { resolvePensionLockState, resolveRitaUnlockAge } from '@/lib/utils/pensionUnlock';
 import { summarizeLock } from '@/lib/utils/fireSummary';
+import { describeFireLockScope } from '@/lib/utils/fireNarrative';
 import { getItalyYear } from '@/lib/utils/dateHelpers';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   buildBaseScenarioInterpretation,
   buildCoastCoverageSteps,
   buildCoastInflowEvents,
   buildCoastVerdict,
+  COAST_CLOSED_ASIDES,
+  COAST_SECTION_IDS,
   COAST_INFLOWS_FOOTER,
   COAST_INFLOWS_METHOD,
   COAST_SCENARIOS_FOOTER,
@@ -79,6 +90,7 @@ import {
   resolveCoastEmptyKind,
   resolveCoastIncompleteReason,
   resolveCoastPace,
+  selectCoastStrip,
   sortPensionBreakdown,
   summarizeCoastPensions,
   summarizeCoastScenarios,
@@ -87,8 +99,12 @@ import {
 import { COAST_TAB_SKELETON_CELLS } from './tabSkeletons';
 import { cn } from '@/lib/utils';
 import { PageVerdict } from '@/components/ui/page-verdict';
-import { Tile, TILE_CELL_CLASS } from '@/components/ui/tile';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
+import { Tile, TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { EmptyState } from '@/components/ui/empty-state';
+import { FireLockScope } from './FireLockScope';
+import { FIRE_ROW_NOT_COMPUTABLE } from '@/lib/utils/fireNarrative';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
@@ -102,12 +118,18 @@ import { CoastFireProjectionChart } from './CoastFireProjectionChart';
 /** The grid's geometry, for the skeleton: the same spans as the tiles below — shared with the page's lazy-tab wait. */
 const SKELETON_CELLS = COAST_TAB_SKELETON_CELLS;
 
-/** The three cells of the grid: one class per tile, shared by the data and the empty branches. */
+/** The three cells of the grid: one class per tile, shared by the data and the empty branches. ONE sequence, no `order-*` (decision 11). */
 const GRID_CLASS = 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12';
-/* Tablet (768-1439): every tile full width, in the phone's order. */
-const TRAGUARDO_CELL = cn(TILE_CELL_CLASS, 'order-1 tablet:col-span-2 desktop:order-none desktop:col-span-5 desktop:row-span-2');
-const AFFLUSSI_CELL = cn(TILE_CELL_CLASS, 'order-2 tablet:col-span-2 desktop:order-none desktop:col-span-7');
-const SCENARI_CELL = cn(TILE_CELL_CLASS, 'order-3 tablet:col-span-2 desktop:order-none desktop:col-span-7');
+/* Tablet (768-1439): every tile full width, in the DOM's order. */
+const TRAGUARDO_CELL = cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2');
+const AFFLUSSI_CELL = cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7');
+const SCENARI_CELL = cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7');
+
+/** The rows below `desktop:`, in the DOM's order: every tile but Traguardo, THE tile (decision 21). No row carries `failed`. */
+const COAST_SECTIONS: readonly SectionSpec[] = [
+  { id: COAST_SECTION_IDS.afflussi, eyebrow: 'Afflussi' },
+  { id: COAST_SECTION_IDS.scenari, eyebrow: 'Scenari' },
+];
 
 /** The one action of the empty state: a link (or a button) the size of a touch target, in the tile's own ink. */
 const EMPTY_ACTION_CLASS =
@@ -248,6 +270,14 @@ export function CoastFireTab() {
 
   // ─── The words (pure layer) ───────────────────────────────────────────────────
   const verdict = useMemo(() => buildCoastVerdict({ target, incompleteReason, pace, lock }), [target, incompleteReason, pace, lock]);
+
+  // ─── The phone composition (2026-10-15) ──────────────────────────────────────
+  // The rows and «Il perché» from the controller (one memory per tab); the strip from the target
+  // and the scenario rows the tiles print; the lock as the scope line only below `desktop:`.
+  const sections = useMobileSections({ route: 'fire-simulations', tab: 'coast', sections: COAST_SECTIONS });
+  const { reveal: handleStripOpen } = sections;
+  const strip = target ? selectCoastStrip({ target, scenarios: scenarioRows }) : [];
+  const lockScope = sections.compact ? describeFireLockScope(lock) : null;
   const ipotesiDescription = describeIpotesi({
     currentAge,
     retirementAge,
@@ -352,10 +382,11 @@ export function CoastFireTab() {
           {emptyAction.label}
         </button>
       );
+    // The same rows as the full tab, closed and saying «non ancora calcolabile»; the Traguardo keeps the action.
     return (
       <div className="space-y-4">
         <div className="pt-1">
-          <PageVerdict verdict={verdict} ariaLabel="Verdetto sul Coast FIRE" />
+          <PageVerdict verdict={verdict} ariaLabel="Verdetto sul Coast FIRE" scope={lockScope && <FireLockScope text={lockScope} />} restCollapse={sections.collapse(VERDICT_REST_SECTION)} />
         </div>
         <div className={GRID_CLASS}>
           <div className={TRAGUARDO_CELL}>
@@ -363,13 +394,14 @@ export function CoastFireTab() {
               <EmptyState className="mt-2" message={empty.traguardo} action={action} />
             </Tile>
           </div>
+          <PageRest sections={sections} />
           <div className={AFFLUSSI_CELL}>
-            <Tile eyebrow="Afflussi" ariaLabel="Afflussi già considerati">
+            <Tile eyebrow="Afflussi" ariaLabel="Afflussi già considerati" collapse={sections.collapse(COAST_SECTION_IDS.afflussi)} asideWhenClosed={FIRE_ROW_NOT_COMPUTABLE}>
               <EmptyState className="mt-2" message={empty.afflussi} />
             </Tile>
           </div>
           <div className={SCENARI_CELL}>
-            <Tile eyebrow="Scenari" ariaLabel="Scenari Coast FIRE">
+            <Tile eyebrow="Scenari" ariaLabel="Scenari Coast FIRE" collapse={sections.collapse(COAST_SECTION_IDS.scenari)} asideWhenClosed={FIRE_ROW_NOT_COMPUTABLE}>
               <EmptyState className="mt-2" message={empty.scenari} />
             </Tile>
           </div>
@@ -384,7 +416,13 @@ export function CoastFireTab() {
   return (
     <div className="space-y-4">
       <div className="pt-1">
-        <PageVerdict verdict={verdict} ariaLabel="Verdetto sul Coast FIRE" />
+        <PageVerdict
+          verdict={verdict}
+          ariaLabel="Verdetto sul Coast FIRE"
+          strip={<VerdictStrip figures={strip} onOpen={handleStripOpen} eyebrows={sections.eyebrows} />}
+          scope={lockScope && <FireLockScope text={lockScope} />}
+          restCollapse={sections.collapse(VERDICT_REST_SECTION)}
+        />
       </div>
 
       <div className={GRID_CLASS}>
@@ -413,8 +451,12 @@ export function CoastFireTab() {
           />
         </div>
 
+        <PageRest sections={sections} />
+
         <div className={AFFLUSSI_CELL}>
           <AfflussiTile
+            collapse={sections.collapse(COAST_SECTION_IDS.afflussi)}
+            asideWhenClosed={COAST_CLOSED_ASIDES[COAST_SECTION_IDS.afflussi]}
             reading={describeCoastInflows(inflowEvents, pensions, resolvedRetirementAge)}
             events={inflowEvents}
             footer={COAST_INFLOWS_FOOTER}
@@ -423,7 +465,14 @@ export function CoastFireTab() {
         </div>
 
         <div className={SCENARI_CELL}>
-          <CoastScenariTile reading={describeCoastScenarios(scenarioRows)} rows={scenarioRows} footer={COAST_SCENARIOS_FOOTER} method={COAST_SCENARIOS_METHOD} />
+          <CoastScenariTile
+            collapse={sections.collapse(COAST_SECTION_IDS.scenari)}
+            asideWhenClosed={COAST_CLOSED_ASIDES[COAST_SECTION_IDS.scenari]}
+            reading={describeCoastScenarios(scenarioRows)}
+            rows={scenarioRows}
+            footer={COAST_SCENARIOS_FOOTER}
+            method={COAST_SCENARIOS_METHOD}
+          />
         </div>
       </div>
 

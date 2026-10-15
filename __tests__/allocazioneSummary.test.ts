@@ -28,8 +28,16 @@ import {
   summarizeHoldings,
   summarizeNextMoney,
   untargetedClassLabels,
+  ALLOCAZIONE_SECTION_IDS,
+  BILANCIAMENTO_MISALLOCATION_BLOCK,
   MIN_VISIBLE_AMOUNT,
+  selectAllocazioneStrip,
 } from '@/lib/utils/allocazioneSummary';
+import { buildAllocazioneVerdict, describeBalance } from '@/lib/utils/allocazioneNarrative';
+import { DEFAULT_REBALANCE_BAND } from '@/lib/utils/allocationUtils';
+import { formatStripFigure, liftedBlocks, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
+import { narrativeToText } from '@/lib/utils/narrative';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import type { AllocationData, Asset } from '@/types/assets';
 import type { ExposureBucket, ExposureCoverage, ExposureViewData, PortfolioExposure } from '@/types/exposure';
 import { buildHoldings, sumTradableByClass, type AllocatableHolding, type PlanNode } from '@/lib/utils/allocationUtils';
@@ -736,5 +744,63 @@ describe('buildPensionLookThrough', () => {
     expect(look!.combinedSlices[0].assetClass).toBe('realestate');
     expect(look!.hasExcluded).toBe(true);
     expect(look!.allFrozen).toBe(true);
+  });
+});
+
+// ─── selectAllocazioneStrip — the phone's two cells (2026-10-15, MOB-07) ──────
+// Seen red one at a time: the floor removed (a «0,0%» cell under 0,05); `decimals: 2` on the drift
+// cell («3,30 pp» against the verdict's «3,3 pp»); the dormant filter dropped (a 0% class as the
+// largest drift).
+
+describe('selectAllocazioneStrip', () => {
+  const plain = (text: string) => text.replace(/[  ]/g, ' ');
+  const cellText = (figure: StripFigure) => plain(narrativeToText([formatStripFigure(figure)!]));
+  const KNOWN = [...Object.values(ALLOCAZIONE_SECTION_IDS), VERDICT_REST_SECTION];
+  const gaps = summarizeClassGaps(BY_CLASS);
+  const balance = { misallocationPct: 3.47, leverageGapPp: 0, score: 96.5 };
+
+  it('should open the Piano and Per classe, lift only the KPI of Bilanciamento and pass the strip rules', () => {
+    const strip = selectAllocazioneStrip({ balance, gaps });
+    expect(strip.map((figure) => figure.label)).toEqual(['Fuori posizione', 'Azioni sopra']);
+    expect(strip.map((figure) => figure.opens)).toEqual([ALLOCAZIONE_SECTION_IDS.piano, ALLOCAZIONE_SECTION_IDS.perClasse]);
+    expect(strip.every((figure) => figure.tone === 'neutral')).toBe(true);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    expect(liftedBlocks(strip, ALLOCAZIONE_SECTION_IDS.bilanciamento)).toEqual([BILANCIAMENTO_MISALLOCATION_BLOCK]);
+    expect(liftedBlocks(strip, ALLOCAZIONE_SECTION_IDS.perClasse)).toEqual([]);
+  });
+
+  it('should print exactly what the Bilanciamento reading and the verdict print', () => {
+    const [outOfPosition, drift] = selectAllocazioneStrip({ balance, gaps });
+    const reading = plain(narrativeToText(describeBalance({ marketValue: 245000, misallocationPct: balance.misallocationPct, leverageGapPp: 0, offTargetCount: 2, classCount: 5, band: DEFAULT_REBALANCE_BAND })));
+    expect(reading).toContain(cellText(outOfPosition));
+    expect(cellText(outOfPosition)).toBe('3,5%');
+    const verdict = plain(
+      narrativeToText(
+        buildAllocazioneVerdict({ hasAssets: true, excludedValue: 0, score: 96.5, isBalanced: false, band: DEFAULT_REBALANCE_BAND, offTarget: offTargetGaps(activeClassGaps(gaps)), leverage: null, nextMoney: null, orphans: [] }).sentence,
+      ),
+    );
+    expect(verdict).toContain(`Le azioni pesano ${cellText(drift)} più del target`);
+    expect(cellText(drift)).toBe('3,4 pp');
+  });
+
+  it('should say «nulla» under the floor and «tutte in soglia» with every class in the band', () => {
+    const inBand = Object.fromEntries(Object.entries(BY_CLASS).map(([key, value]) => [key, { ...value, action: 'OK' as const }]));
+    const strip = selectAllocazioneStrip({ balance: { ...balance, misallocationPct: 0.04 }, gaps: summarizeClassGaps(inBand) });
+    expect(strip[0].value).toBeNull();
+    expect(strip[0].reason).toBe('nulla');
+    expect(liftedBlocks(strip, ALLOCAZIONE_SECTION_IDS.bilanciamento)).toEqual([]);
+    expect(strip[1].value).toBeNull();
+    expect(strip[1].reason).toBe('tutte in soglia');
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+  });
+
+  it('should name the class farthest in points, over or under, and never a dormant one', () => {
+    const bonds = gaps.find((gap) => gap.assetClass === 'bonds')!;
+    const dormant = { ...bonds, assetClass: 'realestate', label: 'Immobili', differencePp: -40, currentValue: 0, targetPercentage: 0, dormant: true, action: 'COMPRA' as const };
+    const [, drift] = selectAllocazioneStrip({ balance, gaps: [...gaps, dormant] });
+    expect(drift.label).toBe('Azioni sopra');
+    const [, under] = selectAllocazioneStrip({ balance, gaps: [{ ...bonds, differencePp: -12.4, action: 'COMPRA' }] });
+    expect(under.label).toBe('Obbligazioni sotto');
+    expect(cellText(under)).toBe('12,4 pp');
   });
 });

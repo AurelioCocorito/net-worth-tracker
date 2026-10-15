@@ -12,7 +12,7 @@ timestamp: 2026-09-13T18-13-59Z
 slug: app-dashboard-page-tsx
 closed: true
 ---
-Method: dual-agent (A: design review sub-agent · B: detector/browser sub-agent). Browser: Chrome extension not connected; live evidence via repo Playwright (headless, dark/light, 1440 · 1024 · 390) on the emulators with a MIRROR of the owner's real account (`mirror@example.com`, 22 asset, 293.185,45 €, settembre 2026 in calo) — screenshots, overflow, targets, contrast, console, detect.js overlay. Every code-level claim below was re-verified in the source by the parent before writing.
+Method: dual-agent (A: design review sub-agent · B: detector/browser sub-agent). Browser: Chrome extension not connected; live evidence via repo Playwright (headless, dark/light, 1440 · 1024 · 390) on the emulators with a MIRROR of the owner's real account (`mirror@example.com`, 22 asset, xxx.xxx,xx €, settembre 2026 in calo) — screenshots, overflow, targets, contrast, console, detect.js overlay. Every code-level claim below was re-verified in the source by the parent before writing.
 
 ## Design Health Score — Panoramica (Operate)
 
@@ -23,7 +23,7 @@ Method: dual-agent (A: design review sub-agent · B: detector/browser sub-agent)
 | 3 | User Control and Freedom | 2 | nessuna tessera, riga, categoria o strumento è cliccabile; l'unica uscita è «Tutti e 22 in Patrimonio.» a 53×15px |
 | 4 | Consistency and Standards | 3 | anatomia della tessera applicata con disciplina, ma Spese/Entrate per categoria escono SENZA riga di lettura (`CategoryTile`: «la Panoramica non ne ha»); `PeriodSelector` a `text-[10.5px]`, una misura fuori dalla scala dichiarata |
 | 5 | Error Prevention | 3 | la sovrascrittura dello snapshot nomina il mese e si disabilita a 0 asset/demo; ma il confirm è un `Dialog` grezzo (fuori dal vocabolario delle modali), «Sovrascrivi» non è armato e non dice cosa si perde |
-| 6 | Recognition Rather Than Recall | 2 | «29,2% · 1,41×» due rapporti senza etichetta; Liquidità/Liquidabili/Illiquidi tre quasi-sinonimi senza glossa; «Mercato:» non dice che è effetto prezzo e non movimenti; l'eroe è il LORDO, il netto (282.589 €, −10.596 €) sta a 22px in un'altra tessera |
+| 6 | Recognition Rather Than Recall | 2 | «29,2% · 1,41×» due rapporti senza etichetta; Liquidità/Liquidabili/Illiquidi tre quasi-sinonimi senza glossa; «Mercato:» non dice che è effetto prezzo e non movimenti; l'eroe è il LORDO, il netto (xxx.xxx €, −xx.xxx €) sta a 22px in un'altra tessera |
 | 7 | Flexibility and Efficiency | 1 | nessuno skip link: 14 tab stop di sidebar prima del primo controllo; nessun drill-down, nessuna scorciatoia; il visitatore quotidiano e il primo visitatore vedono la stessa pagina |
 | 8 | Aesthetic and Minimalist Design | 3 | bellissima in dark; ma la frase del verdetto porta 8 cifre mono in 3 righe a 1440 e **8 righe a 390**; lo stretch `mt-auto` lascia ~90px vuoti in Costi e ~150px in Entrate per categoria |
 | 9 | Error Recovery | 3 | `ErrorNotice` al posto del verdetto, conseguenza detta e retry funzionante — modello; ma la pagina legge UN payload, quindi un fallimento spegne tutte le nove tessere (non riprodotto live) |
@@ -42,7 +42,7 @@ Method: dual-agent (A: design review sub-agent · B: detector/browser sub-agent)
 
 ## Overall Impression
 
-La pagina fa la cosa difficile — dire la verità su un mese in calo senza gridare — e sbaglia la cosa facile: in quella stessa frase stampa `pension`. Il verdetto e il digest «Mercato:» sono il meglio del prodotto; tutto ciò che sta sotto è una stampa che non si può toccare. La singola opportunità più grande: la storia vera del mese (venduto VWCE, il broker ha trattenuto ~4.089 €, ecco perché settembre è giù) è già tutta nella frase, spezzata in tre clausole che il lettore deve sommare da solo.
+La pagina fa la cosa difficile — dire la verità su un mese in calo senza gridare — e sbaglia la cosa facile: in quella stessa frase stampa `pension`. Il verdetto e il digest «Mercato:» sono il meglio del prodotto; tutto ciò che sta sotto è una stampa che non si può toccare. La singola opportunità più grande: la storia vera del mese (venduto VWCE, il broker ha trattenuto ~x.xxx €, ecco perché settembre è giù) è già tutta nella frase, spezzata in tre clausole che il lettore deve sommare da solo.
 
 ## What's Working
 
@@ -71,7 +71,7 @@ La pagina fa la cosa difficile — dire la verità su un mese in calo senza grid
 - **Suggested command**: /impeccable colorize
 
 ### [P2] Lo stretch produce buchi e la colonna etichetta perde contro una barra decorativa
-- **What**: (1) `TILE_CELL_CLASS` stira ogni tessera alla riga e `mt-auto` inchioda il footer: ~90px vuoti dentro Costi (fra «TER 353 € · bollo 385 €» e «PESANO DI PIÙ») e ~150px dentro Entrate per categoria (3 righe contro le 6 di Spese), misurati a 1440. (2) `components/ui/ranked-rows.tsx:45` `labelWidth = 'w-[92px]'` con `shrink-0` e barra `flex-1`: «Stipendio Giuseppe» diventa «Stipendio Giu…» e «Entrate da investimenti» «Entrate da inv…» a OGNI larghezza, mentre la barra da 3px prende 120px a 1440 e 210px a 1024 — il commento dichiara l'intento («la barra tiene una traccia anche in una tessera da 3 colonne»), l'implementazione dà alla barra tutto il surplus invece di un pavimento.
+- **What**: (1) `TILE_CELL_CLASS` stira ogni tessera alla riga e `mt-auto` inchioda il footer: ~90px vuoti dentro Costi (fra «TER 353 € · bollo 385 €» e «PESANO DI PIÙ») e ~150px dentro Entrate per categoria (3 righe contro le 6 di Spese), misurati a 1440. (2) `components/ui/ranked-rows.tsx:45` `labelWidth = 'w-[92px]'` con `shrink-0` e barra `flex-1`: «Stipendio G.» diventa «Stipendio Giu…» e «Entrate da investimenti» «Entrate da inv…» a OGNI larghezza, mentre la barra da 3px prende 120px a 1440 e 210px a 1024 — il commento dichiara l'intento («la barra tiene una traccia anche in una tessera da 3 colonne»), l'implementazione dà alla barra tutto il surplus invece di un pavimento.
 - **Why it matters**: «Elegante · Essenziale» contraddetto da un buco di 90px e da un prodotto che tronca il nome della categoria dell'utente — la voce di entrata più grande della pagina — per proteggere una barra ordinale.
 - **Fix**: `ranked-rows.tsx`: invertire i vincoli — etichetta `min-w-[92px] flex-1 truncate`, barra `w-[120px] shrink-0` (o `flex-[0_1_120px]`), `min-w-[40px]` come pavimento; `CostiTile`/`CategoryTile`: sotto una soglia di contenuto far sedere il footer sotto il corpo (niente `mt-auto`) o dare alla tessera corta uno span desktop minore perché lo slack cada FRA le tessere e non dentro una.
 - **Suggested command**: /impeccable layout
@@ -84,17 +84,17 @@ La pagina fa la cosa difficile — dire la verità su un mese in calo senza grid
 
 ## Persona Red Flags
 
-**Alex (power user)**: 14 tab stop di sidebar prima del primo controllo, a ogni caricamento, nessuno skip link e `<main>` senza nome; «Mutuo 559 €», «VWCE 84.603 € +66,7%» e le classi di «Mercato:» sono vicoli ciechi; il confirm dello snapshot non è armato e la sua primaria è «Sovrascrivi» — un Invio sovrascrive il mese; nessun «Aggiorna» e nessun «ultimo aggiornamento».
+**Alex (power user)**: 14 tab stop di sidebar prima del primo controllo, a ogni caricamento, nessuno skip link e `<main>` senza nome; «Mutuo 559 €», «VWCE xx.xxx € +66,7%» e le classi di «Mercato:» sono vicoli ciechi; il confirm dello snapshot non è armato e la sua primaria è «Sovrascrivi» — un Invio sovrascrive il mese; nessun «Aggiorna» e nessun «ultimo aggiornamento».
 
 **Sam (screen reader / solo tastiera)**: l'unico `h1` visibile è «Buonasera Mirror · domenica 13 settembre 2026» — la pagina non si nomina mai («Panoramica» è un `<p>` da 10px); navigazione per intestazioni: H1 saluto → H2 verdetto → nulla per nove tessere (sono `section[aria-label]`, buono, ma nessuna intestazione dentro); il pill periodo è una tablist senza nome con sei tab tabbabili e senza `aria-controls`; 7 segmenti della barra Composizione con `title` e nessun `aria-label`. Verificato ok: focus ring visibili, 0 controlli senza nome, 228/228 nodi AA in dark.
 
 **Casey (telefono, una mano, distratto)**: il primo fold a 390 è quasi solo prosa (saluto + data + titolo su 2 righe + frase su 8 righe): l'eroe compare a ~y=410 su 844 e la pill copre gli ultimi 88px — si scorre prima di vedere una cifra; i due soli controlli stanno in alto a destra (42×36) e a metà tessera (26px), entrambi fuori dall'arco del pollice e sotto 44px; pagina alta 3277px, quattro schermate, nessuna chiusura; barre da 3px e strip da 8px invisibili a distanza di braccio.
 
-**Il risparmiatore metodico (persona di prodotto: apre l'app ogni mese per sapere «come sto andando»)**: la pagina funziona per lui fino a «e pension hanno fatto il grosso del lavoro»; la storia vera del mese — venduto VWCE, il broker ha trattenuto ~4.089 €, per questo settembre è giù — è spalmata sulle clausole 1, 4 e 6 e mai unita: concluderà di aver perso in borsa, ciò che il titolo si è affannato a negare; senza obiettivi la tessera Obiettivi è ASSENTE (non vuota) e Costi si ri-espande da 2 a 4 colonne senza che gli sia detto che la funzione esiste — un quarto tipo di assenza che la Absence-Has-Three-Names Rule non nomina («la funzione è spenta»); l'eroe è il LORDO a 54px, il netto suo (282.589,09 €) a 22px in un'altra tessera.
+**Il risparmiatore metodico (persona di prodotto: apre l'app ogni mese per sapere «come sto andando»)**: la pagina funziona per lui fino a «e pension hanno fatto il grosso del lavoro»; la storia vera del mese — venduto VWCE, il broker ha trattenuto ~x.xxx €, per questo settembre è giù — è spalmata sulle clausole 1, 4 e 6 e mai unita: concluderà di aver perso in borsa, ciò che il titolo si è affannato a negare; senza obiettivi la tessera Obiettivi è ASSENTE (non vuota) e Costi si ri-espande da 2 a 4 colonne senza che gli sia detto che la funzione esiste — un quarto tipo di assenza che la Absence-Has-Three-Names Rule non nomina («la funzione è spenta»); l'eroe è il LORDO a 54px, il netto suo (xxx.xxx,xx €) a 22px in un'altra tessera.
 
 ## Minor Observations
 
-- L'`€` dell'eroe fluttua: lo spazio unificatore di `Intl('it-IT')` a 54px Geist Mono rende ~32px («293.185,45   €»); corretto per la Comma Rule, sbagliato sul numero dominante — un letter-spacing negativo sullo span valuta, o l'`€` come elemento a 36px.
+- L'`€` dell'eroe fluttua: lo spazio unificatore di `Intl('it-IT')` a 54px Geist Mono rende ~32px («xxx.xxx,xx   €»); corretto per la Comma Rule, sbagliato sul numero dominante — un letter-spacing negativo sullo span valuta, o l'`€` come elemento a 36px.
 - `CostiTile.tsx:50`: «Costo annuo 737 €» è `text-warning-foreground` INCONDIZIONATO, mentre «TER medio 0,20%» è foreground; con lo 0,25% del patrimonio la lettura dice che è eccellente e la cifra è ambra comunque — una tinta che dice sempre «attenzione» non dice nulla (The Data Owns Color Rule).
 - Il trio KPI di Cashflow impila colori opposti in ogni colonna: verde «2758 €» sopra rosso «↓ 46,8%», rosso «1953 €» sopra verde «↓ 59,8%» — `positiveGood` è semanticamente giusto e visivamente incoerente; e «Risparmio 805 €», la risposta della tessera e l'unico guadagno, resta neutro fra due cifre colorate.
 - «29,2% · 1,41×»: due rapporti senza etichetta, e 29,2% ridice il 29% della riga di lettura a precisione diversa nella stessa tessera.
@@ -102,13 +102,13 @@ La pagina fa la cosa difficile — dire la verità su un mese in calo senza grid
 - «Azioni al 45,3%; trend following al 2,0%.» — la lettura nomina la classe più grande e la più PICCOLA (legge arbitrario) e scrive «trend following» minuscolo dove la riga sotto dice «Trend Following».
 - Lo skeleton non combacia con la pagina: `DEFAULT_SKELETON_CELLS` è «le prime due righe», la terza (Spese, Entrate, Asset principali) manca e la griglia cresce ~620px all'arrivo dei dati — «nulla salta quando i dati arrivano» vale per la larghezza, non per l'altezza.
 - Su un caricamento caldo il verdetto atterra mentre la griglia è ancora a opacity 0 (catturato): un battito in cui la pagina è una frase e nient'altro.
-- Il footer di Sintesi patrimoniale spezza a metà frase alla larghezza a 3 colonne: «dopo 10.596 € di tasse stimate su» / «+39.503 €».
+- Il footer di Sintesi patrimoniale spezza a metà frase alla larghezza a 3 colonne: «dopo xx.xxx € di tasse stimate su» / «+xx.xxx €».
 - 1024×768 landscape (caso dichiarato in PRODUCT.md) è la banda meno progettata: `tablet:col-span-2` dà all'eroe l'INTERO fold da 768px più una seconda riga di chrome; il primo schermo è una tessera, a 1440 ne porta cinque.
 - Il confirm «Snapshot già esistente» monta `Dialog` grezzo (`page.tsx:457-494`, titolo 18px, quinta larghezza 512px): è una delle otto superfici fuori dal vocabolario delle modali già in Known Issues.
-- Le didascalie dello sparkline («247.183 €», «293.185 €») e le sei etichette del pill sono le uniche cifre della pagina sotto 11px.
+- Le didascalie dello sparkline («xxx.xxx €», «xxx.xxx €») e le sei etichette del pill sono le uniche cifre della pagina sotto 11px.
 
 ## Questions to Consider
 
 1. Se il lettore non può toccare nulla, perché questa è una pagina e non l'email mensile? Le due rendono lo stesso verdetto sulle stesse tessere dagli stessi moduli; l'email ha la scusa di essere un'email. Cosa fa la PAGINA che l'email non fa — e se la risposta onesta è «è più aggiornata», l'eroe dovrebbe essere la cifra o la freschezza?
-2. Il mese è sceso di 4.155 € e 4.089 € sono tasse che il broker ha già preso. Perché è la sesta clausola? La pagina possiede `resolveDeclineCause` e correttamente non incolpa il mercato — ma si ferma al non mentire e non arriva a spiegare. Se UNA frase potesse sostituire il verdetto — «Settembre è in calo per le tasse sulla vendita di VWCE, non per il mercato.» — le altre cinque clausole si guadagnerebbero ancora il posto?
+2. Il mese è sceso di x.xxx € e x.xxx € sono tasse che il broker ha già preso. Perché è la sesta clausola? La pagina possiede `resolveDeclineCause` e correttamente non incolpa il mercato — ma si ferma al non mentire e non arriva a spiegare. Se UNA frase potesse sostituire il verdetto — «Settembre è in calo per le tasse sulla vendita di VWCE, non per il mercato.» — le altre cinque clausole si guadagnerebbero ancora il posto?
 3. Perché questa pagina, sola fra le ventitré, non ha un «Dettaglio»? Ha fissato il pattern e non ha mai adottato la propria invenzione migliore. È deliberato (la panoramica deve restare panoramica) o nessuno è tornato indietro?

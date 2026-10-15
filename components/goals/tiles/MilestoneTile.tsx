@@ -12,7 +12,7 @@ import type { Narrative } from '@/lib/utils/narrative';
 import type { MilestoneEntry } from '@/lib/utils/goalsSummary';
 import { formatGoalDate } from '@/lib/utils/goalsNarrative';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { VERDICT_META } from '@/components/goals/goalVerdictMeta';
 
@@ -27,12 +27,15 @@ interface MilestoneTileProps {
   aside: string;
   rows: MilestoneRow[];
   footer: Narrative;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
-export function MilestoneTile({ reading, aside, rows, footer, className }: MilestoneTileProps) {
+export function MilestoneTile({ reading, aside, rows, footer, collapse, asideWhenClosed, className }: MilestoneTileProps) {
   return (
-    <Tile eyebrow="Milestone" aside={aside} reading={reading} ariaLabel="Milestone" className={className}>
+    <Tile eyebrow="Milestone" aside={aside} asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Milestone" className={className} collapse={collapse}>
       {rows.length > 0 && (
         <ol className="mt-3.5 flex flex-col" aria-label="Ordine di raggiungimento">
           {rows.map(({ entry, note }, index) => {

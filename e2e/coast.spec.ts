@@ -172,3 +172,13 @@ test('the projection tooltip names the pension-fund step at the unlock year', as
   }
   expect(noteFound).toBe(true);
 });
+
+test('at 1440 the tab is the tab of today: no closed row, no strip, the pace and the lock in the paragraph', async ({ page }) => {
+  await gotoCoast(page);
+  await expect(page.locator('main [id$="-trigger"]')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Le cifre del verdetto' })).toBeHidden();
+  const verdict = page.getByRole('region', { name: 'Verdetto sul Coast FIRE' });
+  await expect(verdict.getByText(/^Modello ponte: fondo pensione escluso/)).toHaveCount(0);
+  await expect(verdict.getByRole('button', { name: /^Il perché/ })).toHaveCount(0);
+  await expect(verdict.getByText(/Al ritmo attuale/)).toBeVisible();
+});

@@ -444,3 +444,22 @@ describe('load errors and the series aside', () => {
     expect(describeFondoOggiSeriesAside({ ...TODAY, series: [] })).toBe('valore vivo');
   });
 });
+
+// ─── The phone's cut (2026-10-15, MOB-07) ─────────────────────────────────────
+// Seen red with `leadLength` left `undefined` on one measured block (title only never happened).
+
+describe('buildPensionVerdict — title only with one measured contributor (decisions 3 and 46)', () => {
+  it('cuts to the title with ONE measured block: the strip says the three causes', () => {
+    const verdict = buildPensionVerdict({ blocks: [MARIO], taxYear: 2026, currentYear: 2026 });
+    expect(verdict.leadLength).toBe(0);
+    expect(verdict.restLabel).toBe('le tre cause');
+  });
+
+  it('keeps the whole sentence with two contributors or a return that is not a measure', () => {
+    const two = buildPensionVerdict({ blocks: [MARIO, { ...MARIO, key: 'm2', name: 'Anna' }], taxYear: 2026, currentYear: 2026 });
+    expect(two.leadLength).toBeUndefined();
+    expect(two.restLabel).toBeUndefined();
+    const suspicious = buildPensionVerdict({ blocks: [{ ...MARIO, returnState: 'suspicious' }], taxYear: 2026, currentYear: 2026 });
+    expect(suspicious.leadLength).toBeUndefined();
+  });
+});

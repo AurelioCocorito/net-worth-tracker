@@ -17,7 +17,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { TraiettoriaChip } from '@/lib/utils/goalsNarrative';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { useArmedDelete } from '@/lib/hooks/useArmedDelete';
 
@@ -33,6 +33,9 @@ interface TraiettoriaTileProps {
   onEdit: () => void;
   onDelete: () => void;
   isDemo: boolean;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -82,11 +85,13 @@ function DeleteButton({ onDelete, disabled }: { onDelete: () => void; disabled: 
   );
 }
 
-export function TraiettoriaTile({ reading, name, hero, chips, notes, chart, footer, onEdit, onDelete, isDemo, className }: TraiettoriaTileProps) {
+export function TraiettoriaTile({ reading, name, hero, chips, notes, chart, footer, onEdit, onDelete, isDemo, collapse, asideWhenClosed, className }: TraiettoriaTileProps) {
   return (
     <Tile
       eyebrow="Traiettoria"
       ariaLabel={`Traiettoria di ${name}`}
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       aside={
         <div className="flex w-full flex-wrap items-center justify-end gap-x-2 gap-y-2 desktop:w-auto">
           <span className="truncate">

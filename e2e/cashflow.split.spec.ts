@@ -43,13 +43,13 @@ test.describe('Cashflow › Divisione', () => {
     await openDivisione(page);
 
     const ghiandaia = page.getByRole('region', { name: 'Quanto resta a Ghiandaia' });
-    const tarsio = page.getByRole('region', { name: 'Quanto resta a Tarsio' });
+    const nibbio = page.getByRole('region', { name: 'Quanto resta a Nibbio' });
     const left = await ghiandaia.boundingBox();
-    const right = await tarsio.boundingBox();
+    const right = await nibbio.boundingBox();
     expect(left).not.toBeNull();
     expect(right).not.toBeNull();
 
-    // Same row: tops within a pixel of each other, and Tarsio starts to the RIGHT of Ghiandaia.
+    // Same row: tops within a pixel of each other, and Nibbio starts to the RIGHT of Ghiandaia.
     expect(Math.abs(left!.y - right!.y)).toBeLessThan(2);
     expect(right!.x).toBeGreaterThan(left!.x + left!.width - 2);
     // Same height, so neither tile reads as the more important of the two.
@@ -67,9 +67,9 @@ test.describe('Cashflow › Divisione', () => {
   });
 
   /**
-   * THE HONESTY DEFECT. Tarsio's rows leave him +500 € today and −100 € once the 1500 € still in
+   * THE HONESTY DEFECT. Nibbio's rows leave him +500 € today and −100 € once the 1500 € still in
    * the calendar is paid. The page used to print the −100 € in the destructive token and headline
-   * «lo stipendio di Tarsio non basta» — over money still in the account. The figure must be the
+   * «lo stipendio di Nibbio non basta» — over money still in the account. The figure must be the
    * booked one, the colour must follow it, and the calendar must be its own clause.
    *
    * This asserts through the whole path (Firestore → summary → tile), which is what the unit
@@ -79,12 +79,12 @@ test.describe('Cashflow › Divisione', () => {
   test('prints what has happened, and says separately where the calendar takes it', async ({ page }) => {
     await openDivisione(page);
 
-    const tarsio = page.getByRole('region', { name: 'Quanto resta a Tarsio' });
-    await expect(tarsio.locator('p.font-mono').first()).toHaveText(euro('500'));
-    await expect(tarsio).toContainText(/Con le spese ancora in calendario mancano\s*100[\s ]*€/);
+    const nibbio = page.getByRole('region', { name: 'Quanto resta a Nibbio' });
+    await expect(nibbio.locator('p.font-mono').first()).toHaveText(euro('500'));
+    await expect(nibbio).toContainText(/Con le spese ancora in calendario mancano\s*100[\s ]*€/);
 
     // The hero figure is the booked one and wears the positive token, not the destructive one.
-    const heroClass = await tarsio.locator('p.font-mono').first().getAttribute('class');
+    const heroClass = await nibbio.locator('p.font-mono').first().getAttribute('class');
     expect(heroClass).toContain('text-positive');
     expect(heroClass).not.toContain('text-destructive');
 

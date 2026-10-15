@@ -42,7 +42,9 @@ import {
   SCENARI_ASIDE,
   SCENARI_FOOTER,
 } from '@/lib/utils/monteCarloNarrative';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
+import { selectMonteCarloStrip } from '@/lib/utils/monteCarloSummary';
+import { formatStripFigure } from '@/lib/utils/verdictStrip';
 import { INACTIVE_LOCK, type FireLock } from '@/lib/utils/fireSummary';
 import type { MonteCarloPlan, MonteCarloRun, ScenarioComparison, ScenarioRunSummary } from '@/lib/utils/monteCarloSummary';
 
@@ -298,5 +300,34 @@ describe('Dettaglio', () => {
     expect(plain(describePercentili(makeRun()))).toBe('Il 10° percentile scende a zero dal 2053: da lì in poi almeno una simulazione su dieci ha finito i soldi.');
     expect(plain(describePercentili(makeRun({ p10DepletionCalendarYear: null, finalPercentiles: { p10: 118000, p25: 300000, p50: 612400, p75: 1310000, p90: 2096000 } })))).toBe('Nessun percentile tocca zero: anche il 10° chiude il 2061 con 118.000 €.');
     expect(DETTAGLIO_DESCRIPTION).toBe('Traiettorie dei tre scenari, percentili a passi di 5 anni, come funziona');
+  });
+});
+
+// ─── The phone's cut and the strip's identity (2026-10-15, MOB-07) ────────────
+// Seen red one at a time: `leadLength` left `undefined` with a scenarios sentence; the bear cell
+// read from `medianFinal`; the rest labelled «orso e toro e il fondo pensione».
+
+describe('buildMonteCarloVerdict — the cut (doc/mobile/README.md § 9, decisions 5 and 44)', () => {
+  it('keeps the base run under the title, the bear, the bull and the bridge behind «Il perché»', () => {
+    const verdict = buildMonteCarloVerdict({ runnable: true, run: makeRun(), scenarios: makeComparison(), lock: ACTIVE_LOCK });
+    const { lead, rest } = splitVerdict(verdict);
+    expect(plain(lead)).toMatch(/^Nell'84,2% delle 10\.000 simulazioni .* entro il 2053 \(73 anni\)\.$/);
+    expect(plain(rest)).toBe(' Nello scenario orso regge nel 61,5% dei casi, nel toro nel 96,8%. Numeri con il modello ponte: i 31.400 € del fondo pensione entrano nel 2045 al valore di oggi.');
+    expect(verdict.restLabel).toBe('orso, toro e il fondo pensione');
+    expect(buildMonteCarloVerdict({ runnable: true, run: makeRun(), scenarios: makeComparison(), lock: INACTIVE_LOCK }).restLabel).toBe('orso e toro');
+    expect(buildMonteCarloVerdict({ runnable: true, run: makeRun(), scenarios: null, lock: ACTIVE_LOCK }).restLabel).toBe('il fondo pensione');
+    expect(buildMonteCarloVerdict({ runnable: true, run: makeRun(), scenarios: null, lock: INACTIVE_LOCK }).leadLength).toBeUndefined();
+    expect(buildMonteCarloVerdict({ runnable: true, run: null, scenarios: null, lock: ACTIVE_LOCK }).leadLength).toBeUndefined();
+  });
+
+  it('prints in the cells the median and the bear rate the verdict prints', () => {
+    const [median, bear] = selectMonteCarloStrip({ run: makeRun(), comparison: makeComparison() });
+    const flat = (text: string) => text.replace(/[\u00a0\u202f]/g, ' ');
+    const verdict = flat(plain(buildMonteCarloVerdict({ runnable: true, run: makeRun(), scenarios: makeComparison(), lock: INACTIVE_LOCK }).sentence));
+    expect(verdict).toContain(`nel caso mediano chiudi con ${flat(formatStripFigure(median)!.text)}`);
+    expect(verdict).toContain(`Nello scenario orso regge nel ${formatStripFigure(bear)!.text}`);
+    const exhausted = buildMonteCarloVerdict({ runnable: true, run: makeRun({ medianFinal: 0 }), scenarios: null, lock: INACTIVE_LOCK });
+    expect(plain(exhausted.sentence)).toContain('nel caso mediano i soldi finiscono');
+    expect(selectMonteCarloStrip({ run: makeRun({ medianFinal: 0 }), comparison: null })[0].reason).toBe('i soldi finiscono');
   });
 });

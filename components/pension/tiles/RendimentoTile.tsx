@@ -26,7 +26,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { getMetricValueColor, signTextClass } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 export interface PensionRendimentoTileProps {
@@ -38,6 +38,9 @@ export interface PensionRendimentoTileProps {
   footer: Narrative;
   /** One block per contributor; only those with `returnState === 'measured'` print figures. */
   blocks: PensionMemberBlock[];
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -147,7 +150,7 @@ function MeasuredBlock({ block, result, named, first }: MeasuredEntry & { named:
  * window the aside names. A block whose return is not a measure prints nothing here: the reading
  * already says why.
  */
-export function RendimentoTile({ reading, aside, footer, blocks, className }: PensionRendimentoTileProps) {
+export function RendimentoTile({ reading, aside, footer, blocks, collapse, asideWhenClosed, className }: PensionRendimentoTileProps) {
   // `returnState === 'measured'` is only ever resolved from a non-null result (pensionSummary's
   // `resolveReturnState`); the `return` check narrows the type without a non-null assertion.
   const measured: MeasuredEntry[] = blocks.flatMap((block) =>
@@ -156,7 +159,7 @@ export function RendimentoTile({ reading, aside, footer, blocks, className }: Pe
   const named = blocks.length > 1;
 
   return (
-    <Tile eyebrow="Rendimento" ariaLabel="Rendimento del fondo" aside={aside} reading={reading} className={className}>
+    <Tile eyebrow="Rendimento" ariaLabel="Rendimento del fondo" aside={aside} asideWhenClosed={asideWhenClosed} reading={reading} className={className} collapse={collapse}>
       {measured.map(({ block, result }, index) => (
         <MeasuredBlock key={block.key} block={block} result={result} named={named} first={index === 0} />
       ))}

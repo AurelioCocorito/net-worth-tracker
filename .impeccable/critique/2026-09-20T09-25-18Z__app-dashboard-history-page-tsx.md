@@ -21,7 +21,7 @@ Method: dual-agent (A: design review on screenshots + source · B: detector + Pl
 | # | Heuristic | Score | Key issue |
 |---|---|---|---|
 | 1 | Visibility of System Status | 3 | Nothing says when the latest snapshot was written (daily cron); the Valore table hides two columns with no scroll cue |
-| 2 | Match System / Real World | 3 | Honest Italian, but «Driver», «pp», «Geometrico/Traguardi» leak; «Quantità 130.000,00» for a house is a data-model truth |
+| 2 | Match System / Real World | 3 | Honest Italian, but «Driver», «pp», «Geometrico/Traguardi» leak; «Quantità xxx.xxx,xx» for a house is a data-model truth |
 | 3 | User Control and Freedom | 3 | «Elimina nota» deletes on one click, unarmed, no undo; Dettaglio open state and chosen month are not in the URL |
 | 4 | Consistency and Standards | 2 | «Mercato» is `--chart-1` in the Driver and `--chart-5` in the Lavoro chart (blue = «Guadagnato da lavoro» there); flows uncoloured in the Driver, green in Lavoro; ticks «gen 25» vs «Gen 2025» |
 | 5 | Error Prevention | 3 | Manual snapshot cross-validates the sum but asks «Mese * (1-12)» as a free number; unarmed note delete |
@@ -36,12 +36,12 @@ Method: dual-agent (A: design review on screenshots + source · B: detector + Pl
 
 **LLM assessment**: authored for this product, not interchangeable — «versamenti inclusi, non un rendimento» under a CAGR, Δ split into «di cui prezzo / di cui quantità», «mutuo rimborsato» as a wealth engine. The weakness is excess fidelity to its own accounting: the Driver and its echoes are an audit note typeset, not designed; the six parts got a longer sentence instead of a visual form.
 
-**Deterministic scan**: CLI on `app/dashboard/history components/history components/CreateManualSnapshotModal.tsx` → 0 findings. In-page overlay: 68 hits, of which 52 the enumerated 9–11px ramp (not the page's), 13 shell/sidebar/overlay's own colours, 9 `nested-cards` false positives (no nested card measurable); the page's own are 4 `line-length` — 11px footnotes at 95–130 characters per line on Composizione, Valore per strumento, Variazione anno su anno, Lavoro e investimenti. 28 em-dashes in 8.505 characters of `main` text.
+**Deterministic scan**: CLI on `app/dashboard/history components/history components/CreateManualSnapshotModal.tsx` → 0 findings. In-page overlay: 68 hits, of which 52 the enumerated 9–11px ramp (not the page's), 13 shell/sidebar/overlay's own colours, 9 `nested-cards` false positives (no nested card measurable); the page's own are 4 `line-length` — 11px footnotes at 95–130 characters per line on Composizione, Valore per strumento, Variazione anno su anno, Lavoro e investimenti. 28 em-dashes in x.xxx characters of `main` text.
 
 **Visual overlays**: injection succeeded in a headless browser only — no [Human] tab.
 
 ## Overall Impression
-The opening works (the verdict, «lug 2027» in Raddoppi). Right after, the page makes the reader do the reconciliation: 5.364 + 21.916 ≠ 31.918 until «Il resto» is parsed, 4.064 € unexplained, and the page's biggest red number (−38.596 €) is a sale, not a loss. Biggest opportunity: make the arithmetic VISIBLE (rows that sum to the total) instead of narrated and then defended in a footnote.
+The opening works (the verdict, «lug 2027» in Raddoppi). Right after, the page makes the reader do the reconciliation: x.xxx + xx.xxx ≠ xx.xxx until «Il resto» is parsed, x.xxx € unexplained, and the page's biggest red number (−xx.xxx €) is a sale, not a loss. Biggest opportunity: make the arithmetic VISIBLE (rows that sum to the total) instead of narrated and then defended in a footnote.
 
 ## What's Working
 1. Honest labels at the point of risk («versamenti inclusi, non un rendimento», «proiezione lineare, non una previsione»).
@@ -52,13 +52,13 @@ The opening works (the verdict, «lug 2027» in Raddoppi). Right after, the page
 
 ### [P1] «Valore per strumento» clips the two columns that explain the Δ
 - **What**: at 1440 the table needs 813px inside 671 (142px inner scroll), no fade or hint, the scroller has no `tabIndex` (`components/history/tiles/ValoreStrumentoTile.tsx:278-281`).
-- **Why**: the reading promises «+1214 € dai prezzi e −1023 € dalle quantità» and the proof is off-screen; row 1 opens on a red −38.596 € that is a switch into XEON and cash.
+- **Why**: the reading promises «+1214 € dai prezzi e −1023 € dalle quantità» and the proof is off-screen; row 1 opens on a red −xx.xxx € that is a switch into XEON and cash.
 - **Fix**: full-width table until a selection exists (the empty Selezione panel takes 5/12 for one sentence), or fold quantity and ticker into the name cell; scroller `tabIndex=0` + `role="region"` + label + edge fade; drop the sign colour from a Δ dominated by quantity.
 - **Suggested command**: /impeccable layout
 
 ### [P1] The Driver's six parts are a paragraph
 - **What**: a 6-line sentence with 8 figures; the same parts again in the year sub-line (wrapping with orphaned «·»), the grey footer, the monthly Dettaglio tile and Lavoro — five printings. «+10 € di versamenti al fondo pensione» earns a verdict clause because materiality is applied only to «altre». «Mercato in perdita» is a legend entry for a state (`components/history/tiles/DriverTile.tsx`).
-- **Why**: the tile rebuilt on 2026-09-19 is the page's emotional valley: right after the peak, 4.064 € that «nessuna voce spiega».
+- **Why**: the tile rebuilt on 2026-09-19 is the page's emotional valley: right after the peak, x.xxx € that «nessuna voce spiega».
 - **Fix**: two-clause reading (growth + the two engines, dominant one named); the parts as a mini ledger under the featured year (label left, signed mono right, closing on the Δ — the Ranked Rows with Residual Lavoro already uses); one materiality threshold for every rest part; legend under «Ultimi 12 mesi» with a «sotto la linea = perdita» caption; «Dal 2025» promoted from footnote to row.
 - **Suggested command**: /impeccable distill, then /impeccable clarify
 
@@ -84,9 +84,9 @@ The opening works (the verdict, «lug 2027» in Raddoppi). Right after, the page
 - **The methodical accumulator**: adds the two engines and does not get the growth; «fondo pensione +10 €» against +256 €/month as «quantità» in the table; 13% of the year as «ciò che nessuna voce spiega». Each explainable, each a minute not seconds.
 
 ## Minor Observations
-- Raddoppi stretches (`row-span-2`) over ~150px of void while the Driver beside it is starved (`minHeight` 110); the «293.839 €» label sits at the track's centre with progress at 79% → /impeccable layout.
+- Raddoppi stretches (`row-span-2`) over ~150px of void while the Driver beside it is starved (`minHeight` 110); the «xxx.xxx €» label sits at the track's centre with progress at 79% → /impeccable layout.
 - `doc/guide/storico.md` is stale: both dialogs already are `ResponsiveModal`; their BODIES are old (Title Case tabs «Dati Generali», `text-orange-500` at `SnapshotSearchDialog.tsx:224`, success toasts with «!», unarmed «Elimina nota» at `:167`).
-- «9800,23 €» beside «16.257,36 €», «3246 €» beside «11.967 €»: CLDR-correct, breaks tabular scanning.
+- «9800,23 €» beside «xx.xxx,xx €», «3246 €» beside «xx.xxx €»: CLDR-correct, breaks tabular scanning.
 - Composizione: Azioni/Immobili/Previdenza neighbouring hues, Liquidità a pink-red near `--destructive`; in dark the bands outweigh the hero curve.
 - Lavoro chart's right tick clipped («Set 202»); last note marker half-occluded; «aggiungi una nota» an 11px link with 28px of target; 10 Recharts «width(-1)» warnings per load.
 - The `!growth` branch shows verdict + buttons only: no EmptyState saying the first snapshot arrives by itself this evening.

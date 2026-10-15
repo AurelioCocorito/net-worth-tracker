@@ -16,7 +16,45 @@
 import type { FIREMetrics } from '@/lib/services/fireService';
 import type { AccumulationSimulationResult } from '@/lib/services/monteCarloService';
 import type { PensionLockState } from '@/lib/utils/pensionUnlock';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
 import type { FIREProjectionResult } from '@/types/assets';
+
+// ─── The phone composition (2026-10-15) ───────────────────────────────────────
+
+/**
+ * The ids of the tab's rows below `desktop:` (`useMobileSections` with `tab: 'fire'`, The
+ * Closed-Row Rule): every tile but Traguardo, THE tile, which never closes (doc/mobile/README.md
+ * § 9, decision 21). The DOM ids are not narrative, so they live here.
+ */
+export const FIRE_SECTION_IDS = {
+  base: 'fire-base',
+  reddito: 'fire-reddito',
+  scenari: 'fire-scenari',
+} as const;
+
+export interface FireStripInput {
+  target: FireTarget;
+  passiveIncome: PassiveIncome;
+}
+
+/**
+ * The two figures of the Calcolatore's first screen: the gap to the number — the verdict's
+ * first figure, «Ti mancano 191.500 €» — opening the Base di calcolo, and what the net worth
+ * yields a month at the SWR — the Reddito passivo reading's figure — opening that row. Nothing is
+ * lifted: both readings stay whole (decision 15). A reached target has no gap: the cell says so.
+ */
+export function selectFireStrip({ target, passiveIncome }: FireStripInput): StripFigure[] {
+  return [
+    {
+      label: 'Ti mancano',
+      value: target.reached ? null : target.gap,
+      format: 'currency',
+      opens: FIRE_SECTION_IDS.base,
+      ...(target.reached ? { reason: 'già FIRE' } : {}),
+    },
+    { label: 'Rendita oggi', value: passiveIncome.monthly, format: 'currency', opens: FIRE_SECTION_IDS.reddito },
+  ];
+}
 
 // ─── Target ───────────────────────────────────────────────────────────────────
 

@@ -28,7 +28,7 @@
   any day — and with the clock frozen the noise floor between two dumps of unchanged code was ZERO, so a single
   value lost is a finding. Two were: a chart that ranks on rows after «today» (Analisi's Andamento) and a history
   that reads up to a snapshot the frozen clock had not reached yet (FIRE). And a spec that never sees a page settle
-  (every surface «NOT SETTLED») on a build that settles fine by hand was a game running on the laptop: check the
+  (every surface «NOT SETTLED») on a build that settles fine by hand was a game running on the machine: check the
   process list before doubting the code.
 
 ## Emulator Exercise Scripts
@@ -110,7 +110,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   would run against the wrong app. Before a suite, read the command line of :3100's PID; if it is not this repo's
   `dev:e2e`, the owner stops it — the agent never does.
 - **After a long session the Firestore emulator can refuse every gRPC WRITE while REST still answers** (2026-09-29,
-  Windows laptop: two full suites, six partial runs, four benchmarks and a mirror seed in one evening, the JVM at
+  Windows machine: two full suites, six partial runs, four benchmarks and a mirror seed in one evening, the JVM at
   2,5 GB): `global-setup` died on the Centri seed's `WriteBatch.commit` with `4 DEADLINE_EXCEEDED … after 60.0s`, the
   Admin SDK's channel, while a REST `PATCH`/`DELETE` on the same emulator took 70 ms and the app (WebChannel) kept
   working — so the tour looked healthy and every spec was unrunnable. The tell is the pair: a 60 s Admin timeout
@@ -133,6 +133,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   «still in the calendar» is planted on the 28th of December at noon UTC (`ornitorinco` in its note) and removed after,
   the test skipped from that day on. Storico's ledger is summed on its VISIBLE rows inside `#storico-driver-panel`, the
   featured year being the panel's `button[aria-expanded="true"]`.
+- **Allocazione, Previdenza and the five FIRE tabs are composed at 390 since 2026-10-15 (MOB-07): a spec opens the row before it reads inside it** — `#alloc-esposizione-trigger` before the coverage line (`allocation.mobile.spec.ts`), `#prev-versamenti-trigger` before the ledger's delete targets (`pension.mobile.spec.ts`), «Apri tutte» before `fire.mobile.spec.ts` and `coast.mobile.spec.ts` measure `main`. **A request that must NOT happen is counted with a positive anchor first** (`allocation.mobile.spec.ts`: `page.on('request')` on `/api/portfolio/instrument-profiles`, the Esposizione's trigger seen closed, then `[]` after 1,5 s; the opening makes the count grow): the Esposizione reads its profiles only once its row has been opened, and the route's abort (`page.route(…, route.abort())`, the pattern of `settings.spec.ts`) makes the FIRST read fail into an `ErrorNotice` row with ONE live node. **The FIRE page's memory is per tab** (`mobile-sections:fire-simulations:fire`, `:coast`, …): `fire.mobile.spec.ts` opens a row, switches tab, opens one there and comes back — the inactive `TabsContent` is unmounted, so what survives the switch is `localStorage` alone. A What If spec reads the Evento FIRST in `section.rounded-2xl` of the tabpanel at both widths (decision 43). On the base account the FIRE verdict may read «Sei già FIRE.» (small expenses): `fire.spec.ts` asserts «anni. Da allora» only on a headline that starts with «FIRE nel».
 - **Rendimenti's composition spec runs on the degraded account at 390, with the model series answered by the browser**
   (2026-10-14, `e2e/mobile-composition.performance.degraded.mobile.spec.ts`, project `degraded-mobile`:
   `testMatch: /\.degraded\.mobile\.spec\.ts/`, `DEGRADED_STORAGE_STATE`; `mobile` ignores `degraded.`, or it would
@@ -200,7 +201,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   tree on the client, which then prints «Encountered a script tag while rendering React component» for the `<head>`
   theme script: that line is a symptom of the failed hydration, not of the script.
 - **A full run where every spec that calls a route is red is the suite's dev server, not the routes** (2026-09-29,
-  Windows laptop: 18 red of 154 in 13,5 min — the Esposizione, the Dividendi form, «Crea snapshot», an Impostazioni
+  Windows machine: 18 red of 154 in 13,5 min — the Esposizione, the Dividendi form, «Crea snapshot», an Impostazioni
   read, all eleven Hall of Fame — while the 136 that never call `/api/*` stayed green). The tell is in the `[WebServer]`
   lines of the log: «Failed to fetch YOC: Not Found», «Unexpected token '<', "<!DOCTYPE"» from a `response.json()`, a
   spec reading 404 where it expects 200 — the `next dev` Playwright started answered 404 HTML on EVERY `/api/*` route
@@ -263,7 +264,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   (`analisi.spec.ts`, `cashflow.centri.spec.ts`, `cashflow.split.spec.ts`, `pension.spec.ts` — green on the Mac on
   2026-09-24). Not a regression: read the received text before touching code. A new spec takes both (`1\.?012,00`).
 - **A `toContainText` on a tile's region also reads the sentence under its eyebrow** (2026-09-27):
-  `cashflow.split.spec.ts` asserted Tarsio's «100 €» on the whole region and was satisfied by «1100 € di spese
+  `cashflow.split.spec.ts` asserted Nibbio's «100 €» on the whole region and was satisfied by «1100 € di spese
   personali» in the reading, so the hero could have printed anything. Assert a figure on the hero
   (`locator('p.font-mono').first()` with `toHaveText`) and keep `toContainText` for a sentence. A spec line that holds
   a literal no-break space inside a regex defeats the Edit tool's matching: patch it with a node one-liner.
@@ -325,7 +326,15 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   filter (both header copies, `toHaveText(['', ''])`). The sign-out test reads the record back through IndexedDB
   itself (`indexedDB.open` + `get`), the way «assert on data» means here.
 - **Prove the test can fail before trusting it** (the 1440px assertions were re-run at 1200px, where they must fail).
-- **`e2e/cashflow.transfer-fee.spec.ts` was red ONCE in a full run** (2026-10-07, Windows laptop, the second full run
+- **The full run closing MOB-07** (2026-10-15, the reference machine, 262 tests incl. 6 setups): 259 green in 9,9 min, three red
+  and all three green alone and in their own spec: `mobile-composition.analisi.mobile.spec.ts` «a category row opens the
+  Scheda…» (`#analisi-scheda-trigger` counted 1 where 0 was expected — the Scheda's row trigger survived the Escape in
+  that run), and the two «remembered across a reload» of `mobile-composition.patrimonio.mobile.spec.ts` and
+  `overview.mobile.spec.ts` on `apiResponse.json: Response has been disposed` — the response a probe holds across
+  `page.reload()` disposed before `.json()`, the shape of the `holdChunks` entry below. None of the three pages is
+  MOB-07's. The 16 new cases (`allocation`, `pension`, `fire`, `coast` `.mobile.spec.ts` + one at 1440 each) were green
+  in the suite and alone, nine falsifications seen red one at a time (their headers).
+- **`e2e/cashflow.transfer-fee.spec.ts` was red ONCE in a full run** (2026-10-07, Windows machine, the second full run
   of PR #434, which did not touch transfers): green alone and in the suite's order, cause not traced. A second red
   there is a pattern, not noise — note the run before re-running it. **`e2e/cashflow.mobile.spec.ts` › «every tab of the
   pill is at least 44×44» was red ONCE the same way** (2026-10-11, the full run of PR #452, the Panoramica's composition, which did not touch the pill):
@@ -339,7 +348,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   `verifyIdToken` skips the signature against the Auth emulator, so the `jwks-rsa → jose` chain of firebase-admin never
   ran under Playwright, and 173 green tests preceded a deploy where every Admin route answered 500 (`ERR_REQUIRE_ESM`;
   doc/guide/server.md § Server Layer and API Authorization has the rule and the cure). The check that exists for that: the standalone production build
-  on the laptop with the real credentials, probed with a forged token (expected 401 with the audience error in the log,
+  locally with the real credentials, probed with a forged token (expected 401 with the audience error in the log,
   never 500) — and then the preview deploy, which only the owner can open.
 - **Reading the page — the traps, each seen once**: `page.addInitScript` runs BEFORE `document.documentElement` exists
   (observe `document` with `subtree: true`, or the script dies and the spec passes having observed nothing);

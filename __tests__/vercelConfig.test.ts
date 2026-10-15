@@ -24,10 +24,10 @@ const manifest = JSON.parse(
 
 describe('package.json on Vercel', () => {
   /**
-   * Vercel honours `engines.node` over the project setting: the laptop and the Lambda run the
+   * Vercel honours `engines.node` over the project setting: the dev machine and the Lambda run the
    * same major, so a module that loads here loads there. Seen red with the field removed.
    */
-  it('pins the Lambda to the Node major the laptop runs', () => {
+  it('pins the Lambda to the Node major the dev machine runs', () => {
     expect(manifest.engines?.node).toBe('24.x');
   });
 
@@ -35,7 +35,7 @@ describe('package.json on Vercel', () => {
    * A Vercel Function starts Node with `--no-experimental-require-module`, so a `require()` of an
    * ESM-only package fails at ANY Node version: on 2026-10-08 every Admin route answered 500 —
    * `ERR_REQUIRE_ESM` on `jose@6`, which `jwks-rsa@4` (firebase-admin 14) `require()`s — on the
-   * 22.x and the 24.x runtime alike, while the same production build on the laptop answered 401.
+   * 22.x and the 24.x runtime alike, while the same production build on the dev machine answered 401.
    * The override keeps `jwks-rsa` on 3.x (jose 4, CommonJS); firebase-admin calls only
    * `jwks({ jwksUri, cache })` and `getSigningKeys()`, identical in both majors. The emulator suite
    * cannot see this (`verifyIdToken` skips the signature there). Seen red with the override removed.

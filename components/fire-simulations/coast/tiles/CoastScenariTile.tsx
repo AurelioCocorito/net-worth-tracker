@@ -22,7 +22,7 @@ import { useChartColors } from '@/lib/hooks/useChartColors';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeSegments } from '@/components/ui/narrative-text';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 
@@ -34,6 +34,9 @@ interface CoastScenariTileProps {
   footer: Narrative;
   /** The method, one paragraph per entry, behind «Come si calcola». */
   method: readonly string[];
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -43,11 +46,11 @@ const SCENARIO_SLOT: Record<CoastScenarioRow['key'], number> = { bear: 4, base: 
 const formatRate = (value: number) => `${value.toLocaleString('it-IT', { maximumFractionDigits: 2 })}%`;
 const compact = (value: number) => cachedFormatCurrencyEUR(Math.round(value), true);
 
-export function CoastScenariTile({ reading, rows, footer, method, className }: CoastScenariTileProps) {
+export function CoastScenariTile({ reading, rows, footer, method, collapse, asideWhenClosed, className }: CoastScenariTileProps) {
   const chartColors = useChartColors();
 
   return (
-    <Tile eyebrow="Scenari" aside="rendimento reale" reading={reading} ariaLabel="Scenari Coast FIRE" className={className}>
+    <Tile eyebrow="Scenari" aside="rendimento reale" asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Scenari Coast FIRE" className={className} collapse={collapse}>
       <ul className="mt-2.5 flex flex-col divide-y divide-border" aria-label="Numero Coast FIRE per scenario">
         {rows.map((row) => {
           const isBase = row.key === 'base';

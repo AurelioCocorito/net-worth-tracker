@@ -29,14 +29,14 @@ Method: dual-agent (A: design review on screenshots + source · B: detector + Pl
 | 5 | Error Prevention | 2 | Custom range: two free `type="date"` with no `min`/`max` from the snapshots; opening the AI dialog spends a call |
 | 6 | Recognition Rather Than Recall | 3 | «Crescita di 100» has no Y scale; heatmap cells carry no figure, month letters repeat (G, M, A) |
 | 7 | Flexibility and Efficiency | 2 | The verdict's benchmark is fixed to `BENCHMARKS[0]`; nothing sorts; no period deep link; «5 anni» and «Storico» fire the same yoc/current-yield pair twice |
-| 8 | Aesthetic and Minimalist Design | 2 | Method footers of 2–6 lines on all 8 tiles; −4,1% printed 5 times, 15.743 four times inside one tile |
+| 8 | Aesthetic and Minimalist Design | 2 | Method footers of 2–6 lines on all 8 tiles; −4,1% printed 5 times, xx.xxx four times inside one tile |
 | 9 | Error Recovery | 3 | `ErrorNotice` before the empty branch is exemplary; one `Promise.all` over six reads blanks the page on a secondary failure, toast + notice both fire |
 | 10 | Help and Documentation | 3 | Rich and correct, always on and never on demand |
 | **Total** | | **24/40** | **Acceptable** (Storico was 27 before its fixes) |
 
 ## Design Specificity Verdict
 
-**LLM assessment**: authored for this product, not interchangeable — «Negli ultimi 44 mesi» when the 5-anni window finds 44, the gap de-annualised below six months, an attribution that closes to the euro on screen (16.051 + 2902 − 911 + 722 + 408 + 317 − 89 + 1920 = 21.320), the measured base declared under the verdict. The weakness is Storico's before it was closed: the page typesets its own audit trail. None of the lessons closed on Storico on 2026-09-20 reached this page: zero `TileMethodNote` and zero `SeriesLegend` under `components/performance`, Recharts' `<Legend>` still in the Dettaglio (`PerformanceDettaglio.tsx:210`).
+**LLM assessment**: authored for this product, not interchangeable — «Negli ultimi 44 mesi» when the 5-anni window finds 44, the gap de-annualised below six months, an attribution that closes to the euro on screen (xx.xxx + 2902 − 911 + 722 + 408 + 317 − 89 + 1920 = xx.xxx), the measured base declared under the verdict. The weakness is Storico's before it was closed: the page typesets its own audit trail. None of the lessons closed on Storico on 2026-09-20 reached this page: zero `TileMethodNote` and zero `SeriesLegend` under `components/performance`, Recharts' `<Legend>` still in the Dettaglio (`PerformanceDettaglio.tsx:210`).
 
 **Deterministic scan**: CLI on `app/dashboard/performance components/performance` → 0 findings. In-page overlay (injection succeeded, only a report-only CSP): 54 anti-patterns / 61 lines, 53 in `main`, 8 in the shell. Of the 53: 42 are the enumerated 9–11px ramp (`undersized-ui-text` 28, `tiny-text` 14 — not the page's), 8 `nested-cards` (one per tile) are FALSE positives (ancestors walked: no border, background, shadow or radius), 3 `line-length` are real (the base line, the Attribuzione footer, the Capitale e mercato footer) and the review found them independently. The overlay ran in Playwright's page; there is no user-visible tab.
 
@@ -52,8 +52,8 @@ The verdict answers «quanto rende, e rispetto a cosa?» in two seconds; then th
 
 ## Priority Issues
 
-**[P1] «Hai investito 134.988 € dal registro» counts the migration's opening positions as purchases.**
-- **What**: `computeInvestedCapital` sums every `buy`; its docblock says «Baselines COUNT as buys» (`lib/utils/assetTransactionUtils.ts:557`). The tile's popover promises «quanto denaro è andato sugli strumenti» (`ContributiTile.tsx:90-91`). **Verified on the mirror**: 10 baselines dated 2026-07-22 and 2026-08-15, inside YTD; real buys 49.089 €, sells 53.436 € (= the tile's), real net ≈ −4.346 €, not +134.988 €. The tile prints «acquisti 188.424 €» in nine months against 5058 € entered in the base; the page's own flow engine refuses that reading (a baseline «moves no money», doc/guide/rendimenti.md).
+**[P1] «Hai investito xxx.xxx € dal registro» counts the migration's opening positions as purchases.**
+- **What**: `computeInvestedCapital` sums every `buy`; its docblock says «Baselines COUNT as buys» (`lib/utils/assetTransactionUtils.ts:557`). The tile's popover promises «quanto denaro è andato sugli strumenti» (`ContributiTile.tsx:90-91`). **Verified on the mirror**: 10 baselines dated 2026-07-22 and 2026-08-15, inside YTD; real buys xx.xxx €, sells xx.xxx € (= the tile's), real net ≈ −x.xxx €, not +xxx.xxx €. The tile prints «acquisti xxx.xxx €» in nine months against 5058 € entered in the base; the page's own flow engine refuses that reading (a baseline «moves no money», doc/guide/rendimenti.md).
 - **Why it matters**: the tile's first and largest figure tells a methodical saver they invested ~27× what crossed the boundary. Narrative Honesty.
 - **Fix**: exclude `isBaseline` from the figure (or print it apart as «posizioni d'apertura»); reduce the tile to ONE answer — «Capitale entrato nella base», what the formulas use — with three uncoloured rows explaining it; the four «?» into one `TileMethodNote`.
 - **Suggested command**: /impeccable clarify
@@ -84,11 +84,11 @@ The verdict answers «quanto rende, e rispetto a cosa?» in two seconds; then th
 
 **Sam (keyboard / screen reader)**: the pill is announced as tabs that control nothing and vanishes from the Tab order under CUSTOM; focus is lost on every Escape; the Capitale e mercato `aria-label` concatenates every month (thousands of characters on Storico); four identical «?»; «Dettaglio» is not a heading and its `aria-label` overrides the visible description.
 
-**The monthly accumulator («quanto rende, e rispetto a cosa?» in seconds)**: gets the answer in 2 seconds and remembers 16,0 instead of the measured 11,8; is told they «invested 134.988 €»; sees a plot that looks like a crash; on the phone cannot read any month of the heatmap, the page is 4511px long and two attribution rows both read «WisdomTree Physi…» (−911 and +317).
+**The monthly accumulator («quanto rende, e rispetto a cosa?» in seconds)**: gets the answer in 2 seconds and remembers 16,0 instead of the measured 11,8; is told they «invested xxx.xxx €»; sees a plot that looks like a crash; on the phone cannot read any month of the heatmap, the page is 4511px long and two attribution rows both read «WisdomTree Physi…» (−911 and +317).
 
 ## Minor Observations
 
-- The Capitale e mercato footer says «versamenti netti registrati in Cashflow» but the series is `externalFlowOf`: on this account the measured flows (198.681 ≈ start + 5058 + 31.863, not 3795). False whenever `flowSource !== 'cashflow'`.
+- The Capitale e mercato footer says «versamenti netti registrati in Cashflow» but the series is `externalFlowOf`: on this account the measured flows (xxx.xxx ≈ start + 5058 + xx.xxx, not 3795). False whenever `flowSource !== 'cashflow'`.
 - `PerformanceDettaglio.tsx:299`: a literal «oggi» on a range closed in the past (the `WindowEnd` rule).
 - Sharpe and Sortino take the sign colour: a Sharpe of 0,2 would be green under «il rendimento paga poco il rischio». A ratio is not a gain.
 - «Δ vs tuo −5,0» in red on ACWI's row reads as ACWI's loss.
@@ -98,7 +98,7 @@ The verdict answers «quanto rende, e rispetto a cosa?» in two seconds; then th
 - Below 1440 the empty state shows the pill but not «Periodo personalizzato» (dialog mounted, unreachable).
 - `ContributiTile.tsx:84`: `tablet:grid-cols-2` is a viewport breakpoint inside a 3-column tile (Storico's fix was a container query).
 - «5 anni» and «Storico» resolve to the same start date and send two identical yoc/current-yield pairs; 4 Recharts `width(-1) height(-1)` warnings on load.
-- «3795 €» beside «134.988 €» is the declared it-IT behaviour, but in the 22px KPI pair it looks like a slip.
+- «3795 €» beside «xxx.xxx €» is the declared it-IT behaviour, but in the 22px KPI pair it looks like a slip.
 
 ## Questions to Consider
 

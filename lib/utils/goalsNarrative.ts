@@ -24,7 +24,7 @@ import { MONTH_NAMES } from '@/lib/constants/months';
 import { articleForPercent, atThePercent, monthWithPrepositionA, ofThePercent } from '@/lib/utils/patrimonioNarrative';
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
 import type { GoalContributionSlice } from '@/lib/utils/goalTrajectory';
-import type { AssignmentsView, DerivedAllocationView, GoalDate, GoalLine, GoalsOverview, MilestoneEntry, TrajectoryView } from '@/lib/utils/goalsSummary';
+import { GOALS_SECTION_IDS, type AssignmentsView, type DerivedAllocationView, type GoalDate, type GoalLine, type GoalsOverview, type MilestoneEntry, type TrajectoryView } from '@/lib/utils/goalsSummary';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -373,6 +373,12 @@ export function describeTraiettoriaFooter(t: TrajectoryView): Narrative {
 // ─── Milestone ────────────────────────────────────────────────────────────────
 
 export const MILESTONE_ASIDE = 'al ritmo attuale';
+
+/** What each closed row says beside its eyebrow — words, never a figure (The Closed-Row Rule); Traiettoria's is the goal's name, Assegnazioni's its own aside. */
+export const GOALS_CLOSED_ASIDES = {
+  [GOALS_SECTION_IDS.milestone]: MILESTONE_ASIDE,
+  [GOALS_SECTION_IDS.allocazione]: 'gap × priorità',
+} as const;
 
 export const MILESTONE_FOOTER: Narrative = [prose('Date proiettate ai versamenti e ai rendimenti attesi di oggi; un obiettivo senza versamenti né rendimento non ha una data.')];
 

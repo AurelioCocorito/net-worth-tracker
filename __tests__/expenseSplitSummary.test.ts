@@ -476,7 +476,7 @@ describe('summarizeExpenseSplit — income left «in comune»', () => {
  * The phone's strip (since 2026-10-12): one cell per person on the residual of money that has
  * MOVED. The identity is the tile's (`formatBookedResidual`: the compact euro, the «−» U+2212 on a
  * deficit — decision 32). Seen red on 2026-10-12 with the cell reading `remaining` (the period's
- * residual: Tarsio's «−100 €» for his «+500 €» of today), and with the identity compared against
+ * residual: Nibbio's «−100 €» for his «+500 €» of today), and with the identity compared against
  * `Intl`'s own hyphen-minus on the negative case.
  */
 describe('selectSplitStrip', () => {
@@ -500,16 +500,16 @@ describe('selectSplitStrip', () => {
   });
 
   it('reads one cell per person, opening and lifting the person\'s own row, and passes the strip rules', () => {
-    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Tarsio', 500)]));
-    expect(strip.map((f) => f.label)).toEqual(['Ghiandaia', 'Tarsio']);
-    expect(strip.map((f) => f.opens)).toEqual([splitMemberSectionId('m-ghiandaia'), splitMemberSectionId('m-tarsio')]);
+    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Nibbio', 500)]));
+    expect(strip.map((f) => f.label)).toEqual(['Ghiandaia', 'Nibbio']);
+    expect(strip.map((f) => f.opens)).toEqual([splitMemberSectionId('m-ghiandaia'), splitMemberSectionId('m-nibbio')]);
     expect(validateStrip(strip, [...Object.values(SPLIT_SECTION_IDS), SPLIT_REST_ID, ...strip.map((f) => f.opens)])).toEqual([]);
-    expect(liftedBlocks(strip, splitMemberSectionId('m-tarsio'))).toEqual([SPLIT_MEMBER_HERO_BLOCK]);
+    expect(liftedBlocks(strip, splitMemberSectionId('m-nibbio'))).toEqual([SPLIT_MEMBER_HERO_BLOCK]);
     expect(liftedBlocks(strip, splitMemberSectionId('m-ghiandaia'))).toEqual([SPLIT_MEMBER_HERO_BLOCK]);
   });
 
   it('prints what the tile prints, the deficit with the U+2212 and in the loss tone, the zero unsigned', () => {
-    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Tarsio', -83), person('Lemure', 0)]));
+    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Nibbio', -83), person('Lemure', 0)]));
     expect(cellText(strip[0])).toBe(plain(formatBookedResidual(2200)));
     expect(formatStripFigure(strip[0])!.sign).toBe('positive');
     expect(cellText(strip[1])).toBe(plain(formatBookedResidual(-83)));
@@ -537,13 +537,13 @@ describe('selectSplitStrip', () => {
   });
 
   it('reads the money that has MOVED: +100 booked against −100 over the period is «+100», positive', () => {
-    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Tarsio', 100, -100)]));
+    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Nibbio', 100, -100)]));
     expect(strip[1]).toMatchObject({ value: 100, tone: 'positive' });
     expect(cellText(strip[1])).toBe(plain(formatBookedResidual(100)));
   });
 
   it('is empty when nobody has a residual (no basis) and past four people', () => {
-    expect(selectSplitStrip(summaryOf([person('Ghiandaia', null), person('Tarsio', null)]))).toEqual([]);
+    expect(selectSplitStrip(summaryOf([person('Ghiandaia', null), person('Nibbio', null)]))).toEqual([]);
     const five = ['A', 'B', 'C', 'D', 'E'].map((name) => person(name, 100));
     expect(five.length).toBe(MAX_SPLIT_STRIP_MEMBERS + 1);
     expect(selectSplitStrip(summaryOf(five))).toEqual([]);
@@ -551,8 +551,8 @@ describe('selectSplitStrip', () => {
   });
 
   it('prints «senza base» for a person without a residual only beside a measured one', () => {
-    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Tarsio', null)]));
-    expect(strip[1]).toMatchObject({ value: null, reason: 'senza base', opens: splitMemberSectionId('m-tarsio') });
+    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Nibbio', null)]));
+    expect(strip[1]).toMatchObject({ value: null, reason: 'senza base', opens: splitMemberSectionId('m-nibbio') });
     expect(validateStrip(strip, strip.map((f) => f.opens))).toEqual([]);
   });
 

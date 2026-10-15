@@ -597,7 +597,11 @@ file used to carry.
   re-rendered); a strip cell names the row it opens from the controller's `sections.eyebrows` (2026-10-10, the spec's
   retirement: the strip does not know the rows, a missing id fell back to the cell's label); «Chiudi tutte» counts
   the rows open at LOAD as opened, so their content stays mounted (seen red the same day,
-  `e2e/mobile-composition.hof.mobile.spec.ts`).
+  `e2e/mobile-composition.hof.mobile.spec.ts`). **A page with tabs that UNMOUNT the inactive one** (FIRE, Radix
+  `TabsContent`, since 2026-10-15) gives each tab its own controller and key (`tab:`), so a dismissed failed read reopens
+  on the next visit and a returned-to tab reads `localStorage` alone; **a hook that reads on mount inside a closed row
+  takes an `enabled` the page derives from `collapse(id)?.mounted`** (`usePortfolioExposure`, 2026-10-15): React Query
+  fetches a key as soon as ONE observer is enabled, so unmounting the row's content is not enough.
 - **An auto-dismiss timer lives in its OWN `useEffect([visible])`** — in an effect that also depends on data, a refetch
   cancels the timer and the badge sticks.
 - **`react-hooks/set-state-in-effect` — four answers, in this order** (2026-09-06; lint at zero): (1) derive it
@@ -670,7 +674,7 @@ file used to carry.
 - **Prefer rendering large local subtrees as pure render helpers or top-level components** — a nested JSX definition
   inside a page component means a simple row selection remounts the whole table (`cn` is NOT auto-imported in pages).
   **The worked example is Impostazioni** (2026-10-08): one 4100-line component with 70 `useState`s re-ran whole on every
-  keystroke (286 components per key on the laptop, compiler on — it cannot split a component); now an orchestrator
+  keystroke (286 components per key on one machine, compiler on — it cannot split a component); now an orchestrator
   under 500 lines holding ONE `useReducer` draft, each tab a module-level CONTROLLED view of its slice (`slice` in,
   `onChange(patch)` out, no form state of its own because Radix unmounts an inactive panel), so a keystroke re-renders
   that view and the page, never the other tabs (`npm run perf:census -- --scenario=settings,allocation`;
@@ -695,8 +699,9 @@ file used to carry.
   (`e2e/overview.{mobile.,}spec.ts`), the five Cashflow tabs theirs on 2026-10-12 (Budget, Centri, the centre's detail,
   Dividendi; `e2e/mobile-composition.cashflow.mobile.spec.ts`), Rendimenti its `order-1…8` on 2026-10-14
   (`e2e/mobile-composition.performance.degraded.mobile.spec.ts`), Analisi its `order-1…7` and Storico its `order-*` on
-  2026-10-14 (`e2e/mobile-composition.{analisi,history}.mobile.spec.ts`); every other page still carries `order-*`
-  (Allocazione, Previdenza, every FIRE tab) until MOB-07 composes them.
+  2026-10-14 (`e2e/mobile-composition.{analisi,history}.mobile.spec.ts`), Allocazione, Previdenza and the five FIRE tabs
+  theirs on 2026-10-15 (`e2e/allocation.mobile.spec.ts`; the Coast Ipotesi's four tiles too — Modello now reads second
+  on a phone, the DOM's order): no composed grid carries `order-*` any more.
 - **A row's caption WRAPS, it is never truncated, and the label column never grows to make room for it** (2026-09-14,
   `RankedRows`): a cut fact is no fact («30 set · Asilo nido · in calendario»); at 4 grid columns 46% is the most the
   label can take beside the bar's 40px floor, the amount and the share (58% painted the share outside the tile,
@@ -792,8 +797,8 @@ file used to carry.
   `fetchPDFData` itself on the emulators) — doc/guide/email-pdf.md § Verifying a surface with no DOM.
 - **A trial merge of an open PR runs in a worktree, never in the main checkout** (2026-09-07): fetch `refs/pr/<N>`,
   `git merge --no-commit --no-ff`, `tsc` + area suites + eslint, `git merge --abort`. `node_modules` is a directory
-  junction on Windows (`New-Item -ItemType Junction`; `cmd //c mklink` is refused), a `cp -cR` clone on the Mac
-  (Turbopack refuses a symlink out of the root, 2026-10-04); two at a time on 16 GB; a conflict is judged on `git
+  junction on Windows (`New-Item -ItemType Junction`; `cmd //c mklink` is refused), a `cp -cR` clone on macOS
+  (Turbopack refuses a symlink out of the root, 2026-10-04); two at a time at most; a conflict is judged on `git
   merge-tree --write-tree`, never guessed. **Never `git worktree remove --force` a worktree that held a junction or a
   build** (2026-09-30: it emptied the main `node_modules`): drop the junction, check the path is gone, delete the
   build, remove the worktree, count `ls node_modules | wc -l`.

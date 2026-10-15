@@ -32,7 +32,11 @@ import {
   SENSITIVITY_ASIDE,
   SENSITIVITY_FOOTER,
 } from '@/lib/utils/whatIfNarrative';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
+import { describeFireLockScope } from '@/lib/utils/fireNarrative';
+import { selectWhatIfStrip } from '@/lib/utils/whatIfSummary';
+import { formatStripFigure } from '@/lib/utils/verdictStrip';
+import type { FireLock } from '@/lib/utils/fireSummary';
 import type { MetricPair, SensitivityReading, WhatIfDivergence, WhatIfEvent, WhatIfSummary, WhatIfTimeline } from '@/lib/utils/whatIfSummary';
 
 /** Flattens the no-break space `Intl` puts before € so expectations read like the screen. */
@@ -464,5 +468,58 @@ describe('describeSensitivity', () => {
     expect(plain(SENSITIVITY_FOOTER)).toBe(
       "Ogni cella è lo scenario base con quelle spese e quel risparmio, dal patrimonio di oggi. La cella con il bordo è il piano di oggi; le tinte dicono se ci arrivi prima o dopo. La matrice non applica l'evento: misura quanto conta un'abitudine, non un colpo.",
     );
+  });
+});
+
+// ─── The phone's cut, the scope and the strip (2026-10-15, MOB-07) ────────────
+// Seen red one at a time: `leadLength` left `undefined` with a Coast sentence; the bridge note
+// with no scope (the lock fixture's `lockedValue` at 0 while `isBridge` true: the page would have
+// printed the note with no line in sight); the direction words typed in the selector instead of
+// read from the sentence («cala» against «scende»).
+
+describe('buildWhatIfVerdict — the cut (doc/mobile/README.md § 9, decisions 5 and 44)', () => {
+  it('keeps the event and its clauses under the title, the Coast and the bridge behind «Il perché»', () => {
+    const verdict = jobLossVerdict();
+    const { lead, rest } = splitVerdict(verdict);
+    expect(plain(lead)).toMatch(/^Con 12 mesi senza .* \(da 1375 € a 1269 €\)\.$/);
+    expect(plain(rest)).toBe(' Sul Coast FIRE ti mancano 47.300 € invece di 15.500 €.');
+    expect(verdict.restLabel).toBe('il Coast FIRE');
+
+    const bridged = buildWhatIfVerdict({ hasBaseline: true, event: makeEvent(), summary: makeSummary({ isBridge: true }) });
+    expect(plain(splitVerdict(bridged).rest)).toMatch(/ Numeri con il modello ponte: il fondo pensione rientra allo sblocco\.$/);
+    expect(bridged.restLabel).toBe('il Coast FIRE e il fondo pensione');
+    expect(buildWhatIfVerdict({ hasBaseline: true, event: makeEvent(), summary: makeSummary({ isBridge: true, coast: null }) }).restLabel).toBe('il fondo pensione');
+    expect(buildWhatIfVerdict({ hasBaseline: true, event: makeEvent(), summary: makeSummary({ coast: null }) }).leadLength).toBeUndefined();
+  });
+
+  it('cuts the empty event after the plan of today, the instruction behind «come simulare»', () => {
+    const verdict = buildWhatIfVerdict({ hasBaseline: true, event: makeEvent({ isEmpty: true }), summary: makeSummary() });
+    const { lead, rest } = splitVerdict(verdict);
+    expect(plain(lead)).toBe('Il piano resta quello di oggi: FIRE nel 2033.');
+    expect(plain(rest)).toBe(' Scegli un evento e inserisci un importo.');
+    expect(verdict.restLabel).toBe('come simulare');
+    expect(buildWhatIfVerdict({ hasBaseline: false, event: null, summary: null }).leadLength).toBeUndefined();
+  });
+
+  it('states the bridge note exactly when the scope line would be there, on a coherent lock', () => {
+    const lock: FireLock = { active: true, lockedValue: 31_400, unlockCalendarYear: 2045, unlockAge: 62, source: 'rita', lockedFundCount: 1, unmodellableCount: 0 };
+    const bridged = buildWhatIfVerdict({ hasBaseline: true, event: makeEvent(), summary: makeSummary({ isBridge: true }) });
+    expect(plain(bridged.sentence)).toContain('Numeri con il modello ponte');
+    expect(describeFireLockScope(lock)).toBe('Modello ponte: fondo pensione escluso fino al 2045');
+    const free = buildWhatIfVerdict({ hasBaseline: true, event: makeEvent(), summary: makeSummary({ isBridge: false }) });
+    expect(plain(free.sentence)).not.toContain('modello ponte');
+    expect(describeFireLockScope({ ...lock, active: false })).toBeNull();
+  });
+
+  it('prints in the cells the figures and the direction the sentences print', () => {
+    const summary = makeSummary();
+    const divergence: WhatIfDivergence = { calendarYear: 2033, before: 854_600, after: 803_400, gapThen: -51_200 };
+    const [today, then] = selectWhatIfStrip({ event: makeEvent(), summary, divergence });
+    const flat = (text: string) => text.replace(/[\u00a0\u202f]/g, ' ');
+    const verdict = flat(plain(jobLossVerdict().sentence));
+    expect(verdict).toContain(`il patrimonio FIRE scende di ${flat(formatStripFigure(today)!.text)}`);
+    expect(today.label.endsWith('scende')).toBe(true);
+    expect(flat(plain(describeBeforeAfter(summary, divergence)))).toContain(`${flat(formatStripFigure(then)!.text)} di distanza allora`);
+    expect(then.label).toBe('Distanza nel 2033');
   });
 });

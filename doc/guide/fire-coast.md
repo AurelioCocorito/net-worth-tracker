@@ -43,7 +43,7 @@
   `landFirstValue`): a count from «0 €» under a track already at 40,8% was two readings of one figure. The two tile
   footers are ONE line with the method behind «Come si calcola» (`COAST_INFLOWS_METHOD`, `COAST_SCENARIOS_METHOD`).
 - **The Ipotesi are two columns at natural height** (Profilo + Modello 5 | Pensioni + Scaglioni 7; `contents` wrappers
-  and `order-*` below `desktop:`): paired by rows, Pensioni stretched 127 px beside Profilo and Modello 251 px beside
+  below `desktop:`, the tiles in the DOM's order — no `order-*` since 2026-10-15, § Composizione mobile): paired by rows, Pensioni stretched 127 px beside Profilo and Modello 251 px beside
   Scaglioni, measured. Every control is `h-11 desktop:h-9`; the two ages say an out-of-range value AT the field
   (`aria-invalid`, the help line in `text-destructive`) before the toast repeats it on «Salva ipotesi».
 - **The target line of the projection steps WITH the fund** (`fireService.calculateCoastFIREProjection`, 2026-08-25):
@@ -90,6 +90,16 @@
   fixture fixes expenses but not the clock: structure and format only (doc/guide/e2e-emulatori.md § Browser-Driven E2E (Playwright)).
   The base seed records little income, so on the fixture the pace clause reads «non lo raggiungi prima dei 60 anni»
   and the chart draws no marker — the spec accepts both phrasings.
+
+## Composizione mobile
+
+Composed on 2026-10-15 (MOB-07): the page-wide rules — one controller per tab, the lock as the scope line, the cut at the first full stop, the curve at 120px — are in `doc/guide/fire.md` § Composizione mobile.
+
+- **THE tile**: Traguardo (`coast` tab), first in the DOM at every width, open and never a row; its plot at 120px below `desktop:`.
+- **The strip** (`selectCoastStrip({ target, scenarios })`, `lib/utils/coastFireView.ts`): «Ti mancano» → `gap` — once the target is behind «Margine» → `surplus`, and `null` «raggiunto» when the surplus is under 0,5 € (`currency`, the verdict's own figures) → opens `coast-afflussi`; «Nell'orso» → the bear scenario's `coastNumberToday` (`currency`, the Scenari row's figure) → opens `coast-scenari`. Nothing lifted. Identity in `__tests__/coastFireView.test.ts`.
+- **The cut** (`buildCoastVerdict`): the gap and the walk («…contro i … richiesti.») under the title; the pace and the lock sentence behind «Il perché · il ritmo» (« e il fondo pensione» with the lock; «il fondo pensione» alone on a reached target); nothing cut without a pace nor a lock, nor when the projection cannot run.
+- **The rows and their aside, in DOM order** (`COAST_SECTIONS` in the tab, ids and words `COAST_SECTION_IDS` / `COAST_CLOSED_ASIDES` in `coastFireView.ts`): `coast-afflussi` «pensioni e fondo» · `coast-scenari` «rendimento reale». The three cells lose their `order-*` (the phone read the DOM already); `PageRest` right after the Traguardo's cell; «Ipotesi» and «Dettaglio» stay disclosures after the rows. **«Nulla registrato»** keeps the two rows closed with «non ancora calcolabile», the Traguardo open with its action. **The Ipotesi's four tiles read in the DOM's order below `desktop:` too** — Profilo, Modello, Pensioni, Scaglioni, the order Tab walks them — since 2026-10-15: their `order-*`, which put Pensioni second on a phone, went with the page's (decision 11).
+- **768/1024 and the specs**: the same composition at 768 (every tile full width) and at 1024, until MOB-08. `e2e/coast.mobile.spec.ts` (`mobile`: the overflow guard presses «Apri tutte» before opening Ipotesi and Dettaglio), `e2e/fire.mobile.spec.ts` (the memory per tab through Coast), `e2e/coast.spec.ts` (1440: no `-trigger`, the strip hidden, no scope line, the pace in the paragraph).
 
 ## Per-page blind spots
 

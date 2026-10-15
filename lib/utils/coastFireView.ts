@@ -45,6 +45,8 @@ import { toDate } from '@/lib/utils/dateHelpers';
 import { articleForPercent } from '@/lib/utils/patrimonioNarrative';
 import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
 import type { FireLock } from '@/lib/utils/fireSummary';
+import { cutAtFirstSentence, fireRestLabel, isLockStated } from '@/lib/utils/fireNarrative';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
 
 /** `fireService` keeps the per-scenario shape internal; this is the only public handle on it. */
 export type CoastScenarioMetrics = CoastFIREProjectionResult['scenarios']['base'];
@@ -643,7 +645,7 @@ function paceClause(target: CoastTarget, pace: CoastPace | null): Narrative {
  * «non conta in queste cifre, il calcolo lo fa rientrare da lì» read as a formula).
  */
 function lockSentence(lock: FireLock): Narrative {
-  if (!lock.active || lock.lockedValue <= 0 || lock.unlockCalendarYear === null) return [];
+  if (!isLockStated(lock)) return [];
   const plural = lock.lockedFundCount > 1;
   return [
     prose(' I '),
@@ -685,6 +687,10 @@ export function buildCoastVerdict(input: CoastVerdictInput): PageVerdictModel {
     };
   }
 
+  // On a phone the first sentence stands under the title and the pace and the lock go behind
+  // «Il perché» (`cutAtFirstSentence`, the Calcolatore's rule); the scope line keeps the lock in sight.
+  const lockStated = isLockStated(input.lock);
+
   if (target.reached) {
     const opening: Narrative =
       target.surplus < 0.5
@@ -697,28 +703,80 @@ export function buildCoastVerdict(input: CoastVerdictInput): PageVerdictModel {
             prose(') di '),
             amount(target.surplus),
           ];
-    return {
-      headline: 'Sì, puoi smettere di versare.',
-      tone: 'positive',
-      sentence: [...opening, ...capitalClause(target, 'oltre'), prose('.'), ...lockSentence(input.lock)],
-    };
+    const sentence: Narrative = [...opening, ...capitalClause(target, 'oltre'), prose('.'), ...lockSentence(input.lock)];
+    return { headline: 'Sì, puoi smettere di versare.', tone: 'positive', sentence, ...cutAtFirstSentence(sentence, fireRestLabel(null, lockStated)) };
   }
 
+  const pace = paceClause(target, input.pace);
+  const sentence: Narrative = [
+    prose('Ti mancano '),
+    amount(target.gap),
+    prose(' al numero Coast FIRE di oggi ('),
+    amount(target.coastNumberToday),
+    prose(')'),
+    ...capitalClause(target, 'contro'),
+    prose('.'),
+    ...pace,
+    ...lockSentence(input.lock),
+  ];
   return {
     headline: 'Non ancora: continua a versare.',
     tone: 'neutral',
-    sentence: [
-      prose('Ti mancano '),
-      amount(target.gap),
-      prose(' al numero Coast FIRE di oggi ('),
-      amount(target.coastNumberToday),
-      prose(')'),
-      ...capitalClause(target, 'contro'),
-      prose('.'),
-      ...paceClause(target, input.pace),
-      ...lockSentence(input.lock),
-    ],
+    sentence,
+    ...cutAtFirstSentence(sentence, fireRestLabel(pace.length > 0 ? 'il ritmo' : null, lockStated)),
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The phone composition (2026-10-15)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The ids of the tab's rows below `desktop:` (`useMobileSections` with `tab: 'coast'`, The
+ * Closed-Row Rule): the two tiles beside Traguardo, THE tile, which never closes (doc/mobile/README.md
+ * § 9, decision 21).
+ */
+export const COAST_SECTION_IDS = {
+  afflussi: 'coast-afflussi',
+  scenari: 'coast-scenari',
+} as const;
+
+/** What each closed row says beside its eyebrow — words, never a figure (The Closed-Row Rule). */
+export const COAST_CLOSED_ASIDES = {
+  [COAST_SECTION_IDS.afflussi]: 'pensioni e fondo',
+  [COAST_SECTION_IDS.scenari]: 'rendimento reale',
+} as const;
+
+/** Below this surplus the target is met to the euro: «Margine» has nothing to print. */
+const SURPLUS_FLOOR = 0.5;
+
+export interface CoastStripInput {
+  target: CoastTarget;
+  /** `summarizeCoastScenarios(…)` — the bear's Coast number is the second cell. */
+  scenarios: readonly CoastScenarioRow[];
+}
+
+/**
+ * The two figures of the Coast tab's first screen: the gap to the Coast number of today — the
+ * verdict's «Ti mancano» — or, once the target is behind, the margin over it («Margine», the
+ * verdict's «di 10.000 €»; met to the euro: «raggiunto»), opening the Afflussi; and the bear
+ * scenario's Coast number — the Scenari row's own figure — opening Scenari. Nothing is lifted:
+ * the readings stay whole (decision 15).
+ */
+export function selectCoastStrip({ target, scenarios }: CoastStripInput): StripFigure[] {
+  const bear = scenarios.find((row) => row.key === 'bear') ?? null;
+  const surplusMet = target.reached && target.surplus < SURPLUS_FLOOR;
+  const cells: StripFigure[] = [
+    {
+      label: target.reached ? 'Margine' : 'Ti mancano',
+      value: target.reached ? (surplusMet ? null : target.surplus) : target.gap,
+      format: 'currency',
+      opens: COAST_SECTION_IDS.afflussi,
+      ...(surplusMet ? { reason: 'raggiunto' } : {}),
+    },
+  ];
+  if (bear) cells.push({ label: "Nell'orso", value: bear.coastNumberToday, format: 'currency', opens: COAST_SECTION_IDS.scenari });
+  return cells;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
