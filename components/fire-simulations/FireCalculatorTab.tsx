@@ -111,6 +111,8 @@ import {
   type FireTargetHonest,
 } from '@/lib/utils/fireSummary';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import Link from 'next/link';
 import {
@@ -195,11 +197,11 @@ const SKELETON_CELLS: TileSkeletonCell[] = [
 
 /**
  * The four cells of the grid: one class per tile, shared by the data and the empty branches. ONE
- * sequence, no `order-*` (decision 11): Traguardo, then Base, Reddito, Scenari at every width.
+ * sequence, no `order-*` (decision 11): Traguardo, then Base, Reddito, Scenari at every width; on
+ * a tablet a row cell adds the place `useTabletComposition` gives it (MOB-08).
  */
-const GRID_CLASS = 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12';
-const TRAGUARDO_CELL = cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2');
-const BASE_CELL = cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7');
+const TRAGUARDO_CELL = cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2');
+const BASE_CELL = cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-7');
 const REDDITO_CELL = cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4');
 const SCENARI_CELL = cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3');
 
@@ -213,6 +215,8 @@ const FIRE_SECTIONS: readonly SectionSpec[] = [
   { id: FIRE_SECTION_IDS.reddito, eyebrow: 'Reddito passivo' },
   { id: FIRE_SECTION_IDS.scenari, eyebrow: 'Scenari' },
 ];
+/** The three rows are on both branches of the tab: their DOM order is the tablet's (MOB-08). */
+const FIRE_ORDER = FIRE_SECTIONS.map((section) => section.id);
 
 /** The one action of the empty state: a link the size of a touch target, in the tile's own ink. */
 const EMPTY_ACTION_CLASS =
@@ -683,6 +687,7 @@ export function FireCalculatorTab() {
   // the strip read from the target and the allowance the tiles print; the lock as the scope line
   // only below `desktop:` (at 1440 the paragraph says it). Both cells open a row: `reveal` IS the handler.
   const sections = useMobileSections({ route: 'fire-simulations', tab: 'fire', sections: FIRE_SECTIONS });
+  const tablet = useTabletComposition({ sections, order: FIRE_ORDER });
   const { reveal: handleStripOpen } = sections;
   const strip = target && passiveIncome ? selectFireStrip({ target, passiveIncome }) : [];
   const lockScope = sections.compact ? describeFireLockScope(lock) : null;
@@ -861,19 +866,20 @@ export function FireCalculatorTab() {
         <div className="pt-1">
           <PageVerdict verdict={verdict} ariaLabel="Verdetto sul FIRE" scope={lockScope && <FireLockScope text={lockScope} />} restCollapse={sections.collapse(VERDICT_REST_SECTION)} />
         </div>
-        <div className={GRID_CLASS}>
+        <div className={COMPACT_GRID_WRAPPER_CLASS}>
+        <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
           <div className={TRAGUARDO_CELL}>
             <Tile eyebrow="Traguardo" ariaLabel="Traguardo FIRE">
               <EmptyState className="mt-2" message={empty.traguardo} action={action} />
             </Tile>
           </div>
-          <PageRest sections={sections} />
-          <div className={BASE_CELL}>
+          <PageRest sections={sections} className={REST_CELL_CLASS} />
+          <div className={cn(BASE_CELL, tablet.cellClass(FIRE_SECTION_IDS.base))} style={tablet.cellStyle(FIRE_SECTION_IDS.base)}>
             <Tile eyebrow="Base di calcolo" ariaLabel="Base di calcolo del FIRE" collapse={sections.collapse(FIRE_SECTION_IDS.base)} asideWhenClosed={FIRE_ROW_NOT_COMPUTABLE}>
               <EmptyState className="mt-2" message={empty.base} />
             </Tile>
           </div>
-          <div className={REDDITO_CELL}>
+          <div className={cn(REDDITO_CELL, tablet.cellClass(FIRE_SECTION_IDS.reddito))} style={tablet.cellStyle(FIRE_SECTION_IDS.reddito)}>
             {empty.passiveIncome === null && passiveIncome ? (
               <RedditoPassivoTile
                 collapse={sections.collapse(FIRE_SECTION_IDS.reddito)}
@@ -887,11 +893,12 @@ export function FireCalculatorTab() {
               </Tile>
             )}
           </div>
-          <div className={SCENARI_CELL}>
+          <div className={cn(SCENARI_CELL, tablet.cellClass(FIRE_SECTION_IDS.scenari))} style={tablet.cellStyle(FIRE_SECTION_IDS.scenari)}>
             <Tile eyebrow="Scenari" ariaLabel="Scenari di mercato" collapse={sections.collapse(FIRE_SECTION_IDS.scenari)} asideWhenClosed={FIRE_ROW_NOT_COMPUTABLE}>
               <EmptyState className="mt-2" message={empty.scenarios} />
             </Tile>
           </div>
+        </div>
         </div>
         {parametri}
         {dettaglio}
@@ -941,8 +948,10 @@ export function FireCalculatorTab() {
         />
       </div>
 
-      {/* Tablet (768-1439): Traguardo full, Base di calcolo full, Reddito passivo beside Scenari. */}
-      <div className={GRID_CLASS}>
+      {/* Tablet (MOB-08): Traguardo on two columns, the closed rows two by two at 768 and beside it at
+          1024, an open row on the whole grid row. */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
         <div className={TRAGUARDO_CELL}>
           <TraguardoTile
             reading={describeTarget(target)}
@@ -971,9 +980,9 @@ export function FireCalculatorTab() {
           />
         </div>
 
-        <PageRest sections={sections} />
+        <PageRest sections={sections} className={REST_CELL_CLASS} />
 
-        <div className={BASE_CELL}>
+        <div className={cn(BASE_CELL, tablet.cellClass(FIRE_SECTION_IDS.base))} style={tablet.cellStyle(FIRE_SECTION_IDS.base)}>
           <BaseDiCalcoloTile
             collapse={sections.collapse(FIRE_SECTION_IDS.base)}
             asideWhenClosed={FIRE_CLOSED_ASIDES[FIRE_SECTION_IDS.base]}
@@ -990,7 +999,7 @@ export function FireCalculatorTab() {
           />
         </div>
 
-        <div className={REDDITO_CELL}>
+        <div className={cn(REDDITO_CELL, tablet.cellClass(FIRE_SECTION_IDS.reddito))} style={tablet.cellStyle(FIRE_SECTION_IDS.reddito)}>
           <RedditoPassivoTile
             collapse={sections.collapse(FIRE_SECTION_IDS.reddito)}
             asideWhenClosed={FIRE_CLOSED_ASIDES[FIRE_SECTION_IDS.reddito]}
@@ -999,7 +1008,7 @@ export function FireCalculatorTab() {
           />
         </div>
 
-        <div className={SCENARI_CELL}>
+        <div className={cn(SCENARI_CELL, tablet.cellClass(FIRE_SECTION_IDS.scenari))} style={tablet.cellStyle(FIRE_SECTION_IDS.scenari)}>
           {projection ? (
             <ScenariTile
               collapse={sections.collapse(FIRE_SECTION_IDS.scenari)}
@@ -1017,6 +1026,7 @@ export function FireCalculatorTab() {
             </Tile>
           )}
         </div>
+      </div>
       </div>
 
       {parametri}

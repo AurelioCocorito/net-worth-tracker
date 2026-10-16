@@ -125,8 +125,10 @@ function DriftAnnotation({ deltaPp }: { deltaPp: number | null }) {
 }
 
 /**
- * One breakdown row, in two layouts: below `tablet:` identity and share on top, euro and drift
- * beneath — the WORDS stay identical to desktop, only the arrangement changes.
+ * One breakdown row, in two layouts: under a 480px legend identity and share on top, euro and drift
+ * beneath — the WORDS stay identical to desktop, only the arrangement changes. By the LEGEND's width
+ * (a container query, since 2026-10-16): in the 360px rail of a tablet in landscape the tile is a
+ * phone's width at a 1024px viewport (MOB-08).
  */
 function BreakdownRow({ entry, chartColors }: { entry: CompositionBreakdownEntry; chartColors: string[] }) {
   const swatch = (
@@ -137,7 +139,7 @@ function BreakdownRow({ entry, chartColors }: { entry: CompositionBreakdownEntry
   );
   return (
     <div className="py-2">
-      <div className="tablet:hidden">
+      <div className="@[480px]:hidden">
         <div className="flex items-center gap-2.5">
           {swatch}
           <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{entry.label}</span>
@@ -148,7 +150,7 @@ function BreakdownRow({ entry, chartColors }: { entry: CompositionBreakdownEntry
           <DriftAnnotation deltaPp={entry.deltaPp} />
         </div>
       </div>
-      <div className="hidden items-center gap-2.5 tablet:flex">
+      <div className="hidden items-center gap-2.5 @[480px]:flex">
         {swatch}
         <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{entry.label}</span>
         <span className="shrink-0 font-mono text-[13px] tabular-nums text-foreground">{formatCurrency(entry.valueEur)}</span>
@@ -273,7 +275,7 @@ export function ComposizioneTile({ assetClassHistory, liquidityHistory, hasPensi
           </div>
 
           {/* The legend, carrying the numbers the chart cannot. Same words at every breakpoint. */}
-          <div className="mt-3 divide-y divide-border border-t border-border">
+          <div className="@container mt-3 divide-y divide-border border-t border-border">
             {series.breakdown.map((entry) => (
               <BreakdownRow key={entry.key} entry={entry} chartColors={chartColors} />
             ))}

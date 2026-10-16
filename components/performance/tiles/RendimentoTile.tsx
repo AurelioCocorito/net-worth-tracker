@@ -50,7 +50,7 @@ interface RendimentoTileProps {
   /** The currency the model is measured in: EUR, or USD when the FX route failed. */
   benchmarkCurrency: 'EUR' | 'USD';
   /**
-   * The blocks the phone's strip already prints, hidden below `tablet:` (`liftedBlocks(strip,
+   * The blocks the phone's strip already prints, hidden below `desktop:` (`liftedBlocks(strip,
    * 'rend-twr').filter(isRendimentoLiftedBlock)` plus the drawdown chip, from the page). The
    * «in arrivo» chip is never lifted: a cell without a figure lifts nothing.
    */

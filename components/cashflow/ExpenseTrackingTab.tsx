@@ -85,6 +85,8 @@ import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { narrativeToText } from '@/lib/utils/narrative';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
@@ -152,6 +154,8 @@ const TRACKING_SECTIONS: readonly SectionSpec[] = [
   { id: TRACKING_SECTION_IDS.risparmio, eyebrow: 'Risparmio nel tempo' },
   { id: TRACKING_SECTION_IDS.movimenti, eyebrow: 'Movimenti' },
 ];
+/** The four rows are always on the composed tab: their DOM order is the tablet's (MOB-08). */
+const TRACKING_ORDER = TRACKING_SECTIONS.map((section) => section.id);
 /** Months of the income-vs-spending chart behind a month or a custom range. */
 const FLOW_MONTHS = 6;
 /** Months of the savings-rate history. */
@@ -325,6 +329,8 @@ export function ExpenseTrackingTab({
   // The memory is per tab (`mobile-sections:cashflow:tracking`), the rest id prefixed — five
   // verdicts share one DOM.
   const sections = useMobileSections({ route: 'cashflow', tab: 'tracking', sections: TRACKING_SECTIONS, restId: TRACKING_REST_ID });
+  // At 768/1024 the same rows on two or three columns (MOB-08, lib/utils/tabletComposition.ts).
+  const tablet = useTabletComposition({ sections, order: TRACKING_ORDER });
 
   // The row the «+» just saved, on a phone: Movimenti opens on it and the focus lands on its
   // button (`TransactionFeed.focusRowId`, the modal's `returnFocusTo`). Forgotten by the next
@@ -889,7 +895,8 @@ export function ExpenseTrackingTab({
         : undefined;
 
   // The axis below `desktop:`: the period (the page's axis) and the landscape add button (the
-  // portrait FAB in the bottom nav is the only «add» there; its height is MOB-08's).
+  // portrait FAB in the bottom nav is the only «add» there), 44px tall — the one add affordance of
+  // a tablet in landscape, a touch target (MOB-08).
   const axis = (
     <div className="flex flex-wrap items-center gap-2">
       <PeriodPicker value={period} onChange={handlePeriodChange} availableYears={availableYears} className="shrink-0 max-w-[190px]" />
@@ -899,7 +906,7 @@ export function ExpenseTrackingTab({
         disabled={isDemo}
         aria-label={isDemo ? 'Aggiungi — non disponibile in modalità demo' : 'Aggiungi voce'}
         title={isDemo ? 'Non disponibile in modalità demo' : undefined}
-        className="max-desktop:portrait:hidden h-9 shrink-0"
+        className="max-desktop:portrait:hidden h-11 shrink-0"
       >
         <Plus className="mr-1.5 h-4 w-4" />
         Aggiungi
@@ -1221,9 +1228,11 @@ export function ExpenseTrackingTab({
       {periodRows}
 
       {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width
-          (decision 11) — THE tile, «Il resto della pagina», then the rows ─────────────── */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+          (decision 11) — THE tile, «Il resto della pagina», then the rows; at 1024 the rows that
+          precede the first open one beside THE tile, the rest under it (MOB-08) ─────────── */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
+        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
           <CashflowPeriodoTile
             id={TRACKING_SECTION_IDS.periodo}
             eyebrow={`Cashflow · ${periodLabel(period)}`}
@@ -1246,9 +1255,9 @@ export function ExpenseTrackingTab({
           />
         </div>
 
-        <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} />
+        <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(TRACKING_SECTION_IDS.spese), 'desktop:col-span-4')} style={tablet.cellStyle(TRACKING_SECTION_IDS.spese)}>
           <CategoryTile
             eyebrow="Spese per categoria"
             total={expenseRanking.total}
@@ -1262,7 +1271,7 @@ export function ExpenseTrackingTab({
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(TRACKING_SECTION_IDS.entrate), 'desktop:col-span-3')} style={tablet.cellStyle(TRACKING_SECTION_IDS.entrate)}>
           <CategoryTile
             eyebrow="Entrate per categoria"
             total={incomeRanking.total}
@@ -1277,7 +1286,7 @@ export function ExpenseTrackingTab({
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(TRACKING_SECTION_IDS.risparmio), 'desktop:col-span-7')} style={tablet.cellStyle(TRACKING_SECTION_IDS.risparmio)}>
           <RisparmioTile
             history={savingsHistory}
             aside={describeMonthWindow(savingsHistory.months, now)}
@@ -1289,7 +1298,7 @@ export function ExpenseTrackingTab({
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(TRACKING_SECTION_IDS.movimenti), 'desktop:col-span-12')} style={tablet.cellStyle(TRACKING_SECTION_IDS.movimenti)}>
           <MovimentiTile
             aside={describeMovementsCount(filteredExpenses.length, expenses.length)}
             reading={describeMovements(movementsSummary)}
@@ -1320,6 +1329,7 @@ export function ExpenseTrackingTab({
             )}
           </MovimentiTile>
         </div>
+      </div>
       </div>
 
       {dialogs}

@@ -269,6 +269,7 @@ Composed on 2026-10-12 (PR #454; its spec, retired the same day, is in `git log 
 - **Nothing recorded**: no axis, no rows, no `PageRest` and nothing written to the memory (`NO_SECTIONS`): Pagamenti alone with its two actions, as on desktop.
 - **The memory**: `mobile-sections:cashflow:dividends`, «Il perché» the row `dvd-perche`; `active` remounts `PageRest`.
 - **The specs**: `e2e/mobile-composition.cashflow.mobile.spec.ts` (a coupon planted through the emulator's REST API on the base account, which has none: the rows' order and no `order-*`; the stats read failed by REWRITING `/api/dividends/stats` with `stats: null` — `route.fetch()` + `route.fulfill`, never an abort, which is the tab's failure), `e2e/cashflow.dividendi.mobile.spec.ts` (opens Pagamenti first), `e2e/bundle.lazy.mobile.spec.ts` (the chunk lands on the fallback, axis included).
+- **768/1024** (MOB-08, 2026-10-16; `lib/utils/tabletComposition.ts`; doc/mobile/README.md § 9, 104): with payments, at 768 two columns — Incasso netto on both, «Il resto» on a row of its own, the five rows two by two (Pagamenti, the fifth, alone on the whole row), an open row whole; at 1024 Incasso netto on the left and the 360px rail with «Il resto» and the rows, each opening in place — a provisional coupon's Pagamenti open by default and a failed Rendimento included. With nothing recorded the grid of before (one tile).
 
 ## Per-page blind spots
 

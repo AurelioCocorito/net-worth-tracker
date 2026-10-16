@@ -118,6 +118,19 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   terminal that started them, so `--export-on-exit` runs) and rerun.
 
 ## Browser-Driven E2E (Playwright)
+- **The tablet composition has two projects, one spec runs in both** (MOB-08, 2026-10-16): `tablet` (768×1024, the pill) and
+  `tablet-landscape` (1024×768, no pill, the 53px bar), copied from `mobile` (`isMobile`, `hasTouch`, the base account, the same
+  `testIgnore`); a `*.tablet.spec.ts` branches on `page.viewportSize().width` (`isLandscape` in `e2e/tabletLayout.ts`, the shared
+  measures: the grid's tracks, the fold — the pill's top at 768, `main`'s bottom at 1024 —, the 360px rail beside THE tile
+  (`expectRail`), an opened row that did not move nor scroll (`openRow` + `expectOpenedRow`: its box and `main.scrollTop` read
+  before the tap), no half grid row at 768 (`expectNoHalfCells`), the bar). The specs: `e2e/overview.tablet.spec.ts` (the
+  overview patched by `overviewFixture.ts`, seven rows) and `e2e/cashflow.tablet.spec.ts` (Tracciamento's four rows, the tabs,
+  the «+» at 768 and «Aggiungi» at 1024). Read with `contextOptions: { reducedMotion: 'reduce' }`, or Framer's entrance moves the
+  boxes. **The bar in landscape**: `page.evaluate` reads the height of `[data-sidebar="trigger"]`'s parent (53px: `py-1` + the 44px
+  trigger + `border-b`), `#page-main`'s top (equal) and `main.clientHeight` (768 − 53 = 715, the first screen). **A rail taller
+  than THE tile hides a broken flexible track**: on the Panoramica the seven rows outgrow THE tile and the last track is 0 either
+  way, so it is Tracciamento's spec (four rows, a taller tile) that went red with THE tile spanning only the rail's tracks (seen
+  that day). Hall of Fame, Analisi, Centri and Divisione have their own fixtures and no tablet project: the tour looks at them.
 - **Patrimonio, Analisi and Storico are composed at 390: a spec opens the row before it reads inside it** (since
   2026-10-14): `#patrimonio-strumenti-trigger` before an `AssetRow` exists (`assets.rows.mobile.spec.ts`, the 390 case of
   `assets.composite-chip.spec.ts` — a `desktop` project resized, but the composition reads the width), `#analisi-flusso-trigger`
@@ -326,6 +339,12 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   filter (both header copies, `toHaveText(['', ''])`). The sign-out test reads the record back through IndexedDB
   itself (`indexedDB.open` + `get`), the way «assert on data» means here.
 - **Prove the test can fail before trusting it** (the 1440px assertions were re-run at 1200px, where they must fail).
+- **The full run implementing MOB-08** (2026-10-16, the reference machine, 288 tests incl. 6 setups, +24: the two tablet
+  specs in two projects): 286 green in 12,3 min, two red and both green ×3 alone right after (`--repeat-each=3`):
+  `mobile-composition.performance.degraded.mobile.spec.ts` «Analizza con AI … a thumb's target» read 43,999996 px against
+  `>= 44` — the sub-pixel shape of the pill's «Dividendi» of 2026-10-11, so the assertion now takes half a pixel of tolerance,
+  as that entry said; and `overview.mobile.spec.ts` «a cell with a six-figure variation…», the two cells of the strip's second
+  row 1,6 px apart where they share a line (first time; if it returns, read the boxes after the count-up settles).
 - **The full run retiring MOB-07** (2026-10-16, the reference machine, 264 tests incl. 6 setups, +2: the failed «Aggiorna» of
   the Esposizione and the Calcolatore's `order-*` probe): 264 green in 11,4 min, no flake; before it, seven E2E falsifications
   seen red one at a time (the headers of `allocation.mobile`, `fire.mobile`, `coast.mobile`, `allocation`, `pension`, `fire`,
@@ -428,7 +447,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   `*.spec.ts`, so a spec written for its own fixture account fails under the base account in a full run — give it
   `playwright.<name>.config.ts` with its own setup project and a narrow `testMatch`, run with `--config=`, delete it
   before the full suite (2026-08-28). The FILENAME chooses the account: `*.spec.ts` → `desktop`, `*.mobile.spec.ts` →
-  `mobile`, `*.degraded.spec.ts` → degraded, `*.degraded.mobile.spec.ts` → `degraded-mobile` (2026-10-14), and only a name containing `analisi.spec.ts` reaches the Analisi fixture
+  `mobile`, `*.degraded.spec.ts` → degraded, `*.degraded.mobile.spec.ts` → `degraded-mobile` (2026-10-14), `*.tablet.spec.ts` → `tablet` AND `tablet-landscape` (2026-10-16, both, on the base account; `desktop` ignores `tablet.` too), and only a name containing `analisi.spec.ts` reaches the Analisi fixture
   (`desktop` carries `testIgnore: /analisi\./`), only one containing `centri.spec.ts` the Centri di Costo one — a name after what it verifies is not collected, or collected against
   the WRONG fixture. It asserts on Firestore, plants a decoy word absent from the seed, and removes its fixture BY THE
   APP, not by `curl -X DELETE` (2026-08-31: deleting a trade through the ledger's button re-ran the replay a REST delete

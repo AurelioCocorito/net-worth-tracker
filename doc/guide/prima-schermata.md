@@ -97,15 +97,16 @@ Dopo una stretta il `raisedBy` resta sulla voce (può scusare una metrica che la
 toglie quando abbassa un tetto: scelta diversa, voluta). **Allargare** si fa a mano, con l'OK del proprietario:
 `"raisedBy": "MOB-NN: perché"` sulla voce (superficie × viewport) e una riga in `doc/mobile/README.md` § 3.1, nello stesso
 commit; `mobile:budget` confronta con `git show HEAD:doc/mobile/budget.json` e un valore allargato senza un `raisedBy`
-NUOVO è rosso. Le metriche in `informational` (oggi `figuresOutsideVerdict` e `firstClosedRowAbovePill` a 768 e 1024) si
-stampano e non fanno uscire 1 — anche un allargamento senza `raisedBy` su quelle metriche a quelle viewport è solo
-stampato: MOB-08 svuota la lista. Un budget misurato e non registrato, o registrato e non misurato,
+NUOVO è rosso. Le metriche in `informational` si stampano e non fanno uscire 1 — anche un allargamento senza `raisedBy` su
+quelle metriche a quelle viewport è solo stampato; **la lista è vuota dal 2026-10-16** (MOB-08: 768 e 1024 vincolanti, ogni
+metrica; fino ad allora `figuresOutsideVerdict` e `firstClosedRowAbovePill` a 768 e 1024). Un budget misurato e non registrato, o registrato e non misurato,
 è rosso: una corsa parziale (`--surfaces`, `--viewports`) non è mai verde.
 
 **La colonna «obiettivo»** (The First-Screen Rule, proposta in MOB-09): a 390 «sì» con ≤ 5 cifre fuori dal verdetto E
-la prima riga chiusa sopra la pill; a 768/1024 l'obiettivo è il misurato di MOB-08 — oggi `firstScreenTarget` stampa
-«non ancora» a quelle viewport in ogni caso, e MOB-08 lo cambia insieme al suo test; «—» per Impostazioni (nessun
-verdetto). Dal 2026-10-10 Hall of Fame è la prima superficie con righe chiuse, e legge ancora «non ancora»: a 390 la
+la prima riga chiusa sopra la pill; a 768/1024 l'obiettivo è il misurato di MOB-08 (decisione 16), quindi «sì» quando la
+corsa sta dentro la sua voce di budget, metrica per metrica, la riga chiusa compresa — un `false` con il suo `raisedBy` È
+l'obiettivo misurato — e «non ancora» con le metriche oltre (`firstScreenTarget`, `__tests__/mobileBudget.test.ts`, dal
+2026-10-16); «—» per Impostazioni (nessun verdetto). Dal 2026-10-10 Hall of Fame è la prima superficie con righe chiuse, e legge ancora «non ancora»: a 390 la
 prima riga chiusa resta sotto la pill (`raisedBy`, `doc/mobile/README.md` § 3.1); ogni altra superficie non ha righe
 finché la sua spec non la compone.
 
@@ -131,7 +132,11 @@ si legge prima di stringere o allargare.
   prima schermata segue il giorno (una proiezione che cambia di cifre, una riga che va a capo): non isolato. Finché non lo è,
   una voce che si allarga di 1–2 col giorno porta `raisedBy: "MOB-NN: deriva del giorno…"` dopo la prova sul codice di develop
   nello stesso giorno (uno `stash`, una build, il census sulle superfici mosse), mai una tolleranza (decisione 23). L'erede
-  che la isola è MOB-08 § 2 (scritto nel ritiro di MOB-03, 2026-10-11), prima di rendere vincolanti 768 e 1024. Rivista il
+  che la isola è MOB-08 § 2 (scritto nel ritiro di MOB-03, 2026-10-11), prima di rendere vincolanti 768 e 1024 — **non fatto
+  nella sessione di MOB-08** (2026-10-16): la prova giorno N / giorno N+1 vuole due giorni e una sessione ne ha uno; quel giorno
+  il census «prima» (build di develop) e «dopo» davano le stesse misure su ogni cella che la spec non tocca, `--tighten` ne
+  aveva strette sette di 0,01–0,04 rispetto al budget del 2026-10-16 e sono tornate al valore di HEAD (decisione 94), e la prova
+  passa al ritiro della spec, che cade un altro giorno. Rivista il
   2026-10-14 (MOB-05): Patrimonio di nuovo, cinque metriche sulle tre viewport (390 `screens` 3,25, 768 `figuresAboveFold` 26,
   1024 `screens` 2,67, `figuresAboveFold` 19, `tilesAboveFold` 1) identiche sulla build di develop misurata lo stesso giorno
   PRIMA del codice nuovo e sulla build dopo — allargate con `raisedBy` su decisione del proprietario (README § 9, 77). **Le

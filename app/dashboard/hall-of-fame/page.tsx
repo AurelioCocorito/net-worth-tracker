@@ -57,6 +57,8 @@ import {
   summarizeHallOfFame,
 } from '@/lib/utils/hallOfFameSummary';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   buildHallOfFameVerdict,
@@ -114,6 +116,8 @@ const HOF_SECTIONS: readonly SectionSpec[] = [
   { id: HOF_SECTION_IDS.anni, eyebrow: 'Anni' },
   { id: HOF_SECTION_IDS.note, eyebrow: 'Note' },
 ];
+/** The four rows are always on the page: their DOM order is the tablet's (MOB-08). */
+const HOF_ORDER = HOF_SECTIONS.map((section) => section.id);
 
 /** Every year a ranking mentions, newest first — the years a note can be filed under. */
 function collectAvailableYears(data: HallOfFameData): number[] {
@@ -184,6 +188,7 @@ export default function HallOfFamePage() {
   // a wrapper closing over `sections` would be a new function on every tap and re-render the
   // verdict and the strip with it (`perf:census -- --mobile --scenario=hall-of-fame`).
   const sections = useMobileSections({ route: 'hall-of-fame', sections: HOF_SECTIONS });
+  const tablet = useTabletComposition({ sections, order: HOF_ORDER });
   const { reveal: handleStripOpen } = sections;
   const strip = selectHallOfFameStrip(summary);
 
@@ -459,10 +464,12 @@ export default function HallOfFamePage() {
         />
       </div>
 
-      {/* Tablet (768-1439): Record full, Entrate beside Risparmio, then Anni and Note full. One
-          sequence: the DOM order is the reading order at every width, no `order-*` (decision 11). */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+      {/* Tablet (MOB-08): Record on two columns, the closed rows two by two at 768 and beside it at
+          1024, an open row on the whole grid row. One sequence: the DOM order is the reading order
+          at every width, no `order-*` (decision 11). */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
+        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
           <RecordPatrimonioTile
             reading={describeNetWorthRecords({
               best: growthMonths?.top ?? null,
@@ -479,9 +486,9 @@ export default function HallOfFamePage() {
           />
         </div>
 
-        <PageRest sections={sections} />
+        <PageRest sections={sections} className={REST_CELL_CLASS} />
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.entrate), 'desktop:col-span-3')} style={tablet.cellStyle(HOF_SECTION_IDS.entrate)}>
           <RecordBoardTile
             eyebrow="Entrate"
             aside="per mese"
@@ -499,7 +506,7 @@ export default function HallOfFamePage() {
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.risparmio), 'desktop:col-span-4')} style={tablet.cellStyle(HOF_SECTION_IDS.risparmio)}>
           <RecordBoardTile
             eyebrow="Risparmio record"
             aside="entrate − spese"
@@ -528,7 +535,7 @@ export default function HallOfFamePage() {
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.anni), 'desktop:col-span-7')} style={tablet.cellStyle(HOF_SECTION_IDS.anni)}>
           <RecordBoardTile
             eyebrow="Anni"
             aside="crescita del patrimonio"
@@ -551,7 +558,7 @@ export default function HallOfFamePage() {
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.note), 'desktop:col-span-12')} style={tablet.cellStyle(HOF_SECTION_IDS.note)}>
           <NoteTile
             reading={describeNotes(summary.notes)}
             summary={summary.notes}
@@ -562,6 +569,7 @@ export default function HallOfFamePage() {
             collapse={sections.collapse(HOF_SECTION_IDS.note)}
           />
         </div>
+      </div>
       </div>
 
       <HallOfFameDettaglio summary={summary} notes={notes} onNoteClick={handleNoteClick} onAddNote={handleAddNoteForRow} />

@@ -45,13 +45,13 @@ interface CashflowKpiTrioProps {
   previousLabel: string | null;
   /**
    * The three values are the phone's strip (The Lifted-Figure Rule, doc/mobile/README.md § 9,
-   * decision 31): hidden below `tablet:` by `LIFTED_FIGURE_CLASS`; the labels, the deltas, the
+   * decision 31): hidden below `desktop:` by `LIFTED_FIGURE_CLASS`; the labels, the deltas, the
    * savings rate and the coverage stay — only the figure the strip repeats goes (decision 17).
    */
   lifted?: boolean;
   /**
    * The spending delta a page's verdict already prints (Analisi: «−1,5% su 2025» in its first
-   * sentence, owner's call 2026-10-14, decision 83), hidden below `tablet:` like a lifted value.
+   * sentence, owner's call 2026-10-14, decision 83), hidden below `desktop:` like a lifted value.
    * Default false: Tracciamento's verdict names no delta.
    */
   expensesDeltaLifted?: boolean;

@@ -200,11 +200,29 @@ function checkEntryReasons(
   return violations;
 }
 
-/** The First-Screen Rule for one measured row. At 768/1024 the objective is MOB-08's measure. */
-function firstScreenTarget(surface: string, viewport: MobileViewport, spec: MobileSurface | undefined, metrics: MobileMetrics | null): FirstScreenTarget {
+/**
+ * The First-Screen Rule for one measured row. At 390 the rule itself (≤ 5 figures outside the
+ * verdict, the first closed row above the pill); at 768/1024 the objective is what MOB-08 measured
+ * (decision 16, 2026-10-16), so it is met when the run stays within its budget entry — every
+ * metric, the closed row included (a `false` with its `raisedBy` is the measured objective).
+ */
+function firstScreenTarget(
+  surface: string,
+  viewport: MobileViewport,
+  spec: MobileSurface | undefined,
+  metrics: MobileMetrics | null,
+  entry: MobileBudgetEntry | undefined,
+  tolerance: MobileBudget['tolerance'],
+): FirstScreenTarget {
   if (!spec?.target) return { surface, viewport, status: 'none', detail: 'nessun verdetto' };
-  if (viewport !== '390') return { surface, viewport, status: 'not-yet', detail: 'obiettivo = il misurato di MOB-08' };
   if (!metrics) return { surface, viewport, status: 'not-yet', detail: 'non misurata' };
+  if (viewport !== '390') {
+    if (!entry) return { surface, viewport, status: 'not-yet', detail: 'nessun budget' };
+    const breached = compareEntry(surface, viewport, metrics, entry, tolerance).map((violation) => violation.metric);
+    return breached.length === 0
+      ? { surface, viewport, status: 'met', detail: 'entro il misurato di MOB-08' }
+      : { surface, viewport, status: 'not-yet', detail: `oltre il misurato di MOB-08: ${breached.join(', ')}` };
+  }
   const figuresOk = metrics.figuresOutsideVerdict <= FIRST_SCREEN_MAX_FIGURES;
   const rowOk = metrics.firstClosedRowAbovePill === true;
   if (figuresOk && rowOk) return { surface, viewport, status: 'met', detail: `${metrics.figuresOutsideVerdict} cifre, riga chiusa sopra la pill` };
@@ -245,7 +263,7 @@ export function compareCensusToBudget(
         all.push({ kind: 'not-measured', surface, viewport, metric: null });
         continue;
       }
-      targets.push(firstScreenTarget(surface, viewport, budget.surfaces[surface], row.metrics));
+      targets.push(firstScreenTarget(surface, viewport, budget.surfaces[surface], row.metrics, entry, budget.tolerance));
       if (row.status !== 'ok' || !row.metrics) {
         all.push({ kind: row.status === 'ok' ? 'unsettled' : row.status, surface, viewport, metric: null });
         continue;

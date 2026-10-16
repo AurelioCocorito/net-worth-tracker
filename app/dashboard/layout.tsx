@@ -45,9 +45,11 @@ export default function DashboardLayout({
         <AppSidebar />
 
         <SidebarInset className="overflow-hidden">
-          {/* Hamburger bar — landscape mobile only.
-              SidebarTrigger toggles the shadcn sidebar Sheet on screens < 1440px. */}
-          <div className="flex shrink-0 items-center gap-2 border-b bg-background px-4 py-2.5 desktop:hidden max-desktop:portrait:hidden max-desktop:landscape:flex">
+          {/* Hamburger bar — landscape below `desktop:` only (no bottom pill there).
+              SidebarTrigger toggles the shadcn sidebar Sheet on screens < 1440px; it is the bar's
+              only control, so it is a 44px touch target and the bar 4 + 44 + 4 + 1 = 53px, measured
+              on a 1024×768 tablet (MOB-08: `main` keeps 715px; doc/guide/shell.md § Navigation). */}
+          <div className="flex shrink-0 items-center gap-2 border-b bg-background px-4 py-1 desktop:hidden max-desktop:portrait:hidden max-desktop:landscape:flex">
             <SidebarTrigger aria-label="Apri il menu" />
             <span className="text-[13px] font-semibold tracking-[-0.01em]">Portfolio Tracker</span>
           </div>

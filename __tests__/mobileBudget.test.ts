@@ -4,7 +4,8 @@
  * `--tighten` that only ever tightens, to the exact measure.
  *
  * Seen red on 2026-10-10 with the ceiling comparison of `compareEntry` inverted (`>` → `<`): six
- * cases failed, the green-when-better one first.
+ * cases failed, the green-when-better one first. On 2026-10-16 (MOB-08) the column at 768/1024: the
+ * old «not yet» put back turned both tablet cases red, a «met» whatever the entry the 768 one.
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -214,6 +215,21 @@ describe('compareCensusToBudget — the First-Screen Rule column', () => {
     const [target] = compareCensusToBudget([row({ figuresOutsideVerdict: 5, firstClosedRowAbovePill: true })], budget).targets;
 
     expect(target.status).toBe('met');
+  });
+
+  it('reads «met» at 1024 when the run stays within its budget entry, the objective MOB-08 measured', () => {
+    const budget = makeBudget({ figuresOutsideVerdict: 9, firstClosedRowAbovePill: true }, '1024');
+    const [target] = compareCensusToBudget([row({ figuresOutsideVerdict: 9, firstClosedRowAbovePill: true }, '1024')], budget).targets;
+
+    expect(target.status).toBe('met');
+  });
+
+  it('reads «not yet» at 768 past its budget entry, naming the metric', () => {
+    const budget = makeBudget({ figuresOutsideVerdict: 9 }, '768');
+    const [target] = compareCensusToBudget([row({ figuresOutsideVerdict: 10 }, '768')], budget).targets;
+
+    expect(target.status).toBe('not-yet');
+    expect(target.detail).toContain('figuresOutsideVerdict');
   });
 
   it('prints «—» for a surface without verdict', () => {

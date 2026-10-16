@@ -26,7 +26,7 @@ interface PeriodoTileProps {
   /** The section's id: THE tile of the phone composition (`analisi-periodo`), open at every width. */
   id?: string;
   /**
-   * The blocks the page's strip prints, hidden below `tablet:` (The Lifted-Figure Rule): `'trio'` —
+   * The blocks the page's strip prints, hidden below `desktop:` (The Lifted-Figure Rule): `'trio'` —
    * the trio's three values (the strip's «Entrate» and «Risparmio», the first sentence's spending),
    * the spending delta (the first sentence's pacing, decision 83) and the caption that names the
    * deltas' baseline, which the first sentence names too. The income delta, the savings rate and

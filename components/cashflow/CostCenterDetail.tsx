@@ -86,6 +86,8 @@ import { PageVerdict } from '@/components/ui/page-verdict';
 import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { PageRest } from '@/components/ui/page-rest';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { narrativeToText } from '@/lib/utils/narrative';
 import { CostoTile } from './cost-centers/tiles/CostoTile';
 import { CategorieTile } from './cost-centers/tiles/CategorieTile';
@@ -261,6 +263,11 @@ export function CostCenterDetail({
     sections: hasCategorySplit ? DETAIL_SECTIONS : DETAIL_SECTIONS_WITHOUT_CATEGORIES,
     restId: COST_CENTER_DETAIL_REST_ID,
   });
+  // At 768/1024 the same rows on two or three columns (MOB-08); the lists ARE the DOM's rows.
+  const tablet = useTabletComposition({
+    sections,
+    order: (hasCategorySplit ? DETAIL_SECTIONS : DETAIL_SECTIONS_WITHOUT_CATEGORIES).map((section) => section.id),
+  });
 
   const accentColor = resolveCostCenterColor(costCenter.color, costCenter.id, chartColors);
   const isArchived = !!costCenter.archivedAt;
@@ -364,8 +371,9 @@ export function CostCenterDetail({
       {/* ONE sequence, the DOM order is the reading order at every width (decision 11; the
           `order-*` went on 2026-10-12): THE tile, «Il resto della pagina», then the rows. */}
       {(
-        <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-          <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+        <div className={COMPACT_GRID_WRAPPER_CLASS}>
+        <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
+          <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
             <CostoTile
               id={COST_CENTER_SECTION_IDS.centro}
               summary={summary}
@@ -379,11 +387,11 @@ export function CostCenterDetail({
               now={now}
             />
           </div>
-          <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} />
+          <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />
           {/* One category at 100% is the hero said again: the tile is not rendered and Ciclo
               di vita takes its columns (a tile with nothing to say is not a tile). */}
           {hasCategorySplit && (
-            <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroCategorie), 'desktop:col-span-4')} style={tablet.cellStyle(COST_CENTER_SECTION_IDS.centroCategorie)}>
               <CategorieTile
                 slices={composition}
                 reading={describeCategorie(composition)}
@@ -394,7 +402,10 @@ export function CostCenterDetail({
               />
             </div>
           )}
-          <div className={cn(TILE_ROW_CELL_CLASS, hasCategorySplit ? 'desktop:col-span-3' : 'tablet:col-span-2 desktop:col-span-7')}>
+          <div
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroCiclo), hasCategorySplit ? 'desktop:col-span-3' : 'desktop:col-span-7')}
+            style={tablet.cellStyle(COST_CENTER_SECTION_IDS.centroCiclo)}
+          >
             <CicloTile
               summary={summary}
               aside={describeCicloAside(summary)}
@@ -403,7 +414,7 @@ export function CostCenterDetail({
               collapse={sections.collapse(COST_CENTER_SECTION_IDS.centroCiclo)}
             />
           </div>
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroSottocategorie), 'desktop:col-span-7')} style={tablet.cellStyle(COST_CENTER_SECTION_IDS.centroSottocategorie)}>
             <SottocategorieTile
               slices={subComposition}
               excludedKeys={excludedKeys}
@@ -418,7 +429,7 @@ export function CostCenterDetail({
               asideWhenClosed={describeSottocategorieClosedAside(excludedKeys.size)}
             />
           </div>
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroMovimenti), 'desktop:col-span-12')} style={tablet.cellStyle(COST_CENTER_SECTION_IDS.centroMovimenti)}>
             <MovimentiTile
               expenses={sortedExpenses}
               now={now}
@@ -434,6 +445,7 @@ export function CostCenterDetail({
               disabled={isDemo}
             />
           </div>
+        </div>
         </div>
       )}
 

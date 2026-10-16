@@ -47,7 +47,7 @@ interface CashflowPeriodoTileProps {
   projection: SpendingProjection | null;
   /**
    * The blocks the phone's strip already prints (`liftedBlocks(strip, id).filter(
-   * isCashflowPeriodoLiftedBlock)`): the trio's three values hide below `tablet:`, its rate,
+   * isCashflowPeriodoLiftedBlock)`): the trio's three values hide below `desktop:`, its rate,
    * coverage and deltas stay (decisions 17 and 31). Analisi passes none.
    */
   liftedFigures?: readonly CashflowPeriodoLiftedBlock[];

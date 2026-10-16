@@ -65,6 +65,8 @@ import { getItalyYear } from '@/lib/utils/dateHelpers';
 import { summarizeLock } from '@/lib/utils/fireSummary';
 import { describeFireLockScope } from '@/lib/utils/fireNarrative';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   buildWhatIfComparisonSeries,
@@ -374,7 +376,10 @@ export function WhatIfAnalysisTab() {
   // The rows and «Il perché» from the controller (one memory per tab); the strip from the event's
   // hit today and at the FIRE year; the lock as the scope line only with the bridge on and below
   // `desktop:` — the bridge note in the paragraph says it at 1440.
-  const sections = useMobileSections({ route: 'fire-simulations', tab: 'whatif', sections: hasBaseline && impact && event && summary ? WHAT_IF_SECTIONS : NO_SECTIONS });
+  const whatIfSections = hasBaseline && impact && event && summary ? WHAT_IF_SECTIONS : NO_SECTIONS;
+  const sections = useMobileSections({ route: 'fire-simulations', tab: 'whatif', sections: whatIfSections });
+  // At 768/1024 the same rows on two or three columns (MOB-08); the specs ARE the DOM's rows.
+  const tablet = useTabletComposition({ sections, order: whatIfSections.map((section) => section.id) });
   const { reveal: handleStripOpen } = sections;
   const strip = event && summary ? selectWhatIfStrip({ event, summary, divergence }) : [];
   const lockScope = sections.compact && summary?.isBridge ? describeFireLockScope(lock) : null;
@@ -426,9 +431,12 @@ export function WhatIfAnalysisTab() {
         />
       </div>
 
-      {/* ONE sequence, Evento first at every width (decisions 11 and 43). Tablet (768-1439): every tile full width. */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-4')}>
+      {/* ONE sequence, Evento first at every width (decisions 11 and 43). Tablet (MOB-08): Evento on
+          two columns, the closed rows two by two at 768 and beside it at 1024, an open row on the
+          whole grid row. */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
+        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-4')}>
           <EventoTile
             reading={describeEvent(event)}
             event={event}
@@ -455,9 +463,9 @@ export function WhatIfAnalysisTab() {
           />
         </div>
 
-        <PageRest sections={sections} />
+        <PageRest sections={sections} className={REST_CELL_CLASS} />
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.primaDopo), 'desktop:col-span-5')} style={tablet.cellStyle(WHAT_IF_SECTION_IDS.primaDopo)}>
           <PrimaDopoTile
             collapse={sections.collapse(WHAT_IF_SECTION_IDS.primaDopo)}
             asideWhenClosed={WHAT_IF_CLOSED_ASIDES[WHAT_IF_SECTION_IDS.primaDopo]}
@@ -478,7 +486,7 @@ export function WhatIfAnalysisTab() {
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-3')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.delta), 'desktop:col-span-3')} style={tablet.cellStyle(WHAT_IF_SECTION_IDS.delta)}>
           <DeltaTile
             collapse={sections.collapse(WHAT_IF_SECTION_IDS.delta)}
             asideWhenClosed={WHAT_IF_CLOSED_ASIDES[WHAT_IF_SECTION_IDS.delta]}
@@ -489,7 +497,7 @@ export function WhatIfAnalysisTab() {
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.sensibilita), 'desktop:col-span-12')} style={tablet.cellStyle(WHAT_IF_SECTION_IDS.sensibilita)}>
           <SensibilitaTile
             collapse={sections.collapse(WHAT_IF_SECTION_IDS.sensibilita)}
             asideWhenClosed={WHAT_IF_CLOSED_ASIDES[WHAT_IF_SECTION_IDS.sensibilita]}
@@ -502,6 +510,7 @@ export function WhatIfAnalysisTab() {
             footer={SENSITIVITY_FOOTER}
           />
         </div>
+      </div>
       </div>
     </div>
   );

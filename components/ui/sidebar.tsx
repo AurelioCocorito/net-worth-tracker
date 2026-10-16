@@ -275,7 +275,8 @@ function SidebarTrigger({
       data-slot="sidebar-trigger"
       variant="ghost"
       size="icon"
-      className={cn("size-7", className)}
+      // 44×44: the landscape bar's one control, under a thumb (MOB-08, AGENTS.md § Accessibility).
+      className={cn("size-11", className)}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()

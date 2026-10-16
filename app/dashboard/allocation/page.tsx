@@ -58,6 +58,8 @@ import { useGoalData } from '@/lib/hooks/useGoalData';
 import { useFreshness } from '@/lib/hooks/useFreshness';
 import { useInstrumentProfilesState } from '@/lib/hooks/usePortfolioExposure';
 import { useMobileSections } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { calculateAssetValue } from '@/lib/services/assetService';
@@ -379,6 +381,8 @@ export default function AllocationPage() {
   const hasRows = hasAssets && !!bandedAllocation && !!balanceSummary && !!balanceScore && !!planView;
   const sectionSpecs = useMemo(() => resolveAllocazioneSections({ hasRows, hasPension, exposureFailed }), [hasRows, hasPension, exposureFailed]);
   const sections = useMobileSections({ route: 'allocation', sections: sectionSpecs });
+  // At 768/1024 the same rows on two or three columns (MOB-08); the specs ARE the DOM's rows.
+  const tablet = useTabletComposition({ sections, order: sectionSpecs.map((section) => section.id) });
   const { reveal: handleStripOpen } = sections;
   const exposureCollapse = sections.collapse(ALLOCAZIONE_SECTION_IDS.esposizione);
   // Below `desktop:` the Esposizione reads its profiles only once its row has been opened — React
@@ -514,10 +518,12 @@ export default function AllocationPage() {
           width below. Below `desktop:` the wrapper is `contents`, so the tiles are items of the
           grid again in the DOM's order — ONE sequence, no `order-*` (decision 11): Bilanciamento,
           «Il resto della pagina», Per classe, Piano, Esposizione, Previdenza.
-          Tablet (768-1439): Bilanciamento and Piano full width, Per classe beside Esposizione. */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
+          Tablet (MOB-08): Bilanciamento on two columns, the closed rows two by two at 768 and beside
+          it at 1024, an open row on the whole grid row. */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
         <div className="contents desktop:col-span-5 desktop:flex desktop:min-w-0 desktop:flex-col desktop:gap-3 desktop:self-start">
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2')}>
+        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS)}>
           <BilanciamentoTile
             liftedFigures={bilanciamentoLifted}
             reading={describeBalance({
@@ -547,9 +553,9 @@ export default function AllocationPage() {
           />
         </div>
 
-        <PageRest sections={sections} />
+        <PageRest sections={sections} className={REST_CELL_CLASS} />
 
-        <div className={TILE_ROW_CELL_CLASS}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.perClasse))} style={tablet.cellStyle(ALLOCAZIONE_SECTION_IDS.perClasse)}>
           <PerClasseTile
             collapse={sections.collapse(ALLOCAZIONE_SECTION_IDS.perClasse)}
             asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.perClasse]}
@@ -563,7 +569,7 @@ export default function AllocationPage() {
         </div>
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7 desktop:self-start')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.piano), 'desktop:col-span-7 desktop:self-start')} style={tablet.cellStyle(ALLOCAZIONE_SECTION_IDS.piano)}>
           <PianoTile
             collapse={sections.collapse(ALLOCAZIONE_SECTION_IDS.piano)}
             asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.piano]}
@@ -581,7 +587,7 @@ export default function AllocationPage() {
             carries the one live node); a failed «Aggiorna» over profiles already read keeps the
             tile with its own notice. An unread slice is never a failed read: `failed` is the
             query's `isError` alone. At 1440 the tile is the tile of today. */}
-        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-12')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.esposizione), 'desktop:col-span-12')} style={tablet.cellStyle(ALLOCAZIONE_SECTION_IDS.esposizione)}>
           {user && ownerId && exposureCollapse && exposureFailed && !profilesState.hasProfiles ? (
             <ErrorNotice
               collapse={exposureCollapse}
@@ -609,7 +615,7 @@ export default function AllocationPage() {
         </div>
 
         {pension && (
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.previdenza), 'desktop:col-span-12')} style={tablet.cellStyle(ALLOCAZIONE_SECTION_IDS.previdenza)}>
             <PrevidenzaTile
               collapse={sections.collapse(ALLOCAZIONE_SECTION_IDS.previdenza)}
               asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.previdenza]}
@@ -619,6 +625,7 @@ export default function AllocationPage() {
             />
           </div>
         )}
+      </div>
       </div>
 
       {mobileAction}

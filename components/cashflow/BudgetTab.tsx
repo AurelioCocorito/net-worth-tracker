@@ -87,6 +87,8 @@ import { ErrorNotice } from '@/components/ui/error-notice';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
@@ -229,6 +231,8 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
   const hasAnnual = annual.rows.length > 0;
   const budgetSections = useMemo(() => resolveBudgetSections({ hasCeiling, hasItems, hasAnnual }), [hasCeiling, hasItems, hasAnnual]);
   const sections = useMobileSections({ route: 'cashflow', tab: 'budget', sections: budgetSections, restId: BUDGET_REST_ID });
+  // At 768/1024 the same rows on two or three columns (MOB-08); the specs ARE the DOM's rows.
+  const tablet = useTabletComposition({ sections, order: budgetSections.map((section) => section.id) });
 
   // --- Handlers ---
   const openCreate = useCallback(() => {
@@ -300,7 +304,7 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
   };
   // «Il resto della pagina» follows THE tile's cell: the Tetto's with a ceiling, Categorie a
   // rischio's without one; with no budget at all there are no rows and no rest.
-  const rest = hasItems ? <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} /> : null;
+  const rest = hasItems ? <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} /> : null;
 
   return (
     <div className="space-y-4 max-desktop:portrait:pb-20">
@@ -328,10 +332,12 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
 
       {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width (decision
           11; the `order-*` the phone used went on 2026-10-12) — THE tile, «Il resto della
-          pagina», then the rows ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
+          pagina», then the rows; on a tablet the composed grid of MOB-08 — without a budget, no row
+          and the grid of before (Per categoria alone) ─────────────────────────────────────── */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={hasItems ? COMPACT_GRID_CLASS : 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12'} style={tablet.gridStyle}>
         {ceiling ? (
-          <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+          <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
             <TettoTile
               id={BUDGET_SECTION_IDS.tetto}
               summary={ceiling}
@@ -354,7 +360,15 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
         {/* Without a ceiling Categorie a rischio is THE tile; without any budget it says «Nessun
             budget mensile» under Per categoria's own empty state — hidden below `desktop:` with
             Avvisi, the desktop unchanged (decision 11). */}
-        <div className={cn(hasCeiling ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS, 'desktop:col-span-4', !hasItems && 'max-desktop:hidden')}>
+        <div
+          className={cn(
+            hasCeiling ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS,
+            hasCeiling ? tablet.cellClass(BUDGET_SECTION_IDS.rischio) : LEAD_CELL_CLASS,
+            'desktop:col-span-4',
+            !hasItems && 'max-desktop:hidden',
+          )}
+          style={tablet.cellStyle(BUDGET_SECTION_IDS.rischio)}
+        >
           <RischioTile
             risk={risk}
             aside={RISK_ASIDE}
@@ -367,7 +381,10 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
         </div>
         {!ceiling && rest}
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3', !hasItems && 'max-desktop:hidden')}>
+        <div
+          className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(BUDGET_SECTION_IDS.avvisi), 'desktop:col-span-3', !hasItems && 'max-desktop:hidden')}
+          style={tablet.cellStyle(BUDGET_SECTION_IDS.avvisi)}
+        >
           <AvvisiTile
             rows={alerts.rows}
             enabled={budget.alertsEnabled}
@@ -380,7 +397,7 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
         </div>
 
         {hasAnnual ? (
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(BUDGET_SECTION_IDS.annuali), 'desktop:col-span-7')} style={tablet.cellStyle(BUDGET_SECTION_IDS.annuali)}>
             <AnnualiTile
               summary={annual}
               aside={describeAnnualAside(annual)}
@@ -401,7 +418,14 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
             so a closed row keeps it in the DOM); the aside shows the same words, `aria-hidden`,
             where the aside renders — open, or at 1440 (doc/guide/dialog.md: a live node changes
             text and empties, it never appears). */}
-        <div className={cn(hasItems ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+        <div
+          className={cn(
+            hasItems ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS,
+            hasItems ? tablet.cellClass(BUDGET_SECTION_IDS.categorie) : 'tablet:col-span-2',
+            'desktop:col-span-12',
+          )}
+          style={tablet.cellStyle(BUDGET_SECTION_IDS.categorie)}
+        >
           <PerCategoriaTile
             rows={rows}
             calendarPct={(calendar.dayOfMonth / calendar.daysInMonth) * 100}
@@ -439,6 +463,7 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
             {saveLabel ?? ''}
           </span>
         </div>
+      </div>
       </div>
 
       {/* ── Impostazioni, below the fold ─────────────────────────────────────────── */}

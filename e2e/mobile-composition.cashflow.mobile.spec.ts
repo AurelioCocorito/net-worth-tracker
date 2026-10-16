@@ -221,7 +221,7 @@ test.describe('Cashflow › Tracciamento, composed for a phone', () => {
     // THE tile is open; its trio is lifted into the strip: the three VALUES hidden, their labels
     // and the lines under them still there (decision 31).
     const theTile = page.locator('#trk-periodo');
-    const lifted = theTile.locator('[class~="max-tablet:hidden"]');
+    const lifted = theTile.locator('[class~="max-desktop:hidden"]');
     await expect(lifted).toHaveCount(3);
     for (let i = 0; i < 3; i++) await expect(lifted.nth(i)).toBeHidden();
     for (const label of ['Entrate', 'Spese', 'Risparmio']) await expect(theTile.getByText(label, { exact: true }).first()).toBeVisible();
@@ -339,16 +339,16 @@ test.describe('Cashflow › Budget, composed for a phone, with a ceiling of 1000
     // The two lifted KPIs are HIDDEN at 390: that is what removed the overlap the census saw on
     // 2026-10-10 («~11.274 €» under «Oltre» in a third of a 390px tile) — only «Al giorno» stays
     // in the row. Seen red on 2026-10-12 with the lift ignored (`lifted()` returning nothing).
-    const liftedKpis = page.locator('#bud-tetto [class~="max-tablet:hidden"]');
+    const liftedKpis = page.locator('#bud-tetto [class~="max-desktop:hidden"]');
     await expect(liftedKpis).toHaveCount(2);
     for (let i = 0; i < 2; i++) await expect(liftedKpis.nth(i)).toBeHidden();
 
-    // From `tablet:` the KPIs are printed again, side by side, each a container whose figure
-    // shrinks to its cell (`container-type: inline-size`): a guard, not a proof of the overlap —
-    // from 768 the Tetto spans the grid and a cell is ~230px, so no figure of the fixture can run
-    // under its neighbour here; the shrink is for a narrower THE tile (MOB-08's 1024, THE tile
-    // beside the rows). Seen red on 2026-10-12 with `@container` removed from the KPI cell.
-    await page.setViewportSize({ width: 768, height: 1024 });
+    // At 1440 the KPIs are printed again, side by side, each a container whose figure shrinks to
+    // its cell (`container-type: inline-size`): a guard, not a proof of the overlap — no figure of
+    // the fixture can run under its neighbour in a 1440 Tetto. Below `desktop:` they stay lifted on
+    // a tablet too since 2026-10-16 (MOB-08, decision 104: the strip is drawn up to 1439; this step
+    // read 768 until then). Seen red on 2026-10-12 with `@container` removed from the KPI cell.
+    await page.setViewportSize({ width: 1440, height: 900 });
     const kpiCells = page.locator('#bud-tetto .grid-cols-3 > div');
     await expect(kpiCells).toHaveCount(3);
     for (let i = 0; i < 3; i++) await expect(kpiCells.nth(i)).toBeVisible();

@@ -21,8 +21,9 @@ interface VerdictStripProps {
 }
 
 /**
- * A value longer than this takes a row of its own: «+123.456,78 €» does not fit a third of 358px
- * (decision 28). A `null` cell's `reason` counts the same way («nessuno snapshot prima di questo
+ * A value longer than this takes a row of its own below `tablet:`: «+123.456,78 €» does not fit a
+ * third of 358px (decision 28); from 768 a third is ~240px and every cell shares the one row
+ * (2026-10-16, decision 104). A `null` cell's `reason` counts the same way («nessuno snapshot prima di questo
  * mese» is a wide cell too; first seen on the Panoramica, 2026-10-11).
  */
 const WIDE_CELL_CHARS = 9;
@@ -30,7 +31,7 @@ const WIDE_CELL_CHARS = 9;
 /**
  * The figures of a phone's first screen, under the verdict's first sentence (The First-Screen
  * Rule): 1–3 cells in a row, 4 as 2×2 below `tablet:`, a wide cell on a row of its own with the
- * others moving down. Each cell is a button that opens the section explaining it; a `null` figure
+ * others moving down — below `tablet:` only; from 768 every cell is on one row. Each cell is a button that opens the section explaining it; a `null` figure
  * prints its `reason`, never a zero. Hidden from `desktop:` by its own class: the page does not
  * branch on the width to mount it.
  *
@@ -51,7 +52,7 @@ export function VerdictStrip({ figures, onOpen, eyebrows }: VerdictStripProps) {
         return (
           <li
             key={figure.opens}
-            className={cn('@container min-w-0 flex-1', wide ? 'basis-full' : twoByTwo ? 'basis-[calc(50%-0.25rem)] tablet:basis-0' : 'basis-0')}
+            className={cn('@container min-w-0 flex-1', wide ? 'basis-full tablet:basis-0' : twoByTwo ? 'basis-[calc(50%-0.25rem)] tablet:basis-0' : 'basis-0')}
           >
             <button
               type="button"
