@@ -20,6 +20,7 @@ vi.mock('firebase/firestore', () => ({
 
 import {
   buildAllocazioneVerdict,
+  describeAllocazioneClosedAnswers,
   describeAllocazioneHeader,
   describeBalance,
   describeBalanceFooter,
@@ -809,5 +810,115 @@ describe('the closed rows\' asides — words, never a figure', () => {
       [ALLOCAZIONE_SECTION_IDS.previdenza]: 'il fondo nel mix',
     });
     for (const aside of Object.values(ALLOCAZIONE_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
+  });
+});
+
+// ─── The closed rows' answers (landscape index, 2026-10-16) ──────────────────
+
+/**
+ * Each closed row's answer: one figure the strip, THE tile and the verdict's first sentence do not
+ * print, or null where the row keeps its scope. Read as the index lays it out (segments trimmed,
+ * one gap between them). Falsified on 2026-10-16, one at a time: the in-line null of Per classe
+ * went red with the `every(OK)` branch dropped; the long-label null with the `ANSWER_MAX_CHARS`
+ * guard removed; the Piano's Versa null with the `mode !== 'rebalance'` check dropped; the
+ * frozen-sell count with `isPlanOperation` counting every move (the reading's «due operazioni»
+ * went red with it too).
+ */
+describe('describeAllocazioneClosedAnswers', () => {
+  const answerText = (answer: Narrative | null | undefined) => (answer ? flat(answer.map((segment) => segment.text.trim()).join(' ')) : null);
+  const move = (overrides: Partial<RebalanceMove> = {}): RebalanceMove => ({
+    assetClass: 'realestate',
+    label: 'Immobili',
+    action: 'VENDI' as const,
+    amount: 20000,
+    requestedAmount: 20000,
+    limitedByFrozen: false,
+    differencePp: 4,
+    currentPercentage: 44,
+    targetPercentage: 40,
+    children: [],
+    ...overrides,
+  });
+  const rebalance = (moves: RebalanceMove[]): PlanView => ({ mode: 'rebalance', moves, trades: null, resultingLeverageRatio: null });
+  const pension = {
+    fundCount: 1,
+    fundValue: 12000,
+    fundSlices: [{ assetClass: 'equity', label: 'Azioni', value: 12000, percentage: 100 }],
+    combinedTotal: 312000,
+    combinedSlices: [{ assetClass: 'realestate', label: 'Immobili', value: 250000, percentage: 80.1 }],
+    hasExcluded: false,
+    allFrozen: true,
+  };
+  const gaps = [
+    gap({ assetClass: 'realestate', label: 'Immobili', differenceValue: 250000, action: 'VENDI' }),
+    gap({ assetClass: 'equity', label: 'Azioni', differenceValue: -150000, action: 'COMPRA' }),
+    gap({ assetClass: 'cash', label: 'Liquidità', differenceValue: 800, action: 'OK' }),
+  ];
+  const fourMoves = rebalance([
+    move(),
+    move({ assetClass: 'cash', label: 'Liquidità', amount: 5000, requestedAmount: 5000 }),
+    move({ assetClass: 'equity', label: 'Azioni', action: 'COMPRA', amount: 15000, requestedAmount: 15000 }),
+    move({ assetClass: 'bonds', label: 'Obbligazioni', action: 'COMPRA', amount: 10000, requestedAmount: 10000 }),
+  ]);
+  const input = { gaps, planView: fourMoves, pension };
+  const answers = describeAllocazioneClosedAnswers(input);
+
+  it('answers every row, Esposizione never', () => {
+    expect(answerText(answers[ALLOCAZIONE_SECTION_IDS.perClasse])).toBe('Immobili +250.000 €');
+    expect(answerText(answers[ALLOCAZIONE_SECTION_IDS.piano])).toBe('quattro operazioni');
+    expect(answerText(answers[ALLOCAZIONE_SECTION_IDS.previdenza])).toBe('Azioni 100%');
+    expect(answers[ALLOCAZIONE_SECTION_IDS.esposizione]).toBeNull();
+  });
+
+  it('fits in 22 characters; one uncoloured figure, none in the Piano (its count is a word)', () => {
+    for (const id of [ALLOCAZIONE_SECTION_IDS.perClasse, ALLOCAZIONE_SECTION_IDS.piano, ALLOCAZIONE_SECTION_IDS.previdenza]) {
+      expect(answerText(answers[id])!.length).toBeLessThanOrEqual(22);
+    }
+    for (const id of [ALLOCAZIONE_SECTION_IDS.perClasse, ALLOCAZIONE_SECTION_IDS.previdenza]) {
+      const figures = answers[id]!.filter((segment) => segment.mono);
+      expect(figures).toHaveLength(1);
+      // A drift and a share are neither a gain nor a loss.
+      expect(figures[0].sign).toBeUndefined();
+    }
+    expect(answers[ALLOCAZIONE_SECTION_IDS.piano]!.some((segment) => segment.mono)).toBe(false);
+  });
+
+  it('Per classe: a class short of its target with the minus, null when every class is in line or the label is too long', () => {
+    const short = describeAllocazioneClosedAnswers({ ...input, gaps: [gap({ label: 'Azioni', differenceValue: -90000, action: 'COMPRA' })] });
+    expect(answerText(short[ALLOCAZIONE_SECTION_IDS.perClasse])).toBe('Azioni −90.000 €');
+    const inLine = describeAllocazioneClosedAnswers({ ...input, gaps: [gap({ differenceValue: 800, action: 'OK' }), gap({ assetClass: 'bonds', label: 'Obbligazioni', differenceValue: -800, action: 'OK' })] });
+    expect(inLine[ALLOCAZIONE_SECTION_IDS.perClasse]).toBeNull();
+    const long = describeAllocazioneClosedAnswers({ ...input, gaps: [gap({ assetClass: 'trendFollowing', label: 'Trend Following', differenceValue: 12000, action: 'VENDI' })] });
+    expect(long[ALLOCAZIONE_SECTION_IDS.perClasse]).toBeNull();
+    expect(describeAllocazioneClosedAnswers({ ...input, gaps: [] })[ALLOCAZIONE_SECTION_IDS.perClasse]).toBeNull();
+  });
+
+  it('Piano: one operation, none, a frozen sell not counted; null outside Ribilancia and on the leverage engine', () => {
+    expect(answerText(describeAllocazioneClosedAnswers({ ...input, planView: rebalance([move()]) })[ALLOCAZIONE_SECTION_IDS.piano])).toBe('una sola operazione');
+    expect(answerText(describeAllocazioneClosedAnswers({ ...input, planView: rebalance([]) })[ALLOCAZIONE_SECTION_IDS.piano])).toBe('nessuna operazione');
+    const frozen = rebalance([
+      move({ amount: 0, requestedAmount: 3000, limitedByFrozen: true }),
+      move({ assetClass: 'cash', label: 'Liquidità', amount: 2000, requestedAmount: 8000, limitedByFrozen: true }),
+      move({ assetClass: 'equity', label: 'Azioni', action: 'COMPRA', amount: 11000, requestedAmount: 11000 }),
+    ]);
+    expect(answerText(describeAllocazioneClosedAnswers({ ...input, planView: frozen })[ALLOCAZIONE_SECTION_IDS.piano])).toBe('due operazioni');
+    // The reading counts the same moves.
+    expect(plain(describePlan(frozen, { type: 'fixed', pp: 2 }))).toContain('due operazioni');
+    const allFrozen = rebalance([move({ amount: 0, requestedAmount: 3000, limitedByFrozen: true })]);
+    expect(describeAllocazioneClosedAnswers({ ...input, planView: allFrozen })[ALLOCAZIONE_SECTION_IDS.piano]).toBeNull();
+    const contribute: PlanView = { mode: 'contribute', amount: 1000, nodes: [], trades: null, overTarget: [] };
+    expect(describeAllocazioneClosedAnswers({ ...input, planView: contribute })[ALLOCAZIONE_SECTION_IDS.piano]).toBeNull();
+    const withdraw: PlanView = { mode: 'withdraw', amount: 1000, grossAmount: 1000, grossedUp: false, nodes: [], trades: null, tradableTotal: 50000, exceedsPortfolio: false, overTarget: [] };
+    expect(describeAllocazioneClosedAnswers({ ...input, planView: withdraw })[ALLOCAZIONE_SECTION_IDS.piano]).toBeNull();
+    const leveraged: PlanView = { ...fourMoves, trades: [] } as PlanView;
+    expect(describeAllocazioneClosedAnswers({ ...input, planView: leveraged })[ALLOCAZIONE_SECTION_IDS.piano]).toBeNull();
+    expect(describeAllocazioneClosedAnswers({ ...input, planView: null })[ALLOCAZIONE_SECTION_IDS.piano]).toBeNull();
+  });
+
+  it('Previdenza: the largest slice of the funds\' mix to the unit, null without funds or a mix', () => {
+    const mixed = { ...pension, fundSlices: [{ assetClass: 'bonds', label: 'Obbligazioni', value: 8400, percentage: 70.4 }, { assetClass: 'equity', label: 'Azioni', value: 3600, percentage: 29.6 }] };
+    expect(answerText(describeAllocazioneClosedAnswers({ ...input, pension: mixed })[ALLOCAZIONE_SECTION_IDS.previdenza])).toBe('Obbligazioni 70%');
+    expect(describeAllocazioneClosedAnswers({ ...input, pension: { ...pension, fundSlices: [] } })[ALLOCAZIONE_SECTION_IDS.previdenza]).toBeNull();
+    expect(describeAllocazioneClosedAnswers({ ...input, pension: null })[ALLOCAZIONE_SECTION_IDS.previdenza]).toBeNull();
   });
 });

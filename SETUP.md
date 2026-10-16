@@ -329,9 +329,11 @@ dev:e2e` therefore sets `NEXT_DIST_DIR=.next-e2e` (a conditional line in `next.c
 everywhere else), so the tests can run while your normal dev server stays up on port 3000 — which
 also guarantees they never point at production data.
 
-**What it covers** (`e2e/`), across seven projects — `desktop` (1440px), `mobile` (390px),
-`degraded` (1440px, second account), `analisi` (1440px), `analisi-mobile` (390px), `centri`
-(1440px) and `centri-mobile` (390px):
+**What it covers** (`e2e/`), across fourteen projects (the filename picks one; the full table is
+`doc/guide/e2e-emulatori.md`) — on the base account `desktop` (1440px), `mobile` (390px), `tablet`
+(768×1024) and `tablet-landscape` (1024×768, since 2026-10-16); on accounts of their own `degraded`
+and `degraded-mobile`, `analisi`, `centri`, `split` and `hof` (1440px) with their `-mobile` twins
+(390px):
 
 - **Previdenza** — layout switch, type scale, the year axis, the collapsible, the primary action's
   position, that the empty state never flashes while data loads, and the three degraded states
@@ -373,8 +375,8 @@ throwaway synthetic account.
 - The suite runs with `workers: 1`: all specs share one emulator account, so parallel runs would
   race on it.
 - Chromium only, for every project. The mobile projects are a 390px viewport on Chromium rather than
-  the WebKit-backed iPhone descriptor — one browser to install, and what is under test is the layout
-  at a width, not an engine difference.
+  the WebKit-backed iPhone descriptor (the two tablet projects likewise, at 768 and 1024) — one
+  browser to install, and what is under test is the layout at a width, not an engine difference.
 
 ---
 

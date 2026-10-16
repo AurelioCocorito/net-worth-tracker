@@ -95,7 +95,7 @@ test.describe('Hall of Fame, composed for a phone', () => {
     // The first screen ENDS at the pill: title, verdict (first sentence, cells, «Il perché») and THE
     // tile's reading all sit above it — what `mobile:budget` measures on the fixture, held here on
     // the `hof` one. Added 2026-10-10 (the retirement): until then this test proved only visibility.
-    const pillTop = await page.locator('nav[aria-label="Navigazione principale"]').evaluate((el) => el.getBoundingClientRect().top);
+    const pillTop = await page.locator('nav[data-nav="pill"]').evaluate((el) => el.getBoundingClientRect().top);
     expect(pillTop).toBeGreaterThan(600);
     const bottomOf = async (locator: ReturnType<Page['locator']>) => (await locator.boundingBox())!.y + (await locator.boundingBox())!.height;
     expect(await bottomOf(page.locator('main h1').filter({ visible: true }).first()), 'title').toBeLessThanOrEqual(pillTop);

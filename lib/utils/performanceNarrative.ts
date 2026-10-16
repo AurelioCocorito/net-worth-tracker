@@ -43,11 +43,13 @@ import type {
   DrawdownStory,
   HeroReturn,
   PerformanceVerdict,
+  RealizedGainsState,
   RealizedGainsSummary,
   ReturnConsistency,
 } from '@/lib/utils/performanceSummary';
 import { deannualizeReturn, inMonths, PERFORMANCE_SECTION_IDS, printedGap } from '@/lib/utils/performanceSummary';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatSignedEuro, isPrintedZero } from '@/lib/utils/formatters';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 import { formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, monthWithPrepositionA, ofThePercent, startsWithVowel } from '@/lib/utils/patrimonioNarrative';
 import { MONTH_NAMES } from '@/lib/constants/months';
@@ -899,4 +901,119 @@ export function describeAnalysisBase(input: { monthsMeasured: number; netCashFlo
 export function describeReportAuthor(servedModel: string | null, requestedModel: string): string {
   if (servedModel === null || servedModel === requestedModel) return requestedModel;
   return `${servedModel} (${requestedModel} aveva rifiutato la richiesta)`;
+}
+
+// ─── The closed rows' answers (landscape index) ───────────────────────────────
+
+/**
+ * The longest answer the landscape index holds whole (2026-10-16): past it the words would be
+ * cut beside a figure that is never cut, and a name cut to «Vanguard FTSE…» answers nothing.
+ */
+const ANSWER_MAX_CHARS = 22;
+
+/** The answer as the index lays it out: each segment trimmed, one gap between them. */
+function answerLength(answer: Narrative): number {
+  return answer.map((segment) => segment.text.trim()).join(' ').length;
+}
+
+/** A signed whole-euro figure, coloured on the PRINTED value; a printed zero has neither sign nor colour. */
+function signedEuroAnswer(value: number): NarrativeSegment {
+  const text = formatSignedEuro(value, true);
+  if (isPrintedZero(text)) return figure(text);
+  return { text, mono: true, sign: value < 0 ? 'negative' : 'positive' };
+}
+
+export interface PerformanceClosedAnswersInput {
+  ranking: BenchmarkRanking;
+  capitalEntered: CapitalEnteredSummary;
+  /** Null when the row is absent (no base, no snapshot). */
+  attribution: ReturnAttribution | null;
+  /** The capital chart's last point; null with no chart. */
+  lastChartPoint: { returns: number } | null;
+  volatility: number | null;
+  consistency: ReturnConsistency;
+  realizedState: RealizedGainsState;
+  realizedSummary: RealizedGainsSummary | null;
+}
+
+/**
+ * «batte 4 su 6» — the models beaten over the models compared, the count of the reading
+ * (`describeBenchmarkRanking`); «batte tutti e 6» when none is above or tied. A tie is counted
+ * neither way, as in the reading. Null while nothing is compared (the series still arriving, a
+ * portfolio without a TWR): the reading is null then too.
+ */
+function benchmarkAnswer(ranking: BenchmarkRanking): Narrative | null {
+  const compared = ranking.rows.filter((r) => r.annualized !== null && r.delta !== null).length;
+  if (compared === 0) return null;
+  if (compared > 1 && ranking.beaten === compared) return [prose('batte tutti e'), figure(String(compared))];
+  return [prose('batte'), figure(String(ranking.beaten)), prose(`su ${compared}`)];
+}
+
+/**
+ * «entrati 13.200 €» / «usciti 2300 €» — the capital the return formulas neutralised, in the
+ * reading's own verbs (`describeContributions`). A flow, so never coloured.
+ */
+function contributiAnswer(capital: CapitalEnteredSummary): Narrative {
+  return [prose(capital.total >= 0 ? 'entrati' : 'usciti'), figure(euro(capital.total))];
+}
+
+/**
+ * «Bitcoin +12.400 €» — the instrument that moved the return most, the attribution's first row
+ * (largest |total| first). The name is the one the user typed: past `ANSWER_MAX_CHARS` the row
+ * keeps its scope rather than print a cut name. Never «mercato +X €» here: Capitale e mercato
+ * answers with its own «mercato», on another measure.
+ */
+function attribuzioneAnswer(attribution: ReturnAttribution | null): Narrative | null {
+  if (!attribution || attribution.coverage.attributedMonths === 0) return null;
+  const [first] = attribution.rows;
+  if (!first) return null;
+  const answer: Narrative = [prose(first.name), signedEuroAnswer(first.total)];
+  return answerLength(answer) <= ANSWER_MAX_CHARS ? answer : null;
+}
+
+/** «mercato +13.100 €» — the net worth minus the capital put in, at the window's end (`describeCapitalAndMarket`). */
+function capitaleAnswer(last: { returns: number } | null): Narrative | null {
+  if (!last) return null;
+  return [prose('mercato'), signedEuroAnswer(last.returns)];
+}
+
+/**
+ * «volatilità 12,4%» — the Rischio tile's first row. Not the Sharpe (without the AI model the
+ * verdict's first sentence prints it) nor the drawdown (the verdict's sequel and THE tile's chip).
+ */
+function rischioAnswer(volatility: number | null): Narrative | null {
+  if (volatility === null) return null;
+  return [prose('volatilità'), figure(formatPercentage(volatility, 1))];
+}
+
+/**
+ * «peggiore −3,0%» — the worst month of the period, as the reading prints it. Not the share of
+ * positive months: the verdict's sequel says it as «9 mesi su 12 positivi».
+ */
+function consistenzaAnswer(consistency: ReturnConsistency): Narrative | null {
+  if (consistency.totalMonths === 0 || !consistency.worst) return null;
+  return [prose('peggiore'), percentSegment(consistency.worst.return)];
+}
+
+/** «totale +3745 €» — every realised gain of the ledger, all-time like the tile. Null on a failed read or nothing to show. */
+function plusvalenzeAnswer(state: RealizedGainsState, summary: RealizedGainsSummary | null): Narrative | null {
+  if (state !== 'ready' || !summary) return null;
+  return [prose('totale'), signedEuroAnswer(summary.total)];
+}
+
+/**
+ * What each closed row of Rendimenti answers in the landscape index (2026-10-16): one figure per
+ * row that the strip, THE tile and the verdict's first sentence do not print, read from what the
+ * page already computed; null where the row keeps its scope. Keyed by `PERFORMANCE_SECTION_IDS`.
+ */
+export function describePerformanceClosedAnswers(input: PerformanceClosedAnswersInput): RowAnswerMap {
+  return {
+    [PERFORMANCE_SECTION_IDS.benchmark]: benchmarkAnswer(input.ranking),
+    [PERFORMANCE_SECTION_IDS.contributi]: contributiAnswer(input.capitalEntered),
+    [PERFORMANCE_SECTION_IDS.attribuzione]: attribuzioneAnswer(input.attribution),
+    [PERFORMANCE_SECTION_IDS.capitale]: capitaleAnswer(input.lastChartPoint),
+    [PERFORMANCE_SECTION_IDS.rischio]: rischioAnswer(input.volatility),
+    [PERFORMANCE_SECTION_IDS.consistenza]: consistenzaAnswer(input.consistency),
+    [PERFORMANCE_SECTION_IDS.plusvalenze]: plusvalenzeAnswer(input.realizedState, input.realizedSummary),
+  };
 }

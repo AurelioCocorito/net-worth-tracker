@@ -62,8 +62,10 @@ import {
   describeSoldIncomeNote,
   describeUpcomingDate,
   describePaymentsFooter,
+  describeDividendiClosedAnswers,
   type DividendiVerdictInput,
 } from '@/lib/utils/dividendiNarrative';
+import { DIVIDEND_SECTION_IDS } from '@/lib/utils/dividendAnalytics';
 
 const plain = (narrative: Narrative | null) => (narrative ? narrativeToText(narrative).replace(/ /g, ' ') : null);
 
@@ -809,5 +811,101 @@ describe('describeFilteredDividends', () => {
       '7 dividendi non importati perché precedenti alla data in cui possiedi il titolo: per un titolo creato nell’app dopo l’acquisto, registra l’acquisto nel Registro operazioni con la sua data reale e scarica di nuovo.'
     );
     expect(describeFilteredDividends(1, 0)).toBe('1 dividendo non importato perché precedente alla data in cui possiedi il titolo.');
+  });
+});
+
+/**
+ * The closed rows' answers of Dividendi (2026-10-16): what each row says in the landscape index,
+ * the segments joined with a space as the index's gap sets them. Falsified on 2026-10-16, one at a
+ * time: «the net YOC, never the gross» went red with `yocGross` in its place; «one held payer, no
+ * figure» went red with the `heldPayerCount < 2` branch removed; «one closed year is no mean» went
+ * red with the `closedCount < 2` guard set to `< 1`.
+ */
+describe('describeDividendiClosedAnswers', () => {
+  const answer = (narrative: Narrative | null | undefined) => (narrative ? narrative.map((s) => s.text).join(' ').replace(/ /g, ' ') : null);
+  const RELIABILITY: DividendReliability = {
+    monthsWithIncome: 3,
+    monthsInWindow: 12,
+    coveragePct: 0.25,
+    topPayerSharePct: 0.6,
+    topPayerTicker: 'ENEL',
+    concentrationHhi: 0.45,
+    payerCount: 3,
+  };
+  const payer = (assetTicker: string, net: number) => ({ assetId: assetTicker, assetTicker, assetName: `${assetTicker} SpA`, net, count: 2 });
+  const RANKING: PayerRanking = {
+    rows: [
+      { key: 'ENEL', label: 'ENEL', amount: 600, percentage: 60 },
+      { key: 'ENI', label: 'ENI', amount: 400, percentage: 40 },
+    ],
+    remainder: null,
+    total: 1000,
+    payerCount: 2,
+    heldPayerCount: 2,
+    soldPayerCount: 0,
+    soldNet: 0,
+    top: payer('ENEL', 600),
+  };
+  const year = (y: number, net: number, ongoing = false) => ({ year: y, gross: net * 1.3, net, ongoing });
+  const YEARLY: YearlyIncomeSummary = {
+    years: [year(2024, 1100), year(2025, 1300), year(2026, 900, true)],
+    closedCount: 2,
+    average: 1200,
+    best: year(2025, 1300),
+    worst: year(2024, 1100),
+    ongoing: year(2026, 900, true),
+  };
+  const input = (overrides: Partial<Parameters<typeof describeDividendiClosedAnswers>[0]> = {}) =>
+    describeDividendiClosedAnswers({ reliability: RELIABILITY, yieldSummary: YIELD, ranking: RANKING, yearly: YEARLY, ...overrides });
+
+  it('should answer Affidabilità with the coverage, as its first KPI prints it', () => {
+    expect(answer(input()[DIVIDEND_SECTION_IDS.affidabilita])).toBe('copertura 25%');
+    expect(input({ reliability: { ...RELIABILITY, payerCount: 0 } })[DIVIDEND_SECTION_IDS.affidabilita]).toBeNull();
+  });
+
+  it('should answer Rendimento with the net YOC on two decimals — the gross one is the verdict’s', () => {
+    expect(answer(input()[DIVIDEND_SECTION_IDS.rendimento])).toBe('YOC netto 3,59%');
+    expect(input({ yieldSummary: null })[DIVIDEND_SECTION_IDS.rendimento]).toBeNull();
+    expect(input({ yieldSummary: { ...YIELD, yocNet: null } })[DIVIDEND_SECTION_IDS.rendimento]).toBeNull();
+  });
+
+  it('should answer Chi paga di più with the largest held payer and its net', () => {
+    const answers = input();
+    expect(answer(answers[DIVIDEND_SECTION_IDS.pagatori])).toBe('ENEL 600 €');
+    expect(answers[DIVIDEND_SECTION_IDS.pagatori]?.filter((s) => s.mono)).toHaveLength(1);
+  });
+
+  it('should name the one held payer without a figure: its net would be the verdict’s total again', () => {
+    expect(answer(input({ ranking: { ...RANKING, payerCount: 1, heldPayerCount: 1 } })[DIVIDEND_SECTION_IDS.pagatori])).toBe('solo ENEL');
+    const noTicker = { ...RANKING, payerCount: 1, heldPayerCount: 1, top: { ...payer('', 600), assetName: 'BTP Valore' } };
+    expect(answer(input({ ranking: noTicker })[DIVIDEND_SECTION_IDS.pagatori])).toBe('solo BTP Valore');
+  });
+
+  it('should keep the payers scope with none, or with every payer sold', () => {
+    expect(input({ ranking: { ...RANKING, payerCount: 0, heldPayerCount: 0, top: null } })[DIVIDEND_SECTION_IDS.pagatori]).toBeNull();
+    expect(input({ ranking: { ...RANKING, heldPayerCount: 0, soldPayerCount: 2, top: null } })[DIVIDEND_SECTION_IDS.pagatori]).toBeNull();
+  });
+
+  it('should answer Per anno with the mean of the closed years, or «primo anno» with only the running one', () => {
+    expect(answer(input()[DIVIDEND_SECTION_IDS.perAnno])).toBe('in media 1200 €');
+    const firstYear: YearlyIncomeSummary = { years: [year(2026, 900, true)], closedCount: 0, average: null, best: null, worst: null, ongoing: year(2026, 900, true) };
+    expect(answer(input({ yearly: firstYear })[DIVIDEND_SECTION_IDS.perAnno])).toBe('primo anno');
+  });
+
+  it('should keep «2 anni» with one closed year (the mean of one year is not a mean) and nothing without years', () => {
+    const oneClosed: YearlyIncomeSummary = { ...YEARLY, years: [year(2025, 1300), year(2026, 900, true)], closedCount: 1, average: 1300, worst: year(2025, 1300) };
+    expect(input({ yearly: oneClosed })[DIVIDEND_SECTION_IDS.perAnno]).toBeNull();
+    const none: YearlyIncomeSummary = { years: [], closedCount: 0, average: null, best: null, worst: null, ongoing: null };
+    expect(input({ yearly: none })[DIVIDEND_SECTION_IDS.perAnno]).toBeNull();
+  });
+
+  it('should leave Pagamenti its count (null): an inventory answers with how many rows it lists', () => {
+    expect(input()[DIVIDEND_SECTION_IDS.pagamenti]).toBeNull();
+  });
+
+  it('should fit 22 visible characters on round figures', () => {
+    for (const narrative of Object.values(input())) {
+      if (narrative) expect(answer(narrative)!.length).toBeLessThanOrEqual(22);
+    }
   });
 });

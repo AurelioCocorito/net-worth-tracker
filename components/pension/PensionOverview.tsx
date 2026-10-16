@@ -67,8 +67,17 @@ import {
   type PensionSummaryInput,
 } from '@/lib/utils/pensionSummary';
 import { useMobileSections } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   ANNO_FISCALE_FOOTER,
@@ -80,6 +89,7 @@ import {
   CRESCITA_FOOTER,
   describeAnnoFiscale,
   describeAnnoFiscaleAside,
+  describePensionClosedAnswers,
   describeFondoOggi,
   describeFondoOggiAside,
   describeFondoOggiFooter,
@@ -102,6 +112,7 @@ import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
 import { SegmentedPill } from '@/components/ui/segmented-pill';
 import { Tile, TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure } from '@/lib/utils/statesNarrative';
@@ -206,10 +217,18 @@ export function PensionOverview() {
   const hasFund = funds.length > 0;
   const sectionSpecs = useMemo(() => resolvePensionSections({ hasFund, contributionsError, snapshotsError }), [hasFund, contributionsError, snapshotsError]);
   const sections = useMobileSections({ route: 'pension', sections: sectionSpecs });
-  // At 768/1024 the same rows on two or three columns (MOB-08); the specs ARE the DOM's rows.
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). The specs ARE the DOM's rows.
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({ sections, order: sectionSpecs.map((section) => section.id) });
   const { reveal: handleStripOpen } = sections;
   const strip = failures.length > 0 ? [] : selectPensionStrip({ blocks, taxYear: activeYear });
+  // What each closed row answers in the landscape index (2026-10-16): read from the same blocks,
+  // natures and ledger the tiles print, never a second computation.
+  const rowAnswers = useMemo(
+    () => describePensionClosedAnswers({ blocks, versato, ledger, contributionsError, snapshotsError }),
+    [blocks, versato, ledger, contributionsError, snapshotsError],
+  );
 
   // ─── Delete: reverses the value/transfer effect (invariant #5) ───────────────
   const handleDelete = (row: LedgerRow) => {
@@ -277,9 +296,16 @@ export function PensionOverview() {
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
       {/* The verdict and the page's one axis: beside it from desktop, under its title below —
           two instances of the same control, the same state (decision 12, `hidden desktop:block`). */}
-      <div className="flex flex-col gap-3 pt-1 desktop:flex-row desktop:items-start desktop:justify-between desktop:gap-6">
+      <div
+        data-stage="verdict"
+        className={cn('flex flex-col gap-3 pt-1 desktop:flex-row desktop:items-start desktop:justify-between desktop:gap-6', VERDICT_CELL_CLASS)}
+      >
         <PageVerdict
           verdict={verdict}
           ariaLabel={VERDICT_LABEL}
@@ -291,11 +317,12 @@ export function PensionOverview() {
       </div>
 
       {/* ONE sequence: the DOM order is the reading order at every width, no `order-*` (decision 11).
-          Tablet (MOB-08): Il fondo oggi on two columns, the closed rows two by two at 768 and beside it
-          at 1024, an open row (a failed read, open on its own) on the whole grid row. */}
+          At 768 Il fondo oggi on two columns, the closed rows two by two, an open row (a failed read,
+          open on its own) on the whole grid row; on a tablet in landscape the index beside the
+          verdict and Il fondo oggi. */}
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
-      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
-        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
+      <div className={COMPACT_GRID_CLASS}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
           <FondoOggiTile
             reading={contributionsError ? null : describeFondoOggi(today)}
             aside={describeFondoOggiAside(today)}
@@ -308,11 +335,13 @@ export function PensionOverview() {
           />
         </div>
 
+        <RowAnswers value={rowAnswers}>
+        <div className={INDEX_CLASS}>
         <PageRest sections={sections} className={REST_CELL_CLASS} />
 
         {/* A failed read is a red row below `desktop:`, silent — `PageRest` carries the one live node
             (`live={!sections.compact}`); at 1440 the notice of today, in the cell. */}
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.rendimento), 'desktop:col-span-3')} style={tablet.cellStyle(PENSION_SECTION_IDS.rendimento)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.rendimento), 'desktop:col-span-3')}>
           {contributionsError || snapshotsError ? (
             <ErrorNotice
               compact
@@ -335,7 +364,7 @@ export function PensionOverview() {
           )}
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.annoFiscale), 'desktop:col-span-4')} style={tablet.cellStyle(PENSION_SECTION_IDS.annoFiscale)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.annoFiscale), 'desktop:col-span-4')}>
           {contributionsError ? (
             <ErrorNotice
               compact
@@ -359,7 +388,7 @@ export function PensionOverview() {
           )}
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.versato), 'desktop:col-span-7')} style={tablet.cellStyle(PENSION_SECTION_IDS.versato)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.versato), 'desktop:col-span-7')}>
           {contributionsError ? (
             <ErrorNotice
               collapse={sections.collapse(PENSION_SECTION_IDS.versato)}
@@ -383,7 +412,7 @@ export function PensionOverview() {
           )}
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.versamenti), 'desktop:col-span-12')} style={tablet.cellStyle(PENSION_SECTION_IDS.versamenti)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.versamenti), 'desktop:col-span-12')}>
           {contributionsError ? (
             <ErrorNotice
               collapse={sections.collapse(PENSION_SECTION_IDS.versamenti)}
@@ -409,6 +438,10 @@ export function PensionOverview() {
             />
           )}
         </div>
+        </div>
+        </RowAnswers>
+      </div>
+      </div>
       </div>
       </div>
 

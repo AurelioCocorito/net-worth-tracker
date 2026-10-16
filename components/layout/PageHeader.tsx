@@ -44,13 +44,13 @@ export function PageHeader({ title, label, description, actions, freshness, clas
     // offset is measured from the scroller's content edge, and at `top-0` the rows scrolling
     // past would show through a 16px strip above the bar.
     <div
-      className={cn('max-desktop:sticky max-desktop:-top-4 max-desktop:z-20', className)}
+      className={cn('max-desktop:sticky max-desktop:-top-4 max-desktop:z-20 tablet-landscape:static', className)}
       style={{ viewTransitionName: 'page-header' }}
     >
       {/* Mobile navbar — title + description in one block so the header feels like a unified
           navbar. Its background is OPAQUE: it covers the rows scrolling underneath, and a 95%
           fill with a blur let their words ghost through behind the title. */}
-      <div className="-mx-4 px-4 pt-1 pb-2 flex flex-col bg-background desktop:hidden">
+      <div className="-mx-4 px-4 pt-1 pb-2 flex flex-col bg-background desktop:hidden tablet-landscape:hidden">
         <div className="flex items-center justify-between">
           <h1 className="text-[17px] font-semibold tracking-tight truncate min-w-0">{title}</h1>
           {actions && (
@@ -67,7 +67,7 @@ export function PageHeader({ title, label, description, actions, freshness, clas
         )}
       </div>
 
-      <div className="hidden desktop:flex items-center justify-between gap-4 min-h-9">
+      <div className="hidden desktop:flex tablet-landscape:flex items-center justify-between gap-4 min-h-9">
         <div className="flex items-baseline gap-3 min-w-0">
           {label && <p className={cn(TILE_EYEBROW_CLASS, 'shrink-0')}>{label}</p>}
           <h1 className="text-sm text-muted-foreground truncate">
@@ -98,7 +98,7 @@ export function PageHeader({ title, label, description, actions, freshness, clas
 export function PageHeaderSkeleton() {
   return (
     <div aria-hidden="true">
-      <div className="-mx-4 px-4 pt-1 pb-2 flex flex-col desktop:hidden">
+      <div className="-mx-4 px-4 pt-1 pb-2 flex flex-col desktop:hidden tablet-landscape:hidden">
         <div className="flex min-h-9 items-center">
           <Skeleton className="h-[15px] w-36" />
         </div>
@@ -107,7 +107,7 @@ export function PageHeaderSkeleton() {
           <Skeleton className="inline-block h-3 w-52 align-middle" />
         </div>
       </div>
-      <div className="hidden desktop:flex min-h-9 items-center">
+      <div className="hidden desktop:flex tablet-landscape:flex min-h-9 items-center">
         <Skeleton className="h-2.5 w-24" />
       </div>
     </div>

@@ -70,6 +70,7 @@ import {
   describeAllocation,
   describeAnnualAside,
   describeAnnualBudgets,
+  describeBudgetClosedAnswers,
   describeBudgetClosedAsides,
   describeBudgetCounts,
   describeCeiling,
@@ -86,9 +87,20 @@ import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  PLAIN_GRID_CLASS,
+  leadCellClass,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
@@ -231,7 +243,9 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
   const hasAnnual = annual.rows.length > 0;
   const budgetSections = useMemo(() => resolveBudgetSections({ hasCeiling, hasItems, hasAnnual }), [hasCeiling, hasItems, hasAnnual]);
   const sections = useMobileSections({ route: 'cashflow', tab: 'budget', sections: budgetSections, restId: BUDGET_REST_ID });
-  // At 768/1024 the same rows on two or three columns (MOB-08); the specs ARE the DOM's rows.
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). The specs ARE the DOM's rows.
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({ sections, order: budgetSections.map((section) => section.id) });
 
   // --- Handlers ---
@@ -294,6 +308,15 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
   const strip = selectBudgetStrip(ceiling);
   const tettoLifted = liftedBlocks(strip, BUDGET_SECTION_IDS.tetto).filter(isTettoLiftedBlock);
   const closedAsides = describeBudgetClosedAsides(budget.alertsEnabled);
+  // What the closed rows answer in the landscape index, from the figures the tiles already hold.
+  const rowAnswers = describeBudgetClosedAnswers({
+    risk,
+    alertRows: alerts.rows,
+    alertsEnabled: budget.alertsEnabled,
+    annual,
+    validation: budget.validation,
+    monthlyExpenseCount,
+  });
   const stripEyebrows = { ...sections.eyebrows, [VERDICT_REST_SECTION]: 'il verdetto' };
   const handleStripOpen = (section: string) => {
     if (section === VERDICT_REST_SECTION) {
@@ -302,12 +325,43 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
     }
     sections.reveal(section);
   };
-  // «Il resto della pagina» follows THE tile's cell: the Tetto's with a ceiling, Categorie a
-  // rischio's without one; with no budget at all there are no rows and no rest.
-  const rest = hasItems ? <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} /> : null;
+  // Categorie a rischio is a row with a ceiling and THE tile without one; without any budget it says
+  // «Nessun budget mensile» under Per categoria's own empty state — hidden below `desktop:` with
+  // Avvisi, the desktop unchanged (decision 11). ONE element, placed by the grid below: inside the
+  // index after «Il resto» with a ceiling, before it (THE tile's place) without one.
+  const rischioCell = (
+    <div
+      data-stage={!hasCeiling && hasItems ? 'lead' : undefined}
+      className={cn(
+        hasCeiling ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS,
+        hasCeiling ? tablet.cellClass(BUDGET_SECTION_IDS.rischio) : leadCellClass(hasItems),
+        'desktop:col-span-4',
+        !hasItems && 'max-desktop:hidden',
+      )}
+    >
+      <RischioTile
+        risk={risk}
+        aside={RISK_ASIDE}
+        reading={describeRisk(risk)}
+        footer={RISK_FOOTER}
+        id={hasCeiling ? undefined : BUDGET_SECTION_IDS.rischio}
+        collapse={hasCeiling ? sections.collapse(BUDGET_SECTION_IDS.rischio) : undefined}
+        asideWhenClosed={closedAsides[BUDGET_SECTION_IDS.rischio]}
+      />
+    </div>
+  );
 
   return (
     <div className="space-y-4 max-desktop:portrait:pb-20">
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts).
+          Without a budget there are no rows: the stage stays a plain column and the grid the
+          grid of before. */}
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={hasItems ? STAGE_CLASS : 'space-y-4'}>
+      {/* The verdict's box holds the verdict and, below desktop, the add row under it: in
+          landscape the two are the left column's top, never a loose cell of the stage. */}
+      <div data-stage="verdict" className={cn('space-y-4', hasItems && VERDICT_CELL_CLASS)}>
       {/* ── Verdict (one sentence, never cut: decision 33); the box takes the focus from «Supererai» ── */}
       <div id={BUDGET_VERDICT_ID} tabIndex={-1} className="pt-1 outline-none">
         <PageVerdict
@@ -329,15 +383,17 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
           <SlidersHorizontal className="h-4 w-4" />
         </Button>
       </div>
+      </div>
 
       {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width (decision
           11; the `order-*` the phone used went on 2026-10-12) — THE tile, «Il resto della
-          pagina», then the rows; on a tablet the composed grid of MOB-08 — without a budget, no row
-          and the grid of before (Per categoria alone) ─────────────────────────────────────── */}
-      <div className={COMPACT_GRID_WRAPPER_CLASS}>
-      <div className={hasItems ? COMPACT_GRID_CLASS : 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12'} style={tablet.gridStyle}>
+          pagina», then the rows (inside the index) — without a budget, no row and the grid of
+          before (Per categoria alone) ─────────────────────────────────────────────────── */}
+      <RowAnswers value={rowAnswers}>
+      <div className={hasItems ? COMPACT_GRID_WRAPPER_CLASS : undefined}>
+      <div className={hasItems ? COMPACT_GRID_CLASS : PLAIN_GRID_CLASS}>
         {ceiling ? (
-          <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
+          <div data-stage="lead" className={cn(TILE_CELL_CLASS, leadCellClass(hasItems), 'desktop:col-span-5 desktop:row-span-2')}>
             <TettoTile
               id={BUDGET_SECTION_IDS.tetto}
               summary={ceiling}
@@ -355,35 +411,19 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
           // below the fold are open to fill it.
           <div className="hidden desktop:col-span-5 desktop:row-span-2 desktop:block" aria-hidden="true" />
         )}
-        {ceiling && rest}
+        {/* Without a ceiling Categorie a rischio is THE tile, before «Il resto». */}
+        {!ceiling && rischioCell}
 
-        {/* Without a ceiling Categorie a rischio is THE tile; without any budget it says «Nessun
-            budget mensile» under Per categoria's own empty state — hidden below `desktop:` with
-            Avvisi, the desktop unchanged (decision 11). */}
-        <div
-          className={cn(
-            hasCeiling ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS,
-            hasCeiling ? tablet.cellClass(BUDGET_SECTION_IDS.rischio) : LEAD_CELL_CLASS,
-            'desktop:col-span-4',
-            !hasItems && 'max-desktop:hidden',
-          )}
-          style={tablet.cellStyle(BUDGET_SECTION_IDS.rischio)}
-        >
-          <RischioTile
-            risk={risk}
-            aside={RISK_ASIDE}
-            reading={describeRisk(risk)}
-            footer={RISK_FOOTER}
-            id={hasCeiling ? undefined : BUDGET_SECTION_IDS.rischio}
-            collapse={hasCeiling ? sections.collapse(BUDGET_SECTION_IDS.rischio) : undefined}
-            asideWhenClosed={closedAsides[BUDGET_SECTION_IDS.rischio]}
-          />
-        </div>
-        {!ceiling && rest}
+        {/* The index: «Il resto della pagina» and every row after it — ONE box at the same place
+            in every state, so Avvisi, Annuali and Per categoria (its live save status) never
+            remount when the ceiling comes or goes. Without a budget it is only `contents`: no
+            rest, no row, the grid of before. */}
+        <div className={hasItems ? INDEX_CLASS : 'contents'}>
+        {hasItems && <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />}
+        {ceiling && rischioCell}
 
         <div
           className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(BUDGET_SECTION_IDS.avvisi), 'desktop:col-span-3', !hasItems && 'max-desktop:hidden')}
-          style={tablet.cellStyle(BUDGET_SECTION_IDS.avvisi)}
         >
           <AvvisiTile
             rows={alerts.rows}
@@ -397,7 +437,7 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
         </div>
 
         {hasAnnual ? (
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(BUDGET_SECTION_IDS.annuali), 'desktop:col-span-7')} style={tablet.cellStyle(BUDGET_SECTION_IDS.annuali)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(BUDGET_SECTION_IDS.annuali), 'desktop:col-span-7')}>
             <AnnualiTile
               summary={annual}
               aside={describeAnnualAside(annual)}
@@ -424,7 +464,6 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
             hasItems ? tablet.cellClass(BUDGET_SECTION_IDS.categorie) : 'tablet:col-span-2',
             'desktop:col-span-12',
           )}
-          style={tablet.cellStyle(BUDGET_SECTION_IDS.categorie)}
         >
           <PerCategoriaTile
             rows={rows}
@@ -463,6 +502,10 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
             {saveLabel ?? ''}
           </span>
         </div>
+        </div>
+      </div>
+      </div>
+      </RowAnswers>
       </div>
       </div>
 

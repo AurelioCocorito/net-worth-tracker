@@ -3,6 +3,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* A tablet in landscape (2026-10-16): the SHELL's switch — the icon rail in place of the bar, the
+   one-row page header. A viewport condition because the shell has no container; the CONTENT keys
+   its composition on its own width instead (`max-desktop:@[880px]:`, lib/utils/tabletComposition.ts).
+   A phone turned sideways (~844) stays below it. Declared after the core variants, so it is emitted
+   after `max-desktop:landscape:` and wins over it on the same property. */
+@custom-variant tablet-landscape (@media (orientation: landscape) and (width >= 1000px) and (width < 1440px));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

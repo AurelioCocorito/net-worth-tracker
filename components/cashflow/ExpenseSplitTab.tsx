@@ -47,8 +47,18 @@ import { PeriodPicker } from '@/components/ui/period-picker';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  INDEX_GROUP_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { currentMonthPeriod, type Period } from '@/lib/utils/period';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
@@ -74,9 +84,11 @@ import {
   describeMemberCalendar,
   describeSplitAside,
   describeSplitBasis,
+  describeSplitClosedAnswers,
   describeSplitScope,
   formatBookedResidual,
 } from '@/lib/utils/expenseSplitNarrative';
+import { RowAnswers } from '@/components/ui/row-answers';
 import type { Expense } from '@/types/expenses';
 import type { FamilyMember } from '@/types/assets';
 
@@ -124,6 +136,8 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
   );
 
   const verdict = useMemo(() => buildSplitVerdict({ summary, period, now }), [summary, period, now]);
+  // What the closed rows answer in the landscape index, from the summary the tiles already hold.
+  const rowAnswers = useMemo(() => describeSplitClosedAnswers(summary), [summary]);
 
   // The rows of the phone composition and the verdict's «Il perché» (The Closed-Row Rule, since
   // 2026-10-12): Quota, then one row per person, keyed on the member id so a rename keeps the
@@ -133,8 +147,11 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
     [familyMembers],
   );
   const sections = useMobileSections({ route: 'cashflow', tab: 'split', sections: splitSections, restId: SPLIT_REST_ID });
-  // At 768/1024 the same rows on two or three columns (MOB-08): Quota, then one row per person the
-  // summary renders — each person a cell of the PAGE grid below `desktop:` (their box is `contents`).
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). Quota, then one row per person the summary renders —
+  // each person a cell of the PAGE grid below `desktop:` (their box is `contents`, a column of the
+  // index in landscape).
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({
     sections,
     order: [SPLIT_SECTION_IDS.quota, ...summary.members.map((balance) => splitMemberSectionId(balance.member.id))],
@@ -182,7 +199,7 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
   // The same row in both returns below: the picker is the same element while its period is read.
   const periodRows = (
     // ── Verdict, with the period axis beside it on desktop (a second instance, decision 12) ──
-    <div className="flex items-start justify-between gap-6 pt-1">
+    <div data-stage="verdict" className={cn('flex items-start justify-between gap-6 pt-1', VERDICT_CELL_CLASS)}>
       <div className="min-w-0 flex-1">
         <PageVerdict
           verdict={verdict}
@@ -222,14 +239,18 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
 
   return (
     <div className="space-y-4">
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
       {periodRows}
 
       {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width (decision
-          11) — THE tile, «Il resto della pagina», then the rows ─────────────────────── */}
+          11) — THE tile, «Il resto della pagina», then the rows (inside the index) ──────── */}
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
-      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
+      <div className={COMPACT_GRID_CLASS}>
         {/* In comune — the pool, and what it is made of */}
-        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
           <Tile id={SPLIT_SECTION_IDS.comune} eyebrow="In comune" reading={describeCommonSpending(summary)}>
             {/* Nothing recorded is not a measured zero (DESIGN.md → The Absence-Has-Three-Names
                 Rule): with no shared row at all the tile carries NO figure, because a 40px `0 €`
@@ -281,10 +302,12 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
           </Tile>
         </div>
 
+        <RowAnswers value={rowAnswers}>
+        <div className={INDEX_CLASS}>
         <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />
 
         {/* Quota — the split, and the income it comes from */}
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(SPLIT_SECTION_IDS.quota), 'desktop:col-span-7')} style={tablet.cellStyle(SPLIT_SECTION_IDS.quota)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(SPLIT_SECTION_IDS.quota), 'desktop:col-span-7')}>
           <Tile
             eyebrow="Quota"
             aside={splitAside ? <NarrativeText segments={splitAside} /> : undefined}
@@ -309,9 +332,10 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
 
         {/* One tile per person — the sentence this page exists for — inside ONE grid cell at 1440, so
             the people stand beside each other and the 12 columns close (see `memberColumns`). Below
-            `desktop:` the box is `contents`: each person is a row of the page grid (MOB-08), beside
-            THE tile at 1024 like any other. */}
-        <div className={cn('contents desktop:col-span-7 desktop:grid desktop:gap-3', memberColumns)}>
+            `desktop:` the box is `contents`: each person is a row of the page grid like any other;
+            on a tablet in landscape a column of the index, with the index's hairlines
+            (INDEX_GROUP_CLASS). */}
+        <div className={cn('contents desktop:col-span-7 desktop:grid desktop:gap-3', memberColumns, INDEX_GROUP_CLASS)}>
           {summary.members.map((balance) => {
             const consumed = describeIncomeConsumed(balance);
             const calendar = describeMemberCalendar(balance);
@@ -321,7 +345,7 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
             // 2026-10-16 (`LIFTED_FIGURE_CLASS`, decision 104).
             const heroLifted = liftedBlocks(strip, sectionId).includes(SPLIT_MEMBER_HERO_BLOCK);
             return (
-              <div key={balance.member.id} className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(sectionId))} style={tablet.cellStyle(sectionId)}>
+              <div key={balance.member.id} className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(sectionId))}>
                 <Tile
                   eyebrow={balance.member.name}
                   ariaLabel={`Quanto resta a ${balance.member.name}`}
@@ -379,6 +403,10 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
             );
           })}
         </div>
+        </div>
+        </RowAnswers>
+      </div>
+      </div>
       </div>
       </div>
     </div>

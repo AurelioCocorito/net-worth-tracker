@@ -20,6 +20,7 @@
 
 import type { FIRESensitivityCell, FIRESensitivityMatrix } from '@/lib/services/fireService';
 import type { Narrative } from '@/lib/utils/narrative';
+import { formatSensitivityYears } from '@/lib/utils/whatIfNarrative';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -52,9 +53,9 @@ const CELL_CLASS: Record<FIRESensitivityCell['relationToBaseline'], string> = {
   neutral: 'border-transparent',
 };
 
+/** The cell's years, through the one formatter the closed row's answer also prints (2026-10-16). */
 function cellText(cell: FIRESensitivityCell): string {
-  if (cell.yearsToFIRE === null) return '50+ anni';
-  return `${cell.yearsToFIRE} ${cell.yearsToFIRE === 1 ? 'anno' : 'anni'}`;
+  return formatSensitivityYears(cell.yearsToFIRE);
 }
 
 export function SensibilitaTile({ reading, aside, baselineInput, onBaselineInputChange, actualAnnualExpenses, matrix, footer, collapse, asideWhenClosed, className }: SensibilitaTileProps) {

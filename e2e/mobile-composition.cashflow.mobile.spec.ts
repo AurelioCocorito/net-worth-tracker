@@ -231,7 +231,7 @@ test.describe('Cashflow › Tracciamento, composed for a phone', () => {
     await expect(theTile.getByText(/\d,\d\d×/).first()).toBeVisible();
 
     // Title, verdict and cells all above the pill: the first screen ends at it.
-    const pillTop = await page.locator('nav[aria-label="Navigazione principale"]').evaluate((el) => el.getBoundingClientRect().top);
+    const pillTop = await page.locator('nav[data-nav="pill"]').evaluate((el) => el.getBoundingClientRect().top);
     expect(pillTop).toBeGreaterThan(600);
     const bottomOf = async (locator: ReturnType<Page['locator']>) => (await locator.boundingBox())!.y + (await locator.boundingBox())!.height;
     expect(await bottomOf(page.locator('main h1').filter({ visible: true }).first()), 'title').toBeLessThanOrEqual(pillTop);
@@ -346,7 +346,7 @@ test.describe('Cashflow › Budget, composed for a phone, with a ceiling of 1000
     // At 1440 the KPIs are printed again, side by side, each a container whose figure shrinks to
     // its cell (`container-type: inline-size`): a guard, not a proof of the overlap — no figure of
     // the fixture can run under its neighbour in a 1440 Tetto. Below `desktop:` they stay lifted on
-    // a tablet too since 2026-10-16 (MOB-08, decision 104: the strip is drawn up to 1439; this step
+    // a tablet too since 2026-10-16 (decision 104: the strip is drawn up to 1439; this step
     // read 768 until then). Seen red on 2026-10-12 with `@container` removed from the KPI cell.
     await page.setViewportSize({ width: 1440, height: 900 });
     const kpiCells = page.locator('#bud-tetto .grid-cols-3 > div');

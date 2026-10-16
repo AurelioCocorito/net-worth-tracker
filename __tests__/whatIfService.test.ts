@@ -4,8 +4,13 @@ import { describe, it, expect, vi } from 'vitest'
 vi.mock('@/lib/services/expenseService', () => ({}))
 vi.mock('@/lib/services/snapshotService', () => ({}))
 
-import { getDefaultScenarios } from '@/lib/services/fireService'
-import { applyScenarioToBaseline, calculateWhatIfImpact } from '@/lib/services/whatIfService'
+import {
+  calculateCoastFIREProjection,
+  calculateFIRESensitivityMatrix,
+  getDefaultCoastFireTaxBrackets,
+  getDefaultScenarios,
+} from '@/lib/services/fireService'
+import { applyScenarioToBaseline, calculateWhatIfImpact, WHAT_IF_HORIZON_YEARS } from '@/lib/services/whatIfService'
 import type { WhatIfBaseline, WhatIfScenario } from '@/types/whatIf'
 
 function makeBaseline(overrides: Partial<WhatIfBaseline> = {}): WhatIfBaseline {
@@ -308,5 +313,79 @@ describe('calculateWhatIfImpact — projections and the pension bridge', () => {
     expect(zeroValue.fire.fireNumber.before).toBe(plain.fire.fireNumber.before)
     expect(zeroYears.fire.fireNumber.before).toBe(plain.fire.fireNumber.before)
     expect(zeroValue.projections.before?.yearlyData).toEqual(plain.projections.before?.yearlyData)
+  })
+})
+
+/**
+ * The page agrees with itself (2026-10-16): the What If verdict, its Sensibilità matrix and its
+ * Coast block read the same honest model the Calcolatore and the Coast tab read — the tax on
+ * withdrawals, the state pensions, the locked fund. Invented round figures, noon dates.
+ *
+ * Seen red on 2026-10-16: the matrix's base cell walked the plain model (no tax, no pension, no
+ * bridge — `calculateFIRESensitivityMatrix` took none of them), so it said fewer years than the
+ * verdict above it (on the census fixture «28 anni» under «FIRE nel 2059»); the Coast block
+ * called `calculateCoastFIREMetrics` without the withdrawal tax, so «Numero Coast oggi» read
+ * below the Coast tab's figure on the same data (249.548 € against 307.326 € on the census).
+ */
+describe('calculateWhatIfImpact — the page agrees with itself (2026-10-16)', () => {
+  const NOW = new Date('2026-04-12T12:00:00')
+  const honestBaseline = () =>
+    makeBaseline({
+      pensionBridge: { valueToday: 40_000, yearsToUnlock: 10 },
+      honest: {
+        userAge: 35,
+        pensions: [{ id: 'inps', label: 'INPS', grossMonthlyAmount: 1_000, monthsPerYear: 13, startAge: 67 }],
+        taxBrackets: getDefaultCoastFireTaxBrackets(),
+        withdrawalTax: { basisToday: 100_000, rate: 26 },
+        now: NOW,
+      },
+    })
+
+  it('puts the verdict years in the Sensibilità base cell', () => {
+    const baseline = honestBaseline()
+    const impact = calculateWhatIfImpact(baseline, { eventType: 'windfall', lumpSumAmount: 0 })
+    const matrix = calculateFIRESensitivityMatrix(
+      baseline.netWorth,
+      baseline.annualExpenses,
+      baseline.annualSavings,
+      baseline.withdrawalRate,
+      baseline.scenarios,
+      WHAT_IF_HORIZON_YEARS,
+      baseline.pensionBridge ?? undefined,
+      baseline.honest ?? undefined,
+    )
+    const baseCell = matrix.rows.flatMap((row) => row.cells).find((cell) => cell.isBaseline)
+    // The fixture discriminates: the plain walk lands on another year.
+    const plain = calculateFIRESensitivityMatrix(baseline.netWorth, baseline.annualExpenses, baseline.annualSavings, baseline.withdrawalRate, baseline.scenarios)
+    expect(plain.baselineYearsToFIRE).not.toBe(impact.fire.yearsToFIRE.before)
+
+    expect(impact.fire.yearsToFIRE.before).not.toBeNull()
+    expect(matrix.baselineYearsToFIRE).toBe(impact.fire.yearsToFIRE.before)
+    expect(baseCell?.yearsToFIRE).toBe(impact.fire.yearsToFIRE.before)
+  })
+
+  it('reads «Numero Coast oggi» with the Coast tab’s tax, before and after the event', () => {
+    const baseline = honestBaseline()
+    const impact = calculateWhatIfImpact(baseline, { eventType: 'windfall', lumpSumAmount: 50_000 })
+    const c = baseline.coast!
+    // The Coast tab's own call (components/fire-simulations/CoastFireTab.tsx), on the same data.
+    const coastTab = (netWorth: number, basisToday: number) =>
+      calculateCoastFIREProjection(
+        netWorth,
+        c.annualExpenses,
+        baseline.withdrawalRate,
+        c.currentAge,
+        c.retirementAge,
+        baseline.scenarios,
+        c.pensions,
+        c.taxBrackets,
+        undefined,
+        c.capitalInflowsToday,
+        { basisToday, rate: 26 },
+      ).scenarios.base.coastFireNumberToday
+
+    expect(impact.coast!.coastFireNumberToday.before).toBeCloseTo(coastTab(200_000, 100_000), 6)
+    // A windfall arrives as basis (`honestFor`): 250k on a basis of 150k.
+    expect(impact.coast!.coastFireNumberToday.after).toBeCloseTo(coastTab(250_000, 150_000), 6)
   })
 })

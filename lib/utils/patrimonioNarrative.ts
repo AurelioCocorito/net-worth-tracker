@@ -515,6 +515,17 @@ function dayMonthOf(date: Date): string {
   return `${date.getDate()} ${MONTH_NAMES[date.getMonth()].toLowerCase()}`;
 }
 
+/** «nov 2036» — the projected end, short enough for a KPI and for the closed row's answer (moved out of MutuoTile, 2026-10-16). */
+export function shortMonthYear(date: Date): string {
+  return `${MONTH_NAMES[date.getMonth()].slice(0, 3).toLowerCase()} ${date.getFullYear()}`;
+}
+
+/** The «Fine prevista» KPI of the Mutuo tile: «nov 2036», «estinto», or «—» without a projection the debt follows. */
+export function payoffKpiValue(payoff: MortgageSummary['payoff']): string {
+  if (payoff?.kind === 'date') return shortMonthYear(payoff.date);
+  return payoff?.kind === 'repaid' ? 'estinto' : '—';
+}
+
 /** «il mutuo» or «il prestito», by what the loan finances (lib/utils/mortgageSummary.ts). */
 export function loanNoun(kind: MortgageSummary['kind']): string {
   return kind === 'mortgage' ? 'mutuo' : 'prestito';

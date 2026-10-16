@@ -4,7 +4,9 @@ import { cn } from '@/lib/utils';
 import type { Narrative } from '@/lib/utils/narrative';
 import { sectionPanelId, sectionTriggerId } from '@/lib/utils/mobileSections';
 import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { NarrativeText } from '@/components/ui/narrative-text';
+import { NarrativeSegments, NarrativeText } from '@/components/ui/narrative-text';
+import { useRowAnswer } from '@/components/ui/row-answers';
+import { CLOSED_ANSWER_CLASS, ASIDE_YIELDS_TO_ANSWER_CLASS } from '@/lib/utils/tabletComposition';
 
 /**
  * A row of the small-screen composition, as `useMobileSections().collapse(id)` hands it to a
@@ -92,6 +94,37 @@ export const LIFTED_FIGURE_CLASS = 'max-desktop:hidden';
 /** The card every tile and every error notice is made of. */
 export const TILE_SURFACE_CLASS = 'flex min-w-0 flex-col rounded-2xl border border-border bg-card shadow-sm';
 
+/**
+ * A closed row's answer, in the landscape index only (`CLOSED_ANSWER_CLASS`): the words shrink and end
+ * in «…» when a name the reader typed is long, the figure never does (owner, 2026-10-16) — at most half
+ * the row, so the eyebrow keeps its words.
+ */
+function RowAnswerText({ segments }: { segments: Narrative }) {
+  return (
+    <span className={cn(CLOSED_ANSWER_CLASS, 'max-w-[176px] items-baseline')}>
+      {segments.map((segment, i) => {
+        // Each segment is a flex item, where a space at its edge would collapse: the answers are written
+        // as words and a figure with no space between, and the gap is drawn here — except after an
+        // elision, which binds to the figure («all'11%», «l'8%»).
+        const gap = i > 0 && !/['’]\s*$/.test(segments[i - 1].text) ? 'ml-[0.3em]' : undefined;
+        // The drawn gap is no space to a screen reader, which would read «Auto Narvalo29%»: a hidden one.
+        const spoken = gap && <span className="sr-only"> </span>;
+        return segment.mono ? (
+          <span key={i} className={cn('shrink-0', gap)}>
+            {spoken}
+            <NarrativeSegments segments={[{ ...segment, text: segment.text.trim() }]} figureClassName="font-medium" />
+          </span>
+        ) : (
+          <span key={i} className={cn('min-w-0 truncate', gap)}>
+            {spoken}
+            {segment.text.trim()}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 /** The curve of every row's opening: the 400/35 spring over 300 ms (`--ease-spring`, globals.css). */
 const ROW_MOTION_CLASS = 'motion-safe:duration-300 motion-safe:ease-spring';
 
@@ -128,6 +161,10 @@ interface TileRowShellProps {
 export function TileRowShell({ collapse, eyebrow, ariaLabel, asideWhenClosed, asideWhenOpen, role, className, children }: TileRowShellProps) {
   const { id, open } = collapse;
   const asideText = open ? asideWhenOpen : asideWhenClosed;
+  // The landscape index's answer (`RowAnswers`, components/ui/row-answers.tsx): closed rows only, and
+  // never on a failed read, whose red eyebrow is the whole message.
+  const pageAnswer = useRowAnswer(id);
+  const answer = open || collapse.failed ? null : pageAnswer;
   return (
     <Collapsible open={open} onOpenChange={collapse.onOpenChange} asChild>
       <section id={id} role={role} aria-label={ariaLabel} className={cn(TILE_SURFACE_CLASS, 'scroll-mt-24', className)}>
@@ -141,8 +178,9 @@ export function TileRowShell({ collapse, eyebrow, ariaLabel, asideWhenClosed, as
               className="flex min-h-[52px] w-full items-center justify-between gap-3 rounded-2xl px-5 text-left active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             >
               {eyebrow}
-              <span className="flex shrink-0 items-center gap-2">
-                {asideText && <span className="text-[10px] text-muted-foreground">{asideText}</span>}
+              <span className="flex min-w-0 shrink-0 items-center justify-end gap-2">
+                {asideText && <span className={cn('text-[10px] text-muted-foreground', answer && ASIDE_YIELDS_TO_ANSWER_CLASS)}>{asideText}</span>}
+                {answer && <RowAnswerText segments={answer} />}
                 <ChevronDown
                   className={cn('h-4 w-4 text-muted-foreground motion-safe:transition-transform', ROW_MOTION_CLASS, open && 'rotate-180')}
                   aria-hidden="true"

@@ -1776,24 +1776,39 @@ export function resolveFanFireTargets(todayRequirement: number, projection: FIRE
   return [todayRequirement, ...projection.yearlyData.map((row) => row.baseFireNumber)];
 }
 
+/**
+ * What If › Sensibilità: the years to FIRE of the base scenario over a grid of expenses × savings.
+ * Every cell is `calculateFIREProjection` with the page's OWN tail — horizon, locked fund, the
+ * pensions and the tax on withdrawals — so the base cell is the verdict's figure. Until
+ * 2026-10-16 the matrix took none of them and walked the plain model: on the census fixture its
+ * base cell said «28 anni» under a verdict saying «FIRE nel 2059» (~33 years). The trailing
+ * arguments mirror `calculateFIREProjection`'s; absent, the matrix of before, byte-identical.
+ */
 export function calculateFIRESensitivityMatrix(
   initialNetWorth: number,
   baselineAnnualExpenses: number,
   baselineAnnualSavings: number,
   withdrawalRate: number,
-  scenarios: FIREProjectionScenarios
+  scenarios: FIREProjectionScenarios,
+  maxYears: number = 50,
+  pensionBridge?: FireProjectionPensionBridge,
+  honest?: FireHonestInputs
 ): FIRESensitivityMatrix {
-  const baselineProjection =
-    initialNetWorth > 0 && baselineAnnualExpenses > 0 && withdrawalRate > 0
+  // ONE walk per cell, the same call the What If and the Calcolatore make (never a parallel formula).
+  const yearsToFIREFor = (annualExpenses: number, annualSavings: number): number | null =>
+    initialNetWorth > 0 && annualExpenses > 0 && withdrawalRate > 0
       ? calculateFIREProjection(
           initialNetWorth,
-          baselineAnnualExpenses,
-          baselineAnnualSavings,
+          annualExpenses,
+          annualSavings,
           withdrawalRate,
-          scenarios
-        )
+          scenarios,
+          maxYears,
+          pensionBridge,
+          honest
+        ).baseYearsToFIRE
       : null;
-  const baselineYearsToFIRE = baselineProjection?.baseYearsToFIRE ?? null;
+  const baselineYearsToFIRE = yearsToFIREFor(baselineAnnualExpenses, baselineAnnualSavings);
 
   const columns = baselineAnnualSavings > 0
     ? SAVINGS_MULTIPLIERS.map((multiplier) => {
@@ -1814,17 +1829,7 @@ export function calculateFIRESensitivityMatrix(
     const annualExpenses = baselineAnnualExpenses * multiplier;
 
     const cells = columns.map((column) => {
-      const projection =
-        initialNetWorth > 0 && annualExpenses > 0 && withdrawalRate > 0
-          ? calculateFIREProjection(
-              initialNetWorth,
-              annualExpenses,
-              column.annualSavings,
-              withdrawalRate,
-              scenarios
-            )
-          : null;
-      const yearsToFIRE = projection?.baseYearsToFIRE ?? null;
+      const yearsToFIRE = yearsToFIREFor(annualExpenses, column.annualSavings);
       let relationToBaseline: FIRESensitivityCell['relationToBaseline'] = 'neutral';
       const isBaseline = multiplier === 1 && column.isBaseline;
 

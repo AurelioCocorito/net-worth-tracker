@@ -40,7 +40,11 @@ import {
   toPensionDrafts,
   type CoastFirePensionDraft,
   type CoastTarget,
+  type CoastInflowEvent,
+  type CoastPensionCoverage,
+  type CoastScenarioRow,
   COAST_CLOSED_ASIDES,
+  describeCoastClosedAnswers,
 } from '@/lib/utils/coastFireView';
 import { INACTIVE_LOCK, type FireLock } from '@/lib/utils/fireSummary';
 import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
@@ -757,5 +761,55 @@ describe('the closed rows\' asides — words, never a figure', () => {
   it('names Afflussi and Scenari without a digit', () => {
     expect(COAST_CLOSED_ASIDES).toEqual({ [COAST_SECTION_IDS.afflussi]: 'pensioni e fondo', [COAST_SECTION_IDS.scenari]: 'rendimento reale' });
     for (const aside of Object.values(COAST_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
+  });
+});
+
+// ─── The closed rows' answers in the landscape index (2026-10-16) ─────────────
+// Falsified on 2026-10-16, each in its own test: «the pensions win over the fund» went red with the
+// fund branch moved first («fondo nel 2045» over 13.400 € of pensions); «Scenari answers the bull»
+// went red reading the bear (the strip's «Nell'orso» figure, repeated).
+
+describe('describeCoastClosedAnswers', () => {
+  /** What the index shows: each segment trimmed, joined by the gap the row draws between them. */
+  const visible = (answer: Narrative | null | undefined) =>
+    answer ? answer.map((segment) => segment.text.trim()).join(' ').replace(/[  ]/g, ' ') : answer;
+
+  const FUND: CoastInflowEvent = { id: 'pension-fund-0', kind: 'pensionFund', year: 2045, title: 'Sblocco fondo pensione', amount: '30.000 €', amountValue: 30_000, amountCaption: 'al valore di oggi', note: null };
+  const INPS: CoastInflowEvent = { id: 'inps', kind: 'statePension', year: 2055, title: 'Pensione INPS', amount: '13.400 €', amountValue: 13_400, amountCaption: "netti reali l'anno", note: null };
+  const NO_PENSIONS: CoastPensionCoverage = { count: 0, entries: [], annualNetReal: 0, monthlyNetReal: 0, annualNetRealAtRetirement: 0 };
+  const ONE_PENSION: CoastPensionCoverage = {
+    count: 1,
+    entries: [{ label: 'Pensione INPS', startYear: 2055, startAge: 67, netAnnualReal: 13_400, isActiveAtRetirement: false }],
+    annualNetReal: 13_400,
+    monthlyNetReal: 13_400 / 12,
+    annualNetRealAtRetirement: 0,
+  };
+  const row = (key: CoastScenarioRow['key'], coastNumberToday: number): CoastScenarioRow => ({
+    key,
+    label: key === 'bear' ? 'Orso' : key === 'base' ? 'Base' : 'Toro',
+    realReturnRate: 4,
+    growthRate: 6,
+    inflationRate: 2,
+    coastNumberToday,
+    progressPct: 50,
+    gap: 10_000,
+    surplus: 0,
+    reached: false,
+  });
+  const SCENARIOS = [row('bear', 700_000), row('base', 300_000), row('bull', 127_000)];
+
+  it('answers Afflussi with the pensions, else the fund, else «nessun afflusso», in at most 22 characters', () => {
+    const withPensions = describeCoastClosedAnswers({ events: [FUND, INPS], pensions: ONE_PENSION, scenarios: SCENARIOS });
+    expect(visible(withPensions[COAST_SECTION_IDS.afflussi])).toBe("13.400 € netti l'anno");
+    expect(visible(describeCoastClosedAnswers({ events: [FUND], pensions: NO_PENSIONS, scenarios: SCENARIOS })[COAST_SECTION_IDS.afflussi])).toBe('fondo nel 2045');
+    expect(visible(describeCoastClosedAnswers({ events: [], pensions: NO_PENSIONS, scenarios: SCENARIOS })[COAST_SECTION_IDS.afflussi])).toBe('nessun afflusso');
+    for (const answer of Object.values(withPensions)) expect([...(visible(answer) ?? '')].length).toBeLessThanOrEqual(22);
+  });
+
+  it('answers Scenari with the bull, unsigned, and keeps the scope without the rows', () => {
+    const answers = describeCoastClosedAnswers({ events: [], pensions: NO_PENSIONS, scenarios: SCENARIOS });
+    expect(visible(answers[COAST_SECTION_IDS.scenari])).toBe('nel toro 127.000 €');
+    expect(answers[COAST_SECTION_IDS.scenari]?.some((segment) => segment.sign)).toBe(false);
+    expect(describeCoastClosedAnswers({ events: [], pensions: NO_PENSIONS, scenarios: [] })[COAST_SECTION_IDS.scenari]).toBeNull();
   });
 });

@@ -24,7 +24,10 @@ import type { AnalisiPeriod, CategoryMover, FlowSummary, MonthRef, SpendingPoint
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, monthWithPrepositionA, ofThePercent } from '@/lib/utils/patrimonioNarrative';
-import { printedDelta, scheduledScope, scheduledSentence } from '@/lib/utils/cashflowNarrative';
+import { describeCategoryShareAnswer, printedDelta, scheduledScope, scheduledSentence } from '@/lib/utils/cashflowNarrative';
+import type { CategoryRanking } from '@/lib/utils/tracciamentoSummary';
+import { ANALISI_SECTION_IDS } from '@/lib/utils/analisiSummary';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 import { formatStripFigure, type StripFigure } from '@/lib/utils/verdictStrip';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
@@ -844,4 +847,69 @@ export function describeComparison(input: ComparisonInput): Narrative | null {
 /** The disclosure row of the Confronto: «2026 vs 2025 (stessi mesi, gen–ago) · +1257 €». */
 export function describeComparisonSummary(year: number, pacing: TotalsPacing): Narrative {
   return [figure(String(year)), prose(` ${pacing.baselineLabel} · `), signed(signedEuro(pacing.expenses.delta), spendingSign(pacing.expenses.delta))];
+}
+
+// ─── The closed rows' answers (2026-10-16) ────────────────────────────────────
+
+export interface AnalisiClosedAnswersInput {
+  /** `detectSpendingAnomalies` of the month, highest share first — as Fuori scala lists them. */
+  anomalies: SpendingAnomaly[];
+  topExpenses: TopExpenses;
+  /** The two category tiles' rankings, as the page hands them to `describeCategoryShare`. */
+  expenseRanking: CategoryRanking;
+  incomeRanking: CategoryRanking;
+  flow: FlowSummary;
+  /** The 50/30/20 totals; null with the setting off (the Flusso has its type view only). */
+  spendingRoles: SpendingRolesSummary | null;
+}
+
+/**
+ * What Analisi's closed rows answer in the landscape index (components/ui/row-answers.tsx), none of
+ * them the strip's Entrate and Risparmio nor THE tile's trio and rate:
+ * - Fuori scala: the furthest category over its average, «Ristoranti +80%» in red as its row
+ *   prints it; «nessuna fuori scala» without one (the row exists only on a month);
+ * - Spese maggiori: «la più grande 2505 €»;
+ * - the two category rows: the first category and its share (`describeCategoryShareAnswer`);
+ * - Flusso: the LARGEST printed share of the view the tile opens on — by 50/30/20 role when the
+ *   setting is on (the tile's default at every mount), else by type, «Variabili 91%» — never the
+ *   savings rate, which THE tile prints. The view is the tile's own state: switched by hand while
+ *   open, the closed row still answers for the default view.
+ * The Scheda keeps its scope: the entity's name IS the answer to «quale?», and it opens by itself.
+ */
+export function describeAnalisiClosedAnswers(input: AnalisiClosedAnswersInput): RowAnswerMap {
+  return {
+    [ANALISI_SECTION_IDS.fuoriScala]: describeAnomaliesAnswer(input.anomalies),
+    [ANALISI_SECTION_IDS.maggiori]: input.topExpenses.rows[0] ? [prose('la più grande'), figure(euro(input.topExpenses.rows[0].amount))] : null,
+    [ANALISI_SECTION_IDS.spese]: describeCategoryShareAnswer(input.expenseRanking, 'expenses'),
+    [ANALISI_SECTION_IDS.entrate]: describeCategoryShareAnswer(input.incomeRanking, 'income'),
+    [ANALISI_SECTION_IDS.scheda]: null,
+    [ANALISI_SECTION_IDS.flusso]: input.spendingRoles ? describeRolesFlowAnswer(input.spendingRoles) : describeTypesFlowAnswer(input.flow),
+  };
+}
+
+function describeAnomaliesAnswer(anomalies: SpendingAnomaly[]): Narrative {
+  const first = anomalies[0];
+  if (!first) return [prose('nessuna fuori scala')];
+  return [prose(first.categoryLabel), signed(`+${formatPercentage(first.deltaPercent, 0)}`, 'negative')];
+}
+
+/** The largest of the printed shares — the first that reaches the maximum, so a tie keeps the view's order. */
+function largestPrinted<T>(items: T[], printed: (item: T) => number): T | null {
+  return items.reduce<T | null>((best, item) => (best === null || printed(item) > printed(best) ? item : best), null);
+}
+
+function describeTypesFlowAnswer(flow: FlowSummary): Narrative | null {
+  if (flow.typeShares.length === 0) return null;
+  // One type is the whole spending: the reading's words, no 100%.
+  if (flow.typeShares.length === 1) return [prose(`tutte ${SPENDING_TYPE_ADJECTIVES[flow.typeShares[0].type]}`)];
+  const largest = largestPrinted(flow.typeShares, (share) => share.printedPercentage)!;
+  return [prose(largest.label), figure(formatPercentage(largest.printedPercentage, 0))];
+}
+
+function describeRolesFlowAnswer(summary: SpendingRolesSummary): Narrative | null {
+  const roleShares = summarizeSpendingRoleShares(summary);
+  if (roleShares.absence !== null) return null;
+  const largest = largestPrinted(roleShares.shares, (share) => share.percentage);
+  if (!largest) return null;
+  return [prose(largest.label), figure(formatPercentage(largest.percentage, 0))];
 }

@@ -32,6 +32,7 @@ import {
 } from '@/lib/utils/overviewNarrative';
 import {
   describeOverviewAsides,
+  describeOverviewClosedAnswers,
   monthCoverageRatio,
   monthSavingsRate,
   OVERVIEW_PATRIMONIO_ID,
@@ -69,8 +70,18 @@ import { OverviewTile, TILE_CELL_CLASS } from '@/components/dashboard/overview/O
 import { TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { RowAnswers } from '@/components/ui/row-answers';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
@@ -247,7 +258,8 @@ export default function DashboardPage() {
     [costsVisible, hasGoals, hasExpenseStats],
   );
   const sections = useMobileSections({ route: 'panoramica', sections: overviewSections });
-  // At 768/1024 the same rows, laid out on two or three columns (MOB-08): the rows present ARE the order.
+  // At 768 the same rows on two columns, in landscape in the index (since 2026-10-16): the rows present ARE the order.
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({ sections, order: overviewSections.map((section) => section.id) });
 
   const sparklineDisplay = useMemo(() => {
@@ -427,6 +439,8 @@ export default function DashboardPage() {
   // ─── The phone composition (2026-10-11) ───────────────────────────────────────────
   const strip = selectOverviewStrip(overview);
   const asides = describeOverviewAsides(overview);
+  // What each closed row answers in the landscape index (2026-10-16): figures the strip and THE tile do not print.
+  const rowAnswers = describeOverviewClosedAnswers(overview, today);
   const restCollapse = sections.collapse(VERDICT_REST_SECTION);
   // No «Il perché» when a binding clause (the tax on a sale) cancels the cut: the paragraph is whole.
   const hasRest = splitVerdict(verdict).rest.length > 0;
@@ -496,7 +510,12 @@ export default function DashboardPage() {
           freshness={freshness}
         />
 
-        <motion.div variants={cardItem} initial={entranceInitial} animate="visible" className="pt-1">
+        {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+            (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+        <RowAnswers value={rowAnswers}>
+        <div className={STAGE_WRAPPER_CLASS}>
+        <div ref={stageRef} className={STAGE_CLASS}>
+        <motion.div variants={cardItem} initial={entranceInitial} animate="visible" data-stage="verdict" className={cn('pt-1', VERDICT_CELL_CLASS)}>
           <OverviewVerdict
             verdict={verdict}
             strip={<VerdictStrip figures={strip} onOpen={handleStripOpen} eyebrows={stripEyebrows} />}
@@ -505,18 +524,17 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* ONE sequence: the DOM order is the reading order at every width, no `order-*`
-            (decision 11); a new tile takes its place in the JSX. At 1024 the rows that precede the
-            first open one sit beside THE tile, the rest under it (lib/utils/tabletComposition.ts). */}
+            (decision 11); a new tile takes its place in the JSX — inside the index if it is a row. */}
         <div className={COMPACT_GRID_WRAPPER_CLASS}>
         <motion.div
           variants={staggerContainer}
           initial={entranceInitial}
           animate="visible"
           className={COMPACT_GRID_CLASS}
-          style={tablet.gridStyle}
         >
           <motion.div
             variants={cardItem}
+            data-stage="lead"
             className={cn(CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}
           >
             <PatrimonioTile
@@ -536,12 +554,12 @@ export default function DashboardPage() {
             />
           </motion.div>
 
+          <div className={INDEX_CLASS}>
           <PageRest sections={sections} className={REST_CELL_CLASS} />
 
           <motion.div
             variants={cardItem}
             className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.sintesi), 'desktop:col-span-3')}
-            style={tablet.cellStyle(OVERVIEW_SECTION_IDS.sintesi)}
           >
             <SintesiTile
               metrics={overview.metrics}
@@ -554,7 +572,6 @@ export default function DashboardPage() {
           <motion.div
             variants={cardItem}
             className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.cashflow), 'desktop:col-span-4')}
-            style={tablet.cellStyle(OVERVIEW_SECTION_IDS.cashflow)}
           >
             {expenseStats ? (
               <CashflowTile
@@ -583,7 +600,6 @@ export default function DashboardPage() {
           <motion.div
             variants={cardItem}
             className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.composizione), 'desktop:col-span-3')}
-            style={tablet.cellStyle(OVERVIEW_SECTION_IDS.composizione)}
           >
             <ComposizioneTile
               data={assetClassData}
@@ -597,7 +613,6 @@ export default function DashboardPage() {
             <motion.div
               variants={cardItem}
               className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.costi), hasGoals ? 'desktop:col-span-2' : 'desktop:col-span-4')}
-              style={tablet.cellStyle(OVERVIEW_SECTION_IDS.costi)}
             >
               <CostiTile
                 metrics={overview.metrics}
@@ -613,7 +628,6 @@ export default function DashboardPage() {
             <motion.div
               variants={cardItem}
               className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.obiettivo), costsVisible ? 'desktop:col-span-2' : 'desktop:col-span-4')}
-              style={tablet.cellStyle(OVERVIEW_SECTION_IDS.obiettivo)}
             >
               <ObiettivoTile
                 goals={goals}
@@ -633,7 +647,6 @@ export default function DashboardPage() {
               <motion.div
                 variants={cardItem}
                 className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.spese), 'desktop:col-span-4')}
-                style={tablet.cellStyle(OVERVIEW_SECTION_IDS.spese)}
               >
                 <CategoryTile
                   eyebrow="Spese per categoria"
@@ -652,7 +665,6 @@ export default function DashboardPage() {
               <motion.div
                 variants={cardItem}
                 className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.entrate), 'desktop:col-span-4')}
-                style={tablet.cellStyle(OVERVIEW_SECTION_IDS.entrate)}
               >
                 <CategoryTile
                   eyebrow="Entrate per categoria"
@@ -680,7 +692,6 @@ export default function DashboardPage() {
               // could not hold a label, a 40px bar and two figures without overflowing its row.
               expenseStats ? 'desktop:col-span-4' : 'desktop:col-span-12',
             )}
-            style={tablet.cellStyle(OVERVIEW_SECTION_IDS.asset)}
           >
             <AssetPrincipaliTile
               topAssets={overview.topAssets ?? []}
@@ -689,8 +700,12 @@ export default function DashboardPage() {
               asideWhenClosed={asides[OVERVIEW_SECTION_IDS.asset]}
             />
           </motion.div>
+          </div>
         </motion.div>
         </div>
+        </div>
+        </div>
+        </RowAnswers>
 
         {/* ── SNAPSHOT OVERWRITE CONFIRM ──
             `sm`: one question. The primary is NOT armed — the daily cron rewrites the running

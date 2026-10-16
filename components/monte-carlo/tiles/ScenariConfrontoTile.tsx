@@ -12,7 +12,7 @@
  */
 
 import type { Narrative } from '@/lib/utils/narrative';
-import type { ScenarioKey } from '@/lib/utils/monteCarloSummary';
+import { rateDecimals, type ScenarioKey } from '@/lib/utils/monteCarloSummary';
 import { formatPercentage } from '@/lib/services/chartService';
 import { useChartColors } from '@/lib/hooks/useChartColors';
 import { Tile, type TileCollapse } from '@/components/ui/tile';
@@ -46,7 +46,8 @@ export function ScenariConfrontoTile({ reading, aside, rows, footer, collapse, a
         {rows.map((row) => {
           const color = chartColors[SCENARIO_SLOT[row.key]] || `var(--chart-${SCENARIO_SLOT[row.key] + 1})`;
           const fill = Math.min(100, Math.max(0, row.successRate));
-          const decimals = Number.isInteger(Math.round(row.successRate * 10) / 10) ? 0 : 1;
+          // The one rule of a rate's decimals, the closed row's «Toro» answer prints it too (2026-10-16).
+          const decimals = rateDecimals(row.successRate);
           return (
             <li key={row.key} className="flex flex-col py-2.5 first:pt-0 last:pb-0">
               <div className="flex items-baseline justify-between gap-3">

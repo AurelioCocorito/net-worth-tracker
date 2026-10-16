@@ -23,6 +23,8 @@ import type {
   MemberBalance,
   SplitBasis,
 } from '@/lib/utils/expenseSplitSummary';
+import { SPLIT_SECTION_IDS, splitMemberSectionId } from '@/lib/utils/expenseSplitSummary';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 // Both from the SDK-free formatters module, never from chartService: this narrative is read by
 // the periodic emails too, and chartService would drag the client Firebase SDK into the cron.
 import { cachedFormatCurrencyEUR, formatEuroMinus, formatPercentageIt as formatPercentage } from '@/lib/utils/formatters';
@@ -505,9 +507,19 @@ export function describeMemberCalendar(balance: MemberBalance): Narrative | null
  * division by zero, not a 0%.
  */
 export function describeIncomeConsumed(balance: MemberBalance): Narrative | null {
-  if (balance.income <= 0 || balance.commonShare === null) return null;
-  const consumedShare = (balance.commonShare + balance.personalSpending) / balance.income;
+  const consumedShare = incomeConsumedShare(balance);
+  if (consumedShare === null) return null;
   return [prose('Se ne va '), ...percentWithArticle(consumedShare), prose(' delle entrate.')];
+}
+
+/**
+ * The share of a person's income the period took — their part of the common pool plus their own
+ * spending — as a ratio (0,44); null without income or without a basis. One source for the tile's
+ * line and the closed row's answer (2026-10-16).
+ */
+export function incomeConsumedShare(balance: MemberBalance): number | null {
+  if (balance.income <= 0 || balance.commonShare === null) return null;
+  return (balance.commonShare + balance.personalSpending) / balance.income;
 }
 
 /**
@@ -517,4 +529,25 @@ export function describeIncomeConsumed(balance: MemberBalance): Narrative | null
 export function describeSplitAside(summary: ExpenseSplitSummary): Narrative | null {
   if (summary.basis.kind === 'unavailable') return null;
   return [figure(summary.basis.members.map((entry) => formatPercentage(entry.share * 100, 0)).join(' · '))];
+}
+
+// ─── The closed rows' answers (2026-10-16) ────────────────────────────────────
+
+/**
+ * What Divisione's closed rows answer in the landscape index (components/ui/row-answers.tsx). Each
+ * person: «se ne va il 44%», the share of their income the period took, as the tile's line under the
+ * hero prints it — neither the residual (the strip's) nor the share of the pool (the verdict's
+ * first sentence); the article is its own segment, which the index binds to the figure when elided
+ * («se ne va l'80%»). Above 100% it prints as it is, like the tile. Null without income or
+ * basis, where «quanto resta» stays. Quota keeps its scope: the shares are the first sentence's,
+ * and every other figure of the tile is one per person, not the row's answer.
+ */
+export function describeSplitClosedAnswers(summary: ExpenseSplitSummary): RowAnswerMap {
+  const answers: Record<string, Narrative | null> = { [SPLIT_SECTION_IDS.quota]: null };
+  for (const balance of summary.members) {
+    const share = incomeConsumedShare(balance);
+    answers[splitMemberSectionId(balance.member.id)] =
+      share === null ? null : [prose('se ne va'), prose(articleForPercent(share * 100, 0).trim()), figure(formatPercentage(share * 100, 0))];
+  }
+  return answers;
 }

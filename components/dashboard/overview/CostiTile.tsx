@@ -1,7 +1,7 @@
 import type { DashboardOverviewCostDriver, DashboardOverviewPayload } from '@/types/dashboardOverview';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
-import { describeCosts } from '@/lib/utils/overviewNarrative';
+import { annualPortfolioCostTotal, describeCosts } from '@/lib/utils/overviewNarrative';
 import { cn } from '@/lib/utils';
 import type { TileCollapse } from '@/components/ui/tile';
 import { OverviewTile, TILE_SUB_EYEBROW_CLASS } from './OverviewTile';
@@ -25,7 +25,7 @@ interface CostiTileProps {
  * duty) side by side, then the instruments the TER cost actually comes from.
  */
 export function CostiTile({ metrics, flags, costDrivers, collapse, asideWhenClosed, className }: CostiTileProps) {
-  const annualTotal = (metrics.annualPortfolioCost ?? 0) + (metrics.annualStampDuty ?? 0);
+  const annualTotal = annualPortfolioCostTotal(metrics);
   const bothPresent = flags.hasTERTracking && flags.hasStampDuty;
   const drivers = costDrivers.slice(0, MAX_DRIVERS);
 

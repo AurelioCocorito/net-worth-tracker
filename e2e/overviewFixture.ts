@@ -6,7 +6,7 @@
  * 4000 € received and 2000 € of expenses of which 350 € still in the calendar — 59% saved so far;
  * last month saved 12,5%, so the celebration badge (from the 5th, over 30%) never covers the pill;
  * a curve with last December, January and the running month, so the YTD window exists;
- * `hasTERTracking` on, so the Costi row renders (seven rows; MOB-08 § 7 reuses it). The tax
+ * `hasTERTracking` on, so the Costi row renders (seven rows; `overview.tablet.spec.ts` reuses it). The tax
  * scenarios pass a tax of ≥ 10.000 €: the container's Chromium groups «1.100 €» where the pinned
  * one does not (doc/guide/e2e-emulatori.md § Browser-Driven E2E).
  *
@@ -71,7 +71,17 @@ export function baseOverviewPatch(): Json {
 export async function patchOverview(page: Page, overrides: Json = {}): Promise<void> {
   await page.route('**/api/dashboard/overview*', async (route) => {
     const response = await route.fetch();
-    const body = (await response.json()) as Json;
+    let body: Json;
+    try {
+      body = (await response.json()) as Json;
+    } catch (error) {
+      // A `page.reload()` disposes the response of the request it abandons before its body is read
+      // («Response has been disposed», Patrimonio and Panoramica «remembered across a reload» on 2026-10-15
+      // and 2026-10-16): let that one go — the reload's own request comes through here again.
+      if (!String(error).includes('disposed')) throw error;
+      await route.continue().catch(() => {});
+      return;
+    }
     const patched: Json = {
       ...body,
       ...baseOverviewPatch(),

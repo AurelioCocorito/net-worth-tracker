@@ -30,9 +30,10 @@ import type {
   RealizedGainsSummary,
   ReturnConsistency,
 } from '@/lib/utils/performanceSummary';
-import { resolveHeroReturn } from '@/lib/utils/performanceSummary';
+import { PERFORMANCE_SECTION_IDS, resolveHeroReturn } from '@/lib/utils/performanceSummary';
 import {
   describeAnalysisBase,
+  describePerformanceClosedAnswers,
   describeReportAuthor,
   buildPerformanceVerdict,
   describeBenchmarkRanking,
@@ -763,5 +764,112 @@ describe('describeAnalysisBase', () => {
 
   it('agrees in number on a single month', () => {
     expect(plain(describeAnalysisBase({ monthsMeasured: 1, netCashFlow: null }))).toBe('1 mese di storico.');
+  });
+});
+
+// ─── The closed rows' answers (landscape index, 2026-10-16) ──────────────────
+
+/**
+ * Each closed row's answer: one figure the strip, THE tile and the verdict's first sentence do not
+ * print, or null where the row keeps its scope. Read as the index lays it out (segments trimmed,
+ * one gap between them). Falsified on 2026-10-16, one at a time: the «batte tutti e» case went red
+ * with the `compared > 1` guard dropped (one model read «batte tutti e 1»); the long-name case
+ * with the `ANSWER_MAX_CHARS` guard removed; the no-coverage case with the `attributedMonths === 0`
+ * branch dropped; the Plusvalenze null with the `state !== 'ready'` branch dropped.
+ */
+describe('describePerformanceClosedAnswers', () => {
+  const answerText = (answer: Narrative | null | undefined) => (answer ? flat(answer.map((segment) => segment.text.trim()).join(' ')) : null);
+  const row = (name: string, total: number) => ({ assetId: name, name, ticker: '', marketEffect: total, dividends: 0, total, isPensionFund: false, monthsAttributed: 9 });
+  const full = { measuredMonths: 9, attributedMonths: 9, firstAttributed: { year: 2026, month: 1 }, lastAttributed: { year: 2026, month: 9 } };
+  const model = (id: string, delta: number) => ({ id, name: id, annualized: 6, delta, lastMonth: { year: 2026, month: 9 } });
+  const ranking: BenchmarkRanking = { rows: [model('a', -1), model('b', 1), model('c', 2), model('d', 0.5)], beaten: 3, tied: 0, measured: 4 };
+  const input = {
+    ranking,
+    capitalEntered: { channels: [], total: 13200 } as CapitalEnteredSummary,
+    attribution: { rows: [row('Bitcoin', 12400), row('Oro', -800)], attributed: 11600, gain: 12000, unattributed: 400, coverage: full, residualMonths: [] },
+    lastChartPoint: { returns: 13100 },
+    volatility: 12.4,
+    consistency,
+    realizedState: 'ready' as const,
+    realizedSummary: { total: 3745, years: [{ year: 2025, amount: 3745 }] } as RealizedGainsSummary,
+  };
+  const answers = describePerformanceClosedAnswers(input);
+
+  it('answers every row with its one figure', () => {
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.benchmark])).toBe('batte 3 su 4');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.contributi])).toBe('entrati 13.200 €');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.attribuzione])).toBe('Bitcoin +12.400 €');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.capitale])).toBe('mercato +13.100 €');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.rischio])).toBe('volatilità 12,4%');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.consistenza])).toBe('peggiore −3,0%');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.plusvalenze])).toBe('totale +3745 €');
+  });
+
+  it('fits every answer in 22 characters and sets exactly one figure in mono', () => {
+    for (const answer of Object.values(answers)) {
+      expect(answerText(answer)!.length).toBeLessThanOrEqual(22);
+      expect(answer!.filter((segment) => segment.mono)).toHaveLength(1);
+    }
+  });
+
+  it('colours the gains and losses, never a flow, a volatility or a count', () => {
+    const sign = (id: string) => answers[id]!.find((segment) => segment.mono)!.sign;
+    expect(sign(PERFORMANCE_SECTION_IDS.attribuzione)).toBe('positive');
+    expect(sign(PERFORMANCE_SECTION_IDS.capitale)).toBe('positive');
+    expect(sign(PERFORMANCE_SECTION_IDS.consistenza)).toBe('negative');
+    expect(sign(PERFORMANCE_SECTION_IDS.plusvalenze)).toBe('positive');
+    expect(sign(PERFORMANCE_SECTION_IDS.contributi)).toBeUndefined();
+    expect(sign(PERFORMANCE_SECTION_IDS.rischio)).toBeUndefined();
+    expect(sign(PERFORMANCE_SECTION_IDS.benchmark)).toBeUndefined();
+  });
+
+  it('Benchmark: «tutti e N» when every model is beaten, a bare zero when none is, null with nothing compared', () => {
+    const all = describePerformanceClosedAnswers({ ...input, ranking: { ...ranking, rows: [model('a', 1), model('b', 2)], beaten: 2 } });
+    expect(answerText(all[PERFORMANCE_SECTION_IDS.benchmark])).toBe('batte tutti e 2');
+    const one = describePerformanceClosedAnswers({ ...input, ranking: { ...ranking, rows: [model('a', 1)], beaten: 1 } });
+    expect(answerText(one[PERFORMANCE_SECTION_IDS.benchmark])).toBe('batte 1 su 1');
+    const none = describePerformanceClosedAnswers({ ...input, ranking: { ...ranking, rows: [model('a', -1), model('b', -2)], beaten: 0 } });
+    expect(answerText(none[PERFORMANCE_SECTION_IDS.benchmark])).toBe('batte 0 su 2');
+    const arriving = describePerformanceClosedAnswers({ ...input, ranking: { rows: [{ ...model('a', 0), annualized: null, delta: null }], beaten: 0, tied: 0, measured: 0 } });
+    expect(arriving[PERFORMANCE_SECTION_IDS.benchmark]).toBeNull();
+  });
+
+  it('Contributi: «usciti» on a negative total, and a zero without sign', () => {
+    const out = describePerformanceClosedAnswers({ ...input, capitalEntered: { channels: [], total: -2300 } });
+    expect(answerText(out[PERFORMANCE_SECTION_IDS.contributi])).toBe('usciti 2300 €');
+    const zero = describePerformanceClosedAnswers({ ...input, capitalEntered: { channels: [], total: 0 } });
+    expect(answerText(zero[PERFORMANCE_SECTION_IDS.contributi])).toBe('entrati 0 €');
+  });
+
+  it('Da dove viene il rendimento: null on a name too long for the index, without coverage, without rows or without the row', () => {
+    const long = describePerformanceClosedAnswers({ ...input, attribution: { ...input.attribution, rows: [row('Vanguard FTSE All-World', 16569)] } });
+    expect(long[PERFORMANCE_SECTION_IDS.attribuzione]).toBeNull();
+    const uncovered = describePerformanceClosedAnswers({ ...input, attribution: { ...input.attribution, coverage: { ...full, attributedMonths: 0 } } });
+    expect(uncovered[PERFORMANCE_SECTION_IDS.attribuzione]).toBeNull();
+    const empty = describePerformanceClosedAnswers({ ...input, attribution: { ...input.attribution, rows: [] } });
+    expect(empty[PERFORMANCE_SECTION_IDS.attribuzione]).toBeNull();
+    expect(describePerformanceClosedAnswers({ ...input, attribution: null })[PERFORMANCE_SECTION_IDS.attribuzione]).toBeNull();
+  });
+
+  it('Capitale e mercato: a loss signed and red, a printed zero bare, null without a chart', () => {
+    const loss = describePerformanceClosedAnswers({ ...input, lastChartPoint: { returns: -2300 } })[PERFORMANCE_SECTION_IDS.capitale]!;
+    expect(answerText(loss)).toBe('mercato −2300 €');
+    expect(loss[1].sign).toBe('negative');
+    const zero = describePerformanceClosedAnswers({ ...input, lastChartPoint: { returns: 0.4 } })[PERFORMANCE_SECTION_IDS.capitale]!;
+    expect(answerText(zero)).toBe('mercato 0 €');
+    expect(zero[1].sign).toBeUndefined();
+    expect(describePerformanceClosedAnswers({ ...input, lastChartPoint: null })[PERFORMANCE_SECTION_IDS.capitale]).toBeNull();
+  });
+
+  it('Rischio and Consistenza: null when nothing is measured', () => {
+    expect(describePerformanceClosedAnswers({ ...input, volatility: null })[PERFORMANCE_SECTION_IDS.rischio]).toBeNull();
+    const nothing: ReturnConsistency = { positiveMonths: 0, totalMonths: 0, positiveShare: null, best: null, worst: null };
+    expect(describePerformanceClosedAnswers({ ...input, consistency: nothing })[PERFORMANCE_SECTION_IDS.consistenza]).toBeNull();
+  });
+
+  it('Plusvalenze: null on a failed read or when there is nothing to show', () => {
+    expect(describePerformanceClosedAnswers({ ...input, realizedState: 'failed' })[PERFORMANCE_SECTION_IDS.plusvalenze]).toBeNull();
+    expect(describePerformanceClosedAnswers({ ...input, realizedState: 'absent' })[PERFORMANCE_SECTION_IDS.plusvalenze]).toBeNull();
+    expect(describePerformanceClosedAnswers({ ...input, realizedSummary: null })[PERFORMANCE_SECTION_IDS.plusvalenze]).toBeNull();
   });
 });

@@ -45,7 +45,7 @@ export interface SpendingRolesFlowInput {
 interface FlussoTileProps {
   /** The period's rows (income + spending); transfers are not flows. */
   expenses: Expense[];
-  /** Below 640px: the tile draws a share bar and rows, never a Sankey. */
+  /** In a cell narrower than a 640px phone's (and in the landscape index): a share bar and rows, never a Sankey. */
   isMobile: boolean;
   /** The reading of the type view. */
   reading: Narrative | null;
@@ -97,11 +97,15 @@ export function isFlussoLiftedBlock(block: string): block is FlussoLiftedBlock {
  * its reads — not when the tile first draws the Sankey, after every expense is read. And it is a
  * `lazyComponent`, not a `next/dynamic`: with the chunk already in memory the chart draws in the
  * same render as the figures, where a Suspense fallback held the placeholder ~275 ms longer
- * (measured on the mirror, the same day). The width test is AnalisiTab's phone query, negated:
- * below it nothing is fetched.
+ * (measured on the mirror, the same day). The width test is where the Sankey is DRAWN: a cell of
+ * 608px or more (AnalisiTab, `FLUSSO_SANKEY_MIN_CELL`) — from a 640px viewport up to the landscape
+ * stage, which starts at a content box of 880px (a 912px viewport: there the Flusso is a row of the
+ * 360px index and draws bar and rows, 2026-10-16), and again at 1440. Elsewhere nothing is fetched;
+ * a rotation that brings the Sankey back downloads it at its first draw.
  */
+const SANKEY_DRAWN_QUERY = '(min-width: 640px) and (max-width: 911px), (min-width: 1440px)';
 const CashflowSankeyChart = lazyComponent(() => import('@/components/cashflow/CashflowSankeyChart').then((m) => m.CashflowSankeyChart));
-if (typeof window !== 'undefined' && !window.matchMedia('(max-width: 639px)').matches) {
+if (typeof window !== 'undefined' && window.matchMedia(SANKEY_DRAWN_QUERY).matches) {
   CashflowSankeyChart.preload().catch(() => {}); // a failure is retried by the first draw
 }
 

@@ -47,6 +47,7 @@ import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/
 import type { FireLock } from '@/lib/utils/fireSummary';
 import { cutAtFirstSentence, fireRestLabel, isLockStated } from '@/lib/utils/fireNarrative';
 import type { StripFigure } from '@/lib/utils/verdictStrip';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 
 /** `fireService` keeps the per-scenario shape internal; this is the only public handle on it. */
 export type CoastScenarioMetrics = CoastFIREProjectionResult['scenarios']['base'];
@@ -753,6 +754,46 @@ export const COAST_CLOSED_ASIDES = {
   [COAST_SECTION_IDS.afflussi]: 'pensioni e fondo',
   [COAST_SECTION_IDS.scenari]: 'rendimento reale',
 } as const;
+
+export interface CoastClosedAnswersInput {
+  events: CoastInflowEvent[];
+  pensions: CoastPensionCoverage;
+  scenarios: readonly CoastScenarioRow[];
+}
+
+/**
+ * «13.400 € netti l'anno» with state pensions (they win over the fund: the fund's year is also the
+ * lock's scope line), «fondo nel 2045» with the fund alone, «nessun afflusso» without either — not an
+ * empty state but the tile's true answer: the portfolio carries the whole expense. The verdict stopped
+ * listing the pensions on 2026-09-23, so the figure repeats nothing.
+ */
+function coastAfflussiAnswer(events: CoastInflowEvent[], pensions: CoastPensionCoverage): Narrative {
+  if (pensions.count > 0) return [amount(pensions.annualNetReal), prose("netti l'anno")];
+  const fund = events.find((event) => event.kind === 'pensionFund');
+  if (fund) return [prose('fondo nel'), year(fund.year)];
+  return [prose('nessun afflusso')];
+}
+
+/**
+ * «nel toro 127.000 €» — the bull's Coast number, the mirror of the strip's «Nell'orso» cell (the base
+ * one is the verdict's): a required capital, so unsigned. Null without the three rows.
+ */
+function coastScenariAnswer(scenarios: readonly CoastScenarioRow[]): Narrative | null {
+  const bull = scenarios.find((row) => row.key === 'bull');
+  if (!bull) return null;
+  return [prose('nel toro'), amount(bull.coastNumberToday)];
+}
+
+/**
+ * What the Coast tab's closed rows answer in the landscape index (components/ui/row-answers.tsx;
+ * 2026-10-16), only on the computed tab: with nothing to compute every row says «non ancora calcolabile».
+ */
+export function describeCoastClosedAnswers({ events, pensions, scenarios }: CoastClosedAnswersInput): RowAnswerMap {
+  return {
+    [COAST_SECTION_IDS.afflussi]: coastAfflussiAnswer(events, pensions),
+    [COAST_SECTION_IDS.scenari]: coastScenariAnswer(scenarios),
+  };
+}
 
 export interface CoastStripInput {
   target: CoastTarget;

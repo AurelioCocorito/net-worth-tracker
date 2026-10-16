@@ -1,7 +1,7 @@
 # MOB-09 — DESIGN.md, guide e chiusura
 
 > Stato: da fare · riletta in modo adversariale il 2026-10-10: 27 rilievi, 6 decisioni · Priorità: 3 (chiude la serie; finché manca, DESIGN.md dice il contrario del codice) · Sforzo: M ·
-> Dipende da: MOB-02..08 (MOB-01..07 ritirate, l'ultima MOB-07 il 2026-10-16, PR #464: i loro nomi vivono nel codice, README § 5) · Sblocca: —
+> Dipende da: MOB-02..08 (MOB-01..08 ritirate, l'ultima MOB-08 il 2026-10-16, in develop dal 2026-10-16, PR #466 — con il ridisegno del tablet in orizzontale fatto nel suo ritiro, README § 9, 105–110: i loro nomi vivono nel codice, README § 5) · Sblocca: —
 
 ## 1. Il problema, misurato
 
@@ -22,7 +22,7 @@ Righe del 2026-10-10 (MOB-02..08 possono spostarle: riverificare).
 - `PRODUCT.md:9` «Mobile-first at 390px with desktop as an elevated variant». `CLAUDE.md` § Known Issues: la voce della pill
   «38×32» tolta da MOB-02 il 2026-10-10 (lo `Switch` chiuso dal 2026-10-08); 13.133 byte in LF il 2026-10-10 (da rimisurare alla chiusura) contro
   «well under 20.000»; `CLAUDE.md` § Current Status: «50 Playwright spec files (189 tests incl. 6 auth setups)»: MOB-02..08
-  aggiungono 11 file e tre progetti. `README.md` utente: `:59` (riscritta il 2026-10-14 nel ritiro di MOB-05: la composizione sotto il desktop, le tessere intere dal tablet), le righe «tab
+  aggiungono 13 file e tre progetti (63 spec il 2026-10-16, `ls e2e/*.spec.ts`). `README.md` utente: `:59` (riscritta il 2026-10-14 nel ritiro di MOB-05: la composizione sotto il desktop, le tessere intere dal tablet), le righe «tab
   navigation uses a dropdown on small screens» (FIRE) e «at 390px the tiles stack with the plan last» (Monte Carlo) riscritte il
   2026-10-16 nel ritiro di MOB-07 (la pill a 44 px; Probabilità aperta e le altre tessere righe chiuse): qui si verifica che restino vere.
 - `AGENTS.md:682-695` (§ Hierarchy, Density and Disclosure; era `:733` il 2026-09-26) «Keep the DOM in the desktop order so Tab follows the eye; the phone re-orders with `order-*` (Storico
@@ -41,7 +41,7 @@ Righe del 2026-10-10 (MOB-02..08 possono spostarle: riverificare).
   `tr -d '\r' < CLAUDE.md | wc -c` < 20.000.
 - `npm run mobile:budget` verde su 19 superfici × 390/768/1024 sul fixture `census@example.com`, colonna «obiettivo» «sì»
   a 390 salvo Impostazioni (`target: false`) e le voci con `raisedBy` (README § 9, 19 e 22, elencate in README § 3.1);
-  a 768/1024 l'obiettivo è il misurato di MOB-08 (16). Nessun'altra eccezione.
+  a 768/1024 l'obiettivo è il misurato (16), rimisurato con lo stage in orizzontale nel ritiro di MOB-08 (105). Nessun'altra eccezione.
 - `npm run test:e2e` intero verde (anche `hof-`/`analisi-`/`centri-`/`split-mobile`, `degraded-mobile` e i tablet di
   MOB-08), salvo `e2e/modal.origin.spec.ts` su un dev server freddo (doc/guide/dialog.md), che si rilancia da solo
   prima di attribuirlo.
@@ -57,7 +57,7 @@ Righe del 2026-10-10 (MOB-02..08 possono spostarle: riverificare).
 
 Sottosezione nuova di § 5 fra «Tile Grid (12-Column Bento)» e «Modal»: `### Small-Screen Composition (below
 desktop:)` — lo schema (verdetto → asse → striscia → scope → LA tessera → «Il resto della pagina» → righe), le quote
-(riga 52 px, celle 44 px, la barra di 1024 a 53 px misurata da MOB-08) e le regole. `<data>` = la data del commit di
+(riga 52 px, celle 44 px; in orizzontale la rail di icone di 56 px e la testata su una riga, `main` alto quanto lo schermo — README § 9, 105) e le regole. `<data>` = la data del commit di
 MOB-09, la stessa nelle quattro regole e nel sidecar:
 
 > **The First-Screen Rule** (Composizione mobile, <data>). Below `desktop:` a page never stacks its desktop grid into
@@ -76,11 +76,15 @@ MOB-09, la stessa nelle quattro regole e nel sidecar:
 > with `raisedBy`. Two corollaries. **The small screen shows less, never something else**: the same tiles, tokens,
 > narratives, routes and tabs; a strip cell opens the section that explains it. A chart may change its drawing below
 > the width where it stops being legible — the Flusso's Sankey becomes a share bar and ranked rows under 640px — never
-> its figures or where a row lands. **One composition serves 390, 768 and 1024**: two columns from `tablet:`, an open
-> row — and a closed one left alone on its row — across both; where the content is 960px wide or more (1024 landscape, a
-> 12.9" iPad upright; `COMPACT_GRID_CLASS`, a container query under `max-desktop:`) THE tile on the left and a 360px rail
-> holding every row in DOM order, each opening in place — nothing moves away from a tap. A tile inside a row lays out by
-> its CONTAINER, never by the viewport: in the rail it is a phone's width. `desktop:` stays the only switch.
+> its figures or where a row lands. **One composition serves 390, 768 and the tablet in landscape**: two columns from
+> `tablet:`, an open row — and a closed one left alone on its row — across both; where the content is 880px wide or more
+> (a tablet in landscape beside its 56px icon rail, a 12.9" iPad upright; `STAGE_CLASS`, a container query under
+> `max-desktop:`) the page is a STAGE: THE answer on the left — the verdict and THE tile, still while the page scrolls,
+> THE tile's plot grown to the fold — and on the right ONE card, the index, holding «Il resto della pagina» and every row
+> in DOM order, flat, each opening in place; the two cards start on the verdict's line and end on one line. There a
+> closed row ANSWERS (The Closed-Row Rule). A tile inside a row lays out by its CONTAINER, never by the viewport: in the
+> index it is a phone's width (the Flusso draws bar and rows there). `desktop:` stays the only switch of the composition;
+> the shell's landscape (the icon rail, the header on one row) is the `tablet-landscape:` variant.
 
 > **The Lifted-Figure Rule** (Composizione mobile, <data>). A figure the phone has already printed — lifted into the
 > strip, or in the verdict's first sentence — is not printed again by its tile on a phone: the PAGE hides that figure
@@ -93,7 +97,11 @@ MOB-09, la stessa nelle quattro regole e nel sidecar:
 
 > **The Closed-Row Rule** (Composizione mobile, <data>). A closed row is still the tile: its material, its `<h3>` holding
 > the eyebrow as a 52px button with `aria-expanded` and `aria-controls`, an aside in words («per mese», «nessuna nota» —
-> never an amount, never a count of figures), a chevron. The panel is in the DOM, EMPTY and `inert`: the content mounts
+> never an amount, never a count of figures), a chevron. In the landscape index the aside yields to an ANSWER («liquidabile
+> 13,2%», «Auto Narvalo 29%»): a short phrase with at most ONE figure that the strip, THE tile and the verdict's first
+> sentence do not print, from one pure function of the page, a name the reader typed cut with «…» and the figure never;
+> the scope stays where the row has nothing to add (an empty state, a failed read, an inventory, a figure that would
+> repeat another). The panel is in the DOM, EMPTY and `inert`: the content mounts
 > at the first open and stays, as an inactive `PageTabs` panel keeps its div and not its content — a closed row
 > downloads no chart. It opens on CSS (`grid-template-rows` 0fr → 1fr on `ease-spring`, the 400/35 spring as `linear()`,
 > 300 ms), never on Framer `layout`, and instantly under reduced motion; a strip cell opens its row, scrolls it into
@@ -154,8 +162,8 @@ righe nuove; quattro `{ name, body, section: "components" }` dopo «The Tile Gri
 `components[]` Page Verdict, Tile, Error Notice: le `description` estese con le frasi nuove di § 4.2, gli `html` invariati
 (mostrano la forma da `desktop:`); `extensions.motion` + `ease-spring` col `linear()` di `app/globals.css` (la motion si
 legge dal CODICE) e la voce `spring-layout` TOLTA (la molla non esiste più); `extensions.breakpoints[1].purpose` → «The
-only layout switch: below it every page uses the one small-screen composition (The First-Screen Rule) at 390, 768 and
-1024 — iPad Mini landscape included; never use lg:.»; `generatedAt`. Lo script di § 7 prima e dopo, nei due versi.
+only switch of the composition: below it every page uses the one small-screen composition (The First-Screen Rule) at 390,
+768 and in landscape, where it is the stage — iPad Mini landscape included; the shell's landscape is the `tablet-landscape:` variant; never use lg:.»; `generatedAt`. Lo script di § 7 prima e dopo, nei due versi.
 
 ### 4.4 Guide e AGENTS.md
 
@@ -301,7 +309,7 @@ Da fare TASSATIVAMENTE prima di ogni cosa:
 - Leggi le guide di § 4.4, il git log di MOB-02..08, doc/guide/stati.md § The fourth reading e le righe di PERF-14 in
   DESIGN.md (→ Tile Grid «The cascade plays once per session», la frase delle molle senza springLayoutTransition)
 - Leggi COMMENTS.md e DEVELOPMENT_GUIDELINES.md
-- Leggi doc/mobile/README.md (§ 9: le decisioni 1–57), la spec MOB-09 per intero e i nomi delle API di MOB-02 nel codice (ritirata il 2026-10-10: `lib/hooks/useMobileSections.ts`, `lib/utils/{verdictStrip,mobileSections}.ts`, `components/ui/{tile,page-verdict,verdict-strip,page-rest,error-notice}.tsx`)
+- Leggi doc/mobile/README.md (§ 9: le decisioni 1–110, le ultime sei del ritiro di MOB-08 con lo stage in orizzontale e le risposte delle righe chiuse), la spec MOB-09 per intero e i nomi delle API di MOB-02 nel codice (ritirata il 2026-10-10: `lib/hooks/useMobileSections.ts`, `lib/utils/{verdictStrip,mobileSections}.ts`, `components/ui/{tile,page-verdict,verdict-strip,page-rest,error-notice}.tsx`)
 - Crea SESSION_NOTES.md; crea il branch dalla branch attiva PRIMA di editare
 
 Regole: nessun commit senza il mio OK; un branch e un commit; rispondi in italiano; nessuna domanda è aperta (README

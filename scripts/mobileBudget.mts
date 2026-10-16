@@ -5,8 +5,8 @@
  * Reads `.mobile-census/last-run.json` (no browser, no server) and hands it to
  * `compareCensusToBudget` (lib/utils/mobileBudget.ts) together with the budget committed in HEAD
  * (`git show HEAD:doc/mobile/budget.json`, as `perf:budget` does), so an entry widened without a
- * `raisedBy` of its own is red too. Prints every violation, the informational breaches (768/1024
- * until MOB-08) and the «obiettivo» column of The First-Screen Rule.
+ * `raisedBy` of its own is red too. Prints every violation, the informational breaches (none since
+ * 2026-10-16, when 768 and 1024 became binding) and the «obiettivo» column of The First-Screen Rule.
  *
  * Usage (options ALWAYS after `--`, from Git Bash on Windows):
  *   npm run mobile:budget
@@ -98,7 +98,7 @@ for (const row of run.results) {
 }
 
 if (verdict.informational.length) {
-  console.log('\nInformative (stampate, non vincolanti fino a MOB-08):');
+  console.log('\nInformative (stampate, non vincolanti):');
   for (const v of verdict.informational) console.log(`  · ${describeMobileViolation(v)}`);
 }
 if (typeof run.durationMs === 'number') console.log(`\nDurata della corsa: ${(run.durationMs / 60000).toFixed(1)} min`);

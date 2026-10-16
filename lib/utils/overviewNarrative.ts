@@ -14,6 +14,7 @@
  */
 
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { projectMonthEndWithScheduled } from '@/lib/utils/spendingProjection';
 import { formatPercentage } from '@/lib/services/chartService';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { atThePercent } from '@/lib/utils/patrimonioNarrative';
@@ -468,15 +469,29 @@ export function describeScheduledNetCaption(scheduledExpenses: number, scheduled
 
 // ─── Tile readings ────────────────────────────────────────────────────────────
 
+/**
+ * Cash plus liquid investments, and their share of the gross total in percent; null without a
+ * total. One source for the Sintesi reading and its closed row's answer (2026-10-16).
+ */
+export function liquidityShare(
+  cashNetWorth: number,
+  liquidInvestmentsNetWorth: number,
+  totalValue: number,
+): { liquid: number; share: number } | null {
+  if (totalValue <= 0) return null;
+  const liquid = cashNetWorth + liquidInvestmentsNetWorth;
+  return { liquid, share: (liquid / totalValue) * 100 };
+}
+
 /** "Il 72,9% è liquidabile: 300.380 €." — cash plus liquid investments over the gross total. */
 export function describeLiquidity(
   cashNetWorth: number,
   liquidInvestmentsNetWorth: number,
   totalValue: number,
 ): Narrative | null {
-  if (totalValue <= 0) return null;
-  const liquid = cashNetWorth + liquidInvestmentsNetWorth;
-  const share = (liquid / totalValue) * 100;
+  const measured = liquidityShare(cashNetWorth, liquidInvestmentsNetWorth, totalValue);
+  if (!measured) return null;
+  const { liquid, share } = measured;
   return [
     prose('Il '),
     figure(formatPercentage(share, 1)),
@@ -599,3 +614,34 @@ export function describeGoal(currentValue: number, targetAmount: number): Narrat
 // The projection rule lives in spendingProjection.ts (SDK-free, shared with the budget layer
 // and the emails); re-exported here for the two tiles that read it from this module.
 export { projectMonthEndSpending } from '@/lib/utils/spendingProjection';
+
+/**
+ * The Cashflow tile's «Al ritmo attuale»: the pace on what is booked up to today, plus the rows
+ * already in the calendar as they are (`projectMonthEndWithScheduled`). Null on a calendar that
+ * has not started. One source for the tile and its closed row's answer (2026-10-16).
+ */
+export function projectCashflowMonthEnd(
+  currentMonth: { expenses: number; expensesScheduled?: number },
+  dayOfMonth: number,
+  daysInMonth: number,
+): number | null {
+  const scheduled = currentMonth.expensesScheduled ?? 0;
+  return projectMonthEndWithScheduled(currentMonth.expenses - scheduled, scheduled, dayOfMonth, daysInMonth);
+}
+
+/** The Costi tile's «Costo annuo»: TER and stamp duty together (one source with the row's answer, 2026-10-16). */
+export function annualPortfolioCostTotal(metrics: { annualPortfolioCost?: number | null; annualStampDuty?: number | null }): number {
+  return (metrics.annualPortfolioCost ?? 0) + (metrics.annualStampDuty ?? 0);
+}
+
+/**
+ * The first line of a composition legend as a closed row's answer — «Immobili 82,8%»: the class
+ * name in words, its share as the one figure, as the legend prints it. `data` is the legend's own
+ * order (largest first); null with no class or a first class at zero. Shared by the Panoramica's
+ * «Composizione» and Patrimonio's «Classi» (2026-10-16).
+ */
+export function describeLeadingClass(data: ReadonlyArray<{ name: string; percentage: number }>): Narrative | null {
+  const top = data[0];
+  if (!top || top.percentage <= 0) return null;
+  return [prose(`${top.name} `), figure(formatPercentage(top.percentage, 1))];
+}

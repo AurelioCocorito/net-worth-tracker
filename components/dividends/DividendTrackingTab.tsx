@@ -75,8 +75,17 @@ import { ErrorNotice } from '@/components/ui/error-notice';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageRest } from '@/components/ui/page-rest';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { narrativeToText } from '@/lib/utils/narrative';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
 import { DividendsTabSkeleton } from '@/components/cashflow/CashflowTabSkeletons';
@@ -131,8 +140,10 @@ import {
   describeYearsAside,
   describeYield,
   describeYieldFooter,
+  describeDividendiClosedAnswers,
   dryMonthNames,
 } from '@/lib/utils/dividendiNarrative';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { DIVIDEND_SCRAPE_SUBMITTING, describeModalStatus, describeScrapeReading } from '@/lib/utils/dialogNarrative';
 import type { Narrative } from '@/lib/utils/narrative';
 
@@ -164,7 +175,7 @@ const DIVIDEND_SECTIONS_STATS_FAILED: readonly SectionSpec[] = DIVIDEND_SECTIONS
   section.id === DIVIDEND_SECTION_IDS.rendimento ? { ...section, failed: true } : section,
 );
 const NO_SECTIONS: readonly SectionSpec[] = [];
-/** The five rows of the composed grid, in DOM order (MOB-08); with nothing recorded the grid is not drawn. */
+/** The five rows of the composed grid, in DOM order; with nothing recorded the grid is not drawn. */
 const DIVIDEND_ORDER = DIVIDEND_SECTIONS.map((section) => section.id);
 /** A provisional coupon asks for its rate inside Pagamenti: the row opens by default while one is there. */
 const PAGAMENTI_OPEN_BY_DEFAULT: readonly string[] = [DIVIDEND_SECTION_IDS.pagamenti];
@@ -298,6 +309,11 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
       }),
     [period, now, summary, comparison, ranking.payerCount, yieldSummary, nextOverall, upcomingNet],
   );
+  // What the closed rows answer in the landscape index, from the figures the tiles already hold.
+  const rowAnswers = useMemo(
+    () => describeDividendiClosedAnswers({ reliability, yieldSummary, ranking, yearly }),
+    [reliability, yieldSummary, ranking, yearly],
+  );
 
   // Affidabilità's footer: the concentration of the held income, then where the sold income went.
   const reliabilityFooter = useMemo<Narrative | null>(() => {
@@ -360,7 +376,9 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
     defaultOpen: provisionalCoupons.length > 0 ? PAGAMENTI_OPEN_BY_DEFAULT : undefined,
     restId: DIVIDENDS_REST_ID,
   });
-  // At 768/1024 the same rows on two or three columns (MOB-08, lib/utils/tabletComposition.ts).
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts).
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({ sections, order: DIVIDEND_ORDER });
 
   // --- Handlers ---
@@ -649,9 +667,14 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
 
   return (
     <div className="space-y-4">
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts).
+          With nothing recorded there is no grid: the stage stays a plain column. */}
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={nothingRecorded ? 'space-y-4' : STAGE_CLASS}>
       {/* ── Verdict, whole at every width (no strip, no cut — decision 30), the axis under its
           title below `desktop:` and a second instance of the pill beside it from there ──────── */}
-      <div className="flex items-start justify-between gap-6 pt-1">
+      <div data-stage="verdict" className={cn('flex items-start justify-between gap-6 pt-1', !nothingRecorded && VERDICT_CELL_CLASS)}>
         <div className="min-w-0 flex-1">
           <PageVerdict
             verdict={verdict}
@@ -704,10 +727,10 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
         <>
           {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width
               (decision 11; the `order-*` the phone used went on 2026-10-12) — THE tile, «Il resto
-              della pagina», then the rows ──────────────────────────────────────────── */}
+              della pagina», then the rows (inside the index) ─────────────────────────── */}
           <div className={COMPACT_GRID_WRAPPER_CLASS}>
-          <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
-            <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
+          <div className={COMPACT_GRID_CLASS}>
+            <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
               <IncassoNettoTile
                 id={DIVIDEND_SECTION_IDS.incasso}
                 eyebrow={describePeriodEyebrow(period, now)}
@@ -725,9 +748,11 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
               />
             </div>
 
+            <RowAnswers value={rowAnswers}>
+            <div className={INDEX_CLASS}>
             <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />
 
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.affidabilita), 'desktop:col-span-3')} style={tablet.cellStyle(DIVIDEND_SECTION_IDS.affidabilita)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.affidabilita), 'desktop:col-span-3')}>
               <AffidabilitaTile
                 reliability={reliability}
                 reading={describeReliability(reliability, dryMonthNames(coverage))}
@@ -747,7 +772,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
                 when closed and the row open on every visit (`failed`), spoken by `PageRest`'s one
                 sentence rather than by a `role="alert"` of its own (`live={false}`). At 1440 the
                 tile's own `isError` branch stays. */}
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.rendimento), 'desktop:col-span-4')} style={tablet.cellStyle(DIVIDEND_SECTION_IDS.rendimento)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.rendimento), 'desktop:col-span-4')}>
               {sections.compact && statsError ? (
                 <ErrorNotice
                   collapse={sections.collapse(DIVIDEND_SECTION_IDS.rendimento)}
@@ -771,7 +796,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
               )}
             </div>
 
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.pagatori), 'desktop:col-span-4')} style={tablet.cellStyle(DIVIDEND_SECTION_IDS.pagatori)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.pagatori), 'desktop:col-span-4')}>
               <PagatoriTile
                 ranking={ranking}
                 reading={describePayerRanking(ranking, subject.inPeriod)}
@@ -782,7 +807,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
               />
             </div>
 
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.perAnno), 'desktop:col-span-3')} style={tablet.cellStyle(DIVIDEND_SECTION_IDS.perAnno)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.perAnno), 'desktop:col-span-3')}>
               <PerAnnoTile
                 summary={yearly}
                 reading={describeYearlyIncome(yearly)}
@@ -792,7 +817,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
               />
             </div>
 
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.pagamenti), 'desktop:col-span-12')} style={tablet.cellStyle(DIVIDEND_SECTION_IDS.pagamenti)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.pagamenti), 'desktop:col-span-12')}>
               <PagamentiTile
                 aside={describePaymentsCount(listDividends.length, periodList.length)}
                 reading={describePaymentsInventory(inventory)}
@@ -848,24 +873,30 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
                 )}
               </PagamentiTile>
             </div>
+            </div>
+            </RowAnswers>
           </div>
           </div>
-
-          {/* ── Dettaglio, below the fold — or the failed read said in its place, never nothing;
-              on a phone the Rendimento row already announced the failure, so this one is silent ── */}
-          {statsError ? (
-            <ErrorNotice
-              compact
-              live={!sections.compact}
-              notice={describeReadFailure({
-                consequence: 'Il dettaglio per strumento non è stato letto: crescita del dividendo e rendimento totale restano fuori.',
-              })}
-            />
-          ) : (
-            <DividendiDettaglio stats={stats ?? null} now={now} />
-          )}
         </>
       )}
+      </div>
+      </div>
+
+      {/* ── Dettaglio, below the fold (outside the stage: never a cell of the landscape grid) — or
+          the failed read said in its place, never nothing; on a phone the Rendimento row already
+          announced the failure, so this one is silent ── */}
+      {!nothingRecorded &&
+        (statsError ? (
+          <ErrorNotice
+            compact
+            live={!sections.compact}
+            notice={describeReadFailure({
+              consequence: 'Il dettaglio per strumento non è stato letto: crescita del dividendo e rendimento totale restano fuori.',
+            })}
+          />
+        ) : (
+          <DividendiDettaglio stats={stats ?? null} now={now} />
+        ))}
 
       {/* Scrape confirmation, in the modal vocabulary: the reading names the instruments and the
           floor, then says «Sto scaricando» for the whole run. */}

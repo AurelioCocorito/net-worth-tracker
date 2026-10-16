@@ -45,7 +45,7 @@ export function AfflussiTile({ reading, events, footer, method, collapse, asideW
   return (
     <Tile eyebrow="Afflussi" aside="in euro di oggi" asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Afflussi già considerati" className={className} collapse={collapse}>
       {/* The timeline runs across from a 560px tile, by the TILE's width (a container query): in the 360px
-          rail of a tablet in landscape it is a phone's list at a 1024px viewport (MOB-08, 2026-10-16). */}
+          index of a tablet in landscape it is a phone's list at a 1024px viewport (2026-10-16). */}
       {events.length > 0 && (
         <div className="@container">
         <ol aria-label="Afflussi già considerati" className="mt-5 grid gap-5 @[560px]:grid-flow-col @[560px]:auto-cols-fr @[560px]:gap-0">

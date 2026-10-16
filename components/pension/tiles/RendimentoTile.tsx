@@ -22,9 +22,8 @@ import type { ReactNode } from 'react';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { PensionMemberBlock } from '@/lib/utils/pensionSummary';
 import type { PensionReturnResult } from '@/lib/utils/pensionReturn';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
-import { formatPercentage } from '@/lib/services/chartService';
-import { getMetricValueColor, signTextClass } from '@/lib/utils/metricColors';
+import { cachedFormatCurrencyEUR, formatSignedEuro, formatSignedPercentIt, printedSign } from '@/lib/utils/formatters';
+import { getMetricValueColor } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
 import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
@@ -48,17 +47,25 @@ const KPI_VALUE_CLASS = 'font-mono text-[22px] font-semibold leading-none tracki
 const ROW_CLASS = 'flex items-baseline justify-between gap-3 py-2 text-[13px]';
 const ROW_VALUE_CLASS = 'shrink-0 whitespace-nowrap font-mono tabular-nums';
 
-/** The typographic minus, so a loss never prints the hyphen-minus the Intl formatter would not use. */
-const TYPOGRAPHIC_MINUS = '−';
+// Every signed figure here is signed and toned on the PRINTED text, never on the raw value
+// (decision 20 of doc/mobile/README.md § 9). Until 2026-10-16 the tile chose the sign with
+// `value >= 0`, so a TWR of −0,004 printed «−0,00%» in red under the strip's «0,00%» (the cell and
+// the reading both decide on `printedSign`). The formatters' helpers are the one rule; the
+// typographic «−» comes with them.
 
-/** «+7,96%» / «−2,40%». */
+/** «+7,96%» / «−2,40%» / «0,00%». */
 function signedPct(value: number): string {
-  return `${value >= 0 ? '+' : TYPOGRAPHIC_MINUS}${formatPercentage(Math.abs(value), 2)}`;
+  return formatSignedPercentIt(value, 2);
 }
 
-/** «+2.228,99 €» / «−700,00 €» — cents kept, this is the euro behind the percentage. */
+/** «+2228,99 €» / «−700,00 €» / «0,00 €» — cents kept, this is the euro behind the percentage. */
 function signedCurrency(value: number): string {
-  return `${value >= 0 ? '+' : TYPOGRAPHIC_MINUS}${cachedFormatCurrencyEUR(Math.abs(value))}`;
+  return formatSignedEuro(value);
+}
+
+/** The tone of a figure printed at `decimals`: none when it prints as zero. */
+function printedTone(value: number, decimals: number): string {
+  return getMetricValueColor(printedSign(value, decimals), 'percentage');
 }
 
 function Row({
@@ -106,7 +113,7 @@ function MeasuredBlock({ block, result, named, first }: MeasuredEntry & { named:
         {owner !== null && <span className="min-w-0 truncate">{owner}</span>}
         <span className="shrink-0">{owner !== null ? '· TWR · al netto dei versamenti' : 'TWR · al netto dei versamenti'}</span>
       </p>
-      <p className={cn(KPI_VALUE_CLASS, 'mt-1.5', getMetricValueColor(result.twr, 'percentage'))}>
+      <p className={cn(KPI_VALUE_CLASS, 'mt-1.5', printedTone(result.twr, 2))}>
         {signedPct(result.twr)}
       </p>
       <p className="mt-1.5 text-[11px] leading-[1.45] text-muted-foreground">
@@ -124,11 +131,11 @@ function MeasuredBlock({ block, result, named, first }: MeasuredEntry & { named:
 
       <div className="mt-3.5 flex flex-col divide-y divide-border">
         <Row label="Guadagno di mercato">
-          <span className={cn(ROW_VALUE_CLASS, signTextClass(result.marketGain))}>{signedCurrency(result.marketGain)}</span>
+          <span className={cn(ROW_VALUE_CLASS, printedTone(result.marketGain, 2))}>{signedCurrency(result.marketGain)}</span>
         </Row>
         {personalReturn !== null && (
           <Row label="Ritorno sul tuo capitale" hint="mercato + datore">
-            <span className={cn(ROW_VALUE_CLASS, getMetricValueColor(personalReturn, 'percentage'))}>
+            <span className={cn(ROW_VALUE_CLASS, printedTone(personalReturn, 2))}>
               {signedPct(personalReturn)}
             </span>
           </Row>

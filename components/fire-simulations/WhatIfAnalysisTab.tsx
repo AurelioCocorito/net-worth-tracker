@@ -65,8 +65,17 @@ import { getItalyYear } from '@/lib/utils/dateHelpers';
 import { summarizeLock } from '@/lib/utils/fireSummary';
 import { describeFireLockScope } from '@/lib/utils/fireNarrative';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   buildWhatIfComparisonSeries,
@@ -90,6 +99,7 @@ import {
   describeEvent,
   describeEventFooter,
   describeSensitivity,
+  describeWhatIfClosedAnswers,
   SENSITIVITY_ASIDE,
   SENSITIVITY_FOOTER,
 } from '@/lib/utils/whatIfNarrative';
@@ -100,6 +110,7 @@ import { PageVerdict } from '@/components/ui/page-verdict';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
 import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { FireLockScope } from './FireLockScope';
 import { ErrorNotice } from '@/components/ui/error-notice';
@@ -360,17 +371,24 @@ export function WhatIfAnalysisTab() {
   const lock = useMemo(() => summarizeLock(pensionLockState, { currentYear, ritaUnlockAge }), [pensionLockState, currentYear, ritaUnlockAge]);
 
   // The Sensibilità runs on the plan of TODAY (the baseline), centred on the actual or the
-  // typed reference expenses — never on the event.
+  // typed reference expenses — never on the event. Since 2026-10-16 it walks the verdict's model
+  // (horizon, locked fund, pensions, tax), so its base cell is the verdict's year.
   const parsedSensitivityBaseline = Number.parseFloat(sensitivityBaselineInput);
   const sensitivityExpenses = Number.isFinite(parsedSensitivityBaseline) && parsedSensitivityBaseline > 0 ? parsedSensitivityBaseline : annualExpenses;
   const sensitivityMatrix = useMemo(() => {
     if (netWorth <= 0 || sensitivityExpenses <= 0 || withdrawalRate <= 0) return null;
-    return calculateFIRESensitivityMatrix(netWorth, sensitivityExpenses, annualSavings, withdrawalRate, scenarios);
-  }, [netWorth, sensitivityExpenses, annualSavings, withdrawalRate, scenarios]);
+    return calculateFIRESensitivityMatrix(netWorth, sensitivityExpenses, annualSavings, withdrawalRate, scenarios, WHAT_IF_HORIZON_YEARS, pensionBridge ?? undefined, honest);
+  }, [netWorth, sensitivityExpenses, annualSavings, withdrawalRate, scenarios, pensionBridge, honest]);
   const sensitivityReading = useMemo(() => (sensitivityMatrix ? summarizeSensitivity(sensitivityMatrix) : null), [sensitivityMatrix]);
 
   // ─── The words (pure layer) ───────────────────────────────────────────────────
   const verdict = useMemo(() => buildWhatIfVerdict({ hasBaseline, event, summary }), [hasBaseline, event, summary]);
+  // What each closed row answers in the landscape index (2026-10-16): the Delta's progress row and
+  // the matrix's −10% cell, read from the same summary and the same matrix the tiles print.
+  const rowAnswers = useMemo(
+    () => describeWhatIfClosedAnswers({ event, summary, sensitivity: sensitivityReading }),
+    [event, summary, sensitivityReading],
+  );
 
   // ─── The phone composition (2026-10-15) ──────────────────────────────────────
   // The rows and «Il perché» from the controller (one memory per tab); the strip from the event's
@@ -378,7 +396,9 @@ export function WhatIfAnalysisTab() {
   // `desktop:` — the bridge note in the paragraph says it at 1440.
   const whatIfSections = hasBaseline && impact && event && summary ? WHAT_IF_SECTIONS : NO_SECTIONS;
   const sections = useMobileSections({ route: 'fire-simulations', tab: 'whatif', sections: whatIfSections });
-  // At 768/1024 the same rows on two or three columns (MOB-08); the specs ARE the DOM's rows.
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). The specs ARE the DOM's rows.
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({ sections, order: whatIfSections.map((section) => section.id) });
   const { reveal: handleStripOpen } = sections;
   const strip = event && summary ? selectWhatIfStrip({ event, summary, divergence }) : [];
@@ -421,7 +441,11 @@ export function WhatIfAnalysisTab() {
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      <div className="pt-1">
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
+      <div data-stage="verdict" className={cn('pt-1', VERDICT_CELL_CLASS)}>
         <PageVerdict
           verdict={verdict}
           ariaLabel="Verdetto sul What If"
@@ -431,12 +455,12 @@ export function WhatIfAnalysisTab() {
         />
       </div>
 
-      {/* ONE sequence, Evento first at every width (decisions 11 and 43). Tablet (MOB-08): Evento on
-          two columns, the closed rows two by two at 768 and beside it at 1024, an open row on the
-          whole grid row. */}
+      {/* ONE sequence, Evento first at every width (decisions 11 and 43). Tablet: Evento on two
+          columns, the closed rows two by two at 768, an open row on the whole grid row; in
+          landscape the rows in the index beside the verdict and Evento. */}
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
-      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
-        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-4')}>
+      <div className={COMPACT_GRID_CLASS}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-4')}>
           <EventoTile
             reading={describeEvent(event)}
             event={event}
@@ -463,9 +487,11 @@ export function WhatIfAnalysisTab() {
           />
         </div>
 
+        <RowAnswers value={rowAnswers}>
+        <div className={INDEX_CLASS}>
         <PageRest sections={sections} className={REST_CELL_CLASS} />
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.primaDopo), 'desktop:col-span-5')} style={tablet.cellStyle(WHAT_IF_SECTION_IDS.primaDopo)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.primaDopo), 'desktop:col-span-5')}>
           <PrimaDopoTile
             collapse={sections.collapse(WHAT_IF_SECTION_IDS.primaDopo)}
             asideWhenClosed={WHAT_IF_CLOSED_ASIDES[WHAT_IF_SECTION_IDS.primaDopo]}
@@ -486,7 +512,7 @@ export function WhatIfAnalysisTab() {
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.delta), 'desktop:col-span-3')} style={tablet.cellStyle(WHAT_IF_SECTION_IDS.delta)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.delta), 'desktop:col-span-3')}>
           <DeltaTile
             collapse={sections.collapse(WHAT_IF_SECTION_IDS.delta)}
             asideWhenClosed={WHAT_IF_CLOSED_ASIDES[WHAT_IF_SECTION_IDS.delta]}
@@ -497,7 +523,7 @@ export function WhatIfAnalysisTab() {
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.sensibilita), 'desktop:col-span-12')} style={tablet.cellStyle(WHAT_IF_SECTION_IDS.sensibilita)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.sensibilita), 'desktop:col-span-12')}>
           <SensibilitaTile
             collapse={sections.collapse(WHAT_IF_SECTION_IDS.sensibilita)}
             asideWhenClosed={WHAT_IF_CLOSED_ASIDES[WHAT_IF_SECTION_IDS.sensibilita]}
@@ -510,6 +536,10 @@ export function WhatIfAnalysisTab() {
             footer={SENSITIVITY_FOOTER}
           />
         </div>
+        </div>
+        </RowAnswers>
+      </div>
+      </div>
       </div>
       </div>
     </div>

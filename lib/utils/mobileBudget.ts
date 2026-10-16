@@ -64,7 +64,7 @@ export interface MobileBudget {
   account: string;
   /** Slack per numeric metric, in its own unit; empty = zero tolerance (decision 23). */
   tolerance: Partial<Record<NumericMetric, number>>;
-  /** Metrics printed but not enforced at a viewport, until MOB-08 empties the list. */
+  /** Metrics printed but not enforced at a viewport; empty since 2026-10-16, when 768 and 1024 became binding. */
   informational: Partial<Record<MobileViewport, MobileMetric[]>>;
   surfaces: Record<string, MobileSurface>;
   budget: Record<string, Partial<Record<MobileViewport, MobileBudgetEntry>>>;
@@ -202,7 +202,7 @@ function checkEntryReasons(
 
 /**
  * The First-Screen Rule for one measured row. At 390 the rule itself (≤ 5 figures outside the
- * verdict, the first closed row above the pill); at 768/1024 the objective is what MOB-08 measured
+ * verdict, the first closed row above the pill); at 768/1024 the objective is the measure recorded in the budget
  * (decision 16, 2026-10-16), so it is met when the run stays within its budget entry — every
  * metric, the closed row included (a `false` with its `raisedBy` is the measured objective).
  */
@@ -220,8 +220,8 @@ function firstScreenTarget(
     if (!entry) return { surface, viewport, status: 'not-yet', detail: 'nessun budget' };
     const breached = compareEntry(surface, viewport, metrics, entry, tolerance).map((violation) => violation.metric);
     return breached.length === 0
-      ? { surface, viewport, status: 'met', detail: 'entro il misurato di MOB-08' }
-      : { surface, viewport, status: 'not-yet', detail: `oltre il misurato di MOB-08: ${breached.join(', ')}` };
+      ? { surface, viewport, status: 'met', detail: 'entro il misurato registrato' }
+      : { surface, viewport, status: 'not-yet', detail: `oltre il misurato registrato: ${breached.join(', ')}` };
   }
   const figuresOk = metrics.figuresOutsideVerdict <= FIRST_SCREEN_MAX_FIGURES;
   const rowOk = metrics.firstClosedRowAbovePill === true;
