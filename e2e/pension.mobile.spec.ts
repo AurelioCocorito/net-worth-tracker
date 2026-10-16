@@ -1,6 +1,6 @@
 /**
  * Previdenza at 390px — the width DESIGN.md designs against first; composed since 2026-10-15
- * (MOB-07; the rules in doc/guide/previdenza.md § Composizione mobile and doc/mobile/README.md § 9).
+ * (since 2026-10-15; the rules in doc/guide/previdenza.md § Composizione mobile, the decisions in doc/mobile/README.md § 9).
  *
  * The desktop spec proves the grid switch happens; this one proves the phone's composition: the
  * verdict at 24px with the year axis INSIDE it, under the title; with ONE contributor measured

@@ -1,7 +1,7 @@
 # MOB-08 — Tablet: 768 e 1024
 
 > Stato: da fare · riletta in modo adversariale il 2026-10-10: 30 rilievi, 5 decisioni · Priorità: 3 (il telefono prima; qui si raddrizza il landscape) · Sforzo: M · Dipende da: MOB-02..07
-> (MOB-02 ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450, e quindi MOB-01, ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448; MOB-03 ritirata il 2026-10-11, PR #452; MOB-04 ritirata il 2026-10-12, PR #454; MOB-05 ritirata il 2026-10-14, PR #459: il progetto `degraded-mobile` e `/degraded\./` nel `testIgnore` di `mobile` vivono in `playwright.config.ts`; PERF-01, PERF-02, PERF-14 ritirate, in develop) · Sblocca: MOB-09
+> (MOB-02 ritirata il 2026-10-10, in develop dal 2026-10-10, PR #450, e quindi MOB-01, ritirata il 2026-10-10, in develop dal 2026-10-10, PR #448; MOB-03 ritirata il 2026-10-11, PR #452; MOB-04 ritirata il 2026-10-12, PR #454; MOB-05 ritirata il 2026-10-14, PR #459: il progetto `degraded-mobile` e `/degraded\./` nel `testIgnore` di `mobile` vivono in `playwright.config.ts`; MOB-06 ritirata il 2026-10-15, PR #462; MOB-07 ritirata il 2026-10-16, in develop dal 2026-10-15, PR #464: `usePortfolioExposure(…, { enabled })`, i sei selettori di striscia, `describeFireLockScope` e il `tab` di `useMobileSections` vivono nel codice, README § 5; PERF-01, PERF-02, PERF-14 ritirate, in develop) · Sblocca: MOB-09
 
 ## 1. Il problema, misurato
 
@@ -38,8 +38,10 @@ Analisi 1/1): il landscape è il tablet peggiore. Righe del 2026-09-26, da river
   che `mobile:budget` già tiene; la baseline § 3 è del mirror sul dev server e non si confronta col fixture).
   Su Panoramica e Tracciamento, a 768 e a 1024, LA tessera finisce sopra la piega (test (2)): la curva a 120 px sotto
   `desktop:` (README § 9, 4) vale anche qui.
-- **La deriva del giorno del fixture, ereditata dal ritiro di MOB-03 (2026-10-11)**: sei voci di `budget.json` (Storico 390/768,
-  Allocazione 390/1024, Previdenza 768/1024) portano `raisedBy: "MOB-03: deriva del giorno del mese…"` perché il codice di
+- **La deriva del giorno del fixture, ereditata dal ritiro di MOB-03 (2026-10-11)**: tre voci di `budget.json` (Storico 768,
+  Allocazione 1024, Previdenza 1024) portano in testa `raisedBy: "MOB-03: deriva del giorno del mese…"` — Storico 390 lo tiene in coda
+  sotto quello di MOB-06, Allocazione 390 e Previdenza 768 sotto quello di MOB-07 (un `raisedBy` concatena ogni ragione che la voce
+  ha portato, README § 9, 94) — perché il codice di
   develop misurato l'11 dava una o due cifre in più del 10 con le stesse tessere (doc/guide/prima-schermata.md § Per-page
   blind spots: una proiezione che cambia di cifre, una riga che va a capo — non isolato). Prima di stringere con `--tighten`
   questa spec isola la causa sulle quattro superfici (una corsa il giorno N e una il giorno N+1 sullo stesso codice, le
@@ -237,7 +239,7 @@ baseline (51).
   la pill a 768; (7) `setViewportSize` 1440×900 → `gridTemplateColumns` di 12 tracce, nessuno style `--beside`/`--lead-rows`
   sulla griglia e `gridTemplateRows` uguale a quello letto sulla stessa pagina aperta direttamente a 1440×900 nello
   stesso test; 768 → 1024×768 → tre colonne, aperte ancora aperte; (8) nessuno sforamento (guardia di
-  `e2e/fire.mobile.spec.ts:62-80`); (9) Tracciamento: tab ≥ 44×44, «+» a 768, a 1024 «Aggiungi» ≥ 44 px e niente «+».
+  `e2e/fire.mobile.spec.ts`, il test «il tab Calcolatore FIRE non scorre in orizzontale a 390px» — le righe si sono mosse con MOB-07); (9) Tracciamento: tab ≥ 44×44, «+» a 768, a 1024 «Aggiungi» ≥ 44 px e niente «+».
 - Falsificare uno alla volta: senza `--beside` → la distanza di (3) cresce (le tracce auto assorbono l'altezza di LA
   tessera); `_1fr` → `_auto` → idem; senza `BELOW_CELL_CLASS` → la settima di (3); una chiusa dopo l'aperta lasciata in
   colonna 3 → (4); senza `OPEN_CELL_CLASS` → (4); `size-7` → (6); `@[960px]` senza `max-desktop:` → (7); `reveal`

@@ -1,7 +1,7 @@
 # MOB-09 — DESIGN.md, guide e chiusura
 
 > Stato: da fare · riletta in modo adversariale il 2026-10-10: 27 rilievi, 6 decisioni · Priorità: 3 (chiude la serie; finché manca, DESIGN.md dice il contrario del codice) · Sforzo: M ·
-> Dipende da: MOB-02..08 · Sblocca: —
+> Dipende da: MOB-02..08 (MOB-01..07 ritirate, l'ultima MOB-07 il 2026-10-16, PR #464: i loro nomi vivono nel codice, README § 5) · Sblocca: —
 
 ## 1. Il problema, misurato
 
@@ -22,8 +22,9 @@ Righe del 2026-10-10 (MOB-02..08 possono spostarle: riverificare).
 - `PRODUCT.md:9` «Mobile-first at 390px with desktop as an elevated variant». `CLAUDE.md` § Known Issues: la voce della pill
   «38×32» tolta da MOB-02 il 2026-10-10 (lo `Switch` chiuso dal 2026-10-08); 13.133 byte in LF il 2026-10-10 (da rimisurare alla chiusura) contro
   «well under 20.000»; `CLAUDE.md` § Current Status: «50 Playwright spec files (189 tests incl. 6 auth setups)»: MOB-02..08
-  aggiungono 11 file e tre progetti. `README.md` utente: `:59` (riscritta il 2026-10-14 nel ritiro di MOB-05: la composizione sotto il desktop, le tessere intere dal tablet), `:107` «tab
-  navigation uses a dropdown on small screens» (FIRE), `:114` «at 390px the tiles stack with the plan last» (Monte Carlo).
+  aggiungono 11 file e tre progetti. `README.md` utente: `:59` (riscritta il 2026-10-14 nel ritiro di MOB-05: la composizione sotto il desktop, le tessere intere dal tablet), le righe «tab
+  navigation uses a dropdown on small screens» (FIRE) e «at 390px the tiles stack with the plan last» (Monte Carlo) riscritte il
+  2026-10-16 nel ritiro di MOB-07 (la pill a 44 px; Probabilità aperta e le altre tessere righe chiuse): qui si verifica che restino vere.
 - `AGENTS.md:682-695` (§ Hierarchy, Density and Disclosure; era `:733` il 2026-09-26) «Keep the DOM in the desktop order so Tab follows the eye; the phone re-orders with `order-*` (Storico
   and Rendimenti are the worked examples)» (riscritta da MOB-02 il 2026-10-10: «Keep ONE sequence…» con l'elenco delle pagine che portano ancora `order-*`; qui si verifica che l'elenco sia vuoto).
 - `grep -rn "Composizione mobile" doc/guide` → 0 oggi; MOB-02..08 ne scrivono una per pagina, ognuna a modo suo.
@@ -139,7 +140,8 @@ MOB-09, la stessa nelle quattro regole e nel sidecar:
   it opens on CSS `grid-template-rows` with `ease-spring`, its chevron on the same curve and duration (see
   **Small-Screen Composition**, The Closed-Row Rule).»
 - The Input Tile Rule: la frase «the desktop keeps the dominant chart tile on the left» diventa «on What If the input
-  tile (Evento) is THE tile and comes first in the DOM on the desktop too (2026-10-10)» (README § 9, 43).
+  tile (Evento) is THE tile and comes first in the DOM on the desktop too (decided 2026-10-10, in the code since 2026-10-15:
+  `components/fire-simulations/WhatIfAnalysisTab.tsx`, `e2e/fire.spec.ts`)» (README § 9, 43).
 - Frontmatter: `components.tile-closed-row` (README § 9, 54): `backgroundColor`/`textColor` di `tile-default`,
   `rounded: "{rounded.2xl}"`, `height: "52px"`, `padding: "0 20px"`.
 

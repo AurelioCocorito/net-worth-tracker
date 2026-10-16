@@ -13,6 +13,10 @@
  * Since 2026-08-25 the tab is a verdict over tiles: the tiles are located by `role=region` +
  * `aria-label`, the verdict by «Verdetto sul Coast FIRE», the two disclosures by their VISIBLE
  * text (`/^Ipotesi/`, `/^Dettaglio/`).
+ *
+ * The 1440 test of today's tab was seen red on 2026-10-16, one at a time: `useCompactLayout` forced
+ * true (closed rows and the strip at 1440); the lock sentence dropped from the verdict (the paragraph
+ * no longer said the fund is excluded from the figures).
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -181,4 +185,6 @@ test('at 1440 the tab is the tab of today: no closed row, no strip, the pace and
   await expect(verdict.getByText(/^Modello ponte: fondo pensione escluso/)).toHaveCount(0);
   await expect(verdict.getByRole('button', { name: /^Il perché/ })).toHaveCount(0);
   await expect(verdict.getByText(/Al ritmo attuale/)).toBeVisible();
+  // The lock sentence is in the paragraph at 1440 (the fixture's fund unlocks at 57): no scope line doubles it.
+  await expect(verdict.getByText(/sono esclusi da queste cifre/)).toBeVisible();
 });

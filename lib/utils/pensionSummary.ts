@@ -35,6 +35,7 @@ import { groupFundsByFamilyMember } from '@/lib/utils/pensionFamilyMembers';
 import { getItalyMonth, getItalyYear } from '@/lib/utils/dateHelpers';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import type { StripFigure } from '@/lib/utils/verdictStrip';
+import type { SectionSpec } from '@/lib/hooks/useMobileSections';
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 
@@ -430,6 +431,35 @@ export const PENSION_SECTION_IDS = {
 } as const;
 
 /**
+ * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but «Il fondo
+ * oggi», THE tile, which never closes (decision 21). Module-level, so the controller sees one
+ * stable list.
+ */
+const PENSION_SECTIONS: readonly SectionSpec[] = [
+  { id: PENSION_SECTION_IDS.rendimento, eyebrow: 'Rendimento' },
+  { id: PENSION_SECTION_IDS.annoFiscale, eyebrow: 'Anno fiscale' },
+  { id: PENSION_SECTION_IDS.versato, eyebrow: 'Versato' },
+  { id: PENSION_SECTION_IDS.versamenti, eyebrow: 'Versamenti' },
+];
+
+const NO_SECTIONS: readonly SectionSpec[] = [];
+
+/**
+ * The rows the page renders, each flagged when its read failed: Rendimento on the contributions OR
+ * the snapshots, the other three on the contributions. Without a fund the page renders no row, so
+ * the controller knows none (the empty state is one tile; since 2026-10-16 — until then the four
+ * rows were known there). Pure and here, not in the component, so `__tests__/pensionSummary.test.ts`
+ * holds the mapping (a Firestore read from the client SDK cannot be failed by a Playwright spec).
+ */
+export function resolvePensionSections(input: { hasFund: boolean; contributionsError: boolean; snapshotsError: boolean }): readonly SectionSpec[] {
+  if (!input.hasFund) return NO_SECTIONS;
+  return PENSION_SECTIONS.map((section) => ({
+    ...section,
+    failed: section.id === PENSION_SECTION_IDS.rendimento ? input.contributionsError || input.snapshotsError : input.contributionsError,
+  }));
+}
+
+/**
  * The strip exists for ONE contributor with a measured return and for nobody else (decision 46):
  * three cells, one per cause, or none — with two contributors the sentence of the one who lost
  * ground must not end behind a tap, and a return that is not a measure has no first cause to
@@ -471,7 +501,12 @@ export function selectPensionStrip({ blocks, taxYear }: PensionStripInput): Stri
   const taxSaving = tax ? tax.taxSaving : null;
 
   const employerReason = tax === null ? 'fondo non assegnato' : 'nessun versamento';
-  const taxReason = tax === null ? 'fondo non assegnato' : tax.ral === null ? 'senza RAL' : 'nessun versamento';
+  // «nessun versamento» only when the year has none: a year fed by TFR alone deducts nothing while
+  // the Versato row beside lists its TFR (owner, 2026-10-16: «solo TFR»); a deductible year without
+  // a saving (a RAL under the no-tax area) is «nessun beneficio».
+  const contributed = tax ? tax.tfr + tax.voluntary + tax.employer : 0;
+  const taxReason =
+    tax === null ? 'fondo non assegnato' : tax.ral === null ? 'senza RAL' : contributed === 0 ? 'nessun versamento' : tax.deductible === 0 ? 'solo TFR' : 'nessun beneficio';
 
   return [
     {

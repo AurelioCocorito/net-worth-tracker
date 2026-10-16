@@ -119,6 +119,9 @@ const WHAT_IF_SECTIONS: readonly SectionSpec[] = [
   { id: WHAT_IF_SECTION_IDS.sensibilita, eyebrow: 'Sensibilità' },
 ];
 
+/** Without a base the tab renders the verdict alone: the controller knows no row (since 2026-10-16, as Monte Carlo and Obiettivi do). */
+const NO_SECTIONS: readonly SectionSpec[] = [];
+
 const EMPTY_FORM: WhatIfEventForm = {
   monthsWithoutIncome: '6',
   purchaseAmount: '',
@@ -371,7 +374,7 @@ export function WhatIfAnalysisTab() {
   // The rows and «Il perché» from the controller (one memory per tab); the strip from the event's
   // hit today and at the FIRE year; the lock as the scope line only with the bridge on and below
   // `desktop:` — the bridge note in the paragraph says it at 1440.
-  const sections = useMobileSections({ route: 'fire-simulations', tab: 'whatif', sections: WHAT_IF_SECTIONS });
+  const sections = useMobileSections({ route: 'fire-simulations', tab: 'whatif', sections: hasBaseline && impact && event && summary ? WHAT_IF_SECTIONS : NO_SECTIONS });
   const { reveal: handleStripOpen } = sections;
   const strip = event && summary ? selectWhatIfStrip({ event, summary, divergence }) : [];
   const lockScope = sections.compact && summary?.isBridge ? describeFireLockScope(lock) : null;

@@ -39,8 +39,9 @@ import {
   describePlanFooter,
   formatLeverage,
   type AllocazioneVerdictInput,
+  ALLOCAZIONE_CLOSED_ASIDES,
 } from '@/lib/utils/allocazioneNarrative';
-import type { ClassGap, HoldingsGroup, PlanView } from '@/lib/utils/allocazioneSummary';
+import { ALLOCAZIONE_SECTION_IDS, type ClassGap, type HoldingsGroup, type PlanView } from '@/lib/utils/allocazioneSummary';
 import type { RebalanceMove } from '@/lib/utils/allocationUtils';
 import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import type { ExposureBucket, ExposureCoverage, ExposureNotApplicable } from '@/types/exposure';
@@ -758,7 +759,7 @@ describe('describeFrozen / describeExcluded', () => {
   });
 });
 
-// ─── The phone's cut (2026-10-15, MOB-07) ─────────────────────────────────────
+// ─── The phone's cut (2026-10-15, the composition of the page) ────────────────
 // Seen red one at a time: `leadLength` left `undefined` (no cut: `rest` empty with a next-money
 // clause); the joiner put back to «; » (the lead no longer ends on «.»); `binding` dropped from
 // the orphan sentence (the cut survived an unreachable target).
@@ -794,5 +795,19 @@ describe('buildAllocazioneVerdict — the cut (doc/mobile/README.md § 9, decisi
     expect(verdict.sentence.filter((segment) => segment.binding).map((segment) => segment.text).join('')).toContain('non è raggiungibile');
     expect(splitVerdict(verdict).rest).toEqual([]);
     expect(plain(splitVerdict(verdict).lead)).toContain('Con 1000 € in più compreresti');
+  });
+});
+
+// ─── The closed rows' words (2026-10-16, in the retirement of the composition) ───────────────────
+
+describe('the closed rows\' asides — words, never a figure', () => {
+  it('names the four rows without a digit', () => {
+    expect(ALLOCAZIONE_CLOSED_ASIDES).toEqual({
+      [ALLOCAZIONE_SECTION_IDS.perClasse]: 'corrente, target e gap',
+      [ALLOCAZIONE_SECTION_IDS.piano]: 'Ribilancia, Versa o Preleva',
+      [ALLOCAZIONE_SECTION_IDS.esposizione]: 'titoli, settori, emittenti',
+      [ALLOCAZIONE_SECTION_IDS.previdenza]: 'il fondo nel mix',
+    });
+    for (const aside of Object.values(ALLOCAZIONE_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
   });
 });

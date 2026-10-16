@@ -47,6 +47,8 @@ import {
   describeRetirementSurvival,
   describeTaxRow,
   type FireVerdictInput,
+  FIRE_CLOSED_ASIDES,
+  FIRE_ROW_NOT_COMPUTABLE,
 } from '@/lib/utils/fireNarrative';
 import { NO_HONEST, FIRE_SECTION_IDS, selectFireStrip, type FanVerdict, type FireLock, type FireTarget, type FireTargetHonest, type FireTimeline, type PassiveIncome, type ScenarioRow } from '@/lib/utils/fireSummary';
 import type { FireYearDistribution, RetirementSurvival, TailLever } from '@/lib/utils/fireDistribution';
@@ -612,11 +614,13 @@ describe('the disclosures', () => {
   });
 });
 
-// ─── The phone's cut, the scope line and the strip (2026-10-15, MOB-07) ───────
+// ─── The phone's cut, the scope line and the strip (2026-10-15) ───────────────
 // Seen red one at a time: the sequel left on «, e da allora» (no segment ends the first sentence:
 // no cut); `describeFireLockScope` answering with `lockedValue` 0 (scope without a sentence);
 // `fireRestLabel` joining «orso e toro» with a second «e»; the gap cell on `fireNumber` (the
-// verdict does not print it).
+// verdict does not print it). The caption with taxes and pensions is pinned by the 2026-09-24 test
+// above (`captionHonestClauses`), which predates the composition; no red was recorded for it on
+// 2026-10-15, and the retirement of 2026-10-16 says so instead of claiming one.
 
 describe('buildFireVerdict — the cut (doc/mobile/README.md § 9, decisions 5 and 44)', () => {
   it('closes the first sentence on the year and keeps «Da allora…» and the lock behind «Il perché»', () => {
@@ -693,5 +697,16 @@ describe('selectFireStrip — the two cells of the Calcolatore', () => {
     const [gap] = selectFireStrip({ target: target({ gap: 0, reached: true }), passiveIncome: income() });
     expect(gap.value).toBeNull();
     expect(gap.reason).toBe('già FIRE');
+  });
+});
+
+// ─── The closed rows' words (2026-10-16, in the retirement of the composition) ───────────────────
+// The owner chose them in session (doc/mobile/README.md § 9, 92); nothing pinned them until now.
+
+describe('the closed rows\' asides — words, never a figure', () => {
+  it('names each row of the Calcolatore and the empty branch without a digit', () => {
+    expect(FIRE_CLOSED_ASIDES).toEqual({ [FIRE_SECTION_IDS.base]: 'spese, risparmio e SWR', [FIRE_SECTION_IDS.reddito]: 'al tasso di prelievo', [FIRE_SECTION_IDS.scenari]: 'orso, base e toro' });
+    expect(FIRE_ROW_NOT_COMPUTABLE).toBe('non ancora calcolabile');
+    for (const aside of [...Object.values(FIRE_CLOSED_ASIDES), FIRE_ROW_NOT_COMPUTABLE]) expect(aside).not.toMatch(/\d/);
   });
 });

@@ -69,7 +69,12 @@ const SCENARIO_NAMES: Record<ScenarioRunSummary['key'], string> = { bear: 'orso'
 // ─── Verdict ──────────────────────────────────────────────────────────────────
 
 export interface MonteCarloVerdictInput {
-  /** A positive starting portfolio and a positive withdrawal exist. */
+  /**
+   * A positive starting portfolio and a positive withdrawal exist in the TYPED plan. With a run on
+   * screen the verdict reads THAT run, whatever the form says (2026-10-16): the strip and the tiles
+   * are the shown run's until «Esegui» (The Stale-Run Rule), so the headline cannot deny what the
+   * cells under it print — the typed form moves the Parametri aside and footer alone.
+   */
   runnable: boolean;
   run: MonteCarloRun | null;
   scenarios: ScenarioComparison | null;
@@ -117,7 +122,7 @@ function bridgeSentence(lock: FireLock): Narrative {
 }
 
 export function buildMonteCarloVerdict(input: MonteCarloVerdictInput): PageVerdictModel {
-  if (!input.runnable) {
+  if (!input.runnable && !input.run) {
     return {
       headline: 'Monte Carlo non calcolabile.',
       tone: 'neutral',

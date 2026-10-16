@@ -28,6 +28,7 @@ import type { OrphanedTarget, RebalanceBand, RebalanceMove } from '@/lib/utils/a
 import type { InstrumentTrade } from '@/lib/utils/leverageAwareAllocationUtils';
 import {
   ALLOCAZIONE_SECTION_IDS,
+  isNothingOutOfPosition,
   type ClassGap,
   type ClassSlice,
   type ExposureHighlights,
@@ -273,7 +274,8 @@ export function describeBalance(input: BalanceInput): Narrative {
   const head: Narrative = [prose('Su '), amount(input.marketValue), prose(' allocati ')];
   const hasLeverageGap = Math.abs(input.leverageGapPp) >= 0.5;
   const untargeted = input.untargeted && input.untargeted.pct >= 0.5 ? input.untargeted : null;
-  if (input.misallocationPct < 0.05 && !hasLeverageGap && !untargeted) {
+  // The strip's «Fuori posizione» cell says «nulla» on this same predicate (`isNothingOutOfPosition`).
+  if (isNothingOutOfPosition(input)) {
     return [...head, prose('nulla è fuori posizione: ogni classe è sul suo target.')];
   }
   head.push(prose(articleForPercent(input.misallocationPct, 1)), percent(input.misallocationPct, 1), prose(' è fuori posizione'));

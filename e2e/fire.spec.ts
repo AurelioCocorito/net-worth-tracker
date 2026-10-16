@@ -12,6 +12,12 @@
  * The arithmetic (accumulation engine, percentiles, coherence with the deterministic
  * projection) lives in __tests__/monteCarloService.test.ts, the words in
  * __tests__/fireNarrative.test.ts — not here.
+ *
+ * The 1440 test of today's page (no closed row, no strip, no scope line, the Evento first) was seen
+ * red on 2026-10-16, one at a time: `useCompactLayout` forced true (closed rows, the strip and «Il
+ * perché» at 1440); the scope line passed at every width (two «fino al 2048» in the verdict's
+ * region: the lock sentence and the scope together) — the falsification the mobile spec's header
+ * claimed until then, which runs at 390 where `compact` is already true and cannot see it.
  */
 
 import { test, expect, type Page } from '@playwright/test';

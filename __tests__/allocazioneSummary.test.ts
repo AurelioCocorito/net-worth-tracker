@@ -32,6 +32,7 @@ import {
   BILANCIAMENTO_MISALLOCATION_BLOCK,
   MIN_VISIBLE_AMOUNT,
   selectAllocazioneStrip,
+  resolveAllocazioneSections,
 } from '@/lib/utils/allocazioneSummary';
 import { buildAllocazioneVerdict, describeBalance } from '@/lib/utils/allocazioneNarrative';
 import { DEFAULT_REBALANCE_BAND } from '@/lib/utils/allocationUtils';
@@ -747,10 +748,11 @@ describe('buildPensionLookThrough', () => {
   });
 });
 
-// ─── selectAllocazioneStrip — the phone's two cells (2026-10-15, MOB-07) ──────
+// ─── selectAllocazioneStrip — the phone's two cells (2026-10-15) ──────────────
 // Seen red one at a time: the floor removed (a «0,0%» cell under 0,05); `decimals: 2` on the drift
 // cell («3,30 pp» against the verdict's «3,3 pp»); the dormant filter dropped (a 0% class as the
-// largest drift).
+// largest drift). On 2026-10-16: the cell deciding «nulla» on the floor alone (a reading that says
+// «lo 0,0% è fuori posizione e …» beside a cell that says «nulla»).
 
 describe('selectAllocazioneStrip', () => {
   const plain = (text: string) => text.replace(/[  ]/g, ' ');
@@ -794,6 +796,24 @@ describe('selectAllocazioneStrip', () => {
     expect(validateStrip(strip, KNOWN)).toEqual([]);
   });
 
+  it('should print the KPI\'s «0,0%» under the floor when the reading does, and «nulla» only when the reading says so (2026-10-16)', () => {
+    // Wealth in classes without a target (the base fixture's house and cash account): the reading
+    // prints «lo 0,0% è fuori posizione e il 12% è in classi senza target», so the cell prints that
+    // 0,0% too and lifts the KPI; «nulla» is the reading's word only when nothing qualifies it.
+    const untargeted = { pct: 12, labels: ['Immobili'] };
+    const balanceInput = { marketValue: 245000, misallocationPct: 0.04, leverageGapPp: 0, offTargetCount: 0, classCount: 5, band: DEFAULT_REBALANCE_BAND, untargeted };
+    const [cell] = selectAllocazioneStrip({ balance: { ...balance, misallocationPct: 0.04 }, gaps, leverageGapPp: 0, untargeted });
+    const reading = plain(narrativeToText(describeBalance(balanceInput)));
+    expect(cellText(cell)).toBe('0,0%');
+    expect(reading).toContain(`${cellText(cell)} è fuori posizione`);
+    expect(liftedBlocks([cell], ALLOCAZIONE_SECTION_IDS.bilanciamento)).toEqual([BILANCIAMENTO_MISALLOCATION_BLOCK]);
+    const [nothing] = selectAllocazioneStrip({ balance: { ...balance, misallocationPct: 0.04 }, gaps, leverageGapPp: 0, untargeted: null });
+    expect(nothing.reason).toBe('nulla');
+    expect(plain(narrativeToText(describeBalance({ ...balanceInput, untargeted: null })))).toContain('nulla è fuori posizione');
+    const [leverage] = selectAllocazioneStrip({ balance: { ...balance, misallocationPct: 0.04 }, gaps, leverageGapPp: 3, untargeted: null });
+    expect(cellText(leverage)).toBe('0,0%');
+  });
+
   it('should name the class farthest in points, over or under, and never a dormant one', () => {
     const bonds = gaps.find((gap) => gap.assetClass === 'bonds')!;
     const dormant = { ...bonds, assetClass: 'realestate', label: 'Immobili', differencePp: -40, currentValue: 0, targetPercentage: 0, dormant: true, action: 'COMPRA' as const };
@@ -802,5 +822,20 @@ describe('selectAllocazioneStrip', () => {
     const [, under] = selectAllocazioneStrip({ balance, gaps: [{ ...bonds, differencePp: -12.4, action: 'COMPRA' }] });
     expect(under.label).toBe('Obbligazioni sotto');
     expect(cellText(under)).toBe('12,4 pp');
+  });
+});
+
+// ─── resolveAllocazioneSections — the rows present (2026-10-16, in the retirement) ───────────────
+// Seen red with `hasRows` ignored (the four rows known to the controller on a page without an asset, which renders none).
+
+describe('resolveAllocazioneSections', () => {
+  const ids = (input: Parameters<typeof resolveAllocazioneSections>[0]) => resolveAllocazioneSections(input).map((section) => section.id);
+
+  it('keeps Previdenza only with a fund, flags the Esposizione when its read failed, and knows no row without assets', () => {
+    expect(ids({ hasRows: true, hasPension: true, exposureFailed: false })).toEqual([ALLOCAZIONE_SECTION_IDS.perClasse, ALLOCAZIONE_SECTION_IDS.piano, ALLOCAZIONE_SECTION_IDS.esposizione, ALLOCAZIONE_SECTION_IDS.previdenza]);
+    expect(ids({ hasRows: true, hasPension: false, exposureFailed: false })).not.toContain(ALLOCAZIONE_SECTION_IDS.previdenza);
+    expect(resolveAllocazioneSections({ hasRows: true, hasPension: false, exposureFailed: true }).find((section) => section.id === ALLOCAZIONE_SECTION_IDS.esposizione)?.failed).toBe(true);
+    expect(resolveAllocazioneSections({ hasRows: true, hasPension: false, exposureFailed: false }).find((section) => section.id === ALLOCAZIONE_SECTION_IDS.esposizione)?.failed).toBe(false);
+    expect(resolveAllocazioneSections({ hasRows: false, hasPension: true, exposureFailed: true })).toEqual([]);
   });
 });

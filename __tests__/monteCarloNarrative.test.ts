@@ -41,9 +41,11 @@ import {
   PARAMETRI_ASIDE,
   SCENARI_ASIDE,
   SCENARI_FOOTER,
+  MONTE_CARLO_CLOSED_ASIDES,
+  describeParametriClosedAside,
 } from '@/lib/utils/monteCarloNarrative';
 import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
-import { selectMonteCarloStrip } from '@/lib/utils/monteCarloSummary';
+import { selectMonteCarloStrip, MONTE_CARLO_SECTION_IDS } from '@/lib/utils/monteCarloSummary';
 import { formatStripFigure } from '@/lib/utils/verdictStrip';
 import { INACTIVE_LOCK, type FireLock } from '@/lib/utils/fireSummary';
 import type { MonteCarloPlan, MonteCarloRun, ScenarioComparison, ScenarioRunSummary } from '@/lib/utils/monteCarloSummary';
@@ -303,7 +305,7 @@ describe('Dettaglio', () => {
   });
 });
 
-// ─── The phone's cut and the strip's identity (2026-10-15, MOB-07) ────────────
+// ─── The phone's cut and the strip's identity (2026-10-15) ────────────────────
 // Seen red one at a time: `leadLength` left `undefined` with a scenarios sentence; the bear cell
 // read from `medianFinal`; the rest labelled «orso e toro e il fondo pensione».
 
@@ -329,5 +331,28 @@ describe('buildMonteCarloVerdict — the cut (doc/mobile/README.md § 9, decisio
     const exhausted = buildMonteCarloVerdict({ runnable: true, run: makeRun({ medianFinal: 0 }), scenarios: null, lock: INACTIVE_LOCK });
     expect(plain(exhausted.sentence)).toContain('nel caso mediano i soldi finiscono');
     expect(selectMonteCarloStrip({ run: makeRun({ medianFinal: 0 }), comparison: null })[0].reason).toBe('i soldi finiscono');
+  });
+});
+
+// ─── The shown run outlives the typed form, and the closed rows' words (2026-10-16, in the retirement) ──
+// Seen red: `runnable` read before `run` (a typed capital of zero turned the headline into «non
+// calcolabile» while the strip under it still printed the shown run's Mediana and Orso); the
+// Parametri aside returning the fresh words whatever `stale` (a stale plan went unannounced from a closed row).
+
+describe('buildMonteCarloVerdict — the shown run outlives the typed form', () => {
+  it('reads the run on screen while the typed plan cannot run: verdict, strip and tiles print ONE run', () => {
+    const shown = buildMonteCarloVerdict({ runnable: true, run: makeRun(), scenarios: makeComparison(), lock: INACTIVE_LOCK });
+    const typedZero = buildMonteCarloVerdict({ runnable: false, run: makeRun(), scenarios: makeComparison(), lock: INACTIVE_LOCK });
+    expect(typedZero).toEqual(shown);
+    expect(buildMonteCarloVerdict({ runnable: false, run: null, scenarios: null, lock: INACTIVE_LOCK }).headline).toBe('Monte Carlo non calcolabile.');
+  });
+});
+
+describe('the closed rows\' asides — words, never a figure', () => {
+  it('names Distribuzione and Scenari without a digit, and Parametri by whether the typed plan is the shown one', () => {
+    expect(MONTE_CARLO_CLOSED_ASIDES).toEqual({ [MONTE_CARLO_SECTION_IDS.distribuzione]: 'valori finali', [MONTE_CARLO_SECTION_IDS.scenari]: 'orso, base e toro' });
+    for (const aside of Object.values(MONTE_CARLO_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
+    expect(describeParametriClosedAside(false)).toBe('il piano di oggi');
+    expect(describeParametriClosedAside(true)).toBe('modificati: premi Esegui');
   });
 });

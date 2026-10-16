@@ -8,6 +8,9 @@
  * numbers and `pensionNarrative` the words — those have unit tests. What is tested here is that the
  * page puts them in the right place, at the right size, under the right control: the verdict over
  * the tile grid, the two-row hero, the year axis beside the verdict, the «Dettaglio» disclosure.
+ *
+ * The 1440 test of today's page (no closed row, no strip, the whole sentence) was seen red on
+ * 2026-10-16 with `useCompactLayout` forced true.
  */
 
 import { test, expect, type Page, type Locator } from '@playwright/test';

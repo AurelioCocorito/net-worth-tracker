@@ -31,10 +31,11 @@ import {
   describeSensitivity,
   SENSITIVITY_ASIDE,
   SENSITIVITY_FOOTER,
+  WHAT_IF_CLOSED_ASIDES,
 } from '@/lib/utils/whatIfNarrative';
 import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import { describeFireLockScope } from '@/lib/utils/fireNarrative';
-import { selectWhatIfStrip } from '@/lib/utils/whatIfSummary';
+import { selectWhatIfStrip, WHAT_IF_SECTION_IDS } from '@/lib/utils/whatIfSummary';
 import { formatStripFigure } from '@/lib/utils/verdictStrip';
 import type { FireLock } from '@/lib/utils/fireSummary';
 import type { MetricPair, SensitivityReading, WhatIfDivergence, WhatIfEvent, WhatIfSummary, WhatIfTimeline } from '@/lib/utils/whatIfSummary';
@@ -471,7 +472,7 @@ describe('describeSensitivity', () => {
   });
 });
 
-// ─── The phone's cut, the scope and the strip (2026-10-15, MOB-07) ────────────
+// ─── The phone's cut, the scope and the strip (2026-10-15) ────────────────────
 // Seen red one at a time: `leadLength` left `undefined` with a Coast sentence; the bridge note
 // with no scope (the lock fixture's `lockedValue` at 0 while `isBridge` true: the page would have
 // printed the note with no line in sight); the direction words typed in the selector instead of
@@ -521,5 +522,14 @@ describe('buildWhatIfVerdict — the cut (doc/mobile/README.md § 9, decisions 5
     expect(today.label.endsWith('scende')).toBe(true);
     expect(flat(plain(describeBeforeAfter(summary, divergence)))).toContain(`${flat(formatStripFigure(then)!.text)} di distanza allora`);
     expect(then.label).toBe('Distanza nel 2033');
+  });
+});
+
+// ─── The closed rows' words (2026-10-16, in the retirement of the composition) ───────────────────
+
+describe('the closed rows\' asides — words, never a figure', () => {
+  it('names Prima e dopo, Delta and Sensibilità without a digit', () => {
+    expect(WHAT_IF_CLOSED_ASIDES).toEqual({ [WHAT_IF_SECTION_IDS.primaDopo]: 'le due traiettorie', [WHAT_IF_SECTION_IDS.delta]: 'prima → dopo', [WHAT_IF_SECTION_IDS.sensibilita]: 'spese e risparmio' });
+    for (const aside of Object.values(WHAT_IF_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
   });
 });

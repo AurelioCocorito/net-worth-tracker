@@ -150,7 +150,7 @@ si legge prima di stringere o allargare.
   `screens` di pagine che la spec non toccava (+0,02…+0,08), sulla build di develop senza una modifica. La macchina di
   riferimento misura qualche centesimo in più e `--tighten` si lancia da lì; l'altra vede le stesse celle più basse (verdi,
   mai strette). Una cella rossa di pochi centesimi su una superficie che la
-  sessione non ha toccato si confronta prima con la macchina dell'ultimo `--tighten`.
+  sessione non ha toccato si confronta prima con la macchina dell'ultimo `--tighten`. **Riletta il 2026-10-16 (ritiro di MOB-07, decisione 94)**: sulla stessa macchina di riferimento, un giorno dopo e senza una modifica, quattro celle leggono UN centesimo (o una tessera intera a 1024) sopra il budget stretto il 15 e quattro altre 0,02 sotto — la differenza fra le macchine è una deriva di ±0,01–0,02 per cella, in entrambi i versi, anche da un giorno all'altro. Una cella rossa di un centesimo su una superficie non toccata si rimisura due volte (`--surfaces=`) e, uguale, si allarga con `raisedBy` (proprietario); il resto non si stringe, perché domani leggerebbe di nuovo sopra.
 - **Il settle legge `main.textContent`, pannelli nascosti compresi**: su una tab di Cashflow la condizione «una cifra»
   è vera già con le cifre di Tracciamento (`forceMount`), quindi è lo skeleton assente, la riga di freschezza vuota e
   la coda di 500 ms a dire che la tab misurata è pronta — non la cifra. Una tab che resta senza cifre non si vede da qui.

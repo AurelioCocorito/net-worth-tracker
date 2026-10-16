@@ -350,7 +350,7 @@ describe('parseItalianNumber / formatInputAmount', () => {
   });
 });
 
-// ─── The phone's strip (2026-10-15, MOB-07) ───────────────────────────────────
+// ─── The phone's strip (2026-10-15) ───────────────────────────────────────────
 // Seen red one at a time: a median at zero printed «0 €» (the guard removed); the bear cell on the
 // base row; `decimals` fixed to 1 («95,0%» against the verdict's «95%»).
 
