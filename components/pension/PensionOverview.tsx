@@ -57,6 +57,7 @@ import { calculateProgressiveTax, normalizeCoastFireTaxBrackets } from '@/lib/se
 import { getItalyYear } from '@/lib/utils/dateHelpers';
 import {
   PENSION_SECTION_IDS,
+  resolvePensionSections,
   selectPensionStrip,
   summarizeFundToday,
   summarizeLedger,
@@ -65,7 +66,7 @@ import {
   type LedgerRow,
   type PensionSummaryInput,
 } from '@/lib/utils/pensionSummary';
-import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useMobileSections } from '@/lib/hooks/useMobileSections';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   ANNO_FISCALE_FOOTER,
@@ -122,26 +123,6 @@ const SKELETON_CELLS: TileSkeletonCell[] = [
 ];
 
 const VERDICT_LABEL = 'Verdetto sul fondo pensione';
-
-/**
- * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but «Il fondo
- * oggi», THE tile, which never closes (decision 21). Module-level, so the controller sees one
- * stable list; `resolvePensionSections` flags the rows whose read failed (Rendimento on the
- * contributions OR the snapshots, the other three on the contributions).
- */
-const PENSION_SECTIONS: readonly SectionSpec[] = [
-  { id: PENSION_SECTION_IDS.rendimento, eyebrow: 'Rendimento' },
-  { id: PENSION_SECTION_IDS.annoFiscale, eyebrow: 'Anno fiscale' },
-  { id: PENSION_SECTION_IDS.versato, eyebrow: 'Versato' },
-  { id: PENSION_SECTION_IDS.versamenti, eyebrow: 'Versamenti' },
-];
-
-function resolvePensionSections(input: { contributionsError: boolean; snapshotsError: boolean }): readonly SectionSpec[] {
-  return PENSION_SECTIONS.map((section) => ({
-    ...section,
-    failed: section.id === PENSION_SECTION_IDS.rendimento ? input.contributionsError || input.snapshotsError : input.contributionsError,
-  }));
-}
 
 export function PensionOverview() {
   const { ownerId } = useActiveAccount();
@@ -215,11 +196,13 @@ export function PensionOverview() {
   );
 
   // ─── The phone composition (2026-10-15) ──────────────────────────────────────
-  // The rows, each flagged when its read failed; the controller hands each tile its row and the
-  // verdict its «Il perché». The strip — three causes or none (decision 46) — is read from the
-  // same blocks the verdict reads, and from nothing once a read failed. Every cell opens a row, so
-  // `reveal` IS the handler.
-  const sectionSpecs = useMemo(() => resolvePensionSections({ contributionsError, snapshotsError }), [contributionsError, snapshotsError]);
+  // The rows (`resolvePensionSections`, lib/utils/pensionSummary.ts: Rendimento fails on the
+  // contributions OR the snapshots, the other three on the contributions; none without a fund);
+  // the controller hands each tile its row and the verdict its «Il perché». The strip — three
+  // causes or none (decision 46) — is read from the same blocks the verdict reads, and from
+  // nothing once a read failed. Every cell opens a row, so `reveal` IS the handler.
+  const hasFund = funds.length > 0;
+  const sectionSpecs = useMemo(() => resolvePensionSections({ hasFund, contributionsError, snapshotsError }), [hasFund, contributionsError, snapshotsError]);
   const sections = useMobileSections({ route: 'pension', sections: sectionSpecs });
   const { reveal: handleStripOpen } = sections;
   const strip = failures.length > 0 ? [] : selectPensionStrip({ blocks, taxYear: activeYear });

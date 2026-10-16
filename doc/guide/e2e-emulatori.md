@@ -326,14 +326,18 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   filter (both header copies, `toHaveText(['', ''])`). The sign-out test reads the record back through IndexedDB
   itself (`indexedDB.open` + `get`), the way «assert on data» means here.
 - **Prove the test can fail before trusting it** (the 1440px assertions were re-run at 1200px, where they must fail).
+- **The full run retiring MOB-07** (2026-10-16, the reference machine, 264 tests incl. 6 setups, +2: the failed «Aggiorna» of
+  the Esposizione and the Calcolatore's `order-*` probe): 264 green in 11,4 min, no flake; before it, seven E2E falsifications
+  seen red one at a time (the headers of `allocation.mobile`, `fire.mobile`, `coast.mobile`, `allocation`, `pension`, `fire`,
+  `coast` `.spec.ts`), `useCompactLayout` forced true among them — 16 red across the four 1440 specs.
 - **The full run closing MOB-07** (2026-10-15, the reference machine, 262 tests incl. 6 setups): 259 green in 9,9 min, three red
   and all three green alone and in their own spec: `mobile-composition.analisi.mobile.spec.ts` «a category row opens the
   Scheda…» (`#analisi-scheda-trigger` counted 1 where 0 was expected — the Scheda's row trigger survived the Escape in
   that run), and the two «remembered across a reload» of `mobile-composition.patrimonio.mobile.spec.ts` and
   `overview.mobile.spec.ts` on `apiResponse.json: Response has been disposed` — the response a probe holds across
   `page.reload()` disposed before `.json()`, the shape of the `holdChunks` entry below. None of the three pages is
-  MOB-07's. The 16 new cases (`allocation`, `pension`, `fire`, `coast` `.mobile.spec.ts` + one at 1440 each) were green
-  in the suite and alone, nine falsifications seen red one at a time (their headers).
+  MOB-07's. The 15 new cases (`allocation`, `pension` and `fire` `.mobile.spec.ts` + one at 1440 in each of the four pages' desktop specs; `coast.mobile.spec.ts` only adapted — the commit and the index said 16 in eight specs, corrected in the retirement of 2026-10-16) were green
+  in the suite and alone, twelve falsifications seen red one at a time (their headers; «nine» until 2026-10-16).
 - **`e2e/cashflow.transfer-fee.spec.ts` was red ONCE in a full run** (2026-10-07, Windows machine, the second full run
   of PR #434, which did not touch transfers): green alone and in the suite's order, cause not traced. A second red
   there is a pattern, not noise — note the run before re-running it. **`e2e/cashflow.mobile.spec.ts` › «every tab of the

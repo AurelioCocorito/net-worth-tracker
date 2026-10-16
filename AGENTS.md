@@ -700,8 +700,10 @@ file used to carry.
   Dividendi; `e2e/mobile-composition.cashflow.mobile.spec.ts`), Rendimenti its `order-1…8` on 2026-10-14
   (`e2e/mobile-composition.performance.degraded.mobile.spec.ts`), Analisi its `order-1…7` and Storico its `order-*` on
   2026-10-14 (`e2e/mobile-composition.{analisi,history}.mobile.spec.ts`), Allocazione, Previdenza and the five FIRE tabs
-  theirs on 2026-10-15 (`e2e/allocation.mobile.spec.ts`; the Coast Ipotesi's four tiles too — Modello now reads second
-  on a phone, the DOM's order): no composed grid carries `order-*` any more.
+  theirs on 2026-10-15 (`e2e/allocation.mobile.spec.ts`; since 2026-10-16 `e2e/fire.mobile.spec.ts` for the Calcolatore and
+  What If and `e2e/coast.mobile.spec.ts` for the Coast Ipotesi's four tiles — Modello now reads second on a phone, the DOM's
+  order; each probe reads the `classList` AND the vertical order, seen red with an `order-*` put back): no composed grid
+  carries `order-*` any more.
 - **A row's caption WRAPS, it is never truncated, and the label column never grows to make room for it** (2026-09-14,
   `RankedRows`): a cut fact is no fact («30 set · Asilo nido · in calendario»); at 4 grid columns 46% is the most the
   label can take beside the bar's 40px floor, the amount and the share (58% painted the share outside the tile,
@@ -893,7 +895,8 @@ file used to carry.
 - **The first-screen census shares the port** (2026-10-10, MOB-01; its manual is `doc/guide/prima-schermata.md`): `npm
   run mobile:census` measures the composition of 19 surfaces × 390/768/1024 on the same :3200 build, re-seeding its own
   fixture `census@example.com`; `npm run mobile:budget` holds the run against `doc/mobile/budget.json` (zero tolerance,
-  it only tightens, a widening carries `raisedBy: "MOB-NN: …"`; `--tighten` refuses a partial run and a run in which
+  it only tightens, a widening carries `raisedBy: "MOB-NN: …"` and KEEPS every reason the entry carried before — concatenated,
+  never overwritten (`doc/mobile/README.md` § 9, 94, 2026-10-16: a `--tighten` had replaced twelve); `--tighten` refuses a partial run and a run in which
   Yahoo answered a profile, 2026-10-10). The fixture refuses to be measured from the 1st to the 4th and on the month's
   last day; an unknown `--surfaces` key or `--viewports` value exits 1 with the valid ones; a figure whose unit is a
   `[data-figure-unit]` span counts once (2026-10-10).

@@ -10,8 +10,8 @@
  * budget on an empty page would guard nothing: Centri di Costo and Divisione are ON, there is a
  * coupon, a Budget ceiling, a pension fund, 47 monthly snapshots for Hall of Fame, a row still in
  * the calendar at the end of the month. Every OPTION is measured in its default state (owner,
- * 2026-10-10): the 50/30/20 roles are off. FIRE › Obiettivi is ON since 2026-10-15 (MOB-07, the
- * spec that composed it; doc/mobile/README.md § 9, 60), with ONE invented goal whose deadline is
+ * 2026-10-10): the 50/30/20 roles are off. FIRE › Obiettivi is ON since 2026-10-15 (the day the
+ * tab was composed for a phone; doc/mobile/README.md § 9, 60), with ONE invented goal whose deadline is
  * relative to the run — seven years out, a pace that keeps it «in rotta» from the 5th to the
  * penultimate day — so the budget looks at the `goals-*` rows; the goal-driven targets stay off.
  *

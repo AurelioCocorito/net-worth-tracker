@@ -40,6 +40,7 @@ import {
   toPensionDrafts,
   type CoastFirePensionDraft,
   type CoastTarget,
+  COAST_CLOSED_ASIDES,
 } from '@/lib/utils/coastFireView';
 import { INACTIVE_LOCK, type FireLock } from '@/lib/utils/fireSummary';
 import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
@@ -675,9 +676,11 @@ describe('coastFireView — parity with the projection', () => {
   });
 });
 
-// ─── The phone's cut and the strip (2026-10-15, MOB-07) ───────────────────────
+// ─── The phone's cut and the strip (2026-10-15) ───────────────────────────────
 // Seen red one at a time: «Margine» printed «0 €» at a surplus under 0,5 (the floor removed);
-// the bear cell on the base scenario's number; `leadLength` left `undefined` with a pace.
+// the bear cell on the base scenario's number; `leadLength` left `undefined` with a pace. The
+// promised «euro non compatto» falsification was never recorded here: the identity assertions
+// below would catch it, and the retirement of 2026-10-16 says so instead of claiming a red.
 
 describe('coastFireView — the cut (doc/mobile/README.md § 9, decisions 5 and 44)', () => {
   it('keeps the walk under the title, the pace and the lock behind «Il perché»', () => {
@@ -728,5 +731,31 @@ describe('selectCoastStrip — the two cells of the Coast tab', () => {
     expect(met.value).toBeNull();
     expect(met.reason).toBe('raggiunto');
     expect(validateStrip([met], KNOWN)).toEqual([]);
+  });
+});
+
+// ─── One floor for the cell and the sentence, and the closed rows' words (2026-10-16, in the retirement) ──
+// Seen red with the selector's floor moved to 0,3 while the sentence kept its own 0,5: at a
+// surplus of 0,4 the cell printed «Margine 0 €» under a verdict that said «raggiunge».
+
+describe('selectCoastStrip — «raggiunto» exactly where the verdict says «raggiunge»', () => {
+  const cellText = (figure: StripFigure) => narrativeToText([formatStripFigure(figure)!]).replace(/[\u00a0\u202f]/g, ' ');
+
+  it('decides the met-to-the-euro case from the one floor the sentence uses', () => {
+    const { target } = buildTarget(base0().coastFireNumberToday + 10_000);
+    for (const surplus of [0.4, 0.6]) {
+      const reached = { ...target, surplus };
+      const [cell] = selectCoastStrip({ target: reached, scenarios: [] });
+      const verdict = plain(buildCoastVerdict({ target: reached, incompleteReason: null, pace: null, lock: INACTIVE_LOCK }).sentence);
+      expect(cell.reason === 'raggiunto').toBe(verdict.includes('raggiunge il numero Coast FIRE'));
+      if (cell.reason !== 'raggiunto') expect(verdict).toContain(cellText(cell));
+    }
+  });
+});
+
+describe('the closed rows\' asides — words, never a figure', () => {
+  it('names Afflussi and Scenari without a digit', () => {
+    expect(COAST_CLOSED_ASIDES).toEqual({ [COAST_SECTION_IDS.afflussi]: 'pensioni e fondo', [COAST_SECTION_IDS.scenari]: 'rendimento reale' });
+    for (const aside of Object.values(COAST_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
   });
 });

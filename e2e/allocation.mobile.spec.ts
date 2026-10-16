@@ -1,7 +1,7 @@
 /**
  * Allocazione a 390px — la riga di copertura dell'Esposizione (dal 2026-09-28) e, dal 2026-10-15,
- * la composizione della pagina (MOB-07; le regole in doc/guide/allocazione.md § Composizione mobile
- * e doc/mobile/README.md § 9).
+ * la composizione della pagina (le regole in doc/guide/allocazione.md § Composizione mobile e le
+ * decisioni in doc/mobile/README.md § 9).
  *
  * PERCHÉ ESISTE: la riga di copertura (letto · non letto · non applicabile · fuori vista) è una
  * frase con quattro importi e i nomi degli strumenti, sopra un elenco a quattro colonne, e nessuna
@@ -24,7 +24,11 @@
  * striscia (sul fixture base la cella è «nulla» e il KPI resta intero); (2) `reveal` senza il `focus()`; (3) `enabled` sempre vero nel
  * hook (una richiesta ai profili a riga chiusa); (4) `failed` sempre falso sulla sezione
  * (l'eyebrow non rosso, nessun annuncio); (5) la scrittura nello store tolta dal gestore (nulla
- * in `localStorage`); (6) un `min-w-[420px]` su una cella (uno sforamento di `main`).
+ * in `localStorage`); (6) un `min-w-[420px]` su una cella (uno sforamento di `main`). Il
+ * 2026-10-16: `failed` sempre falso sulla sezione dell'Esposizione — i due casi di lettura fallita
+ * rossi insieme; l'«Aggiorna» fallito con i profili già letti è il caso aggiunto quel giorno. Il ramo
+ * «valore nascosto» di (1) non corre sul fixture base (la cella è «nulla»): il nascondere lo tiene
+ * `__tests__/bilanciamentoTileLifted.test.ts`.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -175,6 +179,34 @@ test.describe('Allocazione, composta per un telefono', () => {
     await expect(esposizione.locator('span.text-destructive')).toHaveCount(1);
 
     // UN nodo vivo: l'annuncio di `PageRest`; la riga è silenziosa sotto `desktop:`.
+    const alerts = page.locator('main [role="alert"]');
+    await expect(alerts).toHaveCount(1);
+    await expect(alerts.first()).toHaveText('Una sezione non è stata letta: Esposizione.');
+    await page.unroute(PROFILES_ROUTE);
+  });
+
+  test('un «Aggiorna» fallito con i profili già letti tiene la tessera, senza alert, e la riga resta rossa', async ({ page }) => {
+    await openAllocazione(page);
+    await trigger(page, 'alloc-esposizione').click();
+    const tile = page.getByRole('region', { name: 'Esposizione del portafoglio' });
+    const coverage = tile.locator('p', { hasText: /In questa vista/ }).first();
+    await expect(coverage).toBeVisible({ timeout: 30_000 });
+
+    // The second failure: the profiles are read, «Aggiorna» fails — the list stays, the tile adds its
+    // own notice, silent as a row (no `role="alert"`), and the section is `failed` all the same.
+    await page.route(PROFILES_ROUTE, (route) => route.abort());
+    await page.getByRole('button', { name: "Aggiorna l'esposizione" }).click();
+    await expect(tile.getByText('Errore nel caricamento delle composizioni.')).toBeVisible({ timeout: 20_000 });
+    await expect(coverage).toBeVisible();
+    await expect(tile.locator('[role="alert"]')).toHaveCount(0);
+    // A Tile row says it in its eyebrow (red, «, lettura fallita» for the reader), open or closed —
+    // the `aria-label` form is the ErrorNotice row's, the failed FIRST read above.
+    await expect(trigger(page, 'alloc-esposizione').locator('span.text-destructive')).toHaveCount(1);
+    await expect(trigger(page, 'alloc-esposizione')).toContainText('lettura fallita');
+
+    await trigger(page, 'alloc-esposizione').click();
+    await expect(trigger(page, 'alloc-esposizione')).toHaveAttribute('aria-expanded', 'false');
+    await expect(trigger(page, 'alloc-esposizione').locator('span.text-destructive')).toHaveCount(1);
     const alerts = page.locator('main [role="alert"]');
     await expect(alerts).toHaveCount(1);
     await expect(alerts.first()).toHaveText('Una sezione non è stata letta: Esposizione.');

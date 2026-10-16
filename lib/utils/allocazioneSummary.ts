@@ -38,6 +38,7 @@ import {
 import { assetClassLegs } from '@/lib/utils/assetDisplayClass';
 import { estimateSaleTax } from '@/lib/utils/saleTax';
 import type { StripFigure } from '@/lib/utils/verdictStrip';
+import type { SectionSpec } from '@/lib/hooks/useMobileSections';
 
 /** Rows below this amount are noise, not a plan (shared with `PlanRow`). */
 export const MIN_VISIBLE_AMOUNT = 0.5;
@@ -61,14 +62,60 @@ export const ALLOCAZIONE_SECTION_IDS = {
 /** The block of `BilanciamentoTile` the strip lifts: the KPI «Fuori posizione» — its VALUE only, the caption stays (decision 17). */
 export const BILANCIAMENTO_MISALLOCATION_BLOCK = 'fuori-posizione';
 
+/**
+ * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but
+ * Bilanciamento, which is THE tile and never closes (decision 21). Module-level, so the controller
+ * sees one stable list; `resolveAllocazioneSections` hands the page the rows PRESENT.
+ */
+const ALLOCAZIONE_SECTIONS: readonly SectionSpec[] = [
+  { id: ALLOCAZIONE_SECTION_IDS.perClasse, eyebrow: 'Per classe' },
+  { id: ALLOCAZIONE_SECTION_IDS.piano, eyebrow: 'Piano' },
+  { id: ALLOCAZIONE_SECTION_IDS.esposizione, eyebrow: 'Esposizione' },
+  { id: ALLOCAZIONE_SECTION_IDS.previdenza, eyebrow: 'Previdenza' },
+];
+
+const NO_SECTIONS: readonly SectionSpec[] = [];
+
+/**
+ * The subset of `ALLOCAZIONE_SECTIONS` on the page: Previdenza only with a fund, the Esposizione
+ * flagged when its read failed — and none while the page has no composed grid (no asset, no
+ * banded allocation): the empty branch renders no row, so the controller knows none (since
+ * 2026-10-16; until then the four rows were known there). Pure and here so
+ * `__tests__/allocazioneSummary.test.ts` holds it.
+ */
+export function resolveAllocazioneSections(input: { hasRows: boolean; hasPension: boolean; exposureFailed: boolean }): readonly SectionSpec[] {
+  if (!input.hasRows) return NO_SECTIONS;
+  return ALLOCAZIONE_SECTIONS.flatMap((section) => {
+    if (section.id === ALLOCAZIONE_SECTION_IDS.previdenza && !input.hasPension) return [];
+    if (section.id === ALLOCAZIONE_SECTION_IDS.esposizione) return [{ ...section, failed: input.exposureFailed }];
+    return [section];
+  });
+}
+
 /** Below this share nothing is out of position: the threshold `describeBalance` prints «nulla» under. */
 export const MISALLOCATION_FLOOR_PCT = 0.05;
+
+/**
+ * «Nulla è fuori posizione» is true under the floor AND with neither a leverage gap nor wealth in
+ * classes the targets do not name — the reading's own condition (`describeBalance`), shared with the
+ * strip cell since 2026-10-16: until then the cell said «nulla» under the floor alone, a word the
+ * reading did not print when it said «lo 0,0% è fuori posizione e il 12% è in classi senza target».
+ */
+export function isNothingOutOfPosition(input: { misallocationPct: number; leverageGapPp: number; untargeted?: { pct: number } | null }): boolean {
+  const hasLeverageGap = Math.abs(input.leverageGapPp) >= 0.5;
+  const hasUntargeted = !!input.untargeted && input.untargeted.pct >= 0.5;
+  return input.misallocationPct < MISALLOCATION_FLOOR_PCT && !hasLeverageGap && !hasUntargeted;
+}
 
 export interface AllocazioneStripInput {
   /** `computeBalanceScore(byAssetClass)` — band-independent. */
   balance: Pick<BalanceScore, 'misallocationPct'>;
   /** `summarizeClassGaps(byAssetClass)`: the raw list; the dormant classes are dropped here. */
   gaps: ClassGap[];
+  /** The exposure gap as the page reads it — the score's `leverageGapPp` only while leverage is in play, else 0 (what `describeBalance` gets). */
+  leverageGapPp?: number;
+  /** Wealth in classes the targets do not name, as the page reads it (what `describeBalance` gets). */
+  untargeted?: { pct: number; labels: string[] } | null;
 }
 
 /**
@@ -79,9 +126,10 @@ export interface AllocazioneStripInput {
  * decimals (`__tests__/allocazioneSummary.test.ts` holds the identity). Neither is a gain or a
  * loss, so the tone is `neutral`. The score itself is never a cell: it is the headline and the ring.
  */
-export function selectAllocazioneStrip({ balance, gaps }: AllocazioneStripInput): StripFigure[] {
+export function selectAllocazioneStrip({ balance, gaps, leverageGapPp = 0, untargeted = null }: AllocazioneStripInput): StripFigure[] {
   const [largest] = offTargetGaps(activeClassGaps(gaps));
-  const outOfPosition = balance.misallocationPct >= MISALLOCATION_FLOOR_PCT;
+  // «nulla» exactly when the reading says it; otherwise the KPI's figure, «0,0%» included.
+  const outOfPosition = !isNothingOutOfPosition({ misallocationPct: balance.misallocationPct, leverageGapPp, untargeted });
   return [
     {
       label: 'Fuori posizione',

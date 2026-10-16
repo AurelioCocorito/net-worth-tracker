@@ -32,9 +32,9 @@
 
 ## Composizione mobile
 
-Composed on 2026-10-15 (MOB-07): the page-wide rules — one controller per tab, the cut at the first full stop — are in `doc/guide/fire.md` § Composizione mobile. **No strip** (decision 47) and no cut: the verdict is whole on every width.
+Composed on 2026-10-15 (MOB-07, retired on 2026-10-16 — its text is in `git log -- doc/mobile/`): the page-wide rules — one controller per tab, the cut at the first full stop — are in `doc/guide/fire.md` § Composizione mobile. **No strip** (decision 47) and no cut: the verdict is whole on every width.
 
-- **THE tile**: Obiettivi (`goals` tab), first in the DOM at every width, open and never a row; it has no curve. **Off, or without a goal**: one tile, no row, no `PageRest` (the base fixture is off; the census fixture is on with one invented goal since this spec, doc/mobile/README.md § 9, 60).
+- **THE tile**: Obiettivi (`goals` tab), first in the DOM at every width, open and never a row; it has no curve. **Off, or without a goal**: one tile, no row, no `PageRest` (the base fixture is off; the census fixture is on with one invented goal since 2026-10-15 (MOB-07), doc/mobile/README.md § 9, 60).
 - **The rows and their aside, in DOM order** (`GOALS_SECTIONS` in the tab, ids `GOALS_SECTION_IDS` in `goalsSummary.ts`, the words `GOALS_CLOSED_ASIDES` in `goalsNarrative.ts`; `resolveGoalsSections` hands the controller the rows present): `goals-traiettoria` the goal's name (the open aside holds the two actions, controls: they open the panel's first row) · `goals-milestone` «al ritmo attuale» · `goals-allocazione` «gap × priorità» (present with goal-driven targets only) · `goals-assegnazioni` the counts (`describeAssegnazioniAside`: «3 strumenti · 2 quote» — counts, never a figure). `PageRest` right after Obiettivi' cell; the Dettaglio after the rows; no `order-*`.
 - **Choosing a goal opens the Traiettoria row where it is** (`collapse('goals-traiettoria')?.onOpenChange(true)` from `onSelect`): no scroll and no focus move — the list is where the reader is; `reveal` stays the strip cells' gesture, and this tab has none.
 - **768/1024 and the specs**: the same composition at 768 (every tile full width) and at 1024, until MOB-08. `e2e/fire.mobile.spec.ts` (`mobile`, base account: the «disattivato» branch — one tile, no `PageRest`, no trigger). The tab has no spec of its own.

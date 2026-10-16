@@ -16,7 +16,8 @@
  *
  * REGRESSION GUARD, tutti visti rossi rompendo una cosa alla volta (roving focus tolto da
  * `AsideToggle` e da `RankedRows`; `tabIndex` esplicito tolto; `aria-label` rimesso sulla riga; il
- * sotto-occhiello tolto; la discesa tolta dal `PlanView`).
+ * sotto-occhiello tolto; la discesa tolta dal `PlanView`). Il 2026-10-16: `useCompactLayout` forzato a
+ * vero (le righe chiuse e la striscia a 1440) per il test della pagina di oggi.
  *
  * Account base (`test@example.com`): target 60/30/10 su azioni, obbligazioni e criptovalute, due
  * sotto-target su equity (World 80 / Single Stock 20, aggiunti al seed il 2026-09-21 perché senza

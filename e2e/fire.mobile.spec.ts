@@ -1,7 +1,7 @@
 /**
  * FIRE e Simulazioni a 390px — il Calcolatore senza scorrimento orizzontale e, dal 2026-10-15, la
- * composizione delle cinque tab (MOB-07; le regole in doc/guide/fire.md § Composizione mobile e
- * doc/mobile/README.md § 9).
+ * composizione delle cinque tab (le regole in doc/guide/fire.md § Composizione mobile e le decisioni
+ * in doc/mobile/README.md § 9).
  *
  * PERCHÉ ESISTE: l'hero `[2fr_1fr]` del vecchio tab è uscito dal viewport per due volte. La prima
  * fu misurata il 2026-08-18 mentre si ridisegnava il tab Coast e archiviata come debito noto; la
@@ -28,10 +28,13 @@
  * smontata resta solo `localStorage`; Obiettivi, spento sul fixture base, è una tessera sola senza
  * «Il resto della pagina»; su What If l'Evento è la prima tessera del DOM (decisione 43).
  *
- * Visti rossi il 2026-10-15, una cosa alla volta: la riga d'ambito passata anche a 1440 (la frase
- * del vincolo e lo scope insieme nel paragrafo: due «fino al 2048» nella regione); la chiave del
- * controller senza `tab` (Coast ricordava le righe del Calcolatore); `PageRest` reso anche nel ramo
- * «disattivato» di Obiettivi (un «Apri tutte» che non apre nulla).
+ * Visti rossi il 2026-10-15, una cosa alla volta: la chiave del controller senza `tab` (Coast
+ * ricordava le righe del Calcolatore); `PageRest` reso anche nel ramo «disattivato» di Obiettivi (un
+ * «Apri tutte» che non apre nulla). La terza falsificazione scritta quel giorno — «la riga d'ambito
+ * passata anche a 1440» — non può andare rossa qui, dove `compact` è già vero: la vede `fire.spec.ts`,
+ * che la registra dal 2026-10-16. Visti rossi il 2026-10-16: `order-4` rimesso sulla cella della Base
+ * (il Calcolatore letto Traguardo → Scenari → Reddito → Base a schermo con lo stesso DOM); `order-1`
+ * rimesso sull'Evento (ultimo a schermo, primo nel DOM).
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -40,6 +43,24 @@ import { test, expect, type Page } from '@playwright/test';
 const DISCLOSURES = [/^Parametri/, /^Dettaglio/] as const;
 
 const trigger = (page: Page, id: string) => page.locator(`#${id}-trigger`);
+
+/**
+ * Le tessere di una tab dall'alto in basso e ogni utility `order-*` dentro `main` (letta dalla
+ * `classList`: `[class*="order-"]` prenderebbe ogni `border-*`). Dal 2026-10-15 il DOM è l'ordine
+ * verticale su ogni tab e nessun `order-*` resta: fino ad allora il Calcolatore leggeva Traguardo →
+ * Scenari → Reddito → Base con `order-1/4/3/2`, e What If metteva l'Evento in testa con `order-1`.
+ */
+async function readOrderAndClasses(page: Page, tab: string) {
+  return page.getByRole('tabpanel', { name: tab }).evaluate((root) => {
+    const main = root.closest('main')!;
+    const sections = [...root.querySelectorAll<HTMLElement>('section.rounded-2xl')].filter((el) => el.checkVisibility());
+    return {
+      order: sections.map((el) => ({ name: el.getAttribute('aria-label'), top: Math.round(el.getBoundingClientRect().top) })),
+      orderClasses: [...main.querySelectorAll('*')].flatMap((el) => [...el.classList]).filter((name) => /^(?:[a-z-]+:)*order-/.test(name)),
+    };
+  });
+}
+const isSorted = (tops: number[]) => tops.every((top, i) => i === 0 || top >= tops[i - 1] - 1);
 
 async function gotoFire(page: Page): Promise<void> {
   await page.goto('/dashboard/fire-simulations', { waitUntil: 'load' });
@@ -129,6 +150,14 @@ test.describe('FIRE, composto per un telefono', () => {
     await expect(cells.nth(1)).toContainText(/^Rendita oggi/);
   });
 
+  test('il Calcolatore legge Traguardo, Base, Reddito, Scenari dall\'alto in basso, e nessun order-* resta', async ({ page }) => {
+    await gotoFire(page);
+    const { order, orderClasses } = await readOrderAndClasses(page, 'Calcolatore FIRE');
+    expect(order.map((section) => section.name).slice(0, 4)).toEqual(['Traguardo FIRE', 'Base di calcolo del FIRE', 'Reddito passivo sostenibile', 'Scenari di mercato']);
+    expect(isSorted(order.map((section) => section.top)), JSON.stringify(order)).toBe(true);
+    expect(orderClasses).toEqual([]);
+  });
+
   test('ogni tab ricorda le sue righe: aprire sul Calcolatore, passare a Coast, aprire lì, tornare', async ({ page }) => {
     await gotoFire(page);
     await trigger(page, 'fire-base').click();
@@ -171,6 +200,10 @@ test.describe('FIRE, composto per un telefono', () => {
     const panel = page.getByRole('tabpanel', { name: 'What If' });
     const names = await panel.locator('section.rounded-2xl').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')));
     expect(names.slice(0, 4)).toEqual(['Evento simulato', "Prima e dopo l'evento", "Delta dell'evento", 'Sensibilità degli anni al FIRE']);
+    // Il DOM è anche l'ordine verticale (un `order-1` rimesso sull'Evento lo porterebbe in fondo a schermo con lo stesso DOM).
+    const { order, orderClasses } = await readOrderAndClasses(page, 'What If');
+    expect(isSorted(order.map((section) => section.top)), JSON.stringify(order)).toBe(true);
+    expect(orderClasses).toEqual([]);
     for (const id of ['whatif-prima-dopo', 'whatif-delta', 'whatif-sensibilita']) {
       await expect(trigger(page, id)).toHaveAttribute('aria-expanded', 'false');
     }

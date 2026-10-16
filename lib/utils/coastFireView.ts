@@ -677,6 +677,13 @@ function capitalClause(target: CoastTarget, comparison: 'contro' | 'oltre'): Nar
   ];
 }
 
+/**
+ * Below this surplus the target is met to the euro: the verdict says «raggiunge» instead of
+ * «supera … di X» and the strip's «Margine» cell has nothing to print («raggiunto»). ONE floor for
+ * the sentence and the cell (since 2026-10-16; two copies of 0,5 until then).
+ */
+const SURPLUS_FLOOR = 0.5;
+
 export function buildCoastVerdict(input: CoastVerdictInput): PageVerdictModel {
   const { target } = input;
   if (!target) {
@@ -693,7 +700,7 @@ export function buildCoastVerdict(input: CoastVerdictInput): PageVerdictModel {
 
   if (target.reached) {
     const opening: Narrative =
-      target.surplus < 0.5
+      target.surplus < SURPLUS_FLOOR
         ? [prose('Il patrimonio FIRE di '), amount(target.netWorth), prose(' raggiunge il numero Coast FIRE di oggi ('), amount(target.coastNumberToday), prose(')')]
         : [
             prose('Il patrimonio FIRE di '),
@@ -746,9 +753,6 @@ export const COAST_CLOSED_ASIDES = {
   [COAST_SECTION_IDS.afflussi]: 'pensioni e fondo',
   [COAST_SECTION_IDS.scenari]: 'rendimento reale',
 } as const;
-
-/** Below this surplus the target is met to the euro: «Margine» has nothing to print. */
-const SURPLUS_FLOOR = 0.5;
 
 export interface CoastStripInput {
   target: CoastTarget;

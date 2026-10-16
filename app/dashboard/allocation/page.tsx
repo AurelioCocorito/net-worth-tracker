@@ -57,7 +57,7 @@ import { useSettings } from '@/lib/hooks/useSettings';
 import { useGoalData } from '@/lib/hooks/useGoalData';
 import { useFreshness } from '@/lib/hooks/useFreshness';
 import { useInstrumentProfilesState } from '@/lib/hooks/usePortfolioExposure';
-import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useMobileSections } from '@/lib/hooks/useMobileSections';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { calculateAssetValue } from '@/lib/services/assetService';
@@ -94,6 +94,7 @@ import {
   estimatePlanSaleTax,
   offTargetGaps,
   planSaleNodes,
+  resolveAllocazioneSections,
   selectAllocazioneStrip,
   summarizeClassGaps,
   summarizeHoldings,
@@ -148,28 +149,6 @@ const DEFAULT_PLAN_AMOUNT_INPUT = '1000';
 
 const EMPTY_HOLDINGS: AllocatableHolding[] = [];
 const EMPTY_ASSETS: Asset[] = [];
-
-/**
- * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but
- * Bilanciamento, which is THE tile and never closes (decision 21). Module-level, so the controller
- * sees one stable list; the page hands it the rows PRESENT (Previdenza only with a fund) with the
- * Esposizione's `failed` through `resolveAllocazioneSections`.
- */
-const ALLOCAZIONE_SECTIONS: readonly SectionSpec[] = [
-  { id: ALLOCAZIONE_SECTION_IDS.perClasse, eyebrow: 'Per classe' },
-  { id: ALLOCAZIONE_SECTION_IDS.piano, eyebrow: 'Piano' },
-  { id: ALLOCAZIONE_SECTION_IDS.esposizione, eyebrow: 'Esposizione' },
-  { id: ALLOCAZIONE_SECTION_IDS.previdenza, eyebrow: 'Previdenza' },
-];
-
-/** The subset of `ALLOCAZIONE_SECTIONS` on the page, the Esposizione flagged when its read failed. */
-function resolveAllocazioneSections(input: { hasPension: boolean; exposureFailed: boolean }): readonly SectionSpec[] {
-  return ALLOCAZIONE_SECTIONS.flatMap((section) => {
-    if (section.id === ALLOCAZIONE_SECTION_IDS.previdenza && !input.hasPension) return [];
-    if (section.id === ALLOCAZIONE_SECTION_IDS.esposizione) return [{ ...section, failed: input.exposureFailed }];
-    return [section];
-  });
-}
 
 export default function AllocationPage() {
   const { user } = useAuth();
@@ -372,27 +351,6 @@ export default function AllocationPage() {
     [allAssets],
   );
 
-  // ─── The phone composition (2026-10-15) ──────────────────────────────────────
-  // The profiles' read state, observed without reading (the tile's hook is the one that reads,
-  // and only once its row has been opened): a failed first read is an `ErrorNotice` row, a failed
-  // «Aggiorna» over profiles already read keeps the tile — both flag the row (`failed`).
-  const profilesState = useInstrumentProfilesState(ownerId, allAssets);
-  const exposureFailed = profilesState.isError;
-  const hasPension = pension !== null;
-  const sectionSpecs = useMemo(() => resolveAllocazioneSections({ hasPension, exposureFailed }), [hasPension, exposureFailed]);
-  const sections = useMobileSections({ route: 'allocation', sections: sectionSpecs });
-  const { reveal: handleStripOpen } = sections;
-  const exposureCollapse = sections.collapse(ALLOCAZIONE_SECTION_IDS.esposizione);
-  // Below `desktop:` the Esposizione reads its profiles only once its row has been opened — React
-  // Query fetches a key as soon as one observer is enabled, so the hook inside the tile is off until
-  // then. `useCompactLayout` is true from the first render inside `ProtectedRoute`, so a phone never
-  // starts with `compact` false and a read already fired.
-  const exposureEnabled = !sections.compact || !!exposureCollapse?.mounted;
-  // The two figures of the first screen, read from the balance and the gaps the tiles already
-  // print; the KPI «Fuori posizione» hides its value on a phone (the strip has it).
-  const strip = balanceScore ? selectAllocazioneStrip({ balance: balanceScore, gaps }) : [];
-  const bilanciamentoLifted = liftedBlocks(strip, ALLOCAZIONE_SECTION_IDS.bilanciamento).filter(isBilanciamentoLiftedBlock);
-
   const classCount = activeGaps.length;
   const hasAssets = classCount > 0;
   const leverageInPlay = !!bandedAllocation && (bandedAllocation.hasLeveragedExposure || targetLeverageRatio > 1.01);
@@ -406,6 +364,33 @@ export default function AllocationPage() {
     if (!bandedAllocation || !balanceScore || leverageInPlay || balanceScore.leverageGapPp >= -0.5) return null;
     return { pct: -balanceScore.leverageGapPp, labels: untargetedClassLabels(holdings, bandedAllocation.byAssetClass) };
   }, [bandedAllocation, balanceScore, leverageInPlay, holdings]);
+  // The exposure gap as the reading gets it: the score's only while leverage is in play.
+  const leverageGapPp = leverageInPlay && balanceScore ? balanceScore.leverageGapPp : 0;
+
+  // ─── The phone composition (2026-10-15) ──────────────────────────────────────
+  // The profiles' read state, observed without reading (the tile's hook is the one that reads,
+  // and only once its row has been opened): a failed first read is an `ErrorNotice` row, a failed
+  // «Aggiorna» over profiles already read keeps the tile — both flag the row (`failed`).
+  const profilesState = useInstrumentProfilesState(ownerId, allAssets);
+  const exposureFailed = profilesState.isError;
+  const hasPension = pension !== null;
+  // The rows exist only with the composed grid below: the empty branch renders none, so the
+  // controller knows none (`resolveAllocazioneSections`, lib/utils/allocazioneSummary.ts).
+  const hasRows = hasAssets && !!bandedAllocation && !!balanceSummary && !!balanceScore && !!planView;
+  const sectionSpecs = useMemo(() => resolveAllocazioneSections({ hasRows, hasPension, exposureFailed }), [hasRows, hasPension, exposureFailed]);
+  const sections = useMobileSections({ route: 'allocation', sections: sectionSpecs });
+  const { reveal: handleStripOpen } = sections;
+  const exposureCollapse = sections.collapse(ALLOCAZIONE_SECTION_IDS.esposizione);
+  // Below `desktop:` the Esposizione reads its profiles only once its row has been opened — React
+  // Query fetches a key as soon as one observer is enabled, so the hook inside the tile is off until
+  // then. `useCompactLayout` is true from the first render inside `ProtectedRoute`, so a phone never
+  // starts with `compact` false and a read already fired.
+  const exposureEnabled = !sections.compact || !!exposureCollapse?.mounted;
+  // The two figures of the first screen, read from the balance and the gaps the tiles already
+  // print, on the same leverage gap and untargeted wealth the Bilanciamento reading gets; the KPI
+  // «Fuori posizione» hides its value on a phone (the strip has it).
+  const strip = balanceScore ? selectAllocazioneStrip({ balance: balanceScore, gaps, leverageGapPp, untargeted }) : [];
+  const bilanciamentoLifted = liftedBlocks(strip, ALLOCAZIONE_SECTION_IDS.bilanciamento).filter(isBilanciamentoLiftedBlock);
 
   // ─── The words (pure layer) ─────────────────────────────────────────────────
   const verdict = useMemo(
@@ -538,7 +523,7 @@ export default function AllocationPage() {
             reading={describeBalance({
               marketValue: bandedAllocation.marketValue,
               misallocationPct: balanceScore.misallocationPct,
-              leverageGapPp: leverageInPlay ? balanceScore.leverageGapPp : 0,
+              leverageGapPp,
               offTargetCount: balanceSummary.offTargetCount,
               classCount,
               band,

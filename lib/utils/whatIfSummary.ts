@@ -51,8 +51,10 @@ export interface WhatIfStripInput {
  * — opening the Delta, and the same hit read at the FIRE year of the plan of today — the Prima e
  * dopo reading's «51.200 € di distanza allora» (or «di vantaggio») — opening that row. The
  * direction is in the label, as the sentences print it (the builders write no «+»/«−»); the tone
- * follows it. A delta under the threshold is «invariato», as `buildDeltaRows` prints it; no
- * event, no strip.
+ * follows it. A delta under the threshold is «invariato», as `buildDeltaRows` prints it, under a
+ * label with no direction and no tone («Patrimonio FIRE oggi», «Al FIRE di oggi»: a word no
+ * sentence prints never heads a cell — owner, 2026-10-16; until then «sale» stood over «invariato»);
+ * no event, no strip.
  */
 export function selectWhatIfStrip({ event, summary, divergence }: WhatIfStripInput): StripFigure[] {
   if (event.isEmpty) return [];
@@ -61,10 +63,10 @@ export function selectWhatIfStrip({ event, summary, divergence }: WhatIfStripInp
   const then = divergence !== null && isWhatIfChange(divergence.gapThen) ? divergence : null;
   return [
     {
-      label: `Patrimonio FIRE ${today < 0 ? 'scende' : 'sale'}`,
+      label: todayMoved ? `Patrimonio FIRE ${today < 0 ? 'scende' : 'sale'}` : 'Patrimonio FIRE oggi',
       value: todayMoved ? Math.abs(today) : null,
       format: 'currency',
-      tone: today < 0 ? 'negative' : 'positive',
+      tone: !todayMoved ? 'neutral' : today < 0 ? 'negative' : 'positive',
       opens: WHAT_IF_SECTION_IDS.delta,
       ...(todayMoved ? {} : { reason: 'invariato' }),
     },
@@ -72,7 +74,7 @@ export function selectWhatIfStrip({ event, summary, divergence }: WhatIfStripInp
       label: then ? `${then.gapThen < 0 ? 'Distanza' : 'Vantaggio'} nel ${then.calendarYear}` : 'Al FIRE di oggi',
       value: then ? Math.abs(then.gapThen) : null,
       format: 'currency',
-      tone: then && then.gapThen < 0 ? 'negative' : 'positive',
+      tone: !then ? 'neutral' : then.gapThen < 0 ? 'negative' : 'positive',
       opens: WHAT_IF_SECTION_IDS.primaDopo,
       ...(then ? {} : { reason: 'invariato' }),
     },

@@ -14,6 +14,7 @@ import {
   hasPensionStrip,
   PENSION_SECTION_IDS,
   selectPensionStrip,
+  resolvePensionSections,
   type PensionMemberBlock,
   type PensionSummaryInput,
 } from '@/lib/utils/pensionSummary';
@@ -482,10 +483,13 @@ describe('summarizeLedger', () => {
   });
 });
 
-// ─── selectPensionStrip — three cells or none (2026-10-15, MOB-07) ─────────────
+// ─── selectPensionStrip — three cells or none (2026-10-15) ─────────────────────
 // Seen red one at a time: the predicate on `block.return !== null` instead of `returnState`
 // (three cells for a suspicious return); a `0` written as the employer's value (a «0 €» cell);
-// `decimals: 2` dropped from the market cell («+7,96%» against «+8,0%»).
+// `decimals: 2` dropped from the market cell («+7,96%» against «+8,0%»). On 2026-10-16: the Fisco
+// reason «nessun versamento» whatever the year holds (a TFR-only year); the market cell's value
+// following the fiscal year (the axis test compared labels only); the sentence's sign decided on
+// the value («+0,00%» beside a «0,00%» cell).
 
 describe('selectPensionStrip', () => {
   const plain = (text: string) => text.replace(/[  ]/g, ' ');
@@ -528,16 +532,48 @@ describe('selectPensionStrip', () => {
     expect(employer.value).toBeNull();
     expect(employer.reason).toBe('nessun versamento');
     expect(selectPensionStrip({ blocks: [withTax({ ral: null, taxSaving: null })], taxYear: 2026 })[2].reason).toBe('senza RAL');
-    expect(selectPensionStrip({ blocks: [withTax({ taxSaving: 0 })], taxYear: 2026 })[2].reason).toBe('nessun versamento');
+    // A year fed by TFR alone has nothing deductible: the Versato row beside lists its TFR, so «nessun
+    // versamento» would be false (2026-10-16, owner: «solo TFR»); a deductible year without a saving is rare (a RAL under the no-tax area).
+    expect(selectPensionStrip({ blocks: [withTax({ taxSaving: 0, tfr: 1200, voluntary: 0, employer: 0, employerInYear: 0, deductible: 0 })], taxYear: 2026 })[2].reason).toBe('solo TFR');
+    expect(selectPensionStrip({ blocks: [withTax({ taxSaving: 0, tfr: 0, voluntary: 0, employer: 0, employerInYear: 0, deductible: 0 })], taxYear: 2026 })[2].reason).toBe('nessun versamento');
+    expect(selectPensionStrip({ blocks: [withTax({ taxSaving: 0 })], taxYear: 2026 })[2].reason).toBe('nessun beneficio');
     const unassigned = selectPensionStrip({ blocks: [{ ...measured(), kind: 'unassigned', name: null, tax: null }], taxYear: 2026 });
     expect(unassigned.map((figure) => figure.reason)).toEqual([undefined, 'fondo non assegnato', 'fondo non assegnato']);
     expect(validateStrip(unassigned, KNOWN)).toEqual([]);
   });
 
   it('should follow the axis year on the two annual cells and keep the market cell off it', () => {
+    const thisYear = selectPensionStrip({ blocks: [measured()], taxYear: 2026 });
     const strip = selectPensionStrip({ blocks: summarizePensionMembers({ ...INPUT, taxYear: 2025 }), taxYear: 2025 });
     expect(strip[0].label).toBe('Mercato da nov 2025');
+    // The market cell is off the axis: its value is the same whatever the fiscal year shown (2026-10-16).
+    expect(strip[0].value).toBe(thisYear[0].value);
     expect(strip[1].label).toBe('Datore nel 2025');
     expect(strip[1].reason).toBe('nessun versamento');
+    expect(strip[2].label).toBe('Fisco nel 2025, circa');
+    expect([strip[2].value, strip[2].reason]).not.toEqual([thisYear[2].value, thisYear[2].reason]);
+  });
+
+  it('should print a return that rounds to zero the same way in the cell and in the verdict: unsigned (2026-10-16)', () => {
+    const block = measured();
+    const zero: PensionMemberBlock = { ...block, return: { ...block.return!, twr: 0.004 } };
+    const strip = selectPensionStrip({ blocks: [zero], taxYear: 2026 });
+    expect(cellText(strip[0])).toBe('0,00%');
+    const verdict = plain(narrativeToText(buildPensionVerdict({ blocks: [zero], taxYear: 2026, currentYear: 2026 }).sentence));
+    expect(verdict).toContain(`il mercato ha reso ${cellText(strip[0])} (TWR)`);
+  });
+});
+
+// ─── resolvePensionSections — which rows a failed read flags (2026-10-16) ──────
+// Seen red with `|| input.snapshotsError` dropped from Rendimento (a failed snapshots read flagged no row).
+
+describe('resolvePensionSections', () => {
+  const flagged = (sections: readonly { id: string; failed?: boolean }[]) => sections.filter((section) => section.failed).map((section) => section.id);
+
+  it('flags Rendimento on the snapshots alone, every row on the contributions, and knows no row without a fund', () => {
+    expect(flagged(resolvePensionSections({ hasFund: true, contributionsError: false, snapshotsError: true }))).toEqual([PENSION_SECTION_IDS.rendimento]);
+    expect(flagged(resolvePensionSections({ hasFund: true, contributionsError: true, snapshotsError: false }))).toEqual(Object.values(PENSION_SECTION_IDS));
+    expect(resolvePensionSections({ hasFund: true, contributionsError: false, snapshotsError: false }).map((section) => section.id)).toEqual(Object.values(PENSION_SECTION_IDS));
+    expect(resolvePensionSections({ hasFund: false, contributionsError: true, snapshotsError: true })).toEqual([]);
   });
 });

@@ -22,7 +22,7 @@
  * `cachedFormatCurrencyEUR` (no-break space before €) — AGENTS.md → Italian Localization.
  */
 
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, printedSign } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
@@ -39,10 +39,17 @@ const amount = (value: number): NarrativeSegment => figure(cachedFormatCurrencyE
 
 const TYPOGRAPHIC_MINUS = '−';
 
-/** «+7,96%» / «−2,40%», coloured by sign. */
+/**
+ * «+7,96%» / «−2,40%», coloured by sign — and «0,00%», unsigned and uncoloured, when the value
+ * PRINTS as zero (`printedSign`, decision 20 of doc/mobile/README.md § 9; since 2026-10-16): the
+ * strip cell «Mercato da …» prints the same TWR through `formatStripFigure`, which decides on the
+ * text, and the two read «+0,00%» against «0,00%» until then.
+ */
 function signedPct(value: number): NarrativeSegment {
-  const sign = value >= 0 ? '+' : TYPOGRAPHIC_MINUS;
-  return { text: `${sign}${formatPercentage(Math.abs(value), 2)}`, mono: true, sign: value >= 0 ? 'positive' : 'negative' };
+  const sign = printedSign(value, 2);
+  const magnitude = formatPercentage(Math.abs(value), 2);
+  if (sign === 0) return { text: magnitude, mono: true };
+  return { text: `${sign > 0 ? '+' : TYPOGRAPHIC_MINUS}${magnitude}`, mono: true, sign: sign > 0 ? 'positive' : 'negative' };
 }
 
 /** 'YYYY-MM' → «novembre 2025» / «nov 2025». */

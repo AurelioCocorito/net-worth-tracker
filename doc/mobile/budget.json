@@ -110,7 +110,7 @@
         "figuresOutsideVerdict": 5,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno"
+        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; MOB-03: la prima riga chiusa (Sintesi) finisce a 879 contro la pill a 767 — la striscia prende due righe («+3000,00 €» è una cella larga, decisione 28) e LA tessera tiene la pill del periodo a 44 px e la curva già a 120 px; decisione 19 estesa alla Panoramica (README § 9, 65)"
       },
       "768": {
         "screens": 1.26,
@@ -153,14 +153,14 @@
         "raisedBy": "MOB-05: deriva del giorno del mese, non del codice — la build di develop (83de3f68) misurata lo stesso giorno (2026-10-14) dà esattamente questi valori prima e dopo la sessione: 390 screens 3,23 → 3,25; 768 figuresAboveFold 25 → 26; 1024 screens 2,64 → 2,67, figuresAboveFold 18 → 19, tilesAboveFold 3 → 1 (doc/guide/prima-schermata.md § Per-page blind spots, l'erede è MOB-08 § 2)"
       },
       "1024": {
-        "screens": 1.57,
+        "screens": 1.58,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 10,
         "figuresOutsideVerdict": 7,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-06: LA tessera non sta più intera sopra la piega — il verdetto prende la striscia e «Il perché» (la composizione vale fino a 1439), e Patrimonio totale lordo scende sotto i 768 px; 1024 è di MOB-08, che ne decide le colonne (README § 9, 84)"
+        "raisedBy": "MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-06: LA tessera non sta più intera sopra la piega — il verdetto prende la striscia e «Il perché» (la composizione vale fino a 1439), e Patrimonio totale lordo scende sotto i 768 px; 1024 è di MOB-08, che ne decide le colonne (README § 9, 84)"
       }
     },
     "cashflow-tracciamento": {
@@ -204,17 +204,17 @@
         "figuresOutsideVerdict": 9,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno"
+        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; MOB-04: il Tetto del mese (LA tessera) parte a 404 ed è alto 495 anche con i KPI sollevati — lo storico a barre e gli obiettivi di entrata non hanno una curva da accorciare — e finisce a 899 contro la pill a 767: tilesFullyAboveFold 1 → 0; la prima riga chiusa inizia a 967 (decisione 19); la pill a 44 px da MOB-02"
       },
       "768": {
-        "screens": 1.35,
+        "screens": 1.36,
         "tilesAboveFold": 4,
         "tilesFullyAboveFold": 4,
         "figuresAboveFold": 17,
         "figuresOutsideVerdict": 11,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-02: pill a 44 px"
       },
       "1024": {
         "screens": 1.62,
@@ -288,7 +288,7 @@
         "figuresOutsideVerdict": 7,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno"
+        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; la pill a 44 px da MOB-02"
       }
     },
     "cashflow-dividendi": {
@@ -393,7 +393,7 @@
         "figuresOutsideVerdict": 7,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno"
+        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; MOB-06: la prima riga chiusa (Composizione) finisce a 994 contro la pill a 767 — il verdetto è alto 260 (titolo su due righe, il primo enunciato su tre, le due celle), LA tessera (Evoluzione) 495 con la curva già a 120 px e la lettura intera; decisione 19 estesa a Storico (README § 9, 84)"
       },
       "768": {
         "screens": 1.31,
@@ -424,26 +424,27 @@
         "figuresOutsideVerdict": 16,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-07: Bilanciamento non ha una curva da cedere (decisione 19): la prima riga chiusa (Per classe) finisce sotto la pill a 390"
+        "raisedBy": "MOB-07: Bilanciamento non ha una curva da cedere (decisione 19): la prima riga chiusa (Per classe) finisce sotto la pill a 390; MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       },
       "768": {
         "screens": 1.2,
         "tilesAboveFold": 5,
         "tilesFullyAboveFold": 5,
-        "figuresAboveFold": 17,
-        "figuresOutsideVerdict": 16,
+        "figuresAboveFold": 18,
+        "figuresOutsideVerdict": 17,
         "firstClosedRowAbovePill": true,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-07 (ritiro, 2026-10-16, decisione 99): la cella «Fuori posizione» stampa lo 0,0% che la lettura stampa (sul fixture la casa e il conto stanno in classi senza target) e dal tablet il KPI resta intero accanto alla striscia: una cifra in più sopra la piega e fuori dal verdetto; a 390 il KPI è sollevato e nulla si muove"
       },
       "1024": {
         "screens": 1.48,
         "tilesAboveFold": 2,
-        "tilesFullyAboveFold": 2,
-        "figuresAboveFold": 17,
-        "figuresOutsideVerdict": 16,
+        "tilesFullyAboveFold": 1,
+        "figuresAboveFold": 18,
+        "figuresOutsideVerdict": 17,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
+        "raisedBy": "MOB-07 (ritiro, 2026-10-16, decisione 99): la cella «Fuori posizione» stampa lo 0,0% che la lettura stampa (sul fixture la casa e il conto stanno in classi senza target) e dal tablet il KPI resta intero accanto alla striscia: una cifra in più sopra la piega e fuori dal verdetto; a 390 il KPI è sollevato e nulla si muove; MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       }
     },
     "previdenza": {
@@ -465,17 +466,17 @@
         "figuresOutsideVerdict": 11,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-07: le cifre fuori dal verdetto sono le tre celle, l'eroe e le chip di Il fondo oggi («≤ 5» non raggiunto, dichiarato — decisione 91); a 768 la striscia di tre celle lascia sopra la piega una tessera sola"
+        "raisedBy": "MOB-07: le cifre fuori dal verdetto sono le tre celle, l'eroe e le chip di Il fondo oggi («≤ 5» non raggiunto, dichiarato — decisione 91); a 768 la striscia di tre celle lascia sopra la piega una tessera sola; MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       },
       "1024": {
-        "screens": 1.74,
+        "screens": 1.75,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 9,
         "figuresOutsideVerdict": 9,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
+        "raisedBy": "MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       }
     },
     "fire-calcolatore": {
@@ -487,7 +488,7 @@
         "figuresOutsideVerdict": 10,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-07: la prima riga chiusa (Base di calcolo) finisce sotto la pill a 390 con il grafico del Traguardo già a 120 px (decisione 90); le cifre fuori dal verdetto sono le due celle, il numero FIRE, il chip e la didascalia del Traguardo («≤ 5» non raggiunto, dichiarato — decisione 91)"
+        "raisedBy": "MOB-07: la prima riga chiusa (Base di calcolo) finisce sotto la pill a 390 con il grafico del Traguardo già a 120 px (decisione 90); le cifre fuori dal verdetto sono le due celle, il numero FIRE, il chip e la didascalia del Traguardo («≤ 5» non raggiunto, dichiarato — decisione 91); la pill a 44 px da MOB-02"
       },
       "768": {
         "screens": 1.24,
@@ -519,7 +520,7 @@
         "figuresOutsideVerdict": 12,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-07: la prima riga chiusa (Afflussi) finisce sotto la pill a 390 con il grafico del Traguardo già a 120 px (decisione 90); le cifre fuori dal verdetto sono le due celle, l'eroe, il chip e la didascalia del Traguardo e le etichette del grafico («≤ 5» non raggiunto, dichiarato — decisione 91)"
+        "raisedBy": "MOB-07: la prima riga chiusa (Afflussi) finisce sotto la pill a 390 con il grafico del Traguardo già a 120 px (decisione 90); le cifre fuori dal verdetto sono le due celle, l'eroe, il chip e la didascalia del Traguardo e le etichette del grafico («≤ 5» non raggiunto, dichiarato — decisione 91); la pill a 44 px da MOB-02"
       },
       "768": {
         "screens": 1.27,
@@ -551,7 +552,7 @@
         "figuresOutsideVerdict": 5,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-07: Evento è un modulo (decisione 19): la prima riga chiusa (Prima e dopo) finisce sotto la pill a 390"
+        "raisedBy": "MOB-07: Evento è un modulo (decisione 19): la prima riga chiusa (Prima e dopo) finisce sotto la pill a 390; la pill a 44 px da MOB-02"
       },
       "768": {
         "screens": 1.33,
@@ -583,7 +584,7 @@
         "figuresOutsideVerdict": 2,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-07: la prima riga chiusa (Distribuzione) finisce sotto la pill a 390 con il ventaglio già a 120 px (decisione 90); le cifre fuori dal verdetto sono le due celle (decisione 91)"
+        "raisedBy": "MOB-07: la prima riga chiusa (Distribuzione) finisce sotto la pill a 390 con il ventaglio già a 120 px (decisione 90); le cifre fuori dal verdetto sono le due celle (decisione 91); MOB-04: screens oscilla fra 4,87 e 4,89 a parità di codice — due corse consecutive sulla stessa build di develop (e450d00e, 2026-10-12, ritiro) leggono prima l'uno e poi l'altro; il --tighten della sessione aveva scritto 4,87 come deriva del giorno; MOB-07, che compone Monte Carlo, rimisura; la pill a 44 px da MOB-02"
       },
       "768": {
         "screens": 1.29,
@@ -686,7 +687,7 @@
         "figuresOutsideVerdict": 4,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno"
+        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; la pill a 44 px da MOB-02"
       },
       "1024": {
         "screens": 1.71,
@@ -696,7 +697,7 @@
         "figuresOutsideVerdict": 4,
         "firstClosedRowAbovePill": null,
         "overflowX": false,
-        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno"
+        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; la pill a 44 px da MOB-02"
       }
     }
   }

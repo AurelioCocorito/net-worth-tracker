@@ -20,7 +20,9 @@ import {
   describeVersato,
   describeVersatoFooter,
   formatMonthKey,
+  PENSION_CLOSED_ASIDES,
 } from '@/lib/utils/pensionNarrative';
+import { PENSION_SECTION_IDS } from '@/lib/utils/pensionSummary';
 import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
 import type {
   FundTodaySummary,
@@ -445,7 +447,7 @@ describe('load errors and the series aside', () => {
   });
 });
 
-// ─── The phone's cut (2026-10-15, MOB-07) ─────────────────────────────────────
+// ─── The phone's cut (2026-10-15, the composition of the page) ────────────────
 // Seen red with `leadLength` left `undefined` on one measured block (title only never happened).
 
 describe('buildPensionVerdict — title only with one measured contributor (decisions 3 and 46)', () => {
@@ -461,5 +463,28 @@ describe('buildPensionVerdict — title only with one measured contributor (deci
     expect(two.restLabel).toBeUndefined();
     const suspicious = buildPensionVerdict({ blocks: [{ ...MARIO, returnState: 'suspicious' }], taxYear: 2026, currentYear: 2026 });
     expect(suspicious.leadLength).toBeUndefined();
+  });
+});
+
+// ─── A printed zero, and the closed rows' words (2026-10-16, in the retirement of the composition) ──
+// Seen red: `signedPct` deciding the sign on the VALUE («+0,00%» green beside a strip cell that
+// prints «0,00%» unsigned — decision 20 of doc/mobile/README.md § 9, the class of the 66/72/78).
+
+describe('buildPensionVerdict — a market return that rounds to zero', () => {
+  it('prints it unsigned and uncoloured, as the strip cell does', () => {
+    const verdict = buildPensionVerdict({ blocks: [{ ...MARIO, return: { ...RETURN, twr: 0.004 } }], taxYear: 2026, currentYear: 2026 });
+    const text = narrativeToText(verdict.sentence).replace(/[  ]/g, ' ');
+    expect(text).toContain('il mercato ha reso 0,00% (TWR)');
+    expect(text).not.toContain('+0,00%');
+    expect(verdict.sentence.find((segment) => segment.text.includes('0,00%'))?.sign).toBeUndefined();
+    const noise = buildPensionVerdict({ blocks: [{ ...MARIO, return: { ...RETURN, twr: -0.004 } }], taxYear: 2026, currentYear: 2026 });
+    expect(narrativeToText(noise.sentence)).not.toContain('−0,00%');
+  });
+});
+
+describe('the closed rows\' asides — words, never a figure', () => {
+  it('names Anno fiscale and Versato without a digit; Rendimento and Versamenti have their own', () => {
+    expect(PENSION_CLOSED_ASIDES).toEqual({ [PENSION_SECTION_IDS.annoFiscale]: 'beneficio e plafond', [PENSION_SECTION_IDS.versato]: 'per natura' });
+    for (const aside of Object.values(PENSION_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
   });
 });

@@ -369,9 +369,10 @@ describe('summarizeSensitivity', () => {
   });
 });
 
-// ─── The phone's strip (2026-10-15, MOB-07) ───────────────────────────────────
+// ─── The phone's strip (2026-10-15) ───────────────────────────────────────────
 // Seen red one at a time: a delta of 0,3 printed as «0 €» (the threshold dropped); the tone fixed
-// to `negative` (a windfall coloured as a loss); the strip rendered for an empty event.
+// to `negative` (a windfall coloured as a loss); the strip rendered for an empty event. On
+// 2026-10-16: the direction word kept on a cell under the threshold («Patrimonio FIRE sale» over «invariato»).
 
 describe('isWhatIfChange', () => {
   it('should treat a change under half a unit as no change, and the unit as a parameter', () => {
@@ -414,7 +415,12 @@ describe('selectWhatIfStrip', () => {
     const still = selectWhatIfStrip({ event, summary: { ...summary, netWorth: pair(412_500, 412_500.3) }, divergence: null });
     expect(still.map((figure) => figure.value)).toEqual([null, null]);
     expect(still.map((figure) => figure.reason)).toEqual(['invariato', 'invariato']);
+    // Neither cell names a direction the sentences do not print: «sale» over «invariato» was the
+    // first cell's label until 2026-10-16 (owner: «Patrimonio FIRE oggi», neutral).
+    expect(still[0].label).toBe('Patrimonio FIRE oggi');
+    expect(still[0].tone).toBe('neutral');
     expect(still[1].label).toBe('Al FIRE di oggi');
+    expect(still[1].tone).toBe('neutral');
     expect(validateStrip(still, KNOWN)).toEqual([]);
     expect(selectWhatIfStrip({ event: { ...event, isEmpty: true }, summary, divergence })).toEqual([]);
   });

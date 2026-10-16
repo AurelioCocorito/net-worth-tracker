@@ -65,7 +65,7 @@ const VIEWPORTS = {
   1024: { width: 1024, height: 768 },
 };
 const SETTLE_TIMEOUT_MS = 60_000;
-/** A page with no figure at all (FIRE › Obiettivi off) is settled after this long without one. */
+/** A page with no figure at all (FIRE › Obiettivi off on an account without a goal — the census fixture has one since 2026-10-15; the mirror may not) is settled after this long without one. */
 const NO_FIGURE_GRACE_MS = 8_000;
 /** After the page looks settled: the last commit of a chart, a layout shift of a lazy tile. */
 const SETTLE_TAIL_MS = 500;
