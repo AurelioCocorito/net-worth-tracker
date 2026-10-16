@@ -20,6 +20,7 @@ import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, startsWithVowel } from '@/lib/utils/patrimonioNarrative';
 import type { FireLock } from '@/lib/utils/fireSummary';
 import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 import { MONTE_CARLO_SECTION_IDS, rateDecimals, resolveSuccessTone, type MonteCarloPlan, type MonteCarloRun, type PlanInflow, type PlanStatePension, type PlanWithdrawalTax, type ScenarioComparison, type ScenarioRunSummary } from '@/lib/utils/monteCarloSummary';
 import { cutAtFirstSentence, fireRestLabel, isLockStated } from '@/lib/utils/fireNarrative';
 
@@ -415,3 +416,34 @@ export const EXPLAINER: { title: string; body: string }[] = [
     body: 'Rendimenti indipendenti anno per anno, nessuna sequenza di crisi forzata, fondo pensione al valore di oggi: la simulazione misura la dispersione, non predice il futuro. Con la stessa allocazione il Ventaglio del Calcolatore mostra la fase di accumulo.',
   },
 ];
+
+// ─── The closed rows' answers ─────────────────────────────────────────────────
+
+export interface MonteCarloClosedAnswersInput {
+  /** The run shown; null before the first one (the rows do not exist). */
+  run: MonteCarloRun | null;
+  comparison: ScenarioComparison | null;
+  /** The plan the Parametri tile reads. */
+  plan: MonteCarloPlan | null;
+  stale: boolean;
+}
+
+/**
+ * What Monte Carlo's closed rows answer in the landscape index (components/ui/row-answers.tsx;
+ * 2026-10-16). Distribuzione: the 90th percentile, the one KPI the strip (the median) and the
+ * verdict (the 10% worst) do not print — «esaurito» as the tile says a depleted percentile, read on
+ * the «Valori finali» view whichever view the reader left open. Scenari: the bull's rate, the mirror
+ * of the strip's «Orso» cell, with the decimals the row prints. Parametri: the yearly withdrawal, the
+ * plan's one figure not printed above — but a stale form keeps «modificati: premi Esegui» (The
+ * Stale-Run Rule: a warning is never covered by an answer).
+ */
+export function describeMonteCarloClosedAnswers({ run, comparison, plan, stale }: MonteCarloClosedAnswersInput): RowAnswerMap {
+  const bull = comparison?.rows.find((row) => row.key === 'bull') ?? null;
+  const p90 = run?.finalPercentiles.p90 ?? null;
+  return {
+    [MONTE_CARLO_SECTION_IDS.distribuzione]:
+      p90 === null ? null : p90 <= 0 ? [prose('90° %ile esaurito')] : [prose('90° %ile'), figure(cachedFormatCurrencyEUR(p90, true))],
+    [MONTE_CARLO_SECTION_IDS.scenari]: bull ? [prose('Toro'), figure(formatPercentage(bull.successRate, rateDecimals(bull.successRate)))] : null,
+    [MONTE_CARLO_SECTION_IDS.parametri]: run && plan && !stale ? [prose('prelievo'), amount(plan.annualWithdrawal)] : null,
+  };
+}

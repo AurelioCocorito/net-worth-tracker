@@ -27,6 +27,7 @@ import {
   buildHallOfFameVerdict,
   describeClosedNotesAside,
   describeFullRanking,
+  describeHallOfFameClosedAnswers,
   describeHallOfFameHeader,
   describeIncomeAverage,
   describeIncomeRecords,
@@ -43,7 +44,7 @@ import {
   describeYearRecords,
   type HallOfFameVerdictInput,
 } from '@/lib/utils/hallOfFameNarrative';
-import type { NotesSummary, RecordBoard, RecordEntry } from '@/lib/utils/hallOfFameSummary';
+import { HOF_SECTION_IDS, type NotesSummary, type RecordBoard, type RecordEntry } from '@/lib/utils/hallOfFameSummary';
 import type { HallOfFameStats } from '@/types/hall-of-fame';
 import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 
@@ -520,5 +521,57 @@ describe('describeClosedNotesAside', () => {
     expect(describeClosedNotesAside(summary(0))).toBe('nessuna nota');
     expect(describeClosedNotesAside(summary(1))).toBe('una nota');
     expect(describeClosedNotesAside(summary(4))).toBe('4 note');
+  });
+});
+
+// ─── The closed rows' answers (landscape index, 2026-10-16) ──────────────────
+
+/**
+ * Each closed row's answer: the term beside the strip's figure of that ranking, or null where the
+ * row keeps its scope. Read as the index lays it out (segments trimmed, one gap between them).
+ * Falsified on 2026-10-16, one at a time: the running-year null of Anni went red with the
+ * `isCurrent` check dropped (it printed the strip's «Quest'anno» figure again); the Entrate null
+ * with the `> 0` guard dropped («media mensile 0 €»).
+ */
+describe('describeHallOfFameClosedAnswers', () => {
+  const answerText = (answer: Narrative | null | undefined) => (answer ? answer.map((segment) => segment.text.trim()).join(' ').replace(/[  ]/g, ' ') : null);
+  const stats = { monthCount: 46, yearCount: 4, averageMonthlyIncome: 3080, averageMonthlyExpenses: 2400, firstMonth: { year: 2022, month: 12 }, lastMonth: { year: 2026, month: 9 } } as HallOfFameStats;
+  const savingsTop = monthEntry({ key: '2022-12', year: 2022, month: 12, label: 'dic 2022', longLabel: 'dicembre 2022', value: 1200, income: 3000, percentage: 40 });
+  const bestYear = yearEntry({ key: '2025', year: 2025, label: '2025', longLabel: '2025', value: 9500, percentage: 3.4 });
+  const input = { stats, savingsTop, bestYear };
+  const answers = describeHallOfFameClosedAnswers(input);
+
+  it('answers Entrate, Risparmio and Anni, never Note', () => {
+    expect(answerText(answers[HOF_SECTION_IDS.entrate])).toBe('media mensile 3080 €');
+    expect(answerText(answers[HOF_SECTION_IDS.risparmio])).toBe('40,0% delle entrate');
+    expect(answerText(answers[HOF_SECTION_IDS.anni])).toBe('2025 +9500 €');
+    expect(answers[HOF_SECTION_IDS.note]).toBeNull();
+  });
+
+  it('fits in 22 characters with one figure; only the year\'s growth is coloured', () => {
+    for (const id of [HOF_SECTION_IDS.entrate, HOF_SECTION_IDS.risparmio, HOF_SECTION_IDS.anni]) {
+      expect(answerText(answers[id])!.length).toBeLessThanOrEqual(22);
+      expect(answers[id]!.filter((segment) => segment.mono)).toHaveLength(1);
+    }
+    expect(answerText(describeHallOfFameClosedAnswers({ ...input, stats: { ...stats, averageMonthlyIncome: 12345 } })[HOF_SECTION_IDS.entrate])).toBe('media mensile 12.345 €');
+    const figure = (id: string) => answers[id]!.find((segment) => segment.mono)!;
+    expect(figure(HOF_SECTION_IDS.anni).sign).toBe('positive');
+    expect(figure(HOF_SECTION_IDS.entrate).sign).toBeUndefined();
+    expect(figure(HOF_SECTION_IDS.risparmio).sign).toBeUndefined();
+  });
+
+  it('Entrate: null without stats or with no income on average', () => {
+    expect(describeHallOfFameClosedAnswers({ ...input, stats: null })[HOF_SECTION_IDS.entrate]).toBeNull();
+    expect(describeHallOfFameClosedAnswers({ ...input, stats: { ...stats, averageMonthlyIncome: 0 } })[HOF_SECTION_IDS.entrate]).toBeNull();
+  });
+
+  it('Risparmio: null without a record or without a rate', () => {
+    expect(describeHallOfFameClosedAnswers({ ...input, savingsTop: null })[HOF_SECTION_IDS.risparmio]).toBeNull();
+    expect(describeHallOfFameClosedAnswers({ ...input, savingsTop: { ...savingsTop, percentage: null } })[HOF_SECTION_IDS.risparmio]).toBeNull();
+  });
+
+  it('Anni: null without a year in growth and when the best year is the running one (the strip prints it)', () => {
+    expect(describeHallOfFameClosedAnswers({ ...input, bestYear: null })[HOF_SECTION_IDS.anni]).toBeNull();
+    expect(describeHallOfFameClosedAnswers({ ...input, bestYear: CURRENT_YEAR })[HOF_SECTION_IDS.anni]).toBeNull();
   });
 });

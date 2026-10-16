@@ -58,8 +58,17 @@ import { useGoalData } from '@/lib/hooks/useGoalData';
 import { useFreshness } from '@/lib/hooks/useFreshness';
 import { useInstrumentProfilesState } from '@/lib/hooks/usePortfolioExposure';
 import { useMobileSections } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { calculateAssetValue } from '@/lib/services/assetService';
@@ -108,6 +117,7 @@ import {
 import {
   ALLOCAZIONE_CLOSED_ASIDES,
   buildAllocazioneVerdict,
+  describeAllocazioneClosedAnswers,
   describeAllocazioneHeader,
   describeBalance,
   describeBalanceFooter,
@@ -125,6 +135,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { PageVerdict } from '@/components/ui/page-verdict';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
@@ -381,7 +392,9 @@ export default function AllocationPage() {
   const hasRows = hasAssets && !!bandedAllocation && !!balanceSummary && !!balanceScore && !!planView;
   const sectionSpecs = useMemo(() => resolveAllocazioneSections({ hasRows, hasPension, exposureFailed }), [hasRows, hasPension, exposureFailed]);
   const sections = useMobileSections({ route: 'allocation', sections: sectionSpecs });
-  // At 768/1024 the same rows on two or three columns (MOB-08); the specs ARE the DOM's rows.
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). The specs ARE the DOM's rows.
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({ sections, order: sectionSpecs.map((section) => section.id) });
   const { reveal: handleStripOpen } = sections;
   const exposureCollapse = sections.collapse(ALLOCAZIONE_SECTION_IDS.esposizione);
@@ -395,6 +408,9 @@ export default function AllocationPage() {
   // «Fuori posizione» hides its value on a phone (the strip has it).
   const strip = balanceScore ? selectAllocazioneStrip({ balance: balanceScore, gaps, leverageGapPp, untargeted }) : [];
   const bilanciamentoLifted = liftedBlocks(strip, ALLOCAZIONE_SECTION_IDS.bilanciamento).filter(isBilanciamentoLiftedBlock);
+  // What each closed row answers in the landscape index (2026-10-16): figures the page already has.
+  // Memoized: a new map on every render would re-render every row.
+  const rowAnswers = useMemo(() => describeAllocazioneClosedAnswers({ gaps: activeGaps, planView, pension }), [activeGaps, planView, pension]);
 
   // ─── The words (pure layer) ─────────────────────────────────────────────────
   const verdict = useMemo(
@@ -494,36 +510,46 @@ export default function AllocationPage() {
     <PageContainer>
       {header}
 
-      <div className="pt-1">
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <RowAnswers value={rowAnswers}>
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
+      <div data-stage="verdict" className={cn('pt-1', VERDICT_CELL_CLASS)}>
         <PageVerdict
           verdict={verdict}
           ariaLabel="Verdetto sull'allocazione"
           strip={<VerdictStrip figures={strip} onOpen={handleStripOpen} eyebrows={sections.eyebrows} />}
           restCollapse={sections.collapse(VERDICT_REST_SECTION)}
         />
-      </div>
 
-      {/* The band re-classifies the verdict, this page's plan and every chip at once. The region is
-          mounted with the page, before anything changes, so a reader is already watching it when the
-          text is rewritten — one created together with its content announces nothing. */}
-      <p className="sr-only" role="status" aria-live="polite">
-        {describeBandChange({ band, offTargetCount: balanceSummary.offTargetCount, classCount })}
-      </p>
+        {/* The band re-classifies the verdict, this page's plan and every chip at once. The region is
+            mounted with the page, before anything changes, so a reader is already watching it when the
+            text is rewritten — one created together with its content announces nothing. In the
+            verdict's box, never a loose cell of the stage; `sr-only` is out of the flow, so the box
+            measures what it did. */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {describeBandChange({ band, offTargetCount: balanceSummary.offTargetCount, classCount })}
+        </p>
+      </div>
 
       {/* Two columns at NATURAL height from `desktop:`, because the Piano is no longer a tile of
           Bilanciamento's size: naming the instruments of a rebalance makes it ~1060px beside a
           ~380px neighbour, and a tile inflated to fill that is an empty card, not a layout
           (AGENTS.md → a tile stretched beside a taller neighbour is cured in the GRID). Per classe
           rises under Bilanciamento, which closes the void to ~110px, and Esposizione takes the full
-          width below. Below `desktop:` the wrapper is `contents`, so the tiles are items of the
-          grid again in the DOM's order — ONE sequence, no `order-*` (decision 11): Bilanciamento,
-          «Il resto della pagina», Per classe, Piano, Esposizione, Previdenza.
-          Tablet (MOB-08): Bilanciamento on two columns, the closed rows two by two at 768 and beside
-          it at 1024, an open row on the whole grid row. */}
+          width below. Below `desktop:` the tiles are items of the grid in the DOM's order — ONE
+          sequence, no `order-*` (decision 11): Bilanciamento, «Il resto della pagina», Per classe,
+          Piano, Esposizione, Previdenza.
+          At 768 Bilanciamento on two columns, the closed rows two by two, an open row on the whole
+          grid row; on a tablet in landscape the index beside the verdict and Bilanciamento. */}
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
-      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
-        <div className="contents desktop:col-span-5 desktop:flex desktop:min-w-0 desktop:flex-col desktop:gap-3 desktop:self-start">
-        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS)}>
+      {/* At 1440 the left column is placed on the grid, not wrapped (since 2026-10-16, so that «Il resto»
+          and the rows fit ONE index on a tablet in landscape): Bilanciamento on row 1, Per classe under it
+          on row 2, Piano across both; the `1fr` second row takes Piano's extra height, so Per classe sits
+          right under Bilanciamento as the old column made it. */}
+      <div className={cn(COMPACT_GRID_CLASS, 'desktop:grid-rows-[auto_1fr]')}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-start-1 desktop:self-start')}>
           <BilanciamentoTile
             liftedFigures={bilanciamentoLifted}
             reading={describeBalance({
@@ -553,9 +579,10 @@ export default function AllocationPage() {
           />
         </div>
 
+        <div className={INDEX_CLASS}>
         <PageRest sections={sections} className={REST_CELL_CLASS} />
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.perClasse))} style={tablet.cellStyle(ALLOCAZIONE_SECTION_IDS.perClasse)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.perClasse), 'desktop:col-span-5 desktop:col-start-1 desktop:row-start-2 desktop:self-start')}>
           <PerClasseTile
             collapse={sections.collapse(ALLOCAZIONE_SECTION_IDS.perClasse)}
             asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.perClasse]}
@@ -567,9 +594,8 @@ export default function AllocationPage() {
             excludedByClass={excludedByClass}
           />
         </div>
-        </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.piano), 'desktop:col-span-7 desktop:self-start')} style={tablet.cellStyle(ALLOCAZIONE_SECTION_IDS.piano)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.piano), 'desktop:col-span-7 desktop:col-start-6 desktop:row-span-2 desktop:row-start-1 desktop:self-start')}>
           <PianoTile
             collapse={sections.collapse(ALLOCAZIONE_SECTION_IDS.piano)}
             asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.piano]}
@@ -587,7 +613,7 @@ export default function AllocationPage() {
             carries the one live node); a failed «Aggiorna» over profiles already read keeps the
             tile with its own notice. An unread slice is never a failed read: `failed` is the
             query's `isError` alone. At 1440 the tile is the tile of today. */}
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.esposizione), 'desktop:col-span-12')} style={tablet.cellStyle(ALLOCAZIONE_SECTION_IDS.esposizione)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.esposizione), 'desktop:col-span-12')}>
           {user && ownerId && exposureCollapse && exposureFailed && !profilesState.hasProfiles ? (
             <ErrorNotice
               collapse={exposureCollapse}
@@ -615,7 +641,7 @@ export default function AllocationPage() {
         </div>
 
         {pension && (
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.previdenza), 'desktop:col-span-12')} style={tablet.cellStyle(ALLOCAZIONE_SECTION_IDS.previdenza)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.previdenza), 'desktop:col-span-12')}>
             <PrevidenzaTile
               collapse={sections.collapse(ALLOCAZIONE_SECTION_IDS.previdenza)}
               asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.previdenza]}
@@ -625,8 +651,12 @@ export default function AllocationPage() {
             />
           </div>
         )}
+        </div>
       </div>
       </div>
+      </div>
+      </div>
+      </RowAnswers>
 
       {mobileAction}
 

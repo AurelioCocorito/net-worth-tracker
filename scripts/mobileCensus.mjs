@@ -97,7 +97,7 @@ export function measureFirstScreen({ figurePattern, withTexts }) {
   // The baseline's first screen: the scroller's own height (README § 3, kept for comparison).
   const fold = mainRect.top + main.clientHeight;
   // Correction 1: the first screen the eye gets ends at the pill's top edge.
-  const nav = document.querySelector('nav[aria-label="Navigazione principale"]');
+  const nav = document.querySelector('nav[data-nav="pill"]');
   const navRect = nav?.getBoundingClientRect();
   const pillVisible = !!nav && nav.checkVisibility() && navRect.height > 0;
   const pillTop = pillVisible ? navRect.top : mainRect.bottom;

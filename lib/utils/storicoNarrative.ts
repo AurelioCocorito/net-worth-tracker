@@ -23,7 +23,8 @@ import { articleForPercent, atThePercent, monthWithPrepositionA } from '@/lib/ut
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
 import type { DoublingMode, DoublingTimeSummary } from '@/types/assets';
 import type { CompositionCut, CompositionSeries } from '@/lib/utils/historyComposition';
-import { runningSinceMonth, type AllTimeHigh, type DoublingProjection, type DriverYear, type GrowthPace, type GrowthSummary, type LaborMetrics, type MonthlyMoves, type OtherIncomeCategory, type PeriodMonth } from '@/lib/utils/storicoSummary';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
+import { runningSinceMonth, STORICO_SECTION_IDS, type AllTimeHigh, type DoublingProjection, type DriverYear, type GrowthPace, type GrowthSummary, type LaborMetrics, type MonthlyMoves, type OtherIncomeCategory, type PeriodMonth } from '@/lib/utils/storicoSummary';
 import type { MonthAssetBreakdown } from '@/lib/utils/snapshotAssetBreakdown';
 import type { GrowthDrivers, MonthlyGrowthDrivers } from '@/lib/utils/growthDrivers';
 import { isMaterialOtherChange } from '@/lib/utils/salesNarrative';
@@ -698,4 +699,73 @@ export function describeNotes(count: number, snapshotCount: number, last: Period
   if (count === 0 || !last) return [prose('Nessuna nota: segna qui un evento che spiega un salto del grafico.')];
   if (count === 1) return [prose('Una nota su '), figure(String(snapshotCount)), prose(` rilevazioni, ${atPeriodMonth(last)}.`)];
   return [figure(String(count)), prose(' note su '), figure(String(snapshotCount)), prose(` rilevazioni; l'ultima ${atPeriodMonth(last)}.`)];
+}
+
+// ─── The closed rows' answers (landscape index) ───────────────────────────────
+
+export interface StoricoClosedAnswersInput {
+  /** The asset-class cut, always: the closed row's scope says «per classe» whatever the tile's toggle shows. */
+  composition: CompositionSeries;
+  doublings: { summary: DoublingTimeSummary; mode: DoublingMode };
+  featuredDriverYear: { row: DriverYear; isRunning: boolean } | null;
+  breakdown: MonthAssetBreakdown | null;
+}
+
+/** «Immobili 83,1%» — the heaviest band of the latest month, the first line of the tile's list. */
+function composizioneAnswer(series: CompositionSeries): Narrative | null {
+  const [top] = series.breakdown;
+  if (!top) return null;
+  return [prose(top.label), figure(formatPercentage(top.sharePct, 1))];
+}
+
+/**
+ * «raddoppio al 66%» / «traguardo al 13%» — how far the doubling (or the milestone) in progress
+ * is, rounded as the tile's row and the reading round it; it follows the tile's mode. Null with
+ * nothing in progress or a progress that prints as zero or below (the reading says why). The
+ * article is its own segment: the index binds an elided one to the figure («all'11%»), never «all' 11%».
+ */
+function raddoppiAnswer({ summary, mode }: StoricoClosedAnswersInput['doublings']): Narrative | null {
+  const current = summary.currentDoublingInProgress;
+  if (!current || current.progressPercentage === undefined) return null;
+  const pct = Math.round(current.progressPercentage);
+  if (pct <= 0) return null;
+  const noun = mode === 'threshold' ? 'traguardo' : 'raddoppio';
+  const article = atThePercent(pct, 0);
+  return [prose(noun), prose(article.trim()), figure(`${pct}%`)];
+}
+
+/**
+ * «mercato +3660 €» — the Mercato row of the featured year's ledger, as the ledger prints it. The
+ * complement of the strip's «Risparmio {anno}» cell, whose year it shares: so no year here.
+ */
+function driverAnswer(featured: StoricoClosedAnswersInput['featuredDriverYear']): Narrative | null {
+  if (!featured) return null;
+  const market = buildDriverLedger(featured.row).find((row) => row.key === 'market');
+  if (!market) return null;
+  const text = formatDriverEuro(market.value);
+  return [prose('mercato'), isPrintedZero(text) ? figure(text) : { text, mono: true, sign: market.value < 0 ? 'negative' : 'positive' }];
+}
+
+/**
+ * «su ago +660 €» — the read month's change on the month before, named as the Δ column's header
+ * names it. Not the portfolio's value: it is THE tile's hero.
+ */
+function valoreAnswer(breakdown: MonthAssetBreakdown | null): Narrative | null {
+  const previous = describePreviousMonthShort(breakdown);
+  if (!breakdown?.change || !previous) return null;
+  return [prose(`su ${previous}`), signedCurrency(breakdown.change.delta)];
+}
+
+/**
+ * What each closed row of Storico answers in the landscape index (2026-10-16): one figure per row
+ * that the strip, THE tile and the verdict's first sentence do not print, read from what the page
+ * already computed; null where the row keeps its scope. Keyed by `STORICO_SECTION_IDS`.
+ */
+export function describeStoricoClosedAnswers(input: StoricoClosedAnswersInput): RowAnswerMap {
+  return {
+    [STORICO_SECTION_IDS.composizione]: composizioneAnswer(input.composition),
+    [STORICO_SECTION_IDS.raddoppi]: raddoppiAnswer(input.doublings),
+    [STORICO_SECTION_IDS.driver]: driverAnswer(input.featuredDriverYear),
+    [STORICO_SECTION_IDS.valore]: valoreAnswer(input.breakdown),
+  };
 }

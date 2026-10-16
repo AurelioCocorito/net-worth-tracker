@@ -10,10 +10,21 @@
  * is «−12%» in both (`Math.round`), where `Intl` alone would print −13%.
  */
 
-import { buildOverviewVerdict, narrativeToText, resolveLivedCashflow, type OverviewVerdictInput } from '@/lib/utils/overviewNarrative';
+import {
+  annualPortfolioCostTotal,
+  buildOverviewVerdict,
+  describeLeadingClass,
+  liquidityShare,
+  narrativeToText,
+  projectCashflowMonthEnd,
+  resolveLivedCashflow,
+  type OverviewVerdictInput,
+} from '@/lib/utils/overviewNarrative';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { cachedFormatCurrencyEUR, formatPercentageIt, withTypographicMinus } from '@/lib/utils/formatters';
+import type { Narrative } from '@/lib/utils/narrative';
 import type { StripFigure } from '@/lib/utils/verdictStrip';
-import type { DashboardOverviewExpenseStats, DashboardOverviewPayload } from '@/types/dashboardOverview';
+import type { DashboardOverviewCategoryAmount, DashboardOverviewExpenseStats, DashboardOverviewPayload } from '@/types/dashboardOverview';
 
 /** THE tile of the page: open at every width, never a row (decision 21); a strip cell targets it. */
 export const OVERVIEW_PATRIMONIO_ID = 'panoramica-patrimonio';
@@ -137,5 +148,84 @@ export function describeOverviewAsides(overview: DashboardOverviewPayload): Reco
     [OVERVIEW_SECTION_IDS.spese]: stats && stats.topExpenseCategories.length > 0 ? 'le prime del mese' : 'nessuna spesa questo mese',
     [OVERVIEW_SECTION_IDS.entrate]: stats && stats.topIncomeCategories.length > 0 ? 'le prime del mese' : 'nessuna entrata questo mese',
     [OVERVIEW_SECTION_IDS.asset]: (overview.topAssets ?? []).length > 0 ? 'valore, peso, rendimento' : 'nessun asset in portafoglio',
+  };
+}
+
+// ─── The closed rows' answers (the landscape index, 2026-10-16) ──────────────────────────────
+
+/**
+ * A category list's first row as a closed row's answer, with the words of its reading
+ * (`describeCategoryShare`): «Auto 29%» as the row prints its share (`Math.round`), «tutto in
+ * Casa» with one category, «quasi tutto in Casa» when the first rounds to 100 beside others —
+ * a 99,6% share must not claim it all. Null with no row.
+ */
+function describeLeadingCategory(rows: readonly DashboardOverviewCategoryAmount[], kind: 'expenses' | 'income'): Narrative | null {
+  const [top, ...rest] = rows;
+  if (!top) return null;
+  const preposition = kind === 'income' ? 'da' : 'in';
+  if (rest.length === 0) return [{ text: `tutto ${preposition} ${top.category}` }];
+  if (Math.round(top.percentage) >= 100) return [{ text: `quasi tutto ${preposition} ${top.category}` }];
+  return [{ text: `${top.category} ` }, { text: `${Math.round(top.percentage)}%`, mono: true }];
+}
+
+/** The one figure of an answer, as printed; null for an answer in words only. */
+function answerFigure(answer: Narrative | null): string | null {
+  return answer?.find((segment) => segment.mono)?.text ?? null;
+}
+
+/**
+ * What each closed row of the Panoramica ANSWERS in the landscape index (components/ui/row-answers.tsx):
+ * words and at most one figure, never one the strip, THE tile or the verdict's first sentence
+ * already print (The Lifted-Figure Rule) — so the Cashflow row answers with the month-end
+ * projection, not the savings rate the strip carries. `null` keeps the row's scope aside: a tile
+ * with nothing to show, and «Asset principali» when its weight prints the same figure as
+ * «Composizione» two rows above (a house that is the only property: one number twice in one index).
+ * Every figure is printed as its tile prints it, from the same function.
+ */
+export function describeOverviewClosedAnswers(
+  overview: DashboardOverviewPayload,
+  calendar: { dayOfMonth: number; daysInMonth: number },
+): Record<OverviewSectionId, Narrative | null> {
+  const stats = overview.expenseStats;
+  const goals = overview.goalProgressList ?? (overview.goalProgress ? [overview.goalProgress] : []);
+  const { metrics, flags } = overview;
+
+  const liquid = liquidityShare(metrics.cashNetWorth, metrics.liquidInvestmentsNetWorth, metrics.totalValue);
+  // Liquid can go below zero (cards and loans over the accounts): the typographic minus, never Intl's hyphen.
+  const sintesi: Narrative | null = liquid
+    ? [{ text: 'liquidabile ' }, { text: withTypographicMinus(liquid.share, formatPercentageIt(Math.abs(liquid.share), 1)), mono: true }]
+    : null;
+
+  const projected = stats ? projectCashflowMonthEnd(stats.currentMonth, calendar.dayOfMonth, calendar.daysInMonth) : null;
+  const cashflow: Narrative | null =
+    projected === null ? null : [{ text: 'a fine mese ' }, { text: `~${cachedFormatCurrencyEUR(projected, true)}`, mono: true }];
+
+  const composizione = describeLeadingClass(overview.charts.assetClassData);
+
+  const costi: Narrative | null =
+    flags.hasTERTracking || flags.hasStampDuty
+      ? [{ text: 'costo annuo ' }, { text: cachedFormatCurrencyEUR(annualPortfolioCostTotal(metrics), true), mono: true }]
+      : null;
+
+  const featuredGoal = goals[0];
+  const obiettivo: Narrative | null = featuredGoal
+    ? [{ text: `${featuredGoal.goalName} ` }, { text: `${Math.round(featuredGoal.progressPercentage)}%`, mono: true }]
+    : null;
+
+  const topAsset = (overview.topAssets ?? [])[0];
+  const topAssetAnswer: Narrative | null = topAsset
+    ? [{ text: `${topAsset.name} ` }, { text: formatPercentageIt(topAsset.portfolioPercent, 1), mono: true }]
+    : null;
+  const asset = topAssetAnswer && answerFigure(topAssetAnswer) !== answerFigure(composizione) ? topAssetAnswer : null;
+
+  return {
+    [OVERVIEW_SECTION_IDS.sintesi]: sintesi,
+    [OVERVIEW_SECTION_IDS.cashflow]: cashflow,
+    [OVERVIEW_SECTION_IDS.composizione]: composizione,
+    [OVERVIEW_SECTION_IDS.costi]: costi,
+    [OVERVIEW_SECTION_IDS.obiettivo]: obiettivo,
+    [OVERVIEW_SECTION_IDS.spese]: stats ? describeLeadingCategory(stats.topExpenseCategories, 'expenses') : null,
+    [OVERVIEW_SECTION_IDS.entrate]: stats ? describeLeadingCategory(stats.topIncomeCategories, 'income') : null,
+    [OVERVIEW_SECTION_IDS.asset]: asset,
   };
 }

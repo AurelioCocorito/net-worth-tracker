@@ -28,6 +28,7 @@ import {
   describeBaseFooter,
   describeDettaglio,
   describeEmptyTiles,
+  describeFireClosedAnswers,
   describeImpostazioni,
   describeLock,
   describeParametri,
@@ -708,5 +709,46 @@ describe('the closed rows\' asides — words, never a figure', () => {
     expect(FIRE_CLOSED_ASIDES).toEqual({ [FIRE_SECTION_IDS.base]: 'spese, risparmio e SWR', [FIRE_SECTION_IDS.reddito]: 'al tasso di prelievo', [FIRE_SECTION_IDS.scenari]: 'orso, base e toro' });
     expect(FIRE_ROW_NOT_COMPUTABLE).toBe('non ancora calcolabile');
     for (const aside of [...Object.values(FIRE_CLOSED_ASIDES), FIRE_ROW_NOT_COMPUTABLE]) expect(aside).not.toMatch(/\d/);
+  });
+});
+
+// ─── The closed rows' answers in the landscape index (2026-10-16) ─────────────
+// Falsified on 2026-10-16, each in its own test: «past the SWR, red» went red with the `overSwr`
+// colour dropped; «the label shortens past 22» went red with the fallback removed («prelievo attuale
+// 123,4%», 23 characters); «the bear past the horizon» went red with the `calendarYear === null`
+// branch removed («Orso nel null»).
+
+describe('describeFireClosedAnswers', () => {
+  /** What the index shows: each segment trimmed, joined by the gap the row draws between them. */
+  const visible = (answer: Narrative | null | undefined) => (answer ? answer.map((segment) => segment.text.trim()).join(' ') : answer);
+  const answers = (over: Partial<Parameters<typeof describeFireClosedAnswers>[0]> = {}) =>
+    describeFireClosedAnswers({ base: { referenceYear: 2025, isAnnualized: false }, passiveIncome: income(), scenarioRows: scenarios(), horizonYears: 50, ...over });
+
+  it('answers the base with its cashflow window, the allowance with the withdrawal rate, the scenarios with the bear', () => {
+    const all = answers();
+    expect(visible(all[FIRE_SECTION_IDS.base])).toBe('cashflow 2025');
+    expect(visible(all[FIRE_SECTION_IDS.reddito])).toBe('prelievo attuale 6,7%');
+    expect(visible(all[FIRE_SECTION_IDS.scenari])).toBe('Orso nel 2036');
+    for (const answer of Object.values(all)) expect([...(visible(answer) ?? '')].length).toBeLessThanOrEqual(22);
+    expect(visible(answers({ base: { referenceYear: 2026, isAnnualized: true } })[FIRE_SECTION_IDS.base])).toBe('2026 annualizzato');
+  });
+
+  it('colours the withdrawal rate red only past the SWR, as the tile does', () => {
+    expect(answers()[FIRE_SECTION_IDS.reddito]?.find((segment) => segment.mono)?.sign).toBe('negative');
+    expect(answers({ passiveIncome: income({ currentWR: 3, overSwr: false }) })[FIRE_SECTION_IDS.reddito]?.find((segment) => segment.mono)?.sign).toBeUndefined();
+  });
+
+  it('shortens the label past 22 characters, never the figure', () => {
+    expect(visible(answers({ passiveIncome: income({ currentWR: 123.4 }) })[FIRE_SECTION_IDS.reddito])).toBe('prelievo 123,4%');
+  });
+
+  it('says the bear past the horizon and reached today in the tile\'s words', () => {
+    expect(visible(answers({ scenarioRows: scenarios({ bear: { yearsToFire: null, calendarYear: null } }) })[FIRE_SECTION_IDS.scenari])).toBe('Orso oltre 50 anni');
+    expect(visible(answers({ scenarioRows: scenarios({ bear: { yearsToFire: 0, calendarYear: 2026 } }) })[FIRE_SECTION_IDS.scenari])).toBe('Orso già raggiunto');
+  });
+
+  it('keeps the scope without a cashflow year, a withdrawal rate or a projection', () => {
+    const none = answers({ base: { referenceYear: null, isAnnualized: false }, passiveIncome: income({ currentWR: 0, overSwr: false }), scenarioRows: [] });
+    expect(none).toEqual({ [FIRE_SECTION_IDS.base]: null, [FIRE_SECTION_IDS.reddito]: null, [FIRE_SECTION_IDS.scenari]: null });
   });
 });

@@ -1,9 +1,8 @@
 'use client';
 
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
-import { describeMortgage, describeMortgageScope, describeMortgageYearScope, loanNoun } from '@/lib/utils/patrimonioNarrative';
+import { describeMortgage, describeMortgageScope, describeMortgageYearScope, loanNoun, payoffKpiValue } from '@/lib/utils/patrimonioNarrative';
 import type { MortgageSummary } from '@/lib/utils/mortgageSummary';
-import { MONTH_NAMES } from '@/lib/constants/months';
 import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 
@@ -16,11 +15,6 @@ interface MutuoTileProps {
   /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
   asideWhenClosed?: string;
   className?: string;
-}
-
-/** «nov 2036» — the projected end, short enough for a KPI. */
-function shortMonthYear(date: Date): string {
-  return `${MONTH_NAMES[date.getMonth()].slice(0, 3).toLowerCase()} ${date.getFullYear()}`;
 }
 
 function Kpi({ label, value, caption }: { label: string; value: string; caption?: string }) {
@@ -48,7 +42,7 @@ function Kpi({ label, value, caption }: { label: string; value: string; caption?
  */
 export function MutuoTile({ summary, showPropertyName, collapse, asideWhenClosed, className }: MutuoTileProps) {
   const payoff = summary.payoff;
-  const payoffValue = payoff?.kind === 'date' ? shortMonthYear(payoff.date) : payoff?.kind === 'repaid' ? 'estinto' : '—';
+  const payoffValue = payoffKpiValue(payoff);
   const payoffCaption =
     payoff?.kind === 'date'
       ? `${payoff.months === 1 ? '1 rata' : `${payoff.months} rate`} al ritmo di oggi`
@@ -70,8 +64,8 @@ export function MutuoTile({ summary, showPropertyName, collapse, asideWhenClosed
       reading={describeMortgage(summary)}
       className={className}
     >
-      {/* Four KPIs across from a 560px tile, by the TILE's width (a container query): in the 360px rail of a
-          tablet in landscape the tile is a phone's width at a 1024px viewport (MOB-08, 2026-10-16). */}
+      {/* Four KPIs across from a 560px tile, by the TILE's width (a container query): in the 360px index of a
+          tablet in landscape the tile is a phone's width at a 1024px viewport (2026-10-16). */}
       <div className="@container mt-3.5">
       <div className="grid grid-cols-2 gap-x-6 gap-y-4 @[560px]:grid-cols-4">
         <Kpi label="Debito residuo" value={cachedFormatCurrencyEUR(summary.debt)} />

@@ -27,10 +27,12 @@ import {
   describeIncomeConsumed,
   describeSplitAside,
   describeSplitBasis,
+  describeSplitClosedAnswers,
   describeSplitScope,
   formatBookedResidual,
 } from '@/lib/utils/expenseSplitNarrative';
 import type { CommonSpending, ExpenseSplitSummary, MemberBalance, SplitBasis } from '@/lib/utils/expenseSplitSummary';
+import { SPLIT_SECTION_IDS, splitMemberSectionId } from '@/lib/utils/expenseSplitSummary';
 import { narrativeToText, splitVerdict } from '@/lib/utils/narrative';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { Period } from '@/lib/utils/period';
@@ -611,5 +613,54 @@ describe('describeSplitAside', () => {
     expect(
       describeSplitAside(summary({ basis: { kind: 'unavailable', reason: 'missing-income', missingNames: ['x'], unattributedIncome: 0 } }))
     ).toBeNull();
+  });
+});
+
+/**
+ * The closed rows' answers of Divisione (2026-10-16): each person's row answers the share of their
+ * income the period took; Quota keeps its scope. Segments joined with a space, as the index's gap
+ * sets them. Falsified on 2026-10-16, one at a time: «the tile's own figure» went red with the
+ * answer measured on the common share alone (`commonShare / income`); «Quota keeps its scope» went
+ * red with Quota answering the split aside; «no basis, no answer» went red with the null branch
+ * dropped (a «NaN%» answer).
+ */
+describe('describeSplitClosedAnswers', () => {
+  const answer = (narrative: Narrative | null | undefined) => (narrative ? narrative.map((s) => s.text).join(' ').replace(/ /g, ' ') : null);
+
+  it('should answer each person with the share of their income the period took', () => {
+    const answers = describeSplitClosedAnswers(summary());
+    // Giuseppe: (600 + 300) / 2400 = 37,5% → 38%; Marcella: (400 + 100) / 1600 = 31,25% → 31%.
+    expect(answer(answers[splitMemberSectionId(GIUSEPPE.member.id)])).toBe('se ne va il 38%');
+    expect(answer(answers[splitMemberSectionId(MARCELLA.member.id)])).toBe('se ne va il 31%');
+    expect(answers[splitMemberSectionId(GIUSEPPE.member.id)]).toEqual([{ text: 'se ne va' }, { text: 'il' }, { text: '38%', mono: true }]);
+  });
+
+  it('should print the figure the tile prints under the hero (one source)', () => {
+    const tileFigure = describeIncomeConsumed(GIUSEPPE)!.find((s) => s.mono)!.text;
+    const answerFigure = describeSplitClosedAnswers(summary())[splitMemberSectionId(GIUSEPPE.member.id)]!.find((s) => s.mono)!.text;
+    expect(answerFigure).toBe(tileFigure);
+  });
+
+  it('should print a share above 100% as it is, like the tile', () => {
+    const over = balance({ name: 'Nibbio', income: 1000, share: 0.5, commonShare: 800, personalSpending: 300, remaining: -100 });
+    expect(answer(describeSplitClosedAnswers(summary({ members: [over] }))[splitMemberSectionId(over.member.id)])).toBe('se ne va il 110%');
+  });
+
+  it('should keep «quanto resta» without income or without a basis', () => {
+    const noIncome = balance({ name: 'Nibbio', income: 0, share: 0.5, commonShare: 300, personalSpending: 100, remaining: -400 });
+    const noBasis = balance({ name: 'Okapi', income: 1000 });
+    const answers = describeSplitClosedAnswers(summary({ members: [noIncome, noBasis] }));
+    expect(answers[splitMemberSectionId(noIncome.member.id)]).toBeNull();
+    expect(answers[splitMemberSectionId(noBasis.member.id)]).toBeNull();
+  });
+
+  it('should leave Quota its scope (null): the shares are the verdict’s first sentence', () => {
+    expect(describeSplitClosedAnswers(summary())[SPLIT_SECTION_IDS.quota]).toBeNull();
+  });
+
+  it('should fit 22 visible characters on round figures', () => {
+    for (const narrative of Object.values(describeSplitClosedAnswers(summary()))) {
+      if (narrative) expect(answer(narrative)!.length).toBeLessThanOrEqual(22);
+    }
   });
 });

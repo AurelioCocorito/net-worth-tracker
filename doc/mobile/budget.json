@@ -113,13 +113,14 @@
         "overflowX": false
       },
       "1024": {
-        "screens": 1.13,
-        "tilesAboveFold": 7,
-        "tilesFullyAboveFold": 7,
-        "figuresAboveFold": 5,
-        "figuresOutsideVerdict": 5,
+        "screens": 1,
+        "tilesAboveFold": 8,
+        "tilesFullyAboveFold": 8,
+        "figuresAboveFold": 10,
+        "figuresOutsideVerdict": 10,
         "firstClosedRowAbovePill": true,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 5 → 10, figuresOutsideVerdict 5 → 10 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega"
       }
     },
     "patrimonio": {
@@ -141,17 +142,17 @@
         "figuresOutsideVerdict": 4,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-05: deriva del giorno del mese, non del codice — la build di develop (83de3f68) misurata lo stesso giorno (2026-10-14) dà esattamente questi valori prima e dopo la sessione: 390 screens 3,23 → 3,25; 768 figuresAboveFold 25 → 26; 1024 screens 2,64 → 2,67, figuresAboveFold 18 → 19, tilesAboveFold 3 → 1 (doc/guide/prima-schermata.md § Per-page blind spots, l'erede è MOB-08 § 2)"
+        "raisedBy": "MOB-05: deriva del giorno del mese, non del codice — la build di develop (83de3f68) misurata lo stesso giorno (2026-10-14) dà esattamente questi valori prima e dopo la sessione: 390 screens 3,23 → 3,25; 768 figuresAboveFold 25 → 26; 1024 screens 2,64 → 2,67, figuresAboveFold 18 → 19, tilesAboveFold 3 → 1 (doc/guide/prima-schermata.md § Per-page blind spots, la prova N / N+1, non fatta nel ritiro di MOB-08, README § 9, 109)"
       },
       "1024": {
-        "screens": 1.09,
+        "screens": 1.01,
         "tilesAboveFold": 6,
-        "tilesFullyAboveFold": 5,
-        "figuresAboveFold": 7,
-        "figuresOutsideVerdict": 4,
+        "tilesFullyAboveFold": 6,
+        "figuresAboveFold": 11,
+        "figuresOutsideVerdict": 8,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-06: LA tessera non sta più intera sopra la piega — il verdetto prende la striscia e «Il perché» (la composizione vale fino a 1439), e Patrimonio totale lordo scende sotto i 768 px; 1024 è di MOB-08, che ne decide le colonne (README § 9, 84)"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 7 → 11, figuresOutsideVerdict 4 → 8 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-06: LA tessera non sta più intera sopra la piega — il verdetto prende la striscia e «Il perché» (la composizione vale fino a 1439), e Patrimonio totale lordo scende sotto i 768 px; 1024 è di MOB-08, che ne decide le colonne (README § 9, 84)"
       }
     },
     "cashflow-tracciamento": {
@@ -176,14 +177,14 @@
         "raisedBy": "MOB-08 (2026-10-16): riga null → false — la prima riga chiusa finisce 47 px sotto la pill a 947 — a 768 LA tessera sta a tutta larghezza dopo il verdetto, la curva già a 120 px (decisione 103, la 19 estesa a 768; a 1024 è sopra il fondo di main); MOB-06: deriva del giorno del mese, non del codice: il confronto «sui primi N giorni» del mese scorso prendeva le righe del seed ai giorni 5, 10, 15 e 20 una alla volta — dal 15 lo stipendio porta sulla prima schermata le due frecce del trio (la seconda ristampa il ritmo del primo enunciato); valori identici sulla build di develop prima di MOB-06 (4dc553c2) misurata il 2026-10-15, due corse. Il seed mette ora ogni mese passato al giorno 5 (scripts/seedCensusE2E.mts): dal 5 al penultimo questi sono i valori di ogni giorno. Ritiro di MOB-06, 2026-10-15, decisione 87; la pill a 44 px da MOB-02"
       },
       "1024": {
-        "screens": 1.25,
+        "screens": 1.15,
         "tilesAboveFold": 5,
-        "tilesFullyAboveFold": 3,
-        "figuresAboveFold": 13,
-        "figuresOutsideVerdict": 7,
+        "tilesFullyAboveFold": 4,
+        "figuresAboveFold": 15,
+        "figuresOutsideVerdict": 9,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-08 (2026-10-16): figuresOutsideVerdict 5 → 7 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16); MOB-06: deriva del giorno del mese, non del codice: il confronto «sui primi N giorni» del mese scorso prendeva le righe del seed ai giorni 5, 10, 15 e 20 una alla volta — dal 15 lo stipendio porta sulla prima schermata le due frecce del trio (la seconda ristampa il ritmo del primo enunciato); valori identici sulla build di develop prima di MOB-06 (4dc553c2) misurata il 2026-10-15, due corse. Il seed mette ora ogni mese passato al giorno 5 (scripts/seedCensusE2E.mts): dal 5 al penultimo questi sono i valori di ogni giorno. Ritiro di MOB-06, 2026-10-15, decisione 87; la pill a 44 px da MOB-02"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 13 → 15, figuresOutsideVerdict 7 → 9 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-08 (2026-10-16): figuresOutsideVerdict 5 → 7 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16); MOB-06: deriva del giorno del mese, non del codice: il confronto «sui primi N giorni» del mese scorso prendeva le righe del seed ai giorni 5, 10, 15 e 20 una alla volta — dal 15 lo stipendio porta sulla prima schermata le due frecce del trio (la seconda ristampa il ritmo del primo enunciato); valori identici sulla build di develop prima di MOB-06 (4dc553c2) misurata il 2026-10-15, due corse. Il seed mette ora ogni mese passato al giorno 5 (scripts/seedCensusE2E.mts): dal 5 al penultimo questi sono i valori di ogni giorno. Ritiro di MOB-06, 2026-10-15, decisione 87; la pill a 44 px da MOB-02"
       }
     },
     "cashflow-budget": {
@@ -208,14 +209,14 @@
         "raisedBy": "MOB-08 (2026-10-16): riga true → false — la prima riga chiusa finisce 8 px sotto la pill a 947 — a 768 LA tessera sta a tutta larghezza dopo il verdetto, la curva già a 120 px (decisione 103, la 19 estesa a 768; a 1024 è sopra il fondo di main) — il budget aveva `true`; MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 1.29,
+        "screens": 1.17,
         "tilesAboveFold": 5,
         "tilesFullyAboveFold": 4,
-        "figuresAboveFold": 15,
-        "figuresOutsideVerdict": 9,
+        "figuresAboveFold": 17,
+        "figuresOutsideVerdict": 11,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-04: figuresAboveFold 15 → 17 — la striscia di due celle («Fine mese», «Restano»/«Oltre») si disegna fino a 1439 e da 768 i KPI del Tetto tornano interi; la pill a 44 px da MOB-02"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 15 → 17, figuresOutsideVerdict 9 → 11 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-04: figuresAboveFold 15 → 17 — la striscia di due celle («Fine mese», «Restano»/«Oltre») si disegna fino a 1439 e da 768 i KPI del Tetto tornano interi; la pill a 44 px da MOB-02"
       }
     },
     "cashflow-centri": {
@@ -240,14 +241,14 @@
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 1.14,
+        "screens": 1.04,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 2,
-        "figuresAboveFold": 10,
-        "figuresOutsideVerdict": 5,
+        "figuresAboveFold": 11,
+        "figuresOutsideVerdict": 6,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 10 → 11, figuresOutsideVerdict 5 → 6 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-02: pill a 44 px"
       }
     },
     "cashflow-divisione": {
@@ -272,14 +273,14 @@
         "raisedBy": "MOB-08 (2026-10-16): screens 1.19 → 1.2, riga null → false — la testata più alta di 8 px: l'icona Impostazioni di Cashflow e «Crea snapshot» passano da 36 a 44 px, bersagli per il pollice (decisione 104); la prima riga chiusa finisce 50 px sotto la pill a 947 — a 768 LA tessera sta a tutta larghezza dopo il verdetto, la curva già a 120 px (decisione 103, la 19 estesa a 768; a 1024 è sopra il fondo di main); MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 1.26,
+        "screens": 1.13,
         "tilesAboveFold": 4,
         "tilesFullyAboveFold": 3,
-        "figuresAboveFold": 16,
-        "figuresOutsideVerdict": 7,
+        "figuresAboveFold": 20,
+        "figuresOutsideVerdict": 11,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; la pill a 44 px da MOB-02"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 16 → 20, figuresOutsideVerdict 7 → 11 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; la pill a 44 px da MOB-02"
       }
     },
     "cashflow-dividendi": {
@@ -307,11 +308,11 @@
         "screens": 1.08,
         "tilesAboveFold": 6,
         "tilesFullyAboveFold": 6,
-        "figuresAboveFold": 6,
-        "figuresOutsideVerdict": 4,
+        "figuresAboveFold": 8,
+        "figuresOutsideVerdict": 6,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-04: tilesAboveFold 3 → 1 — sotto Incasso netto (295 → 673) le righe chiuse partono a 742 su 768 di altezza e non contano come iniziate; la pill a 44 px da MOB-02"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 6 → 8, figuresOutsideVerdict 4 → 6 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-04: tilesAboveFold 3 → 1 — sotto Incasso netto (295 → 673) le righe chiuse partono a 742 su 768 di altezza e non contano come iniziate; la pill a 44 px da MOB-02"
       }
     },
     "analisi": {
@@ -335,14 +336,14 @@
         "overflowX": false
       },
       "1024": {
-        "screens": 1.24,
+        "screens": 1.14,
         "tilesAboveFold": 6,
-        "tilesFullyAboveFold": 4,
-        "figuresAboveFold": 8,
-        "figuresOutsideVerdict": 5,
+        "tilesFullyAboveFold": 6,
+        "figuresAboveFold": 11,
+        "figuresOutsideVerdict": 8,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-06: LA tessera (Periodo) non sta più intera sopra la piega — l'asse sotto il titolo, la striscia, lo scope e «Il perché» (la composizione vale fino a 1439); 1024 è di MOB-08, che ne decide le colonne (README § 9, 84)"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 8 → 11, figuresOutsideVerdict 5 → 8 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-06: LA tessera (Periodo) non sta più intera sopra la piega — l'asse sotto il titolo, la striscia, lo scope e «Il perché» (la composizione vale fino a 1439); 1024 è di MOB-08, che ne decide le colonne (README § 9, 84)"
       }
     },
     "rendimenti": {
@@ -366,13 +367,14 @@
         "overflowX": false
       },
       "1024": {
-        "screens": 1.23,
-        "tilesAboveFold": 6,
-        "tilesFullyAboveFold": 5,
-        "figuresAboveFold": 5,
-        "figuresOutsideVerdict": 5,
+        "screens": 1.08,
+        "tilesAboveFold": 7,
+        "tilesFullyAboveFold": 7,
+        "figuresAboveFold": 10,
+        "figuresOutsideVerdict": 10,
         "firstClosedRowAbovePill": true,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 5 → 10, figuresOutsideVerdict 5 → 10 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega"
       }
     },
     "storico": {
@@ -397,13 +399,14 @@
         "raisedBy": "MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       },
       "1024": {
-        "screens": 1.37,
+        "screens": 1.24,
         "tilesAboveFold": 5,
-        "tilesFullyAboveFold": 4,
-        "figuresAboveFold": 12,
-        "figuresOutsideVerdict": 8,
+        "tilesFullyAboveFold": 5,
+        "figuresAboveFold": 16,
+        "figuresOutsideVerdict": 12,
         "firstClosedRowAbovePill": true,
-        "overflowX": false
+        "overflowX": false,
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 12 → 16, figuresOutsideVerdict 8 → 12 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega"
       }
     },
     "allocazione": {
@@ -428,14 +431,14 @@
         "raisedBy": "MOB-07 (ritiro, 2026-10-16, decisione 99): la cella «Fuori posizione» stampa lo 0,0% che la lettura stampa (sul fixture la casa e il conto stanno in classi senza target) e dal tablet il KPI resta intero accanto alla striscia: una cifra in più sopra la piega e fuori dal verdetto; a 390 il KPI è sollevato e nulla si muove"
       },
       "1024": {
-        "screens": 1.07,
+        "screens": 1.16,
         "tilesAboveFold": 5,
         "tilesFullyAboveFold": 5,
-        "figuresAboveFold": 18,
-        "figuresOutsideVerdict": 16,
+        "figuresAboveFold": 19,
+        "figuresOutsideVerdict": 18,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-07 (ritiro, 2026-10-16, decisione 99): la cella «Fuori posizione» stampa lo 0,0% che la lettura stampa (sul fixture la casa e il conto stanno in classi senza target) e dal tablet il KPI resta intero accanto alla striscia: una cifra in più sopra la piega e fuori dal verdetto; a 390 il KPI è sollevato e nulla si muove; MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): screens 1,07 → 1,16, figuresAboveFold 18 → 19, figuresOutsideVerdict 16 → 18 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; LA tessera arriva alla piega sotto il verdetto (decisione 105): la colonna sinistra è alta quanto lo schermo e ciò che segue lo stage parte sotto; MOB-07 (ritiro, 2026-10-16, decisione 99): la cella «Fuori posizione» stampa lo 0,0% che la lettura stampa (sul fixture la casa e il conto stanno in classi senza target) e dal tablet il KPI resta intero accanto alla striscia: una cifra in più sopra la piega e fuori dal verdetto; a 390 il KPI è sollevato e nulla si muove; MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       }
     },
     "previdenza": {
@@ -460,14 +463,14 @@
         "raisedBy": "MOB-08 (2026-10-16): riga null → false — la prima riga chiusa finisce 9 px sotto la pill a 947 — a 768 LA tessera sta a tutta larghezza dopo il verdetto, la curva già a 120 px (decisione 103, la 19 estesa a 768; a 1024 è sopra il fondo di main); MOB-07: le cifre fuori dal verdetto sono le tre celle, l'eroe e le chip di Il fondo oggi («≤ 5» non raggiunto, dichiarato — decisione 91); a 768 la striscia di tre celle lascia sopra la piega una tessera sola; MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       },
       "1024": {
-        "screens": 1.34,
+        "screens": 1.21,
         "tilesAboveFold": 5,
         "tilesFullyAboveFold": 4,
-        "figuresAboveFold": 9,
-        "figuresOutsideVerdict": 9,
+        "figuresAboveFold": 14,
+        "figuresOutsideVerdict": 14,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 9 → 14, figuresOutsideVerdict 9 → 14 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-07 (ritiro, 2026-10-16, decisione 94): a parità di codice, un giorno dopo, sulla macchina di riferimento (census in 2,0 min) tre corse identiche leggono un centesimo in più di schermate o una tessera intera in meno — il --tighten del 2026-10-15 aveva stretto Patrimonio 1024 1,58 → 1,57 e Budget 768 1,36 → 1,35 senza dichiararlo in § 3.1; nello stesso giro Budget 390, Storico 390 e Impostazioni leggono 0,02 SOTTO il budget: la differenza fra le due macchine della decisione 89 è una deriva di ±0,01–0,02 per cella, in entrambi i versi; MOB-03: deriva del giorno del mese, non del codice — il codice di develop (1629613) misurato lo stesso giorno (11, contro il 10 della misura di MOB-01) dà esattamente questi valori; il fixture non è invariante al giorno come la decisione 10 assume (doc/guide/prima-schermata.md § Per-page blind spots)"
       }
     },
     "fire-calcolatore": {
@@ -492,14 +495,14 @@
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 1.31,
+        "screens": 1.2,
         "tilesAboveFold": 4,
         "tilesFullyAboveFold": 3,
-        "figuresAboveFold": 14,
-        "figuresOutsideVerdict": 11,
+        "figuresAboveFold": 15,
+        "figuresOutsideVerdict": 12,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-08 (2026-10-16): figuresOutsideVerdict 9 → 11 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16); MOB-02: pill a 44 px"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 14 → 15, figuresOutsideVerdict 11 → 12 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-08 (2026-10-16): figuresOutsideVerdict 9 → 11 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16); MOB-02: pill a 44 px"
       }
     },
     "fire-coast": {
@@ -524,14 +527,14 @@
         "raisedBy": "MOB-08 (2026-10-16): figuresOutsideVerdict 12 → 14 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16); MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 1.39,
+        "screens": 1.25,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 2,
-        "figuresAboveFold": 17,
-        "figuresOutsideVerdict": 13,
+        "figuresAboveFold": 18,
+        "figuresOutsideVerdict": 14,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-08 (2026-10-16): figuresOutsideVerdict 11 → 13 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16); MOB-02: pill a 44 px"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 17 → 18, figuresOutsideVerdict 13 → 14 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-08 (2026-10-16): figuresOutsideVerdict 11 → 13 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16); MOB-02: pill a 44 px"
       }
     },
     "fire-what-if": {
@@ -553,17 +556,17 @@
         "figuresOutsideVerdict": 13,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "MOB-08 (2026-10-16): riga null → false — la prima riga chiusa finisce 113 px sotto la pill a 947 — a 768 LA tessera sta a tutta larghezza dopo il verdetto, la curva già a 120 px (decisione 103, la 19 estesa a 768; a 1024 è sopra il fondo di main) — Evento non ha una curva; MOB-02: pill a 44 px"
+        "raisedBy": "MOB-08 (2026-10-16): riga null → false — la prima riga chiusa finisce 113 px sotto la pill a 947 — a 768 LA tessera — Evento, un modulo senza curva da accorciare — sta a tutta larghezza dopo il verdetto (decisione 103, la 19 estesa a 768; a 1024 è sopra il fondo di main); MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 1.34,
+        "screens": 1.25,
         "tilesAboveFold": 4,
         "tilesFullyAboveFold": 3,
-        "figuresAboveFold": 14,
-        "figuresOutsideVerdict": 6,
+        "figuresAboveFold": 18,
+        "figuresOutsideVerdict": 8,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-02: pill a 44 px"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 14 → 18, figuresOutsideVerdict 6 → 8 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-02: pill a 44 px"
       }
     },
     "fire-monte-carlo": {
@@ -588,14 +591,14 @@
         "raisedBy": "MOB-02: pill a 44 px"
       },
       "1024": {
-        "screens": 1.22,
+        "screens": 1.1,
         "tilesAboveFold": 4,
-        "tilesFullyAboveFold": 3,
-        "figuresAboveFold": 6,
-        "figuresOutsideVerdict": 3,
+        "tilesFullyAboveFold": 4,
+        "figuresAboveFold": 8,
+        "figuresOutsideVerdict": 5,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-08 (2026-10-16): figuresOutsideVerdict 2 → 3 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16); MOB-02: pill a 44 px"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 6 → 8, figuresOutsideVerdict 3 → 5 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-08 (2026-10-16): figuresOutsideVerdict 2 → 3 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16); MOB-02: pill a 44 px"
       }
     },
     "fire-obiettivi": {
@@ -620,14 +623,14 @@
         "raisedBy": "MOB-08 (2026-10-16): figuresOutsideVerdict 0 → 9 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16)"
       },
       "1024": {
-        "screens": 1,
+        "screens": 1.08,
         "tilesAboveFold": 4,
         "tilesFullyAboveFold": 4,
-        "figuresAboveFold": 9,
-        "figuresOutsideVerdict": 9,
+        "figuresAboveFold": 11,
+        "figuresOutsideVerdict": 11,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-08 (2026-10-16): figuresOutsideVerdict 0 → 9 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16)"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): screens 1 → 1,08, figuresAboveFold 9 → 11, figuresOutsideVerdict 9 → 11 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; LA tessera arriva alla piega sotto il verdetto (decisione 105): la colonna sinistra è alta quanto lo schermo e ciò che segue lo stage parte sotto; MOB-08 (2026-10-16): figuresOutsideVerdict 0 → 9 — il misurato fa da tetto — a 768/1024 la metrica era informativa e l'obiettivo è il misurato di MOB-08 (decisione 16)"
       }
     },
     "hall-of-fame": {
@@ -651,14 +654,14 @@
         "overflowX": false
       },
       "1024": {
-        "screens": 1.31,
+        "screens": 1.22,
         "tilesAboveFold": 5,
         "tilesFullyAboveFold": 4,
-        "figuresAboveFold": 17,
-        "figuresOutsideVerdict": 15,
+        "figuresAboveFold": 22,
+        "figuresOutsideVerdict": 20,
         "firstClosedRowAbovePill": true,
         "overflowX": false,
-        "raisedBy": "MOB-02: la striscia (3 cifre) e il podio a cinque righe sopra la pill, la prima riga chiusa sotto la pill con il grafico già a 120 px (decisioni 16, 19, 25)"
+        "raisedBy": "MOB-08 (ritiro, 2026-10-16): figuresAboveFold 17 → 22, figuresOutsideVerdict 15 → 20 — lo stage in orizzontale: ogni riga chiusa dell'indice stampa la sua risposta (decisione 106), una cifra che il censimento conta sopra la piega; MOB-02: la striscia (3 cifre) e il podio a cinque righe sopra la pill, la prima riga chiusa sotto la pill con il grafico già a 120 px (decisioni 16, 19, 25)"
       }
     },
     "impostazioni": {
@@ -683,7 +686,7 @@
         "raisedBy": "MOB-07: la macchina di riferimento è cambiata il 2026-10-15 (decisione 89): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; la pill a 44 px da MOB-02"
       },
       "1024": {
-        "screens": 1.71,
+        "screens": 1.56,
         "tilesAboveFold": 3,
         "tilesFullyAboveFold": 2,
         "figuresAboveFold": 4,

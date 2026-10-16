@@ -13,6 +13,7 @@ import {
   describeFondoOggi,
   describeFondoOggiAside,
   describeFondoOggiFooter,
+  describePensionClosedAnswers,
   describeRendimento,
   describeRendimentoAside,
   describeVersamenti,
@@ -486,5 +487,97 @@ describe('the closed rows\' asides — words, never a figure', () => {
   it('names Anno fiscale and Versato without a digit; Rendimento and Versamenti have their own', () => {
     expect(PENSION_CLOSED_ASIDES).toEqual({ [PENSION_SECTION_IDS.annoFiscale]: 'beneficio e plafond', [PENSION_SECTION_IDS.versato]: 'per natura' });
     for (const aside of Object.values(PENSION_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
+  });
+});
+
+// ─── The closed rows' answers in the landscape index (2026-10-16) ─────────────
+// Falsified on 2026-10-16, each in its own test: «null with two contributors» went red with the
+// `blocks.length !== 1` guard of Rendimento dropped (Mario's gain answered for both); «over the
+// ceiling» went red with the `deductible > effectiveCeiling` branch removed («restano 0 €»); «a
+// failed read» went red with the snapshots flag left out of Rendimento's guard.
+
+describe('describePensionClosedAnswers', () => {
+  /** What the index shows: each segment trimmed, joined by the gap the row draws between them. */
+  const visible = (answer: Narrative | null | undefined) =>
+    answer ? answer.map((segment) => segment.text.trim()).join(' ').replace(/[  ]/g, ' ') : answer;
+
+  const LEDGER_ROW: LedgerRow = {
+    id: 'c1',
+    date: new Date(2026, 8, 20, 12),
+    taxYear: 2026,
+    nature: 'voluntary',
+    amount: 500,
+    fundId: 'fund-1',
+    fundName: 'Fondo Cometa',
+    sourceAccountName: null,
+    recordedOn: new Date(2026, 8, 20, 12),
+    recordedInLaterMonth: false,
+    isStraddling: false,
+    notes: undefined,
+  };
+  const LEDGER: LedgerSummary = { year: 2026, count: 3, rows: [LEDGER_ROW], latest: LEDGER_ROW };
+  const VERSATO: VersatoSummary = {
+    year: 2026,
+    total: 2_000,
+    rows: [
+      { nature: 'tfr', label: 'TFR', amount: 1_200, percentage: 60, deductible: false },
+      { nature: 'voluntary', label: 'Volontario', amount: 800, percentage: 40, deductible: true },
+    ],
+    previousYear: null,
+    previousYearTotal: null,
+    previousYearSingleNature: null,
+  };
+  const LOSS: PensionMemberBlock = { ...MARIO, return: { ...RETURN, marketGain: -1_500, twr: -10 } };
+  const TAX_7000: PensionMemberTax = { ...TAX, deductible: 950, deducted: 950, effectiveCeiling: 7_950, remaining: 7_000 };
+  const input = (over: Partial<Parameters<typeof describePensionClosedAnswers>[0]> = {}) =>
+    describePensionClosedAnswers({ blocks: [{ ...LOSS, tax: TAX_7000 }], versato: VERSATO, ledger: LEDGER, contributionsError: false, snapshotsError: false, ...over });
+
+  it('answers each row with a figure the strip and THE tile do not print, in at most 22 characters', () => {
+    const answers = input();
+    expect(visible(answers[PENSION_SECTION_IDS.rendimento])).toBe('perdita −1500,00 €');
+    expect(visible(answers[PENSION_SECTION_IDS.annoFiscale])).toBe('restano 7000 €');
+    expect(visible(answers[PENSION_SECTION_IDS.versato])).toBe('TFR 60%');
+    expect(visible(answers[PENSION_SECTION_IDS.versamenti])).toBe('ultimo il 20 settembre');
+    for (const answer of Object.values(answers)) expect([...(visible(answer) ?? '')].length).toBeLessThanOrEqual(22);
+  });
+
+  it('signs and colours the market gain on the printed value, a zero unsigned', () => {
+    const loss = input()[PENSION_SECTION_IDS.rendimento];
+    expect(loss?.find((segment) => segment.mono)?.sign).toBe('negative');
+    const gain = input({ blocks: [{ ...MARIO, return: { ...RETURN, marketGain: 2_000 } }] })[PENSION_SECTION_IDS.rendimento];
+    expect(visible(gain)).toBe('guadagno +2000,00 €');
+    expect(gain?.find((segment) => segment.mono)?.sign).toBe('positive');
+    const noise = input({ blocks: [{ ...MARIO, return: { ...RETURN, marketGain: -0.004 } }] })[PENSION_SECTION_IDS.rendimento];
+    expect(visible(noise)).toBe('guadagno 0,00 €');
+    expect(noise?.find((segment) => segment.mono)?.sign).toBeUndefined();
+  });
+
+  it('says the part over the ceiling instead of the headroom', () => {
+    const over = input({ blocks: [{ ...MARIO, tax: { ...TAX, deductible: 9_000, deducted: 7_950, effectiveCeiling: 7_950, remaining: 0 } }] });
+    expect(visible(over[PENSION_SECTION_IDS.annoFiscale])).toBe('oltre il tetto 1050 €');
+  });
+
+  it('keeps the scope with two contributors, a return that is not a measure, an unassigned fund', () => {
+    const two = input({ blocks: [MARIO, { ...MARIO, key: 'm2', name: 'Anna' }] });
+    expect(two[PENSION_SECTION_IDS.rendimento]).toBeNull();
+    expect(two[PENSION_SECTION_IDS.annoFiscale]).toBeNull();
+    expect(input({ blocks: [{ ...MARIO, returnState: 'one-point', return: null }] })[PENSION_SECTION_IDS.rendimento]).toBeNull();
+    expect(input({ blocks: [{ ...MARIO, returnState: 'suspicious' }] })[PENSION_SECTION_IDS.rendimento]).toBeNull();
+    expect(input({ blocks: [{ ...MARIO, kind: 'unassigned', name: null, tax: null }] })[PENSION_SECTION_IDS.annoFiscale]).toBeNull();
+  });
+
+  it('keeps the scope on an empty year, and names the one contribution without «ultimo»', () => {
+    const empty = input({ versato: { ...VERSATO, rows: [], total: 0 }, ledger: { year: 2026, count: 0, rows: [], latest: null } });
+    expect(empty[PENSION_SECTION_IDS.versato]).toBeNull();
+    expect(empty[PENSION_SECTION_IDS.versamenti]).toBeNull();
+    expect(visible(input({ ledger: { ...LEDGER, count: 1 } })[PENSION_SECTION_IDS.versamenti])).toBe('il 20 settembre');
+  });
+
+  it('answers nothing on a failed read: Rendimento on either read, the other three on the contributions', () => {
+    const snapshots = input({ snapshotsError: true });
+    expect(snapshots[PENSION_SECTION_IDS.rendimento]).toBeNull();
+    expect(snapshots[PENSION_SECTION_IDS.annoFiscale]).not.toBeNull();
+    const contributions = input({ contributionsError: true });
+    expect(Object.values(contributions).every((answer) => answer === null)).toBe(true);
   });
 });

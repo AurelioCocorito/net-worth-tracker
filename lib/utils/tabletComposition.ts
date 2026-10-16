@@ -1,80 +1,129 @@
 /**
- * The tablet composition (MOB-08, 2026-10-16; doc/mobile/README.md § 9, decisions 1, 48–51 and
- * 101–104): the same small-screen composition as the phone's, laid out on the widths a tablet
- * gives it.
+ * The tablet composition (2026-10-16; doc/mobile/README.md § 9, decisions 1, 48–51 and 101–105):
+ * the same small-screen composition as the phone's, laid out on the widths a tablet gives it.
  *
  *   - 768 (two columns): THE tile on both, «Il resto della pagina» on a row of its own, the closed
  *     rows two by two in DOM order, an OPEN row on the whole grid row. A closed row that would sit
  *     ALONE on its grid row — the last of an odd run before an open one, or the last of the page —
  *     takes the whole row too, so no half cell is left empty. `sparse` flow, never `dense`: a
  *     dense grid would pull a later row up into an earlier hole, a CSS reordering (decision 1).
- *   - 1024 landscape (a container of 992px): THE tile on the left, and on the right a 360px RAIL
- *     holding «Il resto della pagina» and EVERY row, in DOM order. A row opens IN PLACE in the rail:
- *     the rows after it slide down, nothing leaves the rail, nothing scrolls (the owner, 2026-10-16,
- *     after an Impeccable critique: decision 104 — the first version sent an opened row under THE
- *     tile and left the rail empty, 446px of void on the Panoramica).
+ *   - A tablet in landscape (a content box of 880px or more below 1440: 936 at 1024×768 beside the
+ *     56px icon rail, `TabletRail`; a 12,9" in portrait too): THE ANSWER on the left — the verdict
+ *     and THE tile under it, still while the page scrolls — and on the right ONE tile, the INDEX:
+ *     «Il resto della pagina» and every row, flat, one under the other, each opening in place
+ *     (decision 105: the owner's hybrid of two directions drawn on 2026-10-16, after an Impeccable
+ *     critique of the rail of decision 104 — «a phone made wider»). THE tile reaches the fold and its
+ *     curve grows to fill it; the index is at least as tall, so the two cards start and end on the
+ *     same lines.
+ *
+ * HOW, without moving a node: a page wraps its verdict and its grid in a STAGE (`STAGE_*`), wraps
+ * «Il resto» and the rows in an INDEX (`INDEX_CLASS`), and marks the verdict's box and THE tile's
+ * cell. Below the landscape width the grid wrapper, the grid and the index are what they were or
+ * `display: contents`, so 390, 768 and 1440 lay out exactly as before; in landscape the grid and its
+ * wrapper turn `contents` and the stage becomes the grid: the verdict and THE tile share the left
+ * column's one cell (both sticky, THE tile pushed under the verdict by `--verdict-h`), the index
+ * takes the right column. The heights the CSS cannot know — the fold under the page header, the
+ * verdict's box, the left stack — are measured by `useTabletComposition` (`stageRef`) and written as
+ * custom properties on the stage.
  *
  * WHY a container query and not a viewport one: Tailwind has `tablet:` (768) and `desktop:` (1440)
  * and nothing between — `lg:` is banned and an arbitrary `min-[…]:` loses to the named breakpoints
- * (AGENTS.md § Tailwind Breakpoints). The grid's width is `main`'s content box (the viewport minus
- * `p-4`, no sidebar below `desktop:`), so `@[960px]` is a 992px viewport and `@[720px]` a 752px one.
+ * (AGENTS.md § Tailwind Breakpoints). The stage's width is `main`'s content box, so `@[880px]` is a
+ * 1000px landscape viewport beside the rail, and `@[720px]` a 752px one.
  *
  * WHY every class carries `max-desktop:`: Tailwind 4 emits container queries AFTER media queries,
- * so `@[960px]:grid-cols-…` alone would beat `desktop:grid-cols-12` at 1440 (the cascade, not the
- * width, decides). `max-desktop:@[960px]:` is `@media (width < 1440px) { @container … }`. Among
- * container queries Tailwind emits the smaller size first, so at 992px the rail's
- * `@[960px]:[grid-column:2]` beats the whole-row `@[720px]:col-span-full`: a row that spans the
- * grid at 768 stays in the rail at 1024. `__tests__/tabletComposition.test.ts` holds the rules over
- * the constants and the composed grids; `e2e/*.tablet.spec.ts` the widths.
- *
- * WHY THE tile spans one track MORE than the rail (`--lead-rows` = `--beside` + 1): a spanning
- * item's extra height goes to the tracks it crosses UP TO THEIR LIMITS (CSS Grid § 12.5.1,
- * «distribute space up to limits»): an occupied track is limited by its own row, the last one —
- * which nothing else occupies — is not, so it takes all of it and the rail's rows stay as tall as
- * their trigger and 12px apart. Measured on 2026-10-16 (`e2e/*.tablet.spec.ts`): spanning only the
- * occupied tracks spread THE tile over them (the rows drifted apart, red); the template's `1fr`
- * replaced by `auto`, or no `--beside` at all, stayed GREEN — the empty track is what holds, the
- * `repeat(var(--beside), auto) 1fr` template only names it. When the rail is taller than THE tile
- * the last track is 0 and THE tile keeps its own height (`self-start`).
+ * so `@[880px]:contents` alone would beat `desktop:grid-cols-12` at 1440 (the cascade, not the
+ * width, decides). `max-desktop:@[880px]:` is `@media (width < 1440px) { @container … }`.
+ * `__tests__/tabletComposition.test.ts` holds the rules over the constants and the composed grids;
+ * `e2e/*.tablet.spec.ts` the widths.
  *
  * WARNING: a class here is a literal, so Tailwind's scanner sees it. Never build one by
  * concatenation.
  */
 
 /**
- * The box the container queries measure: a NEW `div` around the grid, never `PageContainer` —
- * `container-type` would make it the anchor of the `fixed` badge it holds (`SavingsRateBadge`).
+ * The box the container queries measure: a NEW `div` around the verdict and the grid, never
+ * `PageContainer` — `container-type` would make it the anchor of the `fixed` badge it holds
+ * (`SavingsRateBadge`). It carries `ref={tablet.stageRef}` and the stage's own class.
  */
-export const COMPACT_GRID_WRAPPER_CLASS = '@container';
+export const STAGE_WRAPPER_CLASS = '@container';
 
 /**
- * The grid of a composed page: one column, two from `tablet:`, THE tile and the 360px rail (a
- * phone's column and a little: a row reads as it does on a phone) in a 960px container, twelve at 1440; at 1024 `--beside` auto tracks and the flexible one THE tile
- * ends on (see above).
+ * The stage: the verdict over the grid, 16px apart (the `space-y-4` they had as siblings), and in
+ * landscape the two-column grid of the answer and the index — the index at 360px, a phone's column
+ * and a little, so a row reads as it does on a phone.
  */
+export const STAGE_CLASS =
+  'group/stage space-y-4 max-desktop:@[880px]:grid max-desktop:@[880px]:grid-cols-[minmax(0,1fr)_360px] max-desktop:@[880px]:items-start max-desktop:@[880px]:gap-x-4 max-desktop:@[880px]:space-y-0';
+
+/** The verdict's box: in landscape the left column's top, still while the index scrolls. */
+export const VERDICT_CELL_CLASS =
+  'max-desktop:@[880px]:[grid-column:1] max-desktop:@[880px]:[grid-row:1] max-desktop:@[880px]:self-start max-desktop:@[880px]:mb-[calc(var(--lead-h,0px)+16px)] max-desktop:@[880px]:group-data-[stick=true]/stage:sticky max-desktop:@[880px]:top-4';
+
+/** The grid's old wrapper, kept as a plain box below the landscape width and `contents` in it. */
+export const COMPACT_GRID_WRAPPER_CLASS = 'max-desktop:@[880px]:contents';
+
+/** The grid of a composed page: one column, two from `tablet:`, twelve at 1440; in landscape `contents` (the stage is the grid). */
 export const COMPACT_GRID_CLASS =
-  'grid grid-cols-1 gap-3 tablet:grid-cols-2 max-desktop:@[960px]:grid-cols-[minmax(0,1fr)_360px] max-desktop:@[960px]:grid-rows-[repeat(var(--beside),auto)_1fr] desktop:grid-cols-12';
+  'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12 max-desktop:@[880px]:contents';
 
-/** THE tile's cell: both columns at 768; at 1024 the left track, from the first track through the flexible one, at its natural height. */
+/**
+ * THE tile's cell: both columns at 768; in landscape the left column under the verdict (the verdict's
+ * height plus 16px down), still at the same distance, and as tall as the fold leaves it — never less
+ * than 360px, more if its content asks — so a tile whose plot is `flex-1` grows its curve to the fold.
+ */
 export const LEAD_CELL_CLASS =
-  'tablet:col-span-2 max-desktop:@[960px]:[grid-column:1] max-desktop:@[960px]:[grid-row:1/span_var(--lead-rows)] max-desktop:@[960px]:self-start';
+  'tablet:col-span-2 max-desktop:@[880px]:[grid-column:1] max-desktop:@[880px]:[grid-row:1] max-desktop:@[880px]:self-start max-desktop:@[880px]:group-data-[stick=true]/stage:sticky max-desktop:@[880px]:mt-[calc(var(--verdict-h,0px)+16px)] max-desktop:@[880px]:top-[calc(var(--verdict-h,0px)+32px)] max-desktop:@[880px]:min-h-[max(360px,calc(var(--fold,720px)-var(--verdict-h,0px)-16px))]';
 
-/** «Il resto della pagina» (`PageRest`'s `className`): the rail's first track at 1024. */
-export const REST_CELL_CLASS = 'max-desktop:@[960px]:[grid-column:2] max-desktop:@[960px]:row-start-1';
+/**
+ * The grid of before, for a page's states with no rows (no goal, no run, no budget, the overview
+ * unread): one column, two from `tablet:`, twelve at 1440 — no stage behaviour.
+ */
+export const PLAIN_GRID_CLASS = 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12';
 
-/** Every row at 1024: the rail, on the track `--row` names — open or closed, it never leaves it. */
-export const RAIL_CELL_CLASS = 'max-desktop:@[960px]:[grid-column:2] max-desktop:@[960px]:[grid-row:var(--row)]';
+/**
+ * THE tile's cell on a grid that is composed in some states only: `LEAD_CELL_CLASS` when composed,
+ * both columns of the plain grid otherwise. Through this function and never bare: on a plain grid the
+ * landscape classes of `LEAD_CELL_CLASS` still answer the stage's container and put the tile in the
+ * left column with the right one empty (Obiettivi with no goal, 2026-10-16; `__tests__/tabletComposition.test.ts`).
+ */
+export function leadCellClass(composed: boolean): string {
+  return composed ? LEAD_CELL_CLASS : 'tablet:col-span-2';
+}
 
-/** A row on the whole grid row at 768: an open one, or a closed one that would sit alone. Inert at 1024 (the rail wins, see above). */
+/**
+ * The index: the right column, ONE card (the tile's surface) at least as tall as the left stack, its
+ * children one under the other with a hairline between — «Il resto» first, then every row, whose own
+ * card turns flat (`section[id]`: the row's section; a tile's inner sections carry no id). Below the
+ * landscape width it is `contents`: the rows stay cells of the grid.
+ */
+export const INDEX_CLASS =
+  'contents max-desktop:@[880px]:[grid-column:2] max-desktop:@[880px]:[grid-row:1] max-desktop:@[880px]:flex max-desktop:@[880px]:flex-col max-desktop:@[880px]:min-h-[var(--left-h,var(--fold,720px))] max-desktop:@[880px]:overflow-hidden max-desktop:@[880px]:rounded-2xl max-desktop:@[880px]:border max-desktop:@[880px]:border-border max-desktop:@[880px]:bg-card max-desktop:@[880px]:shadow-sm max-desktop:@[880px]:divide-y max-desktop:@[880px]:divide-border max-desktop:@[880px]:[&>*]:self-stretch max-desktop:@[880px]:[&_section[id]]:rounded-none max-desktop:@[880px]:[&_section[id]]:border-0 max-desktop:@[880px]:[&_section[id]]:bg-transparent max-desktop:@[880px]:[&_section[id]]:shadow-none';
+
+/**
+ * A box INSIDE the index that holds several rows and is `contents` elsewhere (Storico's and Rendimenti's
+ * desktop columns, Divisione's people): `divide-y` and the stretch act on the index's direct children
+ * only, so in landscape the box becomes a column of its own with the same hairlines.
+ */
+export const INDEX_GROUP_CLASS =
+  'max-desktop:@[880px]:flex max-desktop:@[880px]:flex-col max-desktop:@[880px]:divide-y max-desktop:@[880px]:divide-border max-desktop:@[880px]:[&>*]:self-stretch';
+
+/** «Il resto della pagina» (`PageRest`'s `className`): in landscape the index's head, at a row's height. */
+export const REST_CELL_CLASS = 'max-desktop:@[880px]:min-h-[52px] max-desktop:@[880px]:pl-5 max-desktop:@[880px]:pr-3';
+
+/**
+ * A closed row's ANSWER (`Tile`'s `answerWhenClosed`), shown in the landscape index only — 12px words,
+ * the figure mono — and the scope aside it replaces there (`ASIDE_YIELDS_TO_ANSWER_CLASS`).
+ */
+export const CLOSED_ANSWER_CLASS = 'hidden text-[12px] text-foreground max-desktop:@[880px]:inline-flex';
+export const ASIDE_YIELDS_TO_ANSWER_CLASS = 'max-desktop:@[880px]:hidden';
+
+/** A row on the whole grid row at 768: an open one, or a closed one that would sit alone. Inert in landscape (the index is not a grid). */
 export const WIDE_CELL_CLASS = 'max-desktop:@[720px]:col-span-full';
 
 export interface TabletLayout {
-  /** Every row → its track in the rail at 1024 (2…, in DOM order); track 1 is `PageRest`'s. */
-  railRow: ReadonlyMap<string, number>;
   /** The rows on the whole grid row at 768: the open ones, and a closed one left alone on its row. */
   wideAt768: ReadonlySet<string>;
-  /** The rail's tracks at 1024 (`--beside`): `PageRest`'s plus one per row. THE tile spans one more (`--lead-rows`). */
-  railTracks: number;
 }
 
 export interface LayoutTabletSectionsInput {
@@ -85,13 +134,12 @@ export interface LayoutTabletSectionsInput {
 }
 
 /**
- * Where each row of a composed page goes on a tablet. Pure: the hook recomputes it on every render
- * from the page's `order`, so a row that appears (Analisi's Scheda, a loan's row) takes its place
- * and the ones after it slide.
+ * Where each row of a composed page goes at 768. Pure: the hook recomputes it on every render from
+ * the page's `order`, so a row that appears (Analisi's Scheda, a loan's row) takes its place and the
+ * ones after it slide.
  */
 export function layoutTabletSections({ order, open }: LayoutTabletSectionsInput): TabletLayout {
   const ids = [...new Set(order)];
-  const railRow = new Map(ids.map((id, index) => [id, index + 2] as const));
 
   // At 768 the closed rows pair up between the open ones; the last of an odd run would sit alone.
   const wideAt768 = new Set<string>();
@@ -110,5 +158,50 @@ export function layoutTabletSections({ order, open }: LayoutTabletSectionsInput)
   }
   closeRun();
 
-  return { railRow, wideAt768, railTracks: ids.length + 1 };
+  return { wideAt768 };
+}
+
+/** The gap between the verdict and THE tile in landscape: `LEAD_CELL_CLASS`'s 16px, in the measure too. */
+const STAGE_GAP_PX = 16;
+
+/** Where the stuck verdict sits under the scroller's top:  of . */
+const STICKY_TOP_PX = 16;
+
+export interface StageMetrics {
+  /** The scroller's visible height (`main.clientHeight`). */
+  mainHeight: number;
+  /** The stage's top inside the scroller's content, scroll undone. */
+  stageTop: number;
+  /** The scroller's bottom padding (the pill's room on a portrait screen, 24px in landscape). */
+  mainPaddingBottom: number;
+  /** The verdict box's height. */
+  verdictHeight: number;
+  /** THE tile cell's height. */
+  leadHeight: number;
+}
+
+/**
+ * The custom properties the landscape stage reads (pure, so the arithmetic is tested): `--fold` the
+ * height from the stage's top to the first screen's bottom, `--verdict-h` the verdict's box,
+ * `--lead-h` THE tile's cell, `--left-h` the left stack — the index's floor, so the two cards end on
+ * one line.
+ */
+export function stageCustomProperties(m: StageMetrics): Record<'--fold' | '--verdict-h' | '--lead-h' | '--left-h', string> {
+  const fold = Math.max(0, Math.round(m.mainHeight - m.stageTop - m.mainPaddingBottom));
+  const verdict = Math.round(m.verdictHeight);
+  const lead = Math.round(m.leadHeight);
+  const left = Math.round(m.verdictHeight + STAGE_GAP_PX + m.leadHeight);
+  return { '--fold': `${fold}px`, '--verdict-h': `${verdict}px`, '--lead-h': `${lead}px`, '--left-h': `${left}px` };
+}
+
+/**
+ * Whether the left stack sticks while the index scrolls (`data-stick` on the stage): only when it fits
+ * the screen once stuck 16px from the top — a stack taller than the screen would keep its bottom out
+ * of reach for the whole scroll, so it scrolls with the page instead. The verdict and THE tile stick
+ * as ONE: the verdict's bottom margin spans THE tile (`VERDICT_CELL_CLASS`), so at the end of the
+ * index both are pushed up together and THE tile never slides over the verdict (seen on 2026-10-16
+ * on Hall of Fame and Previdenza before the margin).
+ */
+export function leftStackSticks(m: StageMetrics): boolean {
+  return STICKY_TOP_PX + m.verdictHeight + STAGE_GAP_PX + m.leadHeight <= m.mainHeight - m.mainPaddingBottom;
 }

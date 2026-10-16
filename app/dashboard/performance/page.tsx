@@ -62,8 +62,18 @@ import { queryKeys } from '@/lib/query/queryKeys';
 import { usePerformanceData } from '@/lib/hooks/usePerformanceData';
 import { useFreshness } from '@/lib/hooks/useFreshness';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  INDEX_GROUP_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { performanceYieldsQueryOptions, withYields } from '@/lib/query/performanceQueries';
@@ -82,6 +92,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { PageVerdict } from '@/components/ui/page-verdict';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
@@ -117,6 +128,7 @@ import {
   describeContributions,
   describeGrowthOfHundred,
   describeMeasurementBase,
+  describePerformanceClosedAnswers,
   describePeriodAside,
   describeRealizedGains,
   describeRisk,
@@ -567,6 +579,24 @@ export default function PerformancePage() {
     [ledgerMetaFailed, ledgerMeta, trades],
   );
 
+  // What each closed row answers in the landscape index (2026-10-16): figures the page already has.
+  // Memoized before the early returns: a new map on every render would re-render every row.
+  const volatility = metrics?.volatility ?? null;
+  const rowAnswers = useMemo(
+    () =>
+      describePerformanceClosedAnswers({
+        ranking,
+        capitalEntered,
+        attribution,
+        lastChartPoint: chartData.length > 0 ? chartData[chartData.length - 1] : null,
+        volatility,
+        consistency,
+        realizedState,
+        realizedSummary,
+      }),
+    [ranking, capitalEntered, attribution, chartData, volatility, consistency, realizedState, realizedSummary],
+  );
+
   // ─── The phone composition (2026-10-14) ──────────────────────────────────────
   // Before the verdict's memo, not after: `selectPerformanceStrip` takes the gap, which the React
   // Compiler reads as an alias of the reference row — a call on it AFTER the memo counted as a later
@@ -581,7 +611,9 @@ export default function PerformancePage() {
     [hasAttribution, realizedState, benchmarkFailed],
   );
   const sections = useMobileSections({ route: 'performance', sections: sectionSpecs });
-  // At 768/1024 the same rows on two or three columns (MOB-08); the specs ARE the DOM's rows.
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). The specs ARE the DOM's rows.
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({ sections, order: sectionSpecs.map((section) => section.id) });
   const { reveal: handleStripOpen } = sections;
   // The two figures of the first screen: the return on its basis and the gap on the SAME basis
@@ -831,8 +863,17 @@ export default function PerformancePage() {
     <PageContainer>
       {header}
 
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <RowAnswers value={rowAnswers}>
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
       {/* ── Verdict, with the one period axis beside it from desktop (a second instance of the
-          same control, `hidden desktop:block`, decision 12) ─────────────────────────── */}
+          same control, `hidden desktop:block`, decision 12) — and the custom range's chip, in the
+          verdict's box so it is never a loose cell of the stage. `desktop:space-y-4`: the chip is
+          hidden below 1440, and a gap there would add 16px under the verdict in landscape (the box
+          is a grid item, so its child's margin does not collapse through it). ─────────────── */}
+      <div data-stage="verdict" className={cn('desktop:space-y-4', VERDICT_CELL_CLASS)}>
       {verdict && (
         <div className="flex items-start justify-between gap-6 pt-1">
           <div className="min-w-0 flex-1">
@@ -851,6 +892,7 @@ export default function PerformancePage() {
 
       {/* At 1440 the active custom range's chip stays where it was; below it is in the axis slot. */}
       <div className="hidden desktop:block">{customChip}</div>
+      </div>
 
       {/* ── Tile grid ───────────────────────────────────────────────────────────── */}
       {/* No `key` on the grid (2026-09-12): a period switch TRANSFORMS every tile — the hero glides,
@@ -860,10 +902,9 @@ export default function PerformancePage() {
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
       <div
         className={cn(COMPACT_GRID_CLASS, 'transition-opacity duration-200', (isRefreshing || loaded.isRecomputing) && 'opacity-60')}
-        style={tablet.gridStyle}
         aria-busy={isPendingPeriodChange || isRefreshing || loaded.isRecomputing}
       >
-        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5')}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5')}>
           <RendimentoTile
             aside={periodAside}
             reading={
@@ -885,12 +926,13 @@ export default function PerformancePage() {
           />
         </div>
 
+        <div className={INDEX_CLASS}>
         <PageRest sections={sections} className={REST_CELL_CLASS} />
 
         {/* «Rispetto a cosa?» is the page's question: the models sit beside the return. Every
             series failed → the row is a failed read at every width (decision 36), silent below
             `desktop:` where `PageRest` carries the one live node. */}
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.benchmark), 'desktop:col-span-4')} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.benchmark)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.benchmark), 'desktop:col-span-4')}>
           {benchmarkFailed ? (
             <ErrorNotice
               compact
@@ -919,7 +961,7 @@ export default function PerformancePage() {
           )}
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.contributi), 'desktop:col-span-3')} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.contributi)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.contributi), 'desktop:col-span-3')}>
           <ContributiTile
             collapse={sections.collapse(PERFORMANCE_SECTION_IDS.contributi)}
             asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.contributi]}
@@ -944,10 +986,11 @@ export default function PerformancePage() {
             tile keeps its natural height and the capital chart — the one element that can be any
             height — takes the slack, so no tile is stretched into a void beside a taller neighbour
             (Plusvalenze with one fiscal year is a sentence). Below desktop the wrappers are
-            `contents`: the tiles are items of the grid again, in the DOM's order. */}
-        <div className="contents desktop:flex desktop:flex-col desktop:gap-3 desktop:col-span-7">
+            `contents`: the tiles are items of the grid again, in the DOM's order; on a tablet in
+            landscape each is a column of the index, with the index's hairlines (INDEX_GROUP_CLASS). */}
+        <div className={cn('contents desktop:flex desktop:flex-col desktop:gap-3 desktop:col-span-7', INDEX_GROUP_CLASS)}>
           {attribution && (
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.attribuzione))} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.attribuzione)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.attribuzione))}>
               <AttribuzioneTile
                 collapse={sections.collapse(PERFORMANCE_SECTION_IDS.attribuzione)}
                 asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.attribuzione]}
@@ -958,7 +1001,7 @@ export default function PerformancePage() {
             </div>
           )}
 
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.capitale), 'desktop:flex-1')} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.capitale)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.capitale), 'desktop:flex-1')}>
             <CapitaleMercatoTile
               collapse={sections.collapse(PERFORMANCE_SECTION_IDS.capitale)}
               asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.capitale]}
@@ -971,8 +1014,8 @@ export default function PerformancePage() {
           </div>
         </div>
 
-        <div className="contents desktop:flex desktop:flex-col desktop:gap-3 desktop:col-span-5">
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.rischio))} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.rischio)}>
+        <div className={cn('contents desktop:flex desktop:flex-col desktop:gap-3 desktop:col-span-5', INDEX_GROUP_CLASS)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.rischio))}>
             <RischioTile
               collapse={sections.collapse(PERFORMANCE_SECTION_IDS.rischio)}
               asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.rischio]}
@@ -986,7 +1029,7 @@ export default function PerformancePage() {
             />
           </div>
 
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.consistenza), realizedState === 'absent' && 'desktop:flex-1')} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.consistenza)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.consistenza), realizedState === 'absent' && 'desktop:flex-1')}>
             <ConsistenzaTile
               collapse={sections.collapse(PERFORMANCE_SECTION_IDS.consistenza)}
               asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.consistenza]}
@@ -998,7 +1041,7 @@ export default function PerformancePage() {
           {/* A tile with a closed sale, a failed read of the ledger's meta, or nothing (`resolveRealizedGainsState`):
               until 2026-10-14 a meta in error read as «not migrated» and the tile vanished in silence. */}
           {realizedState === 'failed' && (
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.plusvalenze))} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.plusvalenze)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.plusvalenze))}>
               <ErrorNotice
                 compact
                 collapse={sections.collapse(PERFORMANCE_SECTION_IDS.plusvalenze)}
@@ -1014,7 +1057,7 @@ export default function PerformancePage() {
             </div>
           )}
           {realizedState === 'ready' && realizedSummary && (
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.plusvalenze))} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.plusvalenze)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.plusvalenze))}>
               <PlusvalenzeTile
                 collapse={sections.collapse(PERFORMANCE_SECTION_IDS.plusvalenze)}
                 asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.plusvalenze]}
@@ -1025,8 +1068,12 @@ export default function PerformancePage() {
             </div>
           )}
         </div>
+        </div>
       </div>
       </div>
+      </div>
+      </div>
+      </RowAnswers>
 
       {/* ── Dettaglio, below the fold ───────────────────────────────────────────── */}
       <PerformanceDettaglio

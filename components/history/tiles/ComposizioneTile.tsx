@@ -28,10 +28,9 @@ import { formatCurrency, formatPercentage } from '@/lib/services/chartService';
 import type { AssetClassHistoryPoint } from '@/lib/services/chartService';
 import { describeComposition } from '@/lib/utils/storicoNarrative';
 import {
-  buildAssetClassComposition,
   buildChartAriaLabel,
-  buildLiquidityComposition,
   formatPeriodLabel,
+  resolveCompositionSeries,
   shareKey,
   valueKey,
   PENSION_BAND_KEY,
@@ -127,8 +126,8 @@ function DriftAnnotation({ deltaPp }: { deltaPp: number | null }) {
 /**
  * One breakdown row, in two layouts: under a 480px legend identity and share on top, euro and drift
  * beneath — the WORDS stay identical to desktop, only the arrangement changes. By the LEGEND's width
- * (a container query, since 2026-10-16): in the 360px rail of a tablet in landscape the tile is a
- * phone's width at a 1024px viewport (MOB-08).
+ * (a container query, since 2026-10-16): in the 360px index of a tablet in landscape the tile is a
+ * phone's width at a 1024px viewport (2026-10-16).
  */
 function BreakdownRow({ entry, chartColors }: { entry: CompositionBreakdownEntry; chartColors: string[] }) {
   const swatch = (
@@ -179,9 +178,7 @@ export function ComposizioneTile({ assetClassHistory, liquidityHistory, hasPensi
   const prefersReducedMotion = useReducedMotion();
   const isMobile = useMediaQuery('(max-width: 767px)');
 
-  const assetClassSeries = useMemo(() => buildAssetClassComposition(assetClassHistory), [assetClassHistory]);
-  const liquiditySeries = useMemo(() => buildLiquidityComposition(liquidityHistory), [liquidityHistory]);
-  const series: CompositionSeries = cut === 'assetClass' ? assetClassSeries : liquiditySeries;
+  const series: CompositionSeries = useMemo(() => resolveCompositionSeries(cut, { assetClassHistory, liquidityHistory }), [cut, assetClassHistory, liquidityHistory]);
 
   const hasData = series.rows.length > 0;
   const showsPensionBand = hasPensionFunds && series.bands.some((band) => band.key === PENSION_BAND_KEY);

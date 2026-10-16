@@ -43,6 +43,7 @@ import {
   SCENARI_FOOTER,
   MONTE_CARLO_CLOSED_ASIDES,
   describeParametriClosedAside,
+  describeMonteCarloClosedAnswers,
 } from '@/lib/utils/monteCarloNarrative';
 import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import { selectMonteCarloStrip, MONTE_CARLO_SECTION_IDS } from '@/lib/utils/monteCarloSummary';
@@ -354,5 +355,42 @@ describe('the closed rows\' asides — words, never a figure', () => {
     for (const aside of Object.values(MONTE_CARLO_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
     expect(describeParametriClosedAside(false)).toBe('il piano di oggi');
     expect(describeParametriClosedAside(true)).toBe('modificati: premi Esegui');
+  });
+});
+
+// ─── The closed rows' answers in the landscape index (2026-10-16) ─────────────
+// Falsified on 2026-10-16, one at a time: «a stale form keeps its warning» went red with the
+// `!stale` guard dropped (the withdrawal covered «modificati: premi Esegui»), and «a depleted 90th
+// percentile» went red with the `p90 <= 0` branch removed («90° %ile 0 €»).
+
+describe('describeMonteCarloClosedAnswers', () => {
+  /** What the index shows: each segment trimmed, joined by the gap the row draws between them. */
+  const visible = (answer: Narrative | null | undefined) =>
+    answer ? answer.map((segment) => segment.text.trim()).join(' ').replace(/[  ]/g, ' ') : answer;
+  const answers = (over: Partial<Parameters<typeof describeMonteCarloClosedAnswers>[0]> = {}) =>
+    describeMonteCarloClosedAnswers({ run: makeRun({ finalPercentiles: { p10: 0, p25: 100_000, p50: 600_000, p75: 1_300_000, p90: 2_000_000 } }), comparison: makeComparison(), plan: makePlan({ annualWithdrawal: 30_000 }), stale: false, ...over });
+
+  it('answers each row with a figure the strip and the verdict do not print, in at most 22 characters', () => {
+    const all = answers();
+    expect(visible(all[MONTE_CARLO_SECTION_IDS.distribuzione])).toBe('90° %ile 2.000.000 €');
+    expect(visible(all[MONTE_CARLO_SECTION_IDS.scenari])).toBe('Toro 96,8%');
+    expect(visible(all[MONTE_CARLO_SECTION_IDS.parametri])).toBe('prelievo 30.000 €');
+    for (const answer of Object.values(all)) expect([...(visible(answer) ?? '')].length).toBeLessThanOrEqual(22);
+    // A rate never wears a sign colour: it is a probability, not a gain.
+    expect(all[MONTE_CARLO_SECTION_IDS.scenari]?.some((segment) => segment.sign)).toBe(false);
+  });
+
+  it('says a depleted 90th percentile «esaurito», as the tile does, and a whole rate without decimals', () => {
+    const depleted = answers({ run: makeRun({ finalPercentiles: { p10: 0, p25: 0, p50: 0, p75: 0, p90: 0 } }) });
+    expect(visible(depleted[MONTE_CARLO_SECTION_IDS.distribuzione])).toBe('90° %ile esaurito');
+    const whole = answers({ comparison: makeComparison({ rows: [makeScenarioRow('bear'), makeScenarioRow('base'), makeScenarioRow('bull', { successRate: 99.98 })] }) });
+    expect(visible(whole[MONTE_CARLO_SECTION_IDS.scenari])).toBe('Toro 100%');
+  });
+
+  it('keeps the scope: no run, no comparison, a stale form', () => {
+    const none = answers({ run: null, comparison: null });
+    expect(Object.values(none).every((answer) => answer === null)).toBe(true);
+    expect(answers({ comparison: null })[MONTE_CARLO_SECTION_IDS.scenari]).toBeNull();
+    expect(answers({ stale: true })[MONTE_CARLO_SECTION_IDS.parametri]).toBeNull();
   });
 });

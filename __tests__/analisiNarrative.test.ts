@@ -51,8 +51,11 @@ import {
   describeSpendingChartFooter,
   describeTopExpenses,
   shareInWords,
+  describeAnalisiClosedAnswers,
   type AnalisiVerdictInput,
 } from '@/lib/utils/analisiNarrative';
+import { ANALISI_SECTION_IDS } from '@/lib/utils/analisiSummary';
+import { SPENDING_BUCKET_LABELS } from '@/lib/utils/spendingRoles';
 
 const plain = (narrative: Narrative | null) => (narrative ? narrativeToText(narrative).replace(/ /g, ' ') : null);
 /** The segment whose text prints as `text` (nbsp flattened), to assert its face and sign. */
@@ -784,5 +787,88 @@ describe('the Flusso captions beside the first screen', () => {
     const balanced = summarizeSpendingRoleShares(rolesSummary({ income: 3000, need: 1500, want: 900 }));
     const incomePrinted = collectPrintedFigures([], [{ label: 'Entrate', value: 3000, format: 'currency', opens: 'analisi-entrate' }]);
     expect(plain(describeSpendingRolesBar(balanced, incomePrinted))).toBe('Quote di quanto è uscito; tacche a 50 e 80, il riferimento 50/30/20.');
+  });
+});
+
+/**
+ * The closed rows' answers of Analisi (2026-10-16): what each row says in the landscape index, the
+ * segments joined with a space as the index's gap sets them. Falsified on 2026-10-16, one at a
+ * time: «the LARGEST printed share» went red with `typeShares[0]` in its place; «the roles view when
+ * the setting is on» went red with the type answer always; «the Scheda keeps its scope» went red
+ * with the Scheda answering the first expense category.
+ */
+describe('describeAnalisiClosedAnswers', () => {
+  const answer = (narrative: Narrative | null | undefined) => (narrative ? narrative.map((s) => s.text).join(' ').replace(/ /g, ' ') : null);
+  const topRow = (label: string, amount: number) => ({
+    key: label,
+    label,
+    subCategoryLabel: null,
+    caption: '5 ago',
+    scheduled: false,
+    amount,
+    percentage: 10,
+    expenseType: 'variable' as const,
+    categoryKey: label,
+    subCategoryKey: null,
+  });
+  const TOP: TopExpenses = { rows: [topRow('Vacanze', 2500), topRow('Auto', 900)], shownTotal: 3400, total: 25000, count: 40 };
+  const rankRow = (category: string, amount: number, percentage: number) => ({ category, categoryKey: category, amount, percentage });
+  const EXPENSES = { rows: [rankRow('Casa', 7800, 78), rankRow('Svago', 2200, 22)], total: 10000, remainder: null };
+  const INCOME = { rows: [rankRow('Stipendio', 30000, 100)], total: 30000, remainder: null };
+  // The types in the order the Sankey lists them, NOT by size: the answer must pick the largest.
+  const FLOW: FlowSummary = {
+    incomeTotal: 30000,
+    incomeSources: 1,
+    expensesTotal: 10000,
+    categoryCount: 2,
+    typeShares: [
+      { type: 'fixed', label: 'Fisse', amount: 900, percentage: 9, printedPercentage: 9 },
+      { type: 'variable', label: 'Variabili', amount: 9100, percentage: 91, printedPercentage: 91 },
+    ],
+  };
+  const input = (overrides: Partial<Parameters<typeof describeAnalisiClosedAnswers>[0]> = {}) =>
+    describeAnalisiClosedAnswers({ anomalies: ANOMALIES, topExpenses: TOP, expenseRanking: EXPENSES, incomeRanking: INCOME, flow: FLOW, spendingRoles: null, ...overrides });
+
+  it('should answer Fuori scala with the furthest category over its average, in red as its row prints it', () => {
+    const fuori = input()[ANALISI_SECTION_IDS.fuoriScala];
+    expect(answer(fuori)).toBe('Ristoranti +48%');
+    expect(fuori?.[1]).toMatchObject({ mono: true, sign: 'negative' });
+    expect(answer(input({ anomalies: [] })[ANALISI_SECTION_IDS.fuoriScala])).toBe('nessuna fuori scala');
+  });
+
+  it('should answer Spese maggiori with the largest expense', () => {
+    expect(answer(input()[ANALISI_SECTION_IDS.maggiori])).toBe('la più grande 2500 €');
+    expect(input({ topExpenses: { rows: [], shownTotal: 0, total: 0, count: 0 } })[ANALISI_SECTION_IDS.maggiori]).toBeNull();
+  });
+
+  it('should answer the category rows with the first category and its share', () => {
+    expect(answer(input()[ANALISI_SECTION_IDS.spese])).toBe('Casa 78%');
+    expect(answer(input()[ANALISI_SECTION_IDS.entrate])).toBe('tutto da Stipendio');
+    const empty = { rows: [], total: 0, remainder: null };
+    expect(input({ expenseRanking: empty, incomeRanking: empty })).toMatchObject({ [ANALISI_SECTION_IDS.spese]: null, [ANALISI_SECTION_IDS.entrate]: null });
+  });
+
+  it('should answer the Flusso by type with the LARGEST printed share, wherever it sits', () => {
+    expect(answer(input()[ANALISI_SECTION_IDS.flusso])).toBe('Variabili 91%');
+    const one: FlowSummary = { ...FLOW, typeShares: [{ type: 'variable', label: 'Variabili', amount: 10000, percentage: 100, printedPercentage: 100 }] };
+    expect(answer(input({ flow: one })[ANALISI_SECTION_IDS.flusso])).toBe('tutte variabili');
+    expect(input({ flow: { ...FLOW, expensesTotal: 0, typeShares: [] } })[ANALISI_SECTION_IDS.flusso]).toBeNull();
+  });
+
+  it('should answer the Flusso by role when the 50/30/20 setting is on (the tile opens on that view)', () => {
+    // 3000 of income: needs 1500 (50%), wants 900 (30%), the rest saved (20%).
+    const roles = rolesSummary({ income: 3000, need: 1500, want: 900 });
+    expect(answer(input({ spendingRoles: roles })[ANALISI_SECTION_IDS.flusso])).toBe(`${SPENDING_BUCKET_LABELS.need} 50%`);
+    expect(input({ spendingRoles: rolesSummary({ income: 0, rowCount: 0 }) })[ANALISI_SECTION_IDS.flusso]).toBeNull();
+  });
+
+  it('should leave the Scheda its scope (null): the entity’s name is the answer', () => {
+    expect(input()[ANALISI_SECTION_IDS.scheda]).toBeNull();
+  });
+
+  it('should fit 22 visible characters on round figures', () => {
+    for (const narrative of Object.values(input())) {
+      if (narrative) expect(answer(narrative)!.length).toBeLessThanOrEqual(22);
+    }
   });
 });

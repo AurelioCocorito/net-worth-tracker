@@ -95,7 +95,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, storageState: STORAGE_STATE },
       dependencies: ['setup'],
       // analisi.* runs in its own projects on the dedicated fixture account; *.tablet.* in the two
-      // tablet projects only (MOB-08), or it would run at 1440 as well.
+      // tablet projects only (since 2026-10-16), or it would run at 1440 as well.
       testIgnore: [/\.(mobile|degraded|tablet)\.spec\.ts/, /analisi\./, /centri\./, /split\./, /hof\./],
     },
     {
@@ -222,7 +222,7 @@ export default defineConfig({
       testIgnore: [/analisi\./, /centri\./, /split\./, /hof\./, /degraded\./],
     },
     {
-      // The small-screen composition on a tablet (MOB-08, 2026-10-16): 768 in portrait, two
+      // The small-screen composition on a tablet (since 2026-10-16): 768 in portrait, two
       // columns with the pill. A `*.tablet.spec.ts` runs here AND in `tablet-landscape`, and
       // branches on `page.viewportSize().width`. Same account and ignores as `mobile`.
       name: 'tablet',
@@ -238,7 +238,7 @@ export default defineConfig({
       testIgnore: [/analisi\./, /centri\./, /split\./, /hof\./, /degraded\./],
     },
     {
-      // 1024 in landscape: three columns, no pill, the hamburger bar over `main`.
+      // 1024 in landscape: the stage (the answer on the left, the index on the right), the icon rail, no pill and no bar.
       name: 'tablet-landscape',
       use: {
         ...devices['Desktop Chrome'],

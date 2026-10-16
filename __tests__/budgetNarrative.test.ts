@@ -21,8 +21,8 @@ vi.mock('firebase/firestore', () => ({
 
 import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
 import type { BudgetAlert, BudgetItem, BudgetRiskSummary } from '@/types/budget';
-import type { BudgetAllocationValidation } from '@/lib/utils/budgetUtils';
-import type { AnnualBudgetSummary, CeilingSummary, IncomeTargetSummary, SpendingHistory } from '@/lib/utils/budgetSummary';
+import { OVERALL_BUDGET_KEY, type BudgetAllocationValidation } from '@/lib/utils/budgetUtils';
+import { BUDGET_SECTION_IDS, type AnnualBudgetSummary, type CeilingSummary, type IncomeTargetSummary, type SpendingHistory } from '@/lib/utils/budgetSummary';
 import {
   buildBudgetVerdict,
   describeAlerts,
@@ -37,6 +37,7 @@ import {
   describeCeilingAside,
   describeCeilingSetting,
   describeBudgetAmountRefusal,
+  describeBudgetClosedAnswers,
   describeBudgetClosedAsides,
   describeBudgetDeleteConsequence,
   describeBudgetDuplicateRefusal,
@@ -506,5 +507,113 @@ describe('the budget dialog speaks through its reading line', () => {
   it('the armed delete prints what the second press does: the limit goes, the rows stay', () => {
     expect(describeBudgetDeleteConsequence('expense', 'Cibo')).toBe('Eliminando, il budget di Cibo sparisce; le spese restano.');
     expect(describeBudgetDeleteConsequence('income', 'Stipendio')).toBe("Eliminando, l'obiettivo di Stipendio sparisce; le entrate restano.");
+  });
+});
+
+/**
+ * The closed rows' answers of Budget (2026-10-16): what each row says in the landscape index beside
+ * its eyebrow, the segments joined with a space as the index's gap sets them. Falsified on
+ * 2026-10-16, one at a time: «nothing at risk keeps the scope» went red with the risk answering
+ * «nessuna a rischio»; «the overall ceiling is skipped» went red with the `OVERALL_BUDGET_KEY` filter
+ * removed; «the reading's first annual budget» went red with `s.rows[0]` in place of the ahead one.
+ */
+describe('describeBudgetClosedAnswers', () => {
+  const answer = (narrative: Narrative | null | undefined) => (narrative ? narrative.map((s) => s.text).join(' ').replace(/ /g, ' ') : null);
+  const alert = (overrides: Partial<BudgetAlert>): BudgetAlert => ({
+    key: 'casa',
+    label: 'Casa',
+    level: 'warning',
+    period: 'monthly',
+    calendarPct: 70,
+    aheadOfCalendar: true,
+    threshold: 90,
+    thresholdCrossed: true,
+    spent: 920,
+    budgetAmount: 1000,
+    usedRatio: 0.92,
+    forecastedOverrun: false,
+    crossedOn: null,
+    ...overrides,
+  });
+  const annualRow = (label: string, usedPct: number, overrides: Partial<AnnualBudgetSummary['rows'][number]> = {}) => ({
+    item: {} as BudgetItem,
+    key: label,
+    label,
+    budget: 1000,
+    spent: usedPct * 10,
+    usedPct,
+    remaining: 1000 - usedPct * 10,
+    ahead: false,
+    exceeded: usedPct > 100,
+    ...overrides,
+  });
+  const annual = (rows: AnnualBudgetSummary['rows']): AnnualBudgetSummary => ({ rows, year: 2026, yearElapsedPct: 60, monthsLeft: 4, aheadCount: rows.filter((r) => r.ahead).length });
+  const VALID: BudgetAllocationValidation = { valid: true, overall: 3000, allocated: 1300, available: 1700 };
+  const input = (overrides: Partial<Parameters<typeof describeBudgetClosedAnswers>[0]> = {}) =>
+    describeBudgetClosedAnswers({
+      risk: risk(),
+      alertRows: [alert({})],
+      alertsEnabled: true,
+      annual: annual([annualRow('Vacanze', 40), annualRow('Regali', 70, { ahead: true })]),
+      validation: VALID,
+      monthlyExpenseCount: 2,
+      ...overrides,
+    });
+
+  it('should answer the risk with the worst category and its overrun, signed in the loss colour', () => {
+    const answers = input();
+    expect(answer(answers[BUDGET_SECTION_IDS.rischio])).toBe('Ristoranti +73 €');
+    expect(answers[BUDGET_SECTION_IDS.rischio]?.[1]).toMatchObject({ mono: true, sign: 'negative' });
+  });
+
+  it('should keep the risk scope when nothing is at risk, before a pace, or without budgets', () => {
+    // «nessuna a rischio» beside the strip's «Oltre» would read as «all is well».
+    expect(input({ risk: risk({ atRisk: [] }) })[BUDGET_SECTION_IDS.rischio]).toBeNull();
+    expect(input({ risk: risk({ canForecast: false }) })[BUDGET_SECTION_IDS.rischio]).toBeNull();
+    expect(input({ risk: risk({ atRisk: [], evaluated: 0 }) })[BUDGET_SECTION_IDS.rischio]).toBeNull();
+  });
+
+  it('should answer the alerts with the first row as it prints, «superato» without a figure', () => {
+    expect(answer(input()[BUDGET_SECTION_IDS.avvisi])).toBe('Casa al 92%');
+    const exceeded = input({ alertRows: [alert({ label: 'Auto', level: 'exceeded', usedRatio: 1.2 }), alert({})] })[BUDGET_SECTION_IDS.avvisi];
+    expect(answer(exceeded)).toBe('Auto superato');
+    expect(exceeded?.some((s) => s.mono)).toBe(false);
+  });
+
+  it('should skip the overall ceiling, whose overrun the strip already prints', () => {
+    const rows = [alert({ key: OVERALL_BUDGET_KEY, label: 'Budget complessivo', level: 'exceeded', usedRatio: 1.3 }), alert({})];
+    expect(answer(input({ alertRows: rows })[BUDGET_SECTION_IDS.avvisi])).toBe('Casa al 92%');
+    expect(input({ alertRows: rows.slice(0, 1) })[BUDGET_SECTION_IDS.avvisi]).toBeNull();
+  });
+
+  it('should keep the alerts scope when they are off or none crossed', () => {
+    expect(input({ alertsEnabled: false })[BUDGET_SECTION_IDS.avvisi]).toBeNull();
+    expect(input({ alertRows: [] })[BUDGET_SECTION_IDS.avvisi]).toBeNull();
+  });
+
+  it('should answer the annual budgets with the one the reading names first', () => {
+    // Ahead of the calendar first; without one ahead, the most used; a single budget is itself.
+    expect(answer(input()[BUDGET_SECTION_IDS.annuali])).toBe('Regali 70%');
+    expect(answer(input({ annual: annual([annualRow('Vacanze', 40), annualRow('Regali', 30)]) })[BUDGET_SECTION_IDS.annuali])).toBe('Vacanze 40%');
+    const over = input({ annual: annual([annualRow('Vacanze', 120)]) })[BUDGET_SECTION_IDS.annuali];
+    expect(answer(over)).toBe('Vacanze 120%');
+    expect(over?.[1]).toMatchObject({ mono: true, sign: 'negative' });
+    expect(input({ annual: annual([]) })[BUDGET_SECTION_IDS.annuali]).toBeNull();
+  });
+
+  it('should answer Per categoria with the allocation against the ceiling', () => {
+    expect(answer(input()[BUDGET_SECTION_IDS.categorie])).toBe('non assegnati 1700 €');
+    expect(answer(input({ validation: { valid: true, overall: 3000, allocated: 3000, available: 0 } })[BUDGET_SECTION_IDS.categorie])).toBe('tutto assegnato');
+    const over = input({ validation: { valid: false, overall: 3000, allocated: 3400, available: -400 } })[BUDGET_SECTION_IDS.categorie];
+    expect(answer(over)).toBe('400 € di troppo');
+    expect(over?.[0]).toMatchObject({ mono: true, sign: 'negative' });
+    expect(answer(input({ validation: { valid: true, overall: 0, allocated: 1300, available: -1300 } })[BUDGET_SECTION_IDS.categorie])).toBe('1300 € al mese');
+    expect(input({ validation: { valid: true, overall: 0, allocated: 0, available: 0 }, monthlyExpenseCount: 0 })[BUDGET_SECTION_IDS.categorie]).toBeNull();
+  });
+
+  it('should fit 22 visible characters on round figures', () => {
+    for (const narrative of Object.values(input())) {
+      if (narrative) expect(answer(narrative)!.length).toBeLessThanOrEqual(22);
+    }
   });
 });

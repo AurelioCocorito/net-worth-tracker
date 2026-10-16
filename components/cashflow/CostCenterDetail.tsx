@@ -66,6 +66,7 @@ import {
   describeCosto,
   describeCostoAside,
   describeCostoFooter,
+  describeCostCenterDetailClosedAnswers,
   describeMonthKpi,
   describeMovimenti,
   describeMovimentiAside,
@@ -85,9 +86,19 @@ import { Button } from '@/components/ui/button';
 import { PageVerdict } from '@/components/ui/page-verdict';
 import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { PageRest } from '@/components/ui/page-rest';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { narrativeToText } from '@/lib/utils/narrative';
 import { CostoTile } from './cost-centers/tiles/CostoTile';
 import { CategorieTile } from './cost-centers/tiles/CategorieTile';
@@ -254,6 +265,11 @@ export function CostCenterDetail({
   );
   const sortedExpenses = useMemo(() => [...allExpenses].sort((a, b) => toDate(b.date).getTime() - toDate(a.date).getTime()), [allExpenses]);
   const verdict = useMemo(() => buildCostCenterVerdict(summary, now), [summary, now]);
+  // What the closed rows answer in the landscape index, from the figures the tiles already hold.
+  const rowAnswers = useMemo(
+    () => describeCostCenterDetailClosedAnswers({ center: summary, composition, subComposition, excludedKeys, netSubTotal }),
+    [summary, composition, subComposition, excludedKeys, netSubTotal],
+  );
 
   // The detail's rows below `desktop:` (The Closed-Row Rule, since 2026-10-12): one memory for
   // every centre (`cost-centers-center`), two module-level lists — with and without Per categoria.
@@ -263,7 +279,9 @@ export function CostCenterDetail({
     sections: hasCategorySplit ? DETAIL_SECTIONS : DETAIL_SECTIONS_WITHOUT_CATEGORIES,
     restId: COST_CENTER_DETAIL_REST_ID,
   });
-  // At 768/1024 the same rows on two or three columns (MOB-08); the lists ARE the DOM's rows.
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). The lists ARE the DOM's rows.
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({
     sections,
     order: (hasCategorySplit ? DETAIL_SECTIONS : DETAIL_SECTIONS_WITHOUT_CATEGORIES).map((section) => section.id),
@@ -282,8 +300,12 @@ export function CostCenterDetail({
 
   return (
     <div className="space-y-4 max-desktop:portrait:pb-20">
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
       {/* ── Back link, verdict and the actions beside it ─────────────────────────── */}
-      <div className="flex flex-col gap-1 pt-1">
+      <div data-stage="verdict" className={cn('flex flex-col gap-1 pt-1', VERDICT_CELL_CLASS)}>
         <button
           ref={backLinkRef}
           type="button"
@@ -369,11 +391,12 @@ export function CostCenterDetail({
       {/* ── Tile grid — the rows arrived with the list, which already waited and gated on
           the two reads (loading and failure are the list's states, not the detail's) ── */}
       {/* ONE sequence, the DOM order is the reading order at every width (decision 11; the
-          `order-*` went on 2026-10-12): THE tile, «Il resto della pagina», then the rows. */}
+          `order-*` went on 2026-10-12): THE tile, «Il resto della pagina», then the rows (inside
+          the index). */}
       {(
         <div className={COMPACT_GRID_WRAPPER_CLASS}>
-        <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
-          <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
+        <div className={COMPACT_GRID_CLASS}>
+          <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
             <CostoTile
               id={COST_CENTER_SECTION_IDS.centro}
               summary={summary}
@@ -387,11 +410,13 @@ export function CostCenterDetail({
               now={now}
             />
           </div>
+          <RowAnswers value={rowAnswers}>
+          <div className={INDEX_CLASS}>
           <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />
           {/* One category at 100% is the hero said again: the tile is not rendered and Ciclo
               di vita takes its columns (a tile with nothing to say is not a tile). */}
           {hasCategorySplit && (
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroCategorie), 'desktop:col-span-4')} style={tablet.cellStyle(COST_CENTER_SECTION_IDS.centroCategorie)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroCategorie), 'desktop:col-span-4')}>
               <CategorieTile
                 slices={composition}
                 reading={describeCategorie(composition)}
@@ -404,7 +429,6 @@ export function CostCenterDetail({
           )}
           <div
             className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroCiclo), hasCategorySplit ? 'desktop:col-span-3' : 'desktop:col-span-7')}
-            style={tablet.cellStyle(COST_CENTER_SECTION_IDS.centroCiclo)}
           >
             <CicloTile
               summary={summary}
@@ -414,7 +438,7 @@ export function CostCenterDetail({
               collapse={sections.collapse(COST_CENTER_SECTION_IDS.centroCiclo)}
             />
           </div>
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroSottocategorie), 'desktop:col-span-7')} style={tablet.cellStyle(COST_CENTER_SECTION_IDS.centroSottocategorie)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroSottocategorie), 'desktop:col-span-7')}>
             <SottocategorieTile
               slices={subComposition}
               excludedKeys={excludedKeys}
@@ -429,7 +453,7 @@ export function CostCenterDetail({
               asideWhenClosed={describeSottocategorieClosedAside(excludedKeys.size)}
             />
           </div>
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroMovimenti), 'desktop:col-span-12')} style={tablet.cellStyle(COST_CENTER_SECTION_IDS.centroMovimenti)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centroMovimenti), 'desktop:col-span-12')}>
             <MovimentiTile
               expenses={sortedExpenses}
               now={now}
@@ -445,9 +469,13 @@ export function CostCenterDetail({
               disabled={isDemo}
             />
           </div>
+          </div>
+          </RowAnswers>
         </div>
         </div>
       )}
+      </div>
+      </div>
 
       <LinkExpensesDialog open={linkOpen} onClose={() => setLinkOpen(false)} costCenter={costCenter} onLink={handleLink} returnFocusTo={linkButtonRef} />
       <UnlinkSeriesDialog request={unlinkSeries} centerName={costCenter.name} onClose={() => setUnlinkSeries(null)} onUnlink={handleUnlink} busy={unlinking} />

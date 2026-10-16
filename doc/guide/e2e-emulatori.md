@@ -118,19 +118,25 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   terminal that started them, so `--export-on-exit` runs) and rerun.
 
 ## Browser-Driven E2E (Playwright)
-- **The tablet composition has two projects, one spec runs in both** (MOB-08, 2026-10-16): `tablet` (768×1024, the pill) and
-  `tablet-landscape` (1024×768, no pill, the 53px bar), copied from `mobile` (`isMobile`, `hasTouch`, the base account, the same
-  `testIgnore`); a `*.tablet.spec.ts` branches on `page.viewportSize().width` (`isLandscape` in `e2e/tabletLayout.ts`, the shared
-  measures: the grid's tracks, the fold — the pill's top at 768, `main`'s bottom at 1024 —, the 360px rail beside THE tile
-  (`expectRail`), an opened row that did not move nor scroll (`openRow` + `expectOpenedRow`: its box and `main.scrollTop` read
-  before the tap), no half grid row at 768 (`expectNoHalfCells`), the bar). The specs: `e2e/overview.tablet.spec.ts` (the
-  overview patched by `overviewFixture.ts`, seven rows) and `e2e/cashflow.tablet.spec.ts` (Tracciamento's four rows, the tabs,
-  the «+» at 768 and «Aggiungi» at 1024). Read with `contextOptions: { reducedMotion: 'reduce' }`, or Framer's entrance moves the
-  boxes. **The bar in landscape**: `page.evaluate` reads the height of `[data-sidebar="trigger"]`'s parent (53px: `py-1` + the 44px
-  trigger + `border-b`), `#page-main`'s top (equal) and `main.clientHeight` (768 − 53 = 715, the first screen). **A rail taller
-  than THE tile hides a broken flexible track**: on the Panoramica the seven rows outgrow THE tile and the last track is 0 either
-  way, so it is Tracciamento's spec (four rows, a taller tile) that went red with THE tile spanning only the rail's tracks (seen
-  that day). Hall of Fame, Analisi, Centri and Divisione have their own fixtures and no tablet project: the tour looks at them.
+- **The tablet composition has two projects, one spec runs in both** (since 2026-10-16): `tablet` (768×1024, the pill) and
+  `tablet-landscape` (1024×768: the landscape stage and the 56px icon rail `TabletRail`, no pill and no bar), copied from
+  `mobile` (`isMobile`, `hasTouch`, the base account, the same `testIgnore`); a `*.tablet.spec.ts` branches on
+  `page.viewportSize().width` (`isLandscape` in `e2e/tabletLayout.ts`). The shared measures there: the grid's tracks, the
+  fold (`foldOf`: the pill's top at 768, `main`'s bottom in landscape); **`expectLandscapeShell`** (the rail at x 0 and 56px
+  wide, every target ≥ 44px, one `aria-current="page"`, `#page-main` at top 0 with the viewport's whole height, no visible
+  `[data-sidebar="trigger"]`); **`expectLandscapeStage(page, scope, ids)`** (`stageParts` finds `[data-stage="verdict"]`,
+  `[data-stage="lead"]` and the index by its «Il resto della pagina» heading: THE tile 16px under the verdict, the index
+  360px wide and 16px to its right, starting on the verdict's line and ending on THE tile's, every row in DOM order inside it
+  right under the one before with a hairline, a closed one 52px — its trigger's height; THE tile ends above the fold when the
+  stage has `data-stick="true"`, starts above it otherwise); **`expectStickyStage`** (every row open, `main` scrolled to its
+  end in steps: THE tile stays 16px under the verdict, never slides over it); an opened row that did not move nor scroll
+  (`openRow` + `expectOpenedRow`: its box and `main.scrollTop` read before the tap; in landscape it stays in the index), no
+  half grid row at 768 (`expectNoHalfCells`), `expectNoOverflow`; at 1440 **`expectGridAcrossMain`** (the grid as wide as `main`'s content box). Counting the grid's tracks does NOT prove the 1440 grid (2026-10-16): with `max-desktop:` taken off the stage's columns the grid kept its twelve tracks inside the 360px column and the check stayed green — the width is what went red. The specs: `e2e/overview.tablet.spec.ts` (the overview
+  patched by `overviewFixture.ts`), `e2e/cashflow.tablet.spec.ts` (Tracciamento's rows, the 44×44 tabs, the «+» at 768 and
+  «Aggiungi» 44px tall in landscape) and `e2e/patrimonio.tablet.spec.ts` (the overview request aborted: no stage, Strumenti
+  spans the plain grid at 768 and in landscape — seen red with `tablet:col-span-2` taken off, the defect of the retirement).
+  Read with `contextOptions: { reducedMotion: 'reduce' }`, or Framer's entrance moves the boxes. Hall of Fame, Analisi,
+  Centri and Divisione have their own fixtures and no tablet project: the tour looks at them.
 - **Patrimonio, Analisi and Storico are composed at 390: a spec opens the row before it reads inside it** (since
   2026-10-14): `#patrimonio-strumenti-trigger` before an `AssetRow` exists (`assets.rows.mobile.spec.ts`, the 390 case of
   `assets.composite-chip.spec.ts` — a `desktop` project resized, but the composition reads the width), `#analisi-flusso-trigger`
@@ -339,6 +345,12 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   filter (both header copies, `toHaveText(['', ''])`). The sign-out test reads the record back through IndexedDB
   itself (`indexedDB.open` + `get`), the way «assert on data» means here.
 - **Prove the test can fail before trusting it** (the 1440px assertions were re-run at 1200px, where they must fail).
+- **The full run retiring MOB-08** (2026-10-16, the reference machine, 290 tests incl. 6 setups, +2: `patrimonio.tablet.spec.ts`
+  in the two tablet projects; the landscape stage rewrote both tablet specs and `e2e/tabletLayout.ts`): 288 green in 12,0 min,
+  one skipped (the 768 rule in landscape) and one red — «a cell with a six-figure variation…» again, the second row 1,3 px apart:
+  it returned, so the test now polls until the two cells share their line before reading the boxes (green ×3 alone). A second full run had one red, Patrimonio's «remembered across a reload» (the disposed response, closed below); the final one, on the fixed fixture, 289 green and one skipped in 12,0 min, no red. The 11
+  red of the first run of the day were the pill's selector: the landscape `TabletRail` is the same landmark «Navigazione
+  principale» and comes first in the DOM, so every tool that means THE PILL reads `nav[data-nav="pill"]` (the census included).
 - **The full run implementing MOB-08** (2026-10-16, the reference machine, 288 tests incl. 6 setups, +24: the two tablet
   specs in two projects): 286 green in 12,3 min, two red and both green ×3 alone right after (`--repeat-each=3`):
   `mobile-composition.performance.degraded.mobile.spec.ts` «Analizza con AI … a thumb's target» read 43,999996 px against
@@ -355,7 +367,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   that run), and the two «remembered across a reload» of `mobile-composition.patrimonio.mobile.spec.ts` and
   `overview.mobile.spec.ts` on `apiResponse.json: Response has been disposed` — the response a probe holds across
   `page.reload()` disposed before `.json()`, the shape of the `holdChunks` entry below. None of the three pages is
-  MOB-07's. The 15 new cases (`allocation`, `pension` and `fire` `.mobile.spec.ts` + one at 1440 in each of the four pages' desktop specs; `coast.mobile.spec.ts` only adapted — the commit and the index said 16 in eight specs, corrected in the retirement of 2026-10-16) were green
+  MOB-07's. **Closed on 2026-10-16** (it returned on Patrimonio in the final run retiring MOB-08): `patchOverview` reads the body in a `try` and lets a disposed response go with `route.continue()` — the reload's own request is patched — green ×5 on both tests. The 15 new cases (`allocation`, `pension` and `fire` `.mobile.spec.ts` + one at 1440 in each of the four pages' desktop specs; `coast.mobile.spec.ts` only adapted — the commit and the index said 16 in eight specs, corrected in the retirement of 2026-10-16) were green
   in the suite and alone, twelve falsifications seen red one at a time (their headers; «nine» until 2026-10-16).
 - **`e2e/cashflow.transfer-fee.spec.ts` was red ONCE in a full run** (2026-10-07, Windows machine, the second full run
   of PR #434, which did not touch transfers): green alone and in the suite's order, cause not traced. A second red

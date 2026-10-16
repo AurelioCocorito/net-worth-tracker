@@ -11,7 +11,8 @@ rules below name.
   `lib/hooks/useSceneNavigation.ts`, `lib/utils/viewTransition.ts`, `lib/utils/themeTransition.ts`, the `::view-transition-*` rules in `app/globals.css`, `next.config.ts`
 - **Navigation**: `lib/constants/navigation.ts` (`assistantNavItem`), `components/layout/SceneLink.tsx`,
   `components/layout/{Sidebar,BottomNavigation,SecondaryMenuDrawer}.tsx` (`AppSidebar`, `NavItems`, `AddExpenseFab`),
-  `components/ui/sidebar.tsx` (`SIDEBAR_WIDTH_ICON`, `sidebarMenuButtonVariants`)
+  `components/layout/TabletRail.tsx` (a tablet in landscape, since 2026-10-16), the `tablet-landscape` custom variant
+  in `app/globals.css`, `components/ui/sidebar.tsx` (`SIDEBAR_WIDTH_ICON`, `sidebarMenuButtonVariants`)
 - **Page frame**: `components/layout/{PageHeader,PageTabs,PageTabBar,PageContainer}.tsx` (`PageHeaderSkeleton`,
   `pageTabPanelId`), `components/ProtectedRoute.tsx`, `contexts/AuthContext.tsx`, `lib/hooks/useMediaQuery.ts`,
   `components/ui/{tile,tile-grid-skeleton,skeleton,page-verdict}.tsx` (`TILE_EYEBROW_CLASS`); the «Crea snapshot»
@@ -96,13 +97,26 @@ rules below name.
   to JUMP aside when the «+» appeared. Pinned by `e2e/motion.layout{,.mobile}.spec.ts` (0 measures at 1440, a glide at
   390). In dev the page scene freezes rendering while the route compiles, so the glide is asserted without view
   transitions.
-- **The landscape bar is 53px with a 44px trigger** (MOB-08, 2026-10-16; doc/mobile/README.md § 9, 48): below `desktop:` in
-  landscape — where the bottom pill is hidden — `app/dashboard/layout.tsx`'s bar is `py-1` + `SidebarTrigger` at `size-11` (the
-  primitive's default, `components/ui/sidebar.tsx`; it was `size-7`, 28px under a thumb, with `py-2.5`: 49px) + `border-b`, so
-  `main` keeps 715px of a 1024×768 tablet (719 before). It holds for EVERY landscape screen under 1440, a phone too, which
-  loses 4px — no budget there (not one of the three viewports). Cashflow › Tracciamento's «Aggiungi» in the verdict's axis,
-  the only add affordance in landscape, is `h-11` (it was `h-9`; its container is `desktop:hidden`). Measured by
-  `e2e/overview.tablet.spec.ts` (seen red at 37px with `size-7`).
+- **A tablet in landscape has the icon rail, not the bar** (2026-10-16; doc/mobile/README.md § 9, 105, rewriting 48):
+  `components/layout/TabletRail.tsx` is the 1440 sidebar's routes as a 56px rail on the left (`primaryNav`, `analysisNav`,
+  `planningNav`, the Assistente behind its flag, Impostazioni at the foot), every target 44px, the current page marked (`aria-current="page"`, `--sidebar-accent`), the same landmark «Navigazione principale» as the phone's pill and first in the DOM — a tool that means one of them selects `nav[data-nav="rail"]` or `nav[data-nav="pill"]` (the census and eight E2E files read the rail by mistake on 2026-10-16: eleven red); its last button («Account e preferenze») calls `toggleSidebar`, which below
+  1440 opens the sidebar's sheet — the account, the theme and the logout stay there. It shows by CSS alone through the
+  **`tablet-landscape:` variant** (`app/globals.css`: `orientation: landscape` and 1000–1439px — a viewport condition, the
+  shell has no container; declared after the core variants so it beats `max-desktop:landscape:` on the same property), so
+  the prerendered shell paints it before hydration. With it, in landscape: the page header is the 1440 one-row header
+  (`PageHeader`/`PageHeaderSkeleton`: the compact block `tablet-landscape:hidden`, the desktop row `tablet-landscape:flex`,
+  and `tablet-landscape:static` — no sticky header over the stage), and `PageTabBar` (Cashflow, FIRE) is the 1440 underline
+  bar with labels, its tabs `tablet-landscape:min-h-11`, in place of the centred icon pill. `main` keeps the whole 768px
+  of a 1024×768 tablet (715 with the bar). The content keys its stage on its own width, not on this variant
+  (`max-desktop:@[880px]:`, AGENTS.md § Tailwind Breakpoints, `lib/utils/tabletComposition.ts`). Held by `expectLandscapeShell`
+  (`e2e/tabletLayout.ts`: the rail at x 0 and 56px wide, every target ≥ 44, one current page, `main` at top 0 with the
+  viewport's height, no visible trigger).
+- **The landscape bar is a PHONE turned sideways only** (since 2026-10-16; 53px with a 44px trigger since MOB-08's
+  implementation, decision 48): below 1000px in landscape — where the bottom pill is hidden — `app/dashboard/layout.tsx`'s
+  bar is `py-1` + `SidebarTrigger` at `size-11` (the primitive's default, `components/ui/sidebar.tsx`; it was `size-7`,
+  28px under a thumb, with `py-2.5`: 49px) + `border-b`, and `tablet-landscape:hidden`. A phone loses 4px to it — no
+  budget there (not one of the three viewports). Cashflow › Tracciamento's «Aggiungi» in the verdict's axis, the only add
+  affordance in landscape (phone or tablet), is `h-11` (it was `h-9`; its container is `desktop:hidden`).
 - **Sidebar active state for `/dashboard` must be `pathname === item.href`**, never `startsWith`. **Bottom nav is
   portrait-only**, so an in-page button duplicating the FAB must be hidden **only in portrait** — in landscape the FAB
   is gone and it is the only add affordance.
@@ -135,7 +149,8 @@ rules below name.
 
 ## Per-page blind spots
 
-- **The icon rail's 44px targets are measured at 1440 with a mouse**; no fixture covers a ≥1440px tablet in landscape.
+- **The collapsed 1440 sidebar's icon rail (`SIDEBAR_WIDTH_ICON`) has its 44px targets measured with a mouse**; no
+  fixture covers a ≥1440px tablet in landscape. (The tablet's own `TabletRail`, 1000–1439, is held by `expectLandscapeShell`.)
   (moved from `CLAUDE.md` → Known Issues on 2026-10-07)
 
 No shell-wide open item crosses every page any more: the `PageTabBar` pill reached 44×44 on 2026-10-10 (§ Navigation

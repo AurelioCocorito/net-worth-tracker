@@ -51,8 +51,18 @@ import type { Asset } from '@/types/assets';
 import { computeGoalTrajectory, type GoalRow } from '@/lib/utils/goalTrajectory';
 import { buildMilestones, GOALS_SECTION_IDS, summarizeAssignments, summarizeDerivedAllocation, summarizeGoals, summarizeTrajectory, sumAssetValues } from '@/lib/utils/goalsSummary';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  PLAIN_GRID_CLASS,
+  leadCellClass,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import {
   ALLOCAZIONE_DERIVATA_ASIDE,
   ALLOCAZIONE_DERIVATA_FOOTER,
@@ -65,6 +75,7 @@ import {
   describeAssegnazioniFooter,
   describeGoalCaption,
   describeGoalStatus,
+  describeGoalsClosedAnswers,
   describeMilestone,
   describeMilestoneNote,
   describeObiettivi,
@@ -81,6 +92,7 @@ import { cn } from '@/lib/utils';
 import { PageVerdict } from '@/components/ui/page-verdict';
 import { PageRest } from '@/components/ui/page-rest';
 import { Tile, TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
@@ -193,8 +205,10 @@ export function GoalBasedInvestingTab() {
   const hasDerived = derivedAllocation !== null;
   const sectionSpecs = useMemo(() => resolveGoalsSections({ hasGoals: hasGoalRows, hasDerived }), [hasGoalRows, hasDerived]);
   const sections = useMobileSections({ route: 'fire-simulations', tab: 'goals', sections: sectionSpecs });
-  // At 768/1024 the rows on two or three columns (MOB-08): those the tab renders, in DOM order —
-  // the Traiettoria only with a goal selected and its trajectory read.
+  // At 768 the rows on two columns, on a tablet in landscape the index beside the verdict and THE
+  // tile (lib/utils/tabletComposition.ts): those the tab renders, in DOM order — the Traiettoria
+  // only with a goal selected and its trajectory read.
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({
     sections,
     order: sectionSpecs.filter((section) => (trajectory && selectedRow) || section.id !== GOALS_SECTION_IDS.traiettoria).map((section) => section.id),
@@ -206,6 +220,11 @@ export function GoalBasedInvestingTab() {
   };
   const obiettiviRows = useMemo(() => overview.goals.map((line) => ({ line, caption: describeGoalCaption(line), status: describeGoalStatus(line) })), [overview.goals]);
   const milestoneRows = useMemo(() => milestones.map((entry) => ({ entry, note: describeMilestoneNote(entry) })), [milestones]);
+  // What each closed row answers in the landscape index (2026-10-16): the same views the tiles print.
+  const rowAnswers = useMemo(
+    () => describeGoalsClosedAnswers({ trajectory, goalCount: overview.counts.total, milestones, derivedAllocation, assignments: assignmentsView }),
+    [trajectory, overview.counts.total, milestones, derivedAllocation, assignmentsView],
+  );
 
   // ─── Goal CRUD ───────────────────────────────────────────────────────────────
   const handleCreateGoal = () => {
@@ -304,18 +323,20 @@ export function GoalBasedInvestingTab() {
   );
 
   // ─── Render ──────────────────────────────────────────────────────────────────
-  return (
-    <div className="space-y-4">
-      <div className="pt-1">
+  // The verdict and the grid: the stage's children, in both of its forms below.
+  const stageContent = (
+    <>
+      <div data-stage="verdict" className={cn('pt-1', hasGoals && VERDICT_CELL_CLASS)}>
         <PageVerdict verdict={verdict} ariaLabel="Verdetto sugli obiettivi" />
       </div>
 
-      {/* ONE sequence, no `order-*` (decision 11). Tablet (MOB-08): Obiettivi on two columns, the
-          closed rows two by two at 768 and beside it at 1024, an open row on the whole grid row;
-          without a goal, Obiettivi alone on the grid of before. */}
-      <div className={COMPACT_GRID_WRAPPER_CLASS}>
-      <div className={hasGoals ? COMPACT_GRID_CLASS : 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12'} style={tablet.gridStyle}>
-        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, hasGoals ? 'desktop:col-span-5 desktop:row-span-2' : 'desktop:col-span-12')}>
+      {/* ONE sequence, no `order-*` (decision 11). Tablet: Obiettivi on two columns, the closed
+          rows two by two at 768, an open row on the whole grid row; in landscape the rows in the
+          index beside the verdict and Obiettivi. Without a goal, Obiettivi alone on the grid of
+          before, on both columns at 768 (not THE tile's cell: there is no stage). */}
+      <div className={hasGoals ? COMPACT_GRID_WRAPPER_CLASS : undefined}>
+      <div className={hasGoals ? COMPACT_GRID_CLASS : PLAIN_GRID_CLASS}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, leadCellClass(hasGoals), hasGoals ? 'desktop:col-span-5 desktop:row-span-2' : 'desktop:col-span-12')}>
           <ObiettiviTile
             reading={hasGoals ? describeObiettivi(overview) : null}
             aside={newGoalButton}
@@ -327,10 +348,13 @@ export function GoalBasedInvestingTab() {
           />
         </div>
 
+        {/* The index: «Il resto» and every row; without a goal a plain `contents` box. */}
+        <RowAnswers value={rowAnswers}>
+        <div className={hasGoals ? INDEX_CLASS : 'contents'}>
         {hasGoals && <PageRest sections={sections} className={REST_CELL_CLASS} />}
 
         {trajectory && selectedRow && (
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.traiettoria), 'desktop:col-span-7')} style={tablet.cellStyle(GOALS_SECTION_IDS.traiettoria)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.traiettoria), 'desktop:col-span-7')}>
             <TraiettoriaTile
               collapse={traiettoriaCollapse}
               asideWhenClosed={trajectory.name}
@@ -361,7 +385,6 @@ export function GoalBasedInvestingTab() {
         {hasGoals && (
           <div
             className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.milestone), derivedAllocation ? 'desktop:col-span-4' : 'desktop:col-span-7')}
-            style={tablet.cellStyle(GOALS_SECTION_IDS.milestone)}
           >
             <MilestoneTile
               collapse={sections.collapse(GOALS_SECTION_IDS.milestone)}
@@ -375,7 +398,7 @@ export function GoalBasedInvestingTab() {
         )}
 
         {hasGoals && derivedAllocation && (
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.allocazione), 'desktop:col-span-3')} style={tablet.cellStyle(GOALS_SECTION_IDS.allocazione)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.allocazione), 'desktop:col-span-3')}>
             <AllocazioneDerivataTile
               collapse={sections.collapse(GOALS_SECTION_IDS.allocazione)}
               asideWhenClosed={GOALS_CLOSED_ASIDES[GOALS_SECTION_IDS.allocazione]}
@@ -388,7 +411,7 @@ export function GoalBasedInvestingTab() {
         )}
 
         {hasGoals && (
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.assegnazioni), 'desktop:col-span-12')} style={tablet.cellStyle(GOALS_SECTION_IDS.assegnazioni)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.assegnazioni), 'desktop:col-span-12')}>
             <AssegnazioniTile
               collapse={sections.collapse(GOALS_SECTION_IDS.assegnazioni)}
               asideWhenClosed={describeAssegnazioniAside(assignmentsView)}
@@ -402,7 +425,26 @@ export function GoalBasedInvestingTab() {
             />
           </div>
         )}
+        </div>
+        </RowAnswers>
       </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* The stage: the verdict over the grid; on a tablet in landscape, with goals, the answer on
+          the left (verdict and Obiettivi) and the index on the right (lib/utils/tabletComposition.ts).
+          Without a goal no rows: a plain box, unmeasured. The two forms are the same `div` in the
+          same place, so React keeps the node and its subtree when the first goal is created, and
+          the measuring ref attaches then. */}
+      <div className={STAGE_WRAPPER_CLASS}>
+        {hasGoals ? (
+          <div ref={stageRef} className={STAGE_CLASS}>{stageContent}</div>
+        ) : (
+          <div className="space-y-4">{stageContent}</div>
+        )}
       </div>
 
       {hasGoals && <GoalsDettaglio description={DETTAGLIO_DESCRIPTION} goals={goals} progressList={goalProgressList} />}

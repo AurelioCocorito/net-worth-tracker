@@ -24,7 +24,8 @@ import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
 import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
 import type { HallOfFameSectionKey, HallOfFameStats, SinceWorstMonth } from '@/types/hall-of-fame';
 import { SECTION_LABELS } from '@/lib/constants/hallOfFame';
-import { isPartialYear, type NotesSummary, type RecordBoard, type RecordCategory, type RecordEntry, type RecordPeriod } from '@/lib/utils/hallOfFameSummary';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
+import { HOF_SECTION_IDS, isPartialYear, type NotesSummary, type RecordBoard, type RecordCategory, type RecordEntry, type RecordPeriod } from '@/lib/utils/hallOfFameSummary';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -549,4 +550,32 @@ export function describeNoteFormReading(input: {
 export function describeNoteViewReading(sections: HallOfFameSectionKey[]): string {
   if (sections.length === 1) return `Appesa a una classifica: ${SECTION_LABELS[sections[0]]}.`;
   return `Appesa a ${sections.length} classifiche di questo periodo.`;
+}
+
+// ─── The closed rows' answers (landscape index) ───────────────────────────────
+
+export interface HallOfFameClosedAnswersInput {
+  stats: HallOfFameStats | null;
+  /** The first of the monthly savings ranking. */
+  savingsTop: RecordEntry | null;
+  /** The first of the yearly growth ranking. */
+  bestYear: RecordEntry | null;
+}
+
+/**
+ * What each closed row of Hall of Fame answers in the landscape index (2026-10-16). The strip
+ * already prints the headline figure of every ranking row (the running year, the income record,
+ * the savings record), so each answer is the term beside it: the income average the record is
+ * measured against (the Entrate footer, `describeIncomeAverage`), the record month's savings rate,
+ * the best year. Null where the row keeps its scope:
+ *   - Anni when the best year is the running one — its value IS the strip's «Quest'anno» cell;
+ *   - Note always — its closed aside («2 note») already answers, and the latest period does not fit.
+ */
+export function describeHallOfFameClosedAnswers({ stats, savingsTop, bestYear }: HallOfFameClosedAnswersInput): RowAnswerMap {
+  return {
+    [HOF_SECTION_IDS.entrate]: stats && stats.averageMonthlyIncome > 0 ? [prose('media mensile'), amount(stats.averageMonthlyIncome)] : null,
+    [HOF_SECTION_IDS.risparmio]: savingsTop && savingsTop.percentage !== null ? [share(savingsTop.percentage), prose('delle entrate')] : null,
+    [HOF_SECTION_IDS.anni]: bestYear && !bestYear.isCurrent ? [prose(bestYear.label), signedCurrency(bestYear.value)] : null,
+    [HOF_SECTION_IDS.note]: null,
+  };
 }

@@ -18,7 +18,7 @@ vi.mock('@/lib/services/assetService', () => ({
 }));
 
 import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
-import type { GoalLine, GoalsOverview, MilestoneEntry, TrajectoryView, DerivedAllocationView, AssignmentsView } from '@/lib/utils/goalsSummary';
+import { GOALS_SECTION_IDS, type GoalLine, type GoalsOverview, type MilestoneEntry, type TrajectoryView, type DerivedAllocationView, type AssignmentsView } from '@/lib/utils/goalsSummary';
 import {
   ALLOCAZIONE_DERIVATA_ASIDE,
   buildGoalsVerdict,
@@ -29,6 +29,7 @@ import {
   describeAssegnazioniFooter,
   describeGoalCaption,
   describeGoalStatus,
+  describeGoalsClosedAnswers,
   describeMilestone,
   describeMilestoneNote,
   describeObiettivi,
@@ -472,5 +473,70 @@ describe('describeVersamento', () => {
   it('asks for an amount, or says that nothing is left to fill', () => {
     expect(plain(describeVersamento([], 0))).toBe('Inserisci un importo per vedere come ripartirlo tra gli obiettivi sotto target.');
     expect(plain(describeVersamento([], 500))).toBe('Nessun obiettivo con un importo ancora da colmare: i 500 € non hanno una destinazione.');
+  });
+});
+
+// ─── The closed rows' answers in the landscape index (2026-10-16) ─────────────
+// Falsified on 2026-10-16, each in its own test: «past the deadline» went red with the
+// `monthsToDeadline !== 0` clause dropped from `projectsAtDeadline` (the hero's value read as a
+// forecast); «a name that does not fit» went red with the 22-character guard removed; «an
+// instrument past 100% wins» went red with the over-assigned branch moved after the free total.
+
+describe('describeGoalsClosedAnswers', () => {
+  /** What the index shows: each segment trimmed, joined by the gap the row draws between them. */
+  const visible = (answer: Narrative | null | undefined) =>
+    answer ? answer.map((segment) => segment.text.trim()).join(' ').replace(/[  ]/g, ' ') : answer;
+  const DERIVED: DerivedAllocationView = {
+    assignedTotal: 100_000,
+    rows: [
+      { assetClass: 'equity', label: 'Azioni', derivedPct: 30, assignedPct: 10 },
+      { assetClass: 'bonds', label: 'Obbligazioni', derivedPct: 65, assignedPct: 60 },
+      { assetClass: 'cash', label: 'Liquidità', derivedPct: 5, assignedPct: 30 },
+    ],
+  };
+  const answers = (over: Partial<Parameters<typeof describeGoalsClosedAnswers>[0]> = {}) =>
+    describeGoalsClosedAnswers({ trajectory: trajectory({}), goalCount: 1, milestones: MILESTONES, derivedAllocation: DERIVED, assignments: ASSEGNAZIONI, ...over });
+  const ids = GOALS_SECTION_IDS;
+
+  it('answers each row with one figure, in at most 22 characters', () => {
+    const all = answers();
+    expect(visible(all[ids.traiettoria])).toBe('previsto 110.400 €');
+    expect(visible(all[ids.milestone])).toBe('in ritardo di 15 mesi');
+    expect(visible(all[ids.allocazione])).toBe('Obbligazioni 65%');
+    expect(visible(all[ids.assegnazioni])).toBe('liberi 116.600 €');
+    for (const answer of Object.values(all)) expect([...(visible(answer) ?? '')].length).toBeLessThanOrEqual(22);
+  });
+
+  it('names the goal instead of «previsto» with several goals, and only when name and figure fit', () => {
+    expect(visible(answers({ goalCount: 3 })[ids.traiettoria])).toBe('Casa 110.400 €');
+    const traiettoria = answers({ goalCount: 3 })[ids.traiettoria];
+    expect(traiettoria?.[0]).toEqual({ text: 'Casa' });
+    expect(answers({ goalCount: 3, trajectory: trajectory({ name: 'Casa al mare in Liguria' }) })[ids.traiettoria]).toBeNull();
+  });
+
+  it('keeps the goal’s name as the scope without a target, reached, past the deadline, undated, or with no goal drawn', () => {
+    expect(answers({ trajectory: trajectory({ verdict: 'noTarget', targetAmount: null }) })[ids.traiettoria]).toBeNull();
+    expect(answers({ trajectory: trajectory({ verdict: 'reached', deadline: null, projectedAtDeadline: null }) })[ids.traiettoria]).toBeNull();
+    expect(answers({ trajectory: trajectory({ monthsToDeadline: 0 }) })[ids.traiettoria]).toBeNull();
+    expect(answers({ trajectory: trajectory({ verdict: 'noDeadline', deadline: null, projectedAtDeadline: null, projectedDate: { year: 2041, month: 3 } }) })[ids.traiettoria]).toBeNull();
+    expect(answers({ trajectory: null })[ids.traiettoria]).toBeNull();
+  });
+
+  it('answers the Milestone only with a late goal, «1 mese» in the singular', () => {
+    expect(answers({ milestones: MILESTONES.map((m) => ({ ...m, monthsPastDeadline: null })) })[ids.milestone]).toBeNull();
+    expect(answers({ milestones: [] })[ids.milestone]).toBeNull();
+    expect(visible(answers({ milestones: [{ ...MILESTONES[2], monthsPastDeadline: 1 }] })[ids.milestone])).toBe('in ritardo di 1 mese');
+  });
+
+  it('keeps the scope without a derived target, or with no class asked for', () => {
+    expect(answers({ derivedAllocation: null })[ids.allocazione]).toBeNull();
+    expect(answers({ derivedAllocation: { ...DERIVED, rows: DERIVED.rows.map((r) => ({ ...r, derivedPct: 0 })) } })[ids.allocazione]).toBeNull();
+    expect(visible(answers({ derivedAllocation: { ...DERIVED, rows: [{ ...DERIVED.rows[0], derivedPct: 26.24 }] } })[ids.allocazione])).toBe('Azioni 26,2%');
+  });
+
+  it('an instrument past 100% wins over the free total; nothing free reads «tutto assegnato»', () => {
+    const over = answers({ assignments: { ...ASSEGNAZIONI, overAssigned: [{ assetId: 'a', name: 'VWCE', percentage: 120 }] } });
+    expect(visible(over[ids.assegnazioni])).toBe('quote oltre il 100%');
+    expect(visible(answers({ assignments: { ...ASSEGNAZIONI, freeTotal: 0.3 } })[ids.assegnazioni])).toBe('tutto assegnato');
   });
 });

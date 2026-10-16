@@ -58,8 +58,18 @@ import { getItalyYear } from '@/lib/utils/dateHelpers';
 import { summarizeLock } from '@/lib/utils/fireSummary';
 import { describeFireLockScope } from '@/lib/utils/fireNarrative';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  PLAIN_GRID_CLASS,
+  leadCellClass,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   buildOverlaySeries,
@@ -77,6 +87,7 @@ import {
 } from '@/lib/utils/monteCarloSummary';
 import {
   buildMonteCarloVerdict,
+  describeMonteCarloClosedAnswers,
   describeParametriClosedAside,
   MONTE_CARLO_CLOSED_ASIDES,
   describeDistribuzione,
@@ -107,6 +118,7 @@ import { PageVerdict } from '@/components/ui/page-verdict';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
 import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { FireLockScope } from './FireLockScope';
 import { ErrorNotice } from '@/components/ui/error-notice';
@@ -353,13 +365,19 @@ export function MonteCarloTab() {
 
   // ─── The words (pure layer) ───────────────────────────────────────────────────
   const verdict = useMemo(() => buildMonteCarloVerdict({ runnable, run, scenarios: comparison, lock }), [runnable, run, comparison, lock]);
+  // What each closed row answers in the landscape index (2026-10-16): the run's 90th percentile, the
+  // bull's rate and the plan's withdrawal — the same run, comparison and plan the tiles print.
+  const rowAnswers = useMemo(() => describeMonteCarloClosedAnswers({ run, comparison, plan: typedPlan, stale }), [run, comparison, typedPlan, stale]);
 
   // ─── The phone composition (2026-10-15) ──────────────────────────────────────
   // The rows exist only with a run shown (Parametri alone is open); the strip is the SHOWN run's
   // until «Esegui» (The Stale-Run Rule: a stale form moves the Parametri aside, not the cells).
   const sections = useMobileSections({ route: 'fire-simulations', tab: 'montecarlo', sections: run ? MONTE_CARLO_SECTIONS : NO_SECTIONS });
-  // At 768/1024 the rows on two or three columns (MOB-08): the ones the run renders, in DOM order
-  // (Scenari a confronto only with a comparison); without a run the grid of before, Parametri alone.
+  // At 768 the rows on two columns, on a tablet in landscape the index beside the verdict and THE
+  // tile (lib/utils/tabletComposition.ts): the ones the run renders, in DOM order (Scenari a
+  // confronto only with a comparison). Without a run the grid of before, Parametri alone, and no
+  // stage: there is no THE tile to set on the left.
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({
     sections,
     order: run
@@ -393,9 +411,10 @@ export function MonteCarloTab() {
   const unlockOnPlot = lock.active && lock.lockedValue > 0 && lock.unlockCalendarYear !== null && run !== null && lock.unlockCalendarYear <= run.endCalendarYear ? lock.unlockCalendarYear : null;
 
   // ─── Render ──────────────────────────────────────────────────────────────────
-  return (
-    <div className="space-y-4">
-      <div className="pt-1">
+  // The verdict and the grid: the stage's children, in both of its forms below.
+  const stageContent = (
+    <>
+      <div data-stage="verdict" className={cn('pt-1', run && VERDICT_CELL_CLASS)}>
         <PageVerdict
           verdict={verdict}
           ariaLabel="Verdetto sul Monte Carlo"
@@ -405,12 +424,13 @@ export function MonteCarloTab() {
         />
       </div>
 
-      {/* ONE sequence, no `order-*` (decision 11). Tablet (MOB-08): Probabilità on two columns, the
-          closed rows two by two at 768 and beside it at 1024, an open row on the whole grid row. */}
-      <div className={COMPACT_GRID_WRAPPER_CLASS}>
-      <div className={run ? COMPACT_GRID_CLASS : 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12'} style={tablet.gridStyle}>
+      {/* ONE sequence, no `order-*` (decision 11). Tablet: Probabilità on two columns, the closed
+          rows two by two at 768, an open row on the whole grid row; in landscape the rows in the
+          index beside the verdict and Probabilità. */}
+      <div className={run ? COMPACT_GRID_WRAPPER_CLASS : undefined}>
+      <div className={run ? COMPACT_GRID_CLASS : PLAIN_GRID_CLASS}>
         {run && lastRun && (
-          <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5')}>
+          <div data-stage="lead" className={cn(TILE_CELL_CLASS, leadCellClass(Boolean(run)), 'desktop:col-span-5')}>
             <ProbabilitaTile
               reading={describeProbabilita(run)}
               aside={describeProbabilitaAside(run)}
@@ -429,10 +449,14 @@ export function MonteCarloTab() {
           </div>
         )}
 
+        {/* The index: «Il resto» and every row; without a run a plain `contents` box (Parametri
+            stays a cell of the plain grid). */}
+        <RowAnswers value={rowAnswers}>
+        <div className={run ? INDEX_CLASS : 'contents'}>
         {run && <PageRest sections={sections} className={REST_CELL_CLASS} />}
 
         {run && (
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(MONTE_CARLO_SECTION_IDS.distribuzione), 'desktop:col-span-4')} style={tablet.cellStyle(MONTE_CARLO_SECTION_IDS.distribuzione)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(MONTE_CARLO_SECTION_IDS.distribuzione), 'desktop:col-span-4')}>
             <DistribuzioneTile
               collapse={sections.collapse(MONTE_CARLO_SECTION_IDS.distribuzione)}
               asideWhenClosed={MONTE_CARLO_CLOSED_ASIDES[MONTE_CARLO_SECTION_IDS.distribuzione]}
@@ -447,7 +471,7 @@ export function MonteCarloTab() {
         )}
 
         {comparison && (
-          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(MONTE_CARLO_SECTION_IDS.scenari), 'desktop:col-span-3')} style={tablet.cellStyle(MONTE_CARLO_SECTION_IDS.scenari)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(MONTE_CARLO_SECTION_IDS.scenari), 'desktop:col-span-3')}>
             <ScenariConfrontoTile
               collapse={sections.collapse(MONTE_CARLO_SECTION_IDS.scenari)}
               asideWhenClosed={MONTE_CARLO_CLOSED_ASIDES[MONTE_CARLO_SECTION_IDS.scenari]}
@@ -461,7 +485,6 @@ export function MonteCarloTab() {
 
         <div
           className={cn(run ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS, run ? tablet.cellClass(MONTE_CARLO_SECTION_IDS.parametri) : 'tablet:col-span-2', 'desktop:col-span-12')}
-          style={tablet.cellStyle(MONTE_CARLO_SECTION_IDS.parametri)}
         >
           <ParametriTile
             collapse={run ? sections.collapse(MONTE_CARLO_SECTION_IDS.parametri) : undefined}
@@ -491,7 +514,27 @@ export function MonteCarloTab() {
             stale={stale}
           />
         </div>
+        </div>
+        </RowAnswers>
       </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* The stage: the verdict over the grid; on a tablet in landscape, with a run, the answer on
+          the left (verdict and Probabilità) and the index on the right (lib/utils/tabletComposition.ts).
+          Without a run there is no THE tile: a plain box, unmeasured. The two forms are the same
+          `div` in the same place, so React keeps the node and its subtree (the form's focus, the
+          Parametri's state) when the first run lands, and the measuring ref attaches then — a ref
+          on a stage mounted without THE tile would never measure it. */}
+      <div className={STAGE_WRAPPER_CLASS}>
+        {run ? (
+          <div ref={stageRef} className={STAGE_CLASS}>{stageContent}</div>
+        ) : (
+          <div className="space-y-4">{stageContent}</div>
+        )}
       </div>
 
       {lastRun && run && comparison && runPlan && (

@@ -21,7 +21,9 @@
 
 import { narrativeToText, type Narrative, type NarrativeSegment, type PageVerdictModel } from '@/lib/utils/narrative';
 import type { CostCenterCategorySlice, CostCenterSubCategorySlice } from '@/types/costCenters';
-import type { CenterBudgetSummary, CenterMonthStack, CenterSummary, CostCentersSummary } from '@/lib/utils/costCenterSummary';
+import { COST_CENTER_SECTION_IDS, type CenterBudgetSummary, type CenterMonthStack, type CenterSummary, type CostCentersSummary } from '@/lib/utils/costCenterSummary';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
+import { NO_SUBCATEGORY_KEY } from '@/types/expenses';
 import type { ModalStatusCopy } from '@/lib/utils/dialogNarrative';
 import type { LinkCandidate, LinkSelectionSummary } from '@/lib/utils/costCenterLinking';
 import type { CostCenterBudgetPeriod } from '@/types/costCenters';
@@ -814,4 +816,80 @@ export const UNLINK_CONSEQUENCE = 'Scollegando, la spesa resta in Cashflow ed es
 export function describeUnlinkSeriesReading(kind: 'recurring' | 'installment', seriesCount: number, centerName: string): string {
   const what = kind === 'installment' ? `un piano di ${seriesCount} rate` : `una serie di ${seriesCount} occorrenze`;
   return `Questa spesa fa parte di ${what} collegate a ${centerName}. Scollegarle le lascia in Cashflow: escono solo dal centro.`;
+}
+
+// ─── The closed rows' answers (2026-10-16) ────────────────────────────────────
+
+/**
+ * What the list's closed rows answer in the landscape index (components/ui/row-answers.tsx).
+ * Centri keeps its scope: the first center and its share are the verdict's, and «poi X 25%» is a
+ * forced answer (owner, 2026-10-16). Dormienti answers how much lies idle in the longest-idle
+ * center, «Ornitorinco 270 €» as its row prints it — never the days, which the verdict prints when
+ * there is one — «Ornitorinco mai usato» for one never used, «nessuno fermo» without any. Null
+ * without an active center (the tile's empty state).
+ */
+export function describeCostCentersClosedAnswers(summary: CostCentersSummary): RowAnswerMap {
+  return {
+    [COST_CENTER_SECTION_IDS.centri]: null,
+    [COST_CENTER_SECTION_IDS.dormienti]: describeDormantAnswer(summary),
+  };
+}
+
+function describeDormantAnswer(summary: CostCentersSummary): Narrative | null {
+  if (summary.active.length === 0) return null;
+  const first = summary.dormant[0];
+  if (!first) return [prose('nessuno fermo')];
+  if (!first.lastDate) return [prose(first.center.name), prose('mai usato')];
+  return [prose(first.center.name), figure(euro(first.total))];
+}
+
+export interface CostCenterDetailAnswersInput {
+  center: CenterSummary;
+  /** `buildCategoryComposition` of the booked rows, as Per categoria draws it. */
+  composition: CostCenterCategorySlice[];
+  /** `buildSubCategoryComposition` of the booked rows, as Per sottocategoria draws it. */
+  subComposition: CostCenterSubCategorySlice[];
+  excludedKeys: ReadonlySet<string>;
+  /** The included slices' total — Per sottocategoria's denominator. */
+  netSubTotal: number;
+}
+
+/**
+ * What the detail's closed rows answer in the landscape index. Per categoria: the first category of
+ * the tile's ranking with its share, «Progetti 73%». Ciclo di vita, while active: when the last
+ * expense was («ultima spesa oggi», «ultima 11 giorni fa»); dormant or archived it keeps «fermo» /
+ * «archiviato», whose days or date the verdict prints. Per sottocategoria: the first subcategory
+ * with its share of the total — null with one slice, with «Senza sottocategoria» first (it says
+ * nothing), and with any exclusion on, where the aside «2 escluse» is the state not to lose.
+ * Movimenti collegati keeps its count: an inventory's honest answer is how many rows it lists.
+ */
+export function describeCostCenterDetailClosedAnswers(input: CostCenterDetailAnswersInput): RowAnswerMap {
+  return {
+    [COST_CENTER_SECTION_IDS.centroCategorie]: describeCategoryAnswer(input.composition),
+    [COST_CENTER_SECTION_IDS.centroCiclo]: describeCicloAnswer(input.center),
+    [COST_CENTER_SECTION_IDS.centroSottocategorie]: describeSubCategoryAnswer(input.subComposition, input.excludedKeys, input.netSubTotal),
+    [COST_CENTER_SECTION_IDS.centroMovimenti]: null,
+  };
+}
+
+function describeCategoryAnswer(slices: CostCenterCategorySlice[]): Narrative | null {
+  // The tile's first row: the «Altro» tail is drawn last, as a remainder.
+  const top = slices.find((slice) => slice.key !== OTHER_KEY);
+  if (!top || slices.length < 2) return null;
+  return [prose(top.categoryName), figure(`${Math.round(top.pct * 100)}%`)];
+}
+
+function describeCicloAnswer(center: CenterSummary): Narrative | null {
+  if (center.lifecycle !== 'active' || !center.lastDate) return null;
+  const days = center.idleDays ?? 0;
+  if (days === 0) return [prose('ultima spesa oggi')];
+  if (days === 1) return [prose('ultima spesa ieri')];
+  return [prose('ultima'), count(days), prose('giorni fa')];
+}
+
+function describeSubCategoryAnswer(slices: CostCenterSubCategorySlice[], excludedKeys: ReadonlySet<string>, netTotal: number): Narrative | null {
+  if (slices.length < 2 || excludedKeys.size > 0 || netTotal <= 0) return null;
+  const top = slices[0];
+  if (top.key === NO_SUBCATEGORY_KEY) return null;
+  return [prose(top.subCategoryName), figure(pct((top.total / netTotal) * 100))];
 }

@@ -61,7 +61,7 @@ function installSpies() {
   const getBoundingClientRect = Element.prototype.getBoundingClientRect;
   Element.prototype.getBoundingClientRect = function (this: Element) {
     // The bottom nav is the only <nav> labelled so: the sidebar's twin is a div with the role.
-    if (this.closest('nav[aria-label="Navigazione principale"]')) spy.bottomNavMeasures++;
+    if (this.closest('nav[data-nav="pill"]')) spy.bottomNavMeasures++;
     return getBoundingClientRect.call(this);
   };
 
@@ -157,8 +157,8 @@ test('at 1440 a client navigation measures no node of the hidden bottom nav', as
   await page.goto('/dashboard');
   await waitForPage(page, /./);
   // The pill is in the DOM, hidden by CSS: the absence below is about its MEASURE, not its presence.
-  await expect(page.locator('nav[aria-label="Navigazione principale"]')).toBeHidden();
-  await expect(page.locator('nav[aria-label="Navigazione principale"]')).toHaveCount(1);
+  await expect(page.locator('nav[data-nav="pill"]')).toBeHidden();
+  await expect(page.locator('nav[data-nav="pill"]')).toHaveCount(1);
 
   await resetSpies(page);
   await page.getByRole('link', { name: 'Storico', exact: true }).filter({ visible: true }).first().click();

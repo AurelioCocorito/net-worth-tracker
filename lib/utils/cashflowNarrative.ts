@@ -33,7 +33,8 @@ import { articleForPercent, ofThePercent, pluralArticleFor } from '@/lib/utils/p
 import { getItalyDate, getItalyMonthYear } from '@/lib/utils/dateHelpers';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
-import { comparedDaysOfPreviousMonth, isYearToDate, resolveAnchorMonth, settleTotals } from '@/lib/utils/tracciamentoSummary';
+import { TRACKING_SECTION_IDS, comparedDaysOfPreviousMonth, isYearToDate, resolveAnchorMonth, settleTotals } from '@/lib/utils/tracciamentoSummary';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 
 /** A month saving this share of its income or more is going well (the Panoramica's bar). */
 export const GOOD_SAVINGS_RATE = 20;
@@ -744,4 +745,59 @@ export function describeMovementsCount(shown: number, total: number): Narrative 
   if (total === 0) return [prose('nessuna voce')];
   const voci: Narrative = [figure(String(total)), prose(` ${pluralize(total, 'voce', 'voci')}`)];
   return shown === total ? voci : [figure(String(shown)), prose(' di '), ...voci];
+}
+
+// ─── The closed rows' answers (2026-10-16) ────────────────────────────────────
+
+/**
+ * A category ranking as a closed row answers it: «Auto 29%», the first row as `RankedRows` prints
+ * it (the share rounded to the integer). One category is «tutto in Casa» with no figure (it is the
+ * whole total), and a first share that PRINTS as 100% beside other rows is «quasi tutto in Casa»,
+ * the reading's own words — the row never claims it all. Null without rows (the empty state).
+ * Shared by Tracciamento and Analisi, whose category tiles are the same tile.
+ */
+export function describeCategoryShareAnswer(ranking: CategoryRanking, kind: 'expenses' | 'income'): Narrative | null {
+  const [top, ...rest] = ranking.rows;
+  if (!top) return null;
+  const preposition = kind === 'income' ? 'da' : 'in';
+  if (rest.length === 0) return [prose(`tutto ${preposition} ${top.category}`)];
+  const share = Math.round(top.percentage);
+  if (share >= 100) return [prose(`quasi tutto ${preposition} ${top.category}`)];
+  return [prose(top.category), figure(`${share}%`)];
+}
+
+/**
+ * «in media il 22%» — the savings history's average, the tile reading's first words; a negative one
+ * «in media −8%» in the loss colour, as `historyRate` prints it (no article before a minus). The
+ * article is its own segment, which the index binds to the figure when elided («in media l'8%»). Null when no closed month
+ * had income, and with ONE measured month: the mean of one month is not a mean (the reading names
+ * that month instead). Beside THE tile's rate of the period, «in media» tells them apart.
+ */
+function describeSavingsHistoryAnswer(history: SavingsHistory): Narrative | null {
+  if (history.average === null || history.measuredCount < 2) return null;
+  // Decided on the printed integer: −0,3 prints «0%», with no sign.
+  if (Math.round(history.average) < 0) return [prose('in media'), historyRate(history.average)];
+  const average = Math.max(history.average, 0);
+  return [prose('in media'), prose(articleForPercent(average, 0).trim()), figure(formatPercentage(average, 0))];
+}
+
+export interface TrackingClosedAnswersInput {
+  expenseRanking: CategoryRanking;
+  incomeRanking: CategoryRanking;
+  savingsHistory: SavingsHistory;
+}
+
+/**
+ * What Tracciamento's closed rows answer in the landscape index (components/ui/row-answers.tsx):
+ * the first category of each ranking and the savings history's average — none of them in the strip,
+ * THE tile or the verdict's first sentence. Movimenti keeps its count: an inventory's honest answer
+ * is how many rows it lists, and it follows the toolbar's filters.
+ */
+export function describeTrackingClosedAnswers({ expenseRanking, incomeRanking, savingsHistory }: TrackingClosedAnswersInput): RowAnswerMap {
+  return {
+    [TRACKING_SECTION_IDS.spese]: describeCategoryShareAnswer(expenseRanking, 'expenses'),
+    [TRACKING_SECTION_IDS.entrate]: describeCategoryShareAnswer(incomeRanking, 'income'),
+    [TRACKING_SECTION_IDS.risparmio]: describeSavingsHistoryAnswer(savingsHistory),
+    [TRACKING_SECTION_IDS.movimenti]: null,
+  };
 }

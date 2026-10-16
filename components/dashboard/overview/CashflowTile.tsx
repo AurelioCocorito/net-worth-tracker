@@ -7,7 +7,7 @@ import {
   describeCashflow,
   describeScheduledCaption,
   describeScheduledNetCaption,
-  projectMonthEndSpending,
+  projectCashflowMonthEnd,
 } from '@/lib/utils/overviewNarrative';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { cn } from '@/lib/utils';
@@ -78,8 +78,7 @@ export function CashflowTile({
 }: CashflowTileProps) {
   const { income, expenses, net, expensesScheduled = 0, incomeScheduled = 0 } = expenseStats.currentMonth;
   // The same rule as Tracciamento: pace what is booked to date, add what is already scheduled.
-  const pacedExpenses = projectMonthEndSpending(expenses - expensesScheduled, dayOfMonth, daysInMonth);
-  const projectedExpenses = pacedExpenses === null ? null : pacedExpenses + expensesScheduled;
+  const projectedExpenses = projectCashflowMonthEnd(expenseStats.currentMonth, dayOfMonth, daysInMonth);
   const previousExpenses = expenseStats.previousMonth.expenses;
 
   return (

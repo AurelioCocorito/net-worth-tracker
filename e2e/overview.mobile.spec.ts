@@ -104,7 +104,7 @@ test.describe('Panoramica, composed for a phone', () => {
     // four digits — «+3000,00 €» is a wide cell, decision 28 — and the period picker is 44px, so
     // Sintesi ends ~110px under the pill; `budget.json` registers `firstClosedRowAbovePill: false`
     // with its `raisedBy`). What is held here is the order: the row starts after THE tile ends.
-    const pillTop = await page.locator('nav[aria-label="Navigazione principale"]').evaluate((el) => el.getBoundingClientRect().top);
+    const pillTop = await page.locator('nav[data-nav="pill"]').evaluate((el) => el.getBoundingClientRect().top);
     expect(pillTop).toBeGreaterThan(600);
     const bottomOf = async (locator: ReturnType<Page['locator']>) => {
       const box = (await locator.boundingBox())!;
@@ -285,6 +285,14 @@ test.describe('Panoramica, composed for a phone', () => {
     const first = cell(page, /^Questo mese/);
     await expect(first).toContainText(/\+123\.456,78\s?€/);
     const cells = stripOf(page).getByRole('button');
+    // The count-up of the second row settles a frame apart (1,3–1,6 px, two full runs on 2026-10-16): read the
+    // boxes once the two cells share their line, and fail only if they never do.
+    await expect
+      .poll(async () => {
+        const [a, b] = await Promise.all([cells.nth(1).boundingBox(), cells.nth(2).boundingBox()]);
+        return a!.y === b!.y;
+      })
+      .toBe(true);
     const boxes = await Promise.all([0, 1, 2].map((i) => cells.nth(i).boundingBox()));
     expect(boxes[0]!.width).toBeGreaterThan(boxes[1]!.width * 1.8);
     expect(boxes[1]!.y).toBeGreaterThan(boxes[0]!.y + boxes[0]!.height - 1);

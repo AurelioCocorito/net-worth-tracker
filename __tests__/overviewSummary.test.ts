@@ -10,6 +10,14 @@
  * the net-loss sale with the body replaced by `input.marketEffect !== null` — the comparison with
  * the regex pins the definition, the hard-coded booleans per case carry the proof; the asides went
  * red (in the retirement, the same day) with Sintesi's aside replaced by «giorno 11 di 31».
+ *
+ * Falsified on 2026-10-16, one at a time, on `describeOverviewClosedAnswers` (the closed rows'
+ * answers): without the Composizione comparison → the «Asset principali» test red; the one-category
+ * branch dropped → the answers and the category tests red; «quasi tutto» decided on the raw value
+ * → red; `formatPercentageIt(share)` with Intl's hyphen → the negative share red; Costi answered
+ * without TER or stamp duty → the null test red; the projection without the calendar's rows → the
+ * answers and the projection tests red; Costi answering with the strip's «+3000,00 €» → the
+ * Lifted-Figure test red.
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -26,9 +34,19 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(),
 }));
 
-import { buildOverviewVerdict, narrativeToText, resolveLivedCashflow, type OverviewVerdictInput } from '@/lib/utils/overviewNarrative';
+import {
+  annualPortfolioCostTotal,
+  buildOverviewVerdict,
+  liquidityShare,
+  narrativeToText,
+  projectCashflowMonthEnd,
+  resolveLivedCashflow,
+  type OverviewVerdictInput,
+} from '@/lib/utils/overviewNarrative';
+import type { Narrative } from '@/lib/utils/narrative';
 import {
   describeOverviewAsides,
+  describeOverviewClosedAnswers,
   monthCoverageRatio,
   monthSavingsRate,
   OVERVIEW_PATRIMONIO_ID,
@@ -263,5 +281,112 @@ describe('the Cashflow tile\'s ratios (the whole month)', () => {
     expect(monthCoverageRatio({ ...STATS, currentMonth: { ...STATS.currentMonth, expenses: 0 } })).toBeNull();
     expect(monthSavingsRate(null)).toBeNull();
     expect(monthCoverageRatio(undefined)).toBeNull();
+  });
+});
+
+describe('describeOverviewClosedAnswers (the landscape index)', () => {
+  /** Day 15 of 30: the Cashflow projection is (2000 − 350) / 15 × 30 + 350 = 3650 €. */
+  const CALENDAR = { dayOfMonth: 15, daysInMonth: 30 };
+  const text = (answer: Narrative | null) => (answer === null ? null : plain(narrativeToText(answer)).trim());
+  /** The fixture with a top asset whose weight is not Composizione's first share. */
+  const overview = () => makeOverview({ topAssets: [{ id: 'a', name: 'VWCE', assetType: 'etf', assetClass: 'equity', totalValue: 76000, portfolioPercent: 40, returnPercent: 12 }] });
+
+  it('answers every row with words and at most one figure, as the tile prints it', () => {
+    const answers = describeOverviewClosedAnswers(overview(), CALENDAR);
+    expect(Object.fromEntries(Object.entries(answers).map(([id, answer]) => [id, text(answer)]))).toEqual({
+      [OVERVIEW_SECTION_IDS.sintesi]: 'liquidabile 78,9%',
+      [OVERVIEW_SECTION_IDS.cashflow]: 'a fine mese ~3650 €',
+      [OVERVIEW_SECTION_IDS.composizione]: 'Azioni 68,4%',
+      [OVERVIEW_SECTION_IDS.costi]: 'costo annuo 680 €',
+      [OVERVIEW_SECTION_IDS.obiettivo]: 'Casa 40%',
+      [OVERVIEW_SECTION_IDS.spese]: 'tutto in Casa',
+      [OVERVIEW_SECTION_IDS.entrate]: 'tutto da Stipendio',
+      [OVERVIEW_SECTION_IDS.asset]: 'VWCE 40,0%',
+    });
+    for (const answer of Object.values(answers)) {
+      expect(answer!.filter((segment) => segment.mono).length).toBeLessThanOrEqual(1);
+      // None of these figures is a gain or a loss: no sign colour.
+      expect(answer!.some((segment) => segment.sign)).toBe(false);
+      expect(text(answer)!.length).toBeLessThanOrEqual(22);
+    }
+  });
+
+  it('never repeats a figure the strip prints (The Lifted-Figure Rule)', () => {
+    const o = overview();
+    const stripTexts = selectOverviewStrip(o).filter((cell) => cell.value !== null).map(cellText);
+    for (const answer of Object.values(describeOverviewClosedAnswers(o, CALENDAR))) {
+      const figure = answer?.find((segment) => segment.mono);
+      if (figure) expect(stripTexts).not.toContain(plain(figure.text));
+    }
+  });
+
+  it('keeps «Asset principali» on its scope when its weight prints Composizione\'s figure', () => {
+    // The default fixture: VWCE is the only equity, 68,4% in both rows.
+    expect(describeOverviewClosedAnswers(makeOverview(), CALENDAR)[OVERVIEW_SECTION_IDS.asset]).toBeNull();
+    // 68,44 and 68,4 print the same: the rule is on the printed text, not the value.
+    const near = makeOverview({ topAssets: [{ id: 'a', name: 'VWCE', assetType: 'etf', assetClass: 'equity', totalValue: 130000, portfolioPercent: 68.44, returnPercent: 12 }] });
+    expect(describeOverviewClosedAnswers(near, CALENDAR)[OVERVIEW_SECTION_IDS.asset]).toBeNull();
+  });
+
+  it('is null where the tile has nothing to show', () => {
+    const empty = describeOverviewClosedAnswers(
+      makeOverview({
+        metrics: { ...makeOverview().metrics, totalValue: 0 },
+        expenseStats: null,
+        charts: { assetClassData: [], assetData: [], liquidityData: [] },
+        flags: { assetCount: 0, hasCostBasisTracking: false, hasTERTracking: false, hasStampDuty: false, currentMonthSnapshotExists: false },
+        topAssets: [],
+        goalProgressList: [],
+      }),
+      CALENDAR,
+    );
+    for (const id of ROW_IDS) expect(empty[id]).toBeNull();
+    // A calendar not yet started: the tile shows no projection, the row no answer.
+    expect(describeOverviewClosedAnswers(makeOverview(), { dayOfMonth: 0, daysInMonth: 30 })[OVERVIEW_SECTION_IDS.cashflow]).toBeNull();
+    // A first class at zero, and stats with no rows of one kind.
+    const zero = makeOverview({ charts: { assetClassData: [{ name: 'Azioni', value: 0, percentage: 0, color: '#000', assetClass: 'equity' }], assetData: [], liquidityData: [] } });
+    expect(describeOverviewClosedAnswers(zero, CALENDAR)[OVERVIEW_SECTION_IDS.composizione]).toBeNull();
+    const noIncome = describeOverviewClosedAnswers(makeOverview({ expenseStats: { ...STATS, topIncomeCategories: [] } }), CALENDAR);
+    expect(noIncome[OVERVIEW_SECTION_IDS.entrate]).toBeNull();
+  });
+
+  it('names the first category with its rounded share, «quasi tutto» when it rounds to 100 beside others', () => {
+    const rows = (first: number) => [
+      { category: 'Auto', categoryKey: 'auto', expenseType: 'variable' as const, amount: first * 20, percentage: first },
+      { category: 'Casa', categoryKey: 'casa', expenseType: 'fixed' as const, amount: 100, percentage: 100 - first },
+    ];
+    const answer = (first: number) =>
+      text(describeOverviewClosedAnswers(makeOverview({ expenseStats: { ...STATS, topExpenseCategories: rows(first) } }), CALENDAR)[OVERVIEW_SECTION_IDS.spese]);
+    expect(answer(28.6)).toBe('Auto 29%');
+    expect(answer(99.6)).toBe('quasi tutto in Auto');
+    const income = (first: number) =>
+      text(
+        describeOverviewClosedAnswers(
+          makeOverview({
+            expenseStats: {
+              ...STATS,
+              topIncomeCategories: [
+                { category: 'Stipendio', categoryKey: 'stipendio', expenseType: 'income', amount: first * 40, percentage: first },
+                { category: 'Affitto', categoryKey: 'affitto', expenseType: 'income', amount: (100 - first) * 40, percentage: 100 - first },
+              ],
+            },
+          }),
+          CALENDAR,
+        )[OVERVIEW_SECTION_IDS.entrate],
+      );
+    expect(income(80)).toBe('Stipendio 80%');
+    expect(income(99.6)).toBe('quasi tutto da Stipendio');
+  });
+
+  it('prints a negative liquid share with the typographic minus', () => {
+    const debts = makeOverview({ metrics: { ...makeOverview().metrics, cashNetWorth: -30000, liquidInvestmentsNetWorth: 10000 } });
+    expect(text(describeOverviewClosedAnswers(debts, CALENDAR)[OVERVIEW_SECTION_IDS.sintesi])).toBe('liquidabile −10,5%');
+  });
+
+  it('reads the projection and the annual cost from the tiles\' own functions', () => {
+    expect(projectCashflowMonthEnd(STATS.currentMonth, 15, 30)).toBe(3650);
+    expect(projectCashflowMonthEnd(STATS.currentMonth, 0, 30)).toBeNull();
+    expect(annualPortfolioCostTotal({ annualPortfolioCost: 300, annualStampDuty: 380 })).toBe(680);
+    expect(liquidityShare(20000, 130000, 0)).toBeNull();
   });
 });

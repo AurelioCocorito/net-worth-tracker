@@ -29,6 +29,7 @@ import {
   describeEvent,
   describeEventFooter,
   describeSensitivity,
+  describeWhatIfClosedAnswers,
   SENSITIVITY_ASIDE,
   SENSITIVITY_FOOTER,
   WHAT_IF_CLOSED_ASIDES,
@@ -531,5 +532,56 @@ describe('the closed rows\' asides — words, never a figure', () => {
   it('names Prima e dopo, Delta and Sensibilità without a digit', () => {
     expect(WHAT_IF_CLOSED_ASIDES).toEqual({ [WHAT_IF_SECTION_IDS.primaDopo]: 'le due traiettorie', [WHAT_IF_SECTION_IDS.delta]: 'prima → dopo', [WHAT_IF_SECTION_IDS.sensibilita]: 'spese e risparmio' });
     for (const aside of Object.values(WHAT_IF_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
+  });
+});
+
+// ─── The closed rows' answers in the landscape index (2026-10-16) ─────────────
+// Falsified on 2026-10-16, one at a time: «keeps the scope» went red with the `!event.isEmpty`
+// guard dropped (the Delta answered an event the verdict already says is empty), and again with the
+// Delta's answer copied onto Prima e dopo.
+
+describe('describeWhatIfClosedAnswers', () => {
+  /** What the index shows: each segment trimmed, joined by the gap the row draws between them. */
+  const visible = (answer: Narrative | null | undefined) =>
+    answer ? answer.map((segment) => segment.text.trim()).join(' ').replace(/[  ]/g, ' ') : answer;
+  const SENSITIVITY: SensitivityReading = {
+    baselineExpenses: 30_000,
+    baselineSavings: 12_000,
+    baselineYears: 30,
+    lessSpending: { annualExpenses: 27_000, years: 26 },
+    moreSaving: { annualSavings: 15_000, label: '+25%', years: 28 },
+  };
+  const answers = (over: Partial<Parameters<typeof describeWhatIfClosedAnswers>[0]> = {}) =>
+    describeWhatIfClosedAnswers({ event: makeEvent(), summary: makeSummary({ progressPct: pair(40, 37) }), sensitivity: SENSITIVITY, ...over });
+
+  it('answers Delta with the progress row as it prints, signed as the row, in at most 22 characters', () => {
+    const delta = answers()[WHAT_IF_SECTION_IDS.delta];
+    expect(visible(delta)).toBe('progresso −3,0 punti');
+    expect(delta?.find((segment) => segment.mono)?.sign).toBe('negative');
+    expect(buildDeltaRows(makeSummary({ progressPct: pair(40, 37) })).fire.find((row) => row.key === 'progress')?.change).toBe(delta?.[1].text);
+    const better = answers({ summary: makeSummary({ progressPct: pair(40, 42.5) }) })[WHAT_IF_SECTION_IDS.delta];
+    expect(visible(better)).toBe('progresso +2,5 punti');
+    expect(better?.find((segment) => segment.mono)?.sign).toBe('positive');
+    for (const answer of Object.values(answers())) expect([...(visible(answer) ?? '')].length).toBeLessThanOrEqual(22);
+  });
+
+  it('says an unchanged progress in words, without a figure', () => {
+    const same = answers({ summary: makeSummary({ progressPct: pair(40, 40.02) }) })[WHAT_IF_SECTION_IDS.delta];
+    expect(visible(same)).toBe('progresso invariato');
+    expect(same?.some((segment) => segment.mono)).toBe(false);
+  });
+
+  it('answers Sensibilità with the −10% cell as the matrix prints it, «50+ anni» beyond the horizon', () => {
+    expect(visible(answers()[WHAT_IF_SECTION_IDS.sensibilita])).toBe('spese −10%: 26 anni');
+    expect(visible(answers({ sensitivity: { ...SENSITIVITY, lessSpending: { annualExpenses: 27_000, years: null } } })[WHAT_IF_SECTION_IDS.sensibilita])).toBe('spese −10%: 50+ anni');
+    expect(visible(answers({ sensitivity: { ...SENSITIVITY, lessSpending: { annualExpenses: 27_000, years: 1 } } })[WHAT_IF_SECTION_IDS.sensibilita])).toBe('spese −10%: 1 anno');
+  });
+
+  it('keeps the scope: Prima e dopo always, an empty event, no matrix, no −10% row', () => {
+    expect(answers()[WHAT_IF_SECTION_IDS.primaDopo]).toBeNull();
+    expect(answers({ event: makeEvent({ isEmpty: true }) })[WHAT_IF_SECTION_IDS.delta]).toBeNull();
+    expect(answers({ event: null, summary: null })[WHAT_IF_SECTION_IDS.delta]).toBeNull();
+    expect(answers({ sensitivity: null })[WHAT_IF_SECTION_IDS.sensibilita]).toBeNull();
+    expect(answers({ sensitivity: { ...SENSITIVITY, lessSpending: null } })[WHAT_IF_SECTION_IDS.sensibilita]).toBeNull();
   });
 });

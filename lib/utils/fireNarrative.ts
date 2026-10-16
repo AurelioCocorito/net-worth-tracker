@@ -25,6 +25,7 @@ import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/
 import type { FIREProjectionScenarios } from '@/types/assets';
 import { FIRE_SECTION_IDS, type FanVerdict, type FireLock, type FireTarget, type FireTargetHonest, type FireTimeline, type PassiveIncome, type ScenarioRow } from '@/lib/utils/fireSummary';
 import type { FireYearDistribution, RetirementSurvival, TailLever } from '@/lib/utils/fireDistribution';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -296,6 +297,66 @@ export const FIRE_CLOSED_ASIDES = {
 
 /** What a closed row says while the tab has nothing to compute from («Nulla registrato»). */
 export const FIRE_ROW_NOT_COMPUTABLE = 'non ancora calcolabile';
+
+/** The «prelievo attuale 48,8%» answer fits the index's 22 characters; past it the label shortens. */
+const CLOSED_ANSWER_MAX_CHARS = 22;
+
+export interface FireClosedAnswersInput {
+  base: Pick<FireBase, 'referenceYear' | 'isAnnualized'>;
+  passiveIncome: PassiveIncome;
+  /** Empty without a projection: the Scenari row then keeps its aside. */
+  scenarioRows: ScenarioRow[];
+  horizonYears: number;
+}
+
+/**
+ * «cashflow 2025» / «2026 annualizzato» — the window the expenses and the savings come from. Every
+ * figure of its own the tile prints is already above it (the net worth and the SWR in the
+ * Traguardo, the savings in the verdict), and the annualised window is the weightiest caveat the
+ * landscape would otherwise not show. The comma of the open aside is dropped: the index sets each
+ * segment apart, and a comma after the mono year would float.
+ */
+function fireBaseAnswer(base: FireClosedAnswersInput['base']): Narrative | null {
+  if (base.referenceYear === null) return null;
+  return base.isAnnualized ? [year(base.referenceYear), prose('annualizzato')] : [prose('cashflow'), year(base.referenceYear)];
+}
+
+/**
+ * «prelievo attuale 48,8%» — expenses ÷ net worth as the tile's «Prelievo attuale» row prints it, in
+ * the loss colour when it passes the SWR (the tile's `text-destructive`). The monthly allowance is
+ * the strip's «Rendita oggi», and the annual one only its ×12. Null when the tile prints «—».
+ */
+function fireRedditoAnswer(income: PassiveIncome): Narrative | null {
+  if (income.currentWR <= 0) return null;
+  const text = formatPercentage(income.currentWR, 1);
+  const value: NarrativeSegment = income.overSwr ? { text, mono: true, sign: 'negative' } : figure(text);
+  const label = `prelievo attuale ${text}`.length > CLOSED_ANSWER_MAX_CHARS ? 'prelievo' : 'prelievo attuale';
+  return [prose(label), value];
+}
+
+/**
+ * «Orso nel 2066» — the cautious scenario, which nothing on the first screen prints (the base year is
+ * the verdict's). «oltre 50 anni» past the horizon, «già raggiunto» on year 0, as the tile's cells.
+ */
+function fireScenariAnswer(rows: ScenarioRow[], horizonYears: number): Narrative | null {
+  const bear = rows.find((row) => row.key === 'bear');
+  if (!bear) return null;
+  if (bear.yearsToFire === 0) return [prose('Orso già raggiunto')];
+  if (bear.calendarYear === null) return [prose('Orso oltre'), figure(`${horizonYears} anni`)];
+  return [prose('Orso nel'), year(bear.calendarYear)];
+}
+
+/**
+ * What the Calcolatore's closed rows answer in the landscape index (components/ui/row-answers.tsx;
+ * 2026-10-16), only on the computed tab: with nothing recorded every row says «non ancora calcolabile».
+ */
+export function describeFireClosedAnswers({ base, passiveIncome, scenarioRows, horizonYears }: FireClosedAnswersInput): RowAnswerMap {
+  return {
+    [FIRE_SECTION_IDS.base]: fireBaseAnswer(base),
+    [FIRE_SECTION_IDS.reddito]: fireRedditoAnswer(passiveIncome),
+    [FIRE_SECTION_IDS.scenari]: fireScenariAnswer(scenarioRows, horizonYears),
+  };
+}
 
 // ─── Nothing recorded: the four tiles keep their question ─────────────────────
 

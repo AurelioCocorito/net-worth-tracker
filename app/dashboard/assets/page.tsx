@@ -58,12 +58,23 @@ import { filterSparklineByPeriod } from '@/lib/utils/sparklinePeriod';
 import { cardItem, staggerContainer } from '@/lib/utils/motionVariants';
 import { buildPatrimonioVerdict, describeLastPriceUpdate, formatHoldingCounts } from '@/lib/utils/patrimonioNarrative';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  PLAIN_GRID_CLASS,
+  leadCellClass,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import {
+  describePatrimonioClosedAnswers,
   isCashAccount,
   isHeld,
   isLiquidityRow,
@@ -95,6 +106,7 @@ import { PageVerdict } from '@/components/ui/page-verdict';
 import { TILE_CELL_CLASS, TILE_FOOTER_ACTION_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { isPatrimonioLiftedBlock, PatrimonioTile, resolveHeroValueClass, type PatrimonioLiftedBlock } from '@/components/dashboard/overview/PatrimonioTile';
 import { ComposizioneTile } from '@/components/dashboard/overview/ComposizioneTile';
@@ -435,8 +447,10 @@ export default function AssetsPage() {
     sections: sectionSpecs,
     defaultOpen: overviewUnavailable ? OVERVIEW_FAILED_DEFAULT_OPEN : NO_DEFAULT_OPEN,
   });
-  // At 768/1024 the same rows on two columns or beside THE tile (MOB-08); the specs ARE the DOM's
-  // rows. With the overview unread there is no THE tile and no rail: the grid of before.
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). The specs ARE the DOM's rows. With the overview unread
+  // there is no THE tile and no stage: the plain grid, every wide row on both columns at 768.
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({ sections, order: overviewUnavailable ? [] : sectionSpecs.map((section) => section.id) });
 
   // ─── Handlers ─────────────────────────────────────────────────────────────────
@@ -600,6 +614,18 @@ export default function AssetsPage() {
   const strumentiCount = formatHoldingCounts(heldInstruments.length, 0, heldLoans.length);
   const liquiditaCount = formatHoldingCounts(0, cashAccounts.length, personalLoans);
   const monthName = MONTH_NAMES[today.month - 1].toLowerCase();
+  // What each closed row answers in the landscape index (2026-10-16): figures the strip and THE tile do not print.
+  const rowAnswers = describePatrimonioClosedAnswers({
+    trades: { summary: tradesSummary, ledgerReady, loading: ledgerReady && loadingTrades, failed: movimentiFailed },
+    cash: cashSummary,
+    classes: assetClassData,
+    strip,
+    gains,
+    mortgages,
+    mortgageFailed: mortgageError,
+    instruments,
+    totalValue,
+  });
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -613,7 +639,19 @@ export default function AssetsPage() {
           freshness={freshness}
         />
 
-        <motion.div variants={cardItem} initial="hidden" animate="visible" className="pt-1">
+        {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+            (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). With
+            the overview unread there is no THE tile: a plain box over the plain grid, at every width. */}
+        <RowAnswers value={rowAnswers}>
+        <div className={STAGE_WRAPPER_CLASS}>
+        <div ref={stageRef} className={overviewUnavailable ? 'space-y-4' : STAGE_CLASS}>
+        <motion.div
+          variants={cardItem}
+          initial="hidden"
+          animate="visible"
+          data-stage="verdict"
+          className={cn('pt-1', !overviewUnavailable && VERDICT_CELL_CLASS)}
+        >
           {overviewUnavailable ? (
             <ErrorNotice
               className="max-w-[920px]"
@@ -633,16 +671,15 @@ export default function AssetsPage() {
           )}
         </motion.div>
 
-        <div className={COMPACT_GRID_WRAPPER_CLASS}>
+        <div className={overviewUnavailable ? undefined : COMPACT_GRID_WRAPPER_CLASS}>
         <motion.div
           variants={staggerContainer}
           initial="hidden"
           animate="visible"
-          className={overviewUnavailable ? 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12' : COMPACT_GRID_CLASS}
-          style={overviewUnavailable ? undefined : tablet.gridStyle}
+          className={overviewUnavailable ? PLAIN_GRID_CLASS : COMPACT_GRID_CLASS}
         >
           {!overviewUnavailable && (
-            <motion.div variants={cardItem} className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
+            <motion.div variants={cardItem} data-stage="lead" className={cn(TILE_CELL_CLASS, leadCellClass(!overviewUnavailable), 'desktop:col-span-5 desktop:row-span-2')}>
               <PatrimonioTile
                 id={PATRIMONIO_PATRIMONIO_ID}
                 className="scroll-mt-24"
@@ -682,7 +719,10 @@ export default function AssetsPage() {
           )}
 
           {/* «Il resto della pagina» right after THE tile — the grid's first child when the overview
-              was not read and there is no tile (then the grid of before). Hidden from `desktop:`. */}
+              was not read and there is no tile (then the plain grid). Hidden from `desktop:`. The
+              index opens here and holds every row after it; `contents` at 1440, so the cells placed
+              by column below stay items of the twelve-column grid. */}
+          <div className={overviewUnavailable ? 'contents' : INDEX_CLASS}>
           <PageRest sections={sections} className={overviewUnavailable ? undefined : REST_CELL_CLASS} />
 
           {/* DOM order = reading order on every width: the month's movements right after the hero
@@ -692,7 +732,6 @@ export default function AssetsPage() {
           <motion.div
             variants={cardItem}
             className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.movimenti), 'desktop:col-span-4 desktop:col-start-9 desktop:row-start-1')}
-            style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.movimenti)}
           >
             {movimentiFailed ? (
               // A failed read of the ledger is not «nessuna operazione», at every width (decision 41).
@@ -724,7 +763,6 @@ export default function AssetsPage() {
           <motion.div
             variants={cardItem}
             className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.liquidita), 'desktop:col-span-3 desktop:col-start-6 desktop:row-start-1')}
-            style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.liquidita)}
           >
             <LiquiditaTile
               summary={cashSummary}
@@ -742,7 +780,6 @@ export default function AssetsPage() {
               <motion.div
                 variants={cardItem}
                 className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.classi), 'desktop:col-span-3')}
-                style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.classi)}
               >
                 <ComposizioneTile
                   eyebrow="Classi"
@@ -764,7 +801,6 @@ export default function AssetsPage() {
               <motion.div
                 variants={cardItem}
                 className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.rendimento), 'desktop:col-span-4')}
-                style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.rendimento)}
               >
                 <RendimentoTile
                   gains={gains}
@@ -778,12 +814,12 @@ export default function AssetsPage() {
             </>
           )}
 
-          {/* A failed read of the instalments is not «no mortgage»: it says so where the tile would be. */}
+          {/* A failed read of the instalments is not «no mortgage»: it says so where the tile would be.
+              With the overview unread (the plain grid) the loans and Strumenti take both columns at 768. */}
           {mortgageError ? (
             <motion.div
               variants={cardItem}
-              className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.mutuo), 'desktop:col-span-12')}
-              style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.mutuo)}
+              className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.mutuo), overviewUnavailable && 'tablet:col-span-2', 'desktop:col-span-12')}
             >
               <ErrorNotice
                 collapse={sections.collapse(PATRIMONIO_SECTION_IDS.mutuo)}
@@ -799,8 +835,7 @@ export default function AssetsPage() {
               <motion.div
                 key={summary.loanId}
                 variants={cardItem}
-                className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(patrimonioMutuoSectionId(summary.loanId)), 'desktop:col-span-12')}
-                style={tablet.cellStyle(patrimonioMutuoSectionId(summary.loanId))}
+                className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(patrimonioMutuoSectionId(summary.loanId)), overviewUnavailable && 'tablet:col-span-2', 'desktop:col-span-12')}
               >
                 <MutuoTile
                   summary={summary}
@@ -814,8 +849,7 @@ export default function AssetsPage() {
 
           <motion.div
             variants={cardItem}
-            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.strumenti), 'desktop:col-span-12')}
-            style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.strumenti)}
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.strumenti), overviewUnavailable && 'tablet:col-span-2', 'desktop:col-span-12')}
           >
             <StrumentiTile
               collapse={sections.collapse(PATRIMONIO_SECTION_IDS.strumenti)}
@@ -835,8 +869,12 @@ export default function AssetsPage() {
               onCalculateTaxes={setTaxAsset}
             />
           </motion.div>
+          </div>
         </motion.div>
         </div>
+        </div>
+        </div>
+        </RowAnswers>
       </div>
 
       {/* ── Dialogs — one instance each, shared by the header and every tile ── */}

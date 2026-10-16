@@ -60,6 +60,7 @@ import {
   buildCostCentersVerdict,
   describeArchiviati,
   describeCentri,
+  describeCostCentersClosedAnswers,
   describeDormienti,
   describeLastYearCaption,
   describeTotale,
@@ -73,9 +74,19 @@ import { PageVerdict } from '@/components/ui/page-verdict';
 import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { PageRest } from '@/components/ui/page-rest';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { COST_CENTERS_SKELETON_CELLS } from '@/lib/constants/cashflowTabSkeletons';
 import { CostCenterDialog } from './CostCenterDialog';
 import { CostCenterDetail } from './CostCenterDetail';
@@ -101,7 +112,7 @@ const COST_CENTERS_SECTIONS: readonly SectionSpec[] = [
   { id: COST_CENTER_SECTION_IDS.centri, eyebrow: 'Centri' },
   { id: COST_CENTER_SECTION_IDS.dormienti, eyebrow: 'Dormienti' },
 ];
-/** Both rows are always on the composed list: their DOM order is the tablet's (MOB-08). */
+/** Both rows are always on the composed list: their DOM order is the tablet's. */
 const COST_CENTERS_ORDER = COST_CENTERS_SECTIONS.map((section) => section.id);
 
 interface CostCentersTabProps {
@@ -179,11 +190,15 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
   );
   const stack = useMemo(() => buildCenterMonthStack(summary.active, now, TRAILING_MONTHS), [summary, now]);
   const verdict = useMemo(() => buildCostCentersVerdict(summary, now), [summary, now]);
+  // What the closed rows answer in the landscape index, from the summary the tiles already hold.
+  const rowAnswers = useMemo(() => describeCostCentersClosedAnswers(summary), [summary]);
 
   // The list's rows below `desktop:` (The Closed-Row Rule, since 2026-10-12); the detail has a
   // controller of its own, so Back finds the list's rows as they were (memory per page).
   const sections = useMobileSections({ route: 'cashflow', tab: 'cost-centers', sections: COST_CENTERS_SECTIONS, restId: COST_CENTERS_REST_ID });
-  // At 768/1024 the same rows on two or three columns (MOB-08, lib/utils/tabletComposition.ts).
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts).
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({ sections, order: COST_CENTERS_ORDER });
 
   // --- Handlers ---
@@ -283,8 +298,18 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
   }
 
   // --- List view ---
+  // The grid is drawn only with centers read and held: a failed read and «nothing recorded» keep
+  // the stage a plain column (no THE tile to stand beside an index).
+  const composed = !isError && centers.length > 0;
   return (
     <div className="space-y-4 max-desktop:portrait:pb-20">
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={composed ? STAGE_CLASS : 'space-y-4'}>
+      {/* The verdict's box holds the verdict and, below desktop, the add button under it: in
+          landscape the two are the left column's top, never a loose cell of the stage. */}
+      <div data-stage="verdict" className={cn('space-y-4', composed && VERDICT_CELL_CLASS)}>
       {/* ── Verdict (whole at every width: no strip, no cut — decision 30). A failed read is the
           verdict's `pending` notice, not a sentence above it: until 2026-10-12 the verdict of the
           EMPTY summary («Nessun centro di costo.») stood over a notice saying the page would
@@ -318,6 +343,7 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
         <Plus className="h-4 w-4" />
         Nuovo centro
       </Button>
+      </div>
 
       {isError ? null : /* before the empty check, never after: `centers` defaults to [] on failure too */
       centers.length === 0 ? (
@@ -331,10 +357,11 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
       ) : (
         <>
           {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width
-              (decision 11; the `order-*` went on 2026-10-12) ─────────────────────── */}
+              (decision 11; the `order-*` went on 2026-10-12) — THE tile, then «Il resto» and the
+              rows inside the index ───────────────────────────────────────────────── */}
           <div className={COMPACT_GRID_WRAPPER_CLASS}>
-          <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
-            <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
+          <div className={COMPACT_GRID_CLASS}>
+            <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
               <TotaleTile
                 id={COST_CENTER_SECTION_IDS.totale}
                 summary={summary}
@@ -347,8 +374,10 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
                 palette={chartColors}
               />
             </div>
+            <RowAnswers value={rowAnswers}>
+            <div className={INDEX_CLASS}>
             <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centri), 'desktop:col-span-7')} style={tablet.cellStyle(COST_CENTER_SECTION_IDS.centri)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centri), 'desktop:col-span-7')}>
               <CentriTile
                 rows={summary.active}
                 aside={CENTRI_ASIDE}
@@ -361,7 +390,7 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
                 asideWhenClosed={CENTRI_CLOSED_ASIDE}
               />
             </div>
-            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.dormienti), 'desktop:col-span-7')} style={tablet.cellStyle(COST_CENTER_SECTION_IDS.dormienti)}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.dormienti), 'desktop:col-span-7')}>
               <DormientiTile
                 centers={summary.dormant}
                 aside={DORMIENTI_ASIDE}
@@ -373,13 +402,17 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
                 asideWhenClosed={DORMIENTI_CLOSED_ASIDE}
               />
             </div>
+            </div>
+            </RowAnswers>
           </div>
           </div>
-
-          {/* ── Archiviati, below the fold ──────────────────────────────────────── */}
-          <ArchiviatiDisclosure rows={summary.archived} summary={describeArchiviati(summary)} palette={chartColors} onOpen={openCenter} />
         </>
       )}
+      </div>
+      </div>
+
+      {/* ── Archiviati, below the fold (outside the stage: never a cell of the landscape grid) ── */}
+      {composed && <ArchiviatiDisclosure rows={summary.archived} summary={describeArchiviati(summary)} palette={chartColors} onOpen={openCenter} />}
 
       <CostCenterDialog open={dialogOpen} onClose={() => setDialogOpen(false)} costCenter={editingCenter} centers={centers} returnFocusTo={dialogOpenerRef} onSuccess={handleDialogSuccess} />
     </div>

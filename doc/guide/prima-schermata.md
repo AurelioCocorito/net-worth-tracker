@@ -77,8 +77,8 @@ ignorando il nodo dell'unità, e a 4 ignorando l'attributo.
 
 «Sullo schermo»: `checkVisibility` con visibilità e opacità, nessun antenato `[inert]` o `.sr-only`, nessun antenato
 `fixed` diverso dalla pill (il `SavingsRateBadge`), area non nulla dentro ogni antenato con `overflow` non `visible` fra
-il nodo e `main`. `aria-hidden` non esclude: è una cifra che l'occhio vede. La pill è `nav[aria-label="Navigazione
-principale"]`; a 1024 in orizzontale è nascosta e la prima schermata finisce col fondo di `main`. Diagnostica nel JSON,
+il nodo e `main`. `aria-hidden` non esclude: è una cifra che l'occhio vede. La pill è `nav[data-nav="pill"]` (dal 2026-10-16: la rail di icone di un tablet
+in orizzontale porta lo stesso landmark «Navigazione principale» e viene prima nel DOM); in orizzontale la pill è nascosta e la prima schermata finisce col fondo di `main` (768 a 1024×768: nessuna barra, `mainTop` 0). Diagnostica nel JSON,
 non vincolante: `mainTop`, `pillTop`, `headerHeight`, il verdetto (top, altezza, cifre), `charts`, le tessere per indice,
 il `SavingsRateBadge`, `spendingRoles` (lo stato dell'interruttore 50/30/20 letto dal gruppo «Raggruppa il flusso» di
 Analisi, `null` a interruttore spento: sul mirror il Flusso a 390 cambia forma con lui), il `source` del `Server-Timing`
@@ -103,7 +103,7 @@ metrica; fino ad allora `figuresOutsideVerdict` e `firstClosedRowAbovePill` a 76
 è rosso: una corsa parziale (`--surfaces`, `--viewports`) non è mai verde.
 
 **La colonna «obiettivo»** (The First-Screen Rule, proposta in MOB-09): a 390 «sì» con ≤ 5 cifre fuori dal verdetto E
-la prima riga chiusa sopra la pill; a 768/1024 l'obiettivo è il misurato di MOB-08 (decisione 16), quindi «sì» quando la
+la prima riga chiusa sopra la pill; a 768/1024 l'obiettivo è il misurato (decisione 16; a 1024 lo stage in orizzontale dal 2026-10-16, decisione 105), quindi «sì» quando la
 corsa sta dentro la sua voce di budget, metrica per metrica, la riga chiusa compresa — un `false` con il suo `raisedBy` È
 l'obiettivo misurato — e «non ancora» con le metriche oltre (`firstScreenTarget`, `__tests__/mobileBudget.test.ts`, dal
 2026-10-16); «—» per Impostazioni (nessun verdetto). Dal 2026-10-10 Hall of Fame è la prima superficie con righe chiuse, e legge ancora «non ancora»: a 390 la
@@ -125,18 +125,27 @@ si legge prima di stringere o allargare.
 
 ## Per-page blind spots
 
+- **A 1024 una riga chiusa che risponde è una cifra sopra la piega** (2026-10-16): nello stage in orizzontale ogni riga
+  dell'indice stampa la sua risposta («liquidabile 13,2%», doc/mobile/README.md § 9, 106), e il censimento la conta in
+  `figuresAboveFold` e `figuresOutsideVerdict` come ogni altra cifra visibile — Panoramica e Rendimenti 5 → 10 il giorno dello
+  stage. Non è una regressione della composizione: una risposta in più o in meno sposta le due metriche di uno a 1024 e mai a
+  390/768, dove la risposta è nascosta (`CLOSED_ANSWER_CLASS`).
+
+- **Un iPad vero in orizzontale perde anche la barra di Safari** (2026-10-16): la piega reale è più bassa di quella del
+  censimento, che misura la viewport di Playwright (1024×768 tutta a `main`). Un `true` della prima riga chiusa a 1024 è
+  quindi il caso migliore, non una garanzia; lo stage in orizzontale misura `main` dal vivo (`--fold`,
+  `lib/hooks/useTabletComposition.ts`), e sul dispositivo LA tessera e l'indice si accorciano da soli fino alla piega vera.
+
 - **Il fixture deriva di una o due cifre col GIORNO del mese** (2026-10-11, PR #452, la Panoramica composta): il codice di develop misurato l'11
   ha dato Storico 390 `figuresAboveFold` 16 (budget del 10: 15) e 768 29 (28), Allocazione 390 26 e `figuresOutsideVerdict`
   18 (25 e 17) e 1024 28 (27), Previdenza 768 26 (24) e 1024 `screens` 3,37 (3,36), Patrimonio 390 14 (12) — identici al
   codice nuovo dello stesso giorno, quindi non una regressione. Le date del seed sono relative alla corsa, ma qualcosa sulla
   prima schermata segue il giorno (una proiezione che cambia di cifre, una riga che va a capo): non isolato. Finché non lo è,
   una voce che si allarga di 1–2 col giorno porta `raisedBy: "MOB-NN: deriva del giorno…"` dopo la prova sul codice di develop
-  nello stesso giorno (uno `stash`, una build, il census sulle superfici mosse), mai una tolleranza (decisione 23). L'erede
-  che la isola è MOB-08 § 2 (scritto nel ritiro di MOB-03, 2026-10-11), prima di rendere vincolanti 768 e 1024 — **non fatto
+  nello stesso giorno (uno `stash`, una build, il census sulle superfici mosse), mai una tolleranza (decisione 23). La prova che la isola (chiesta nel ritiro di MOB-03, 2026-10-11, prima di rendere vincolanti 768 e 1024: la stessa build misurata il giorno N e il giorno N+1) — **non fatto
   nella sessione di MOB-08** (2026-10-16): la prova giorno N / giorno N+1 vuole due giorni e una sessione ne ha uno; quel giorno
   il census «prima» (build di develop) e «dopo» davano le stesse misure su ogni cella che la spec non tocca, `--tighten` ne
-  aveva strette sette di 0,01–0,04 rispetto al budget del 2026-10-16 e sono tornate al valore di HEAD (decisione 94), e la prova
-  passa al ritiro della spec, che cade un altro giorno. Rivista il
+  aveva strette sette di 0,01–0,04 rispetto al budget del 2026-10-16 e sono tornate al valore di HEAD (decisione 94), e la prova è passata al ritiro, che l'ha misurata solo il giorno N (2026-10-16, verde su 57) e si è chiuso in giornata per scelta del proprietario (doc/mobile/README.md § 9, 109): **la prova resta da fare** — la stessa build `perf:build`, conservata, misurata un giorno N e un giorno N+1 fra il 5 e il penultimo, e confrontata cella per cella. Rivista il
   2026-10-14 (MOB-05): Patrimonio di nuovo, cinque metriche sulle tre viewport (390 `screens` 3,25, 768 `figuresAboveFold` 26,
   1024 `screens` 2,67, `figuresAboveFold` 19, `tilesAboveFold` 1) identiche sulla build di develop misurata lo stesso giorno
   PRIMA del codice nuovo e sulla build dopo — allargate con `raisedBy` su decisione del proprietario (README § 9, 77). **Le

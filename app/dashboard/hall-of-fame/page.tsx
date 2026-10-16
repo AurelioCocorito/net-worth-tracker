@@ -57,11 +57,21 @@ import {
   summarizeHallOfFame,
 } from '@/lib/utils/hallOfFameSummary';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
-import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
-import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   buildHallOfFameVerdict,
+  describeHallOfFameClosedAnswers,
   describeHallOfFameHeader,
   describeIncomeAverage,
   describeIncomeRecords,
@@ -80,6 +90,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { PageVerdict } from '@/components/ui/page-verdict';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
@@ -116,7 +127,7 @@ const HOF_SECTIONS: readonly SectionSpec[] = [
   { id: HOF_SECTION_IDS.anni, eyebrow: 'Anni' },
   { id: HOF_SECTION_IDS.note, eyebrow: 'Note' },
 ];
-/** The four rows are always on the page: their DOM order is the tablet's (MOB-08). */
+/** The four rows are always on the page: their DOM order is the tablet's (lib/utils/tabletComposition.ts). */
 const HOF_ORDER = HOF_SECTIONS.map((section) => section.id);
 
 /** Every year a ranking mentions, newest first — the years a note can be filed under. */
@@ -188,6 +199,7 @@ export default function HallOfFamePage() {
   // a wrapper closing over `sections` would be a new function on every tap and re-render the
   // verdict and the strip with it (`perf:census -- --mobile --scenario=hall-of-fame`).
   const sections = useMobileSections({ route: 'hall-of-fame', sections: HOF_SECTIONS });
+  const stageRef = useTabletStage();
   const tablet = useTabletComposition({ sections, order: HOF_ORDER });
   const { reveal: handleStripOpen } = sections;
   const strip = selectHallOfFameStrip(summary);
@@ -209,6 +221,11 @@ export default function HallOfFamePage() {
   const incomeReading = useMemo(() => describeIncomeRecords({ top: incomeTop, averageMonthlyIncome }), [incomeTop, averageMonthlyIncome]);
   const savingsTop = savingMonths?.top ?? null;
   const savingsReading = useMemo(() => describeSavingsRecords(savingsTop), [savingsTop]);
+  // What each closed row answers in the landscape index (2026-10-16), memoized by hand for the same
+  // reason: a new map on every render would re-render every row of the context.
+  const stats = summary.stats;
+  const bestYear = growthYears?.top ?? null;
+  const rowAnswers = useMemo(() => describeHallOfFameClosedAnswers({ stats, savingsTop, bestYear }), [stats, savingsTop, bestYear]);
 
   const timeline = useMemo(() => buildRecordTimeline(growthMonths?.rows ?? []), [growthMonths]);
   const availableYears = useMemo(() => (data ? collectAvailableYears(data) : []), [data]);
@@ -455,7 +472,12 @@ export default function HallOfFamePage() {
     <PageContainer>
       {header}
 
-      <div className="pt-1">
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <RowAnswers value={rowAnswers}>
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
+      <div data-stage="verdict" className={cn('pt-1', VERDICT_CELL_CLASS)}>
         <PageVerdict
           verdict={verdict}
           ariaLabel="Verdetto sui record"
@@ -464,12 +486,12 @@ export default function HallOfFamePage() {
         />
       </div>
 
-      {/* Tablet (MOB-08): Record on two columns, the closed rows two by two at 768 and beside it at
-          1024, an open row on the whole grid row. One sequence: the DOM order is the reading order
-          at every width, no `order-*` (decision 11). */}
+      {/* At 768 Record on two columns, the closed rows two by two, an open row on the whole grid
+          row; on a tablet in landscape the index beside the verdict and Record. One sequence: the
+          DOM order is the reading order at every width, no `order-*` (decision 11). */}
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
-      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
-        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
+      <div className={COMPACT_GRID_CLASS}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
           <RecordPatrimonioTile
             reading={describeNetWorthRecords({
               best: growthMonths?.top ?? null,
@@ -486,9 +508,10 @@ export default function HallOfFamePage() {
           />
         </div>
 
+        <div className={INDEX_CLASS}>
         <PageRest sections={sections} className={REST_CELL_CLASS} />
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.entrate), 'desktop:col-span-3')} style={tablet.cellStyle(HOF_SECTION_IDS.entrate)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.entrate), 'desktop:col-span-3')}>
           <RecordBoardTile
             eyebrow="Entrate"
             aside="per mese"
@@ -506,7 +529,7 @@ export default function HallOfFamePage() {
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.risparmio), 'desktop:col-span-4')} style={tablet.cellStyle(HOF_SECTION_IDS.risparmio)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.risparmio), 'desktop:col-span-4')}>
           <RecordBoardTile
             eyebrow="Risparmio record"
             aside="entrate − spese"
@@ -535,7 +558,7 @@ export default function HallOfFamePage() {
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.anni), 'desktop:col-span-7')} style={tablet.cellStyle(HOF_SECTION_IDS.anni)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.anni), 'desktop:col-span-7')}>
           <RecordBoardTile
             eyebrow="Anni"
             aside="crescita del patrimonio"
@@ -558,7 +581,7 @@ export default function HallOfFamePage() {
           />
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.note), 'desktop:col-span-12')} style={tablet.cellStyle(HOF_SECTION_IDS.note)}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(HOF_SECTION_IDS.note), 'desktop:col-span-12')}>
           <NoteTile
             reading={describeNotes(summary.notes)}
             summary={summary.notes}
@@ -569,8 +592,12 @@ export default function HallOfFamePage() {
             collapse={sections.collapse(HOF_SECTION_IDS.note)}
           />
         </div>
+        </div>
       </div>
       </div>
+      </div>
+      </div>
+      </RowAnswers>
 
       <HallOfFameDettaglio summary={summary} notes={notes} onNoteClick={handleNoteClick} onAddNote={handleAddNoteForRow} />
 

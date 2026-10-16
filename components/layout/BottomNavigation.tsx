@@ -108,6 +108,9 @@ export function BottomNavigation() {
             key={isPillVisible ? 'pill-animated' : 'pill-static'}
             layout={isPillVisible}
             aria-label="Navigazione principale"
+            // The landscape icon rail is the same landmark (`TabletRail`, 2026-10-16, never visible with
+            // the pill): the census and the specs that mean THE PILL select this attribute.
+            data-nav="pill"
             className="flex rounded-full"
             style={PILL_STYLE}
             transition={pillTransition}
