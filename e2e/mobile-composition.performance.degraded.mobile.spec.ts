@@ -190,8 +190,10 @@ test.describe('Rendimenti, composed for a phone', () => {
     await expect(ai).toHaveCount(1);
     await expect(ai).toBeEnabled();
     const box = (await ai.boundingBox())!;
-    expect(box.width).toBeGreaterThanOrEqual(TOUCH_FLOOR);
-    expect(box.height).toBeGreaterThanOrEqual(TOUCH_FLOOR);
+    // Half a pixel of tolerance: a 44px box can read 43,999996 (sub-pixel layout; red once in the full
+    // run of 2026-10-16, green ×3 alone — the second time of that shape, doc/guide/e2e-emulatori.md).
+    expect(box.width).toBeGreaterThanOrEqual(TOUCH_FLOOR - 0.5);
+    expect(box.height).toBeGreaterThanOrEqual(TOUCH_FLOOR - 0.5);
     // In the sticky navbar, beside «Aggiorna»: above the verdict's title.
     const titleBox = (await verdictOf(page).locator('h2').boundingBox())!;
     expect(box.y + box.height).toBeLessThanOrEqual(titleBox.y);

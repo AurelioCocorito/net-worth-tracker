@@ -70,7 +70,10 @@ export function MutuoTile({ summary, showPropertyName, collapse, asideWhenClosed
       reading={describeMortgage(summary)}
       className={className}
     >
-      <div className="mt-3.5 grid grid-cols-2 gap-x-6 gap-y-4 tablet:grid-cols-4">
+      {/* Four KPIs across from a 560px tile, by the TILE's width (a container query): in the 360px rail of a
+          tablet in landscape the tile is a phone's width at a 1024px viewport (MOB-08, 2026-10-16). */}
+      <div className="@container mt-3.5">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 @[560px]:grid-cols-4">
         <Kpi label="Debito residuo" value={cachedFormatCurrencyEUR(summary.debt)} />
         <Kpi
           label={`Interessi ${summary.year}`}
@@ -79,6 +82,7 @@ export function MutuoTile({ summary, showPropertyName, collapse, asideWhenClosed
         />
         <Kpi label={`Capitale ${summary.year}`} value={cachedFormatCurrencyEUR(summary.yearPrincipal)} />
         <Kpi label="Fine prevista" value={payoffValue} caption={payoffCaption} />
+      </div>
       </div>
       {/* One year is already the KPIs above: the list earns its place from the second one. */}
       {summary.byYear.length >= 2 && (

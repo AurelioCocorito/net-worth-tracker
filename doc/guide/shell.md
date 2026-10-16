@@ -96,6 +96,13 @@ rules below name.
   to JUMP aside when the «+» appeared. Pinned by `e2e/motion.layout{,.mobile}.spec.ts` (0 measures at 1440, a glide at
   390). In dev the page scene freezes rendering while the route compiles, so the glide is asserted without view
   transitions.
+- **The landscape bar is 53px with a 44px trigger** (MOB-08, 2026-10-16; doc/mobile/README.md § 9, 48): below `desktop:` in
+  landscape — where the bottom pill is hidden — `app/dashboard/layout.tsx`'s bar is `py-1` + `SidebarTrigger` at `size-11` (the
+  primitive's default, `components/ui/sidebar.tsx`; it was `size-7`, 28px under a thumb, with `py-2.5`: 49px) + `border-b`, so
+  `main` keeps 715px of a 1024×768 tablet (719 before). It holds for EVERY landscape screen under 1440, a phone too, which
+  loses 4px — no budget there (not one of the three viewports). Cashflow › Tracciamento's «Aggiungi» in the verdict's axis,
+  the only add affordance in landscape, is `h-11` (it was `h-9`; its container is `desktop:hidden`). Measured by
+  `e2e/overview.tablet.spec.ts` (seen red at 37px with `size-7`).
 - **Sidebar active state for `/dashboard` must be `pathname === item.href`**, never `startsWith`. **Bottom nav is
   portrait-only**, so an in-page button duplicating the FAB must be hidden **only in portrait** — in landscape the FAB
   is gone and it is the only add affordance.

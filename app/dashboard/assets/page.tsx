@@ -58,6 +58,8 @@ import { filterSparklineByPeriod } from '@/lib/utils/sparklinePeriod';
 import { cardItem, staggerContainer } from '@/lib/utils/motionVariants';
 import { buildPatrimonioVerdict, describeLastPriceUpdate, formatHoldingCounts } from '@/lib/utils/patrimonioNarrative';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { MONTH_NAMES } from '@/lib/constants/months';
@@ -433,6 +435,9 @@ export default function AssetsPage() {
     sections: sectionSpecs,
     defaultOpen: overviewUnavailable ? OVERVIEW_FAILED_DEFAULT_OPEN : NO_DEFAULT_OPEN,
   });
+  // At 768/1024 the same rows on two columns or beside THE tile (MOB-08); the specs ARE the DOM's
+  // rows. With the overview unread there is no THE tile and no rail: the grid of before.
+  const tablet = useTabletComposition({ sections, order: overviewUnavailable ? [] : sectionSpecs.map((section) => section.id) });
 
   // ─── Handlers ─────────────────────────────────────────────────────────────────
   const invalidatePortfolio = () => {
@@ -628,14 +633,16 @@ export default function AssetsPage() {
           )}
         </motion.div>
 
+        <div className={COMPACT_GRID_WRAPPER_CLASS}>
         <motion.div
           variants={staggerContainer}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12"
+          className={overviewUnavailable ? 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12' : COMPACT_GRID_CLASS}
+          style={overviewUnavailable ? undefined : tablet.gridStyle}
         >
           {!overviewUnavailable && (
-            <motion.div variants={cardItem} className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+            <motion.div variants={cardItem} className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
               <PatrimonioTile
                 id={PATRIMONIO_PATRIMONIO_ID}
                 className="scroll-mt-24"
@@ -675,14 +682,18 @@ export default function AssetsPage() {
           )}
 
           {/* «Il resto della pagina» right after THE tile — the grid's first child when the overview
-              was not read and there is no tile. Hidden from `desktop:`. */}
-          <PageRest sections={sections} />
+              was not read and there is no tile (then the grid of before). Hidden from `desktop:`. */}
+          <PageRest sections={sections} className={overviewUnavailable ? undefined : REST_CELL_CLASS} />
 
           {/* DOM order = reading order on every width: the month's movements right after the hero
               («cosa si è mosso?»), then the accounts. On desktop the two are placed by column so
               the row still reads hero · Liquidità · Movimenti; a CSS `order` swap used to make a
               screen reader meet Liquidità first while the eye met Movimenti. */}
-          <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4 desktop:col-start-9 desktop:row-start-1')}>
+          <motion.div
+            variants={cardItem}
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.movimenti), 'desktop:col-span-4 desktop:col-start-9 desktop:row-start-1')}
+            style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.movimenti)}
+          >
             {movimentiFailed ? (
               // A failed read of the ledger is not «nessuna operazione», at every width (decision 41).
               // Silent below `desktop:`, where `PageRest` carries the one live node.
@@ -710,7 +721,11 @@ export default function AssetsPage() {
             )}
           </motion.div>
 
-          <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3 desktop:col-start-6 desktop:row-start-1')}>
+          <motion.div
+            variants={cardItem}
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.liquidita), 'desktop:col-span-3 desktop:col-start-6 desktop:row-start-1')}
+            style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.liquidita)}
+          >
             <LiquiditaTile
               summary={cashSummary}
               accountsById={assetsById}
@@ -724,7 +739,11 @@ export default function AssetsPage() {
 
           {!overviewUnavailable && (
             <>
-              <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+              <motion.div
+                variants={cardItem}
+                className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.classi), 'desktop:col-span-3')}
+                style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.classi)}
+              >
                 <ComposizioneTile
                   eyebrow="Classi"
                   collapse={sections.collapse(PATRIMONIO_SECTION_IDS.classi)}
@@ -742,7 +761,11 @@ export default function AssetsPage() {
                 />
               </motion.div>
 
-              <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+              <motion.div
+                variants={cardItem}
+                className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.rendimento), 'desktop:col-span-4')}
+                style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.rendimento)}
+              >
                 <RendimentoTile
                   gains={gains}
                   ranking={ranking}
@@ -757,7 +780,11 @@ export default function AssetsPage() {
 
           {/* A failed read of the instalments is not «no mortgage»: it says so where the tile would be. */}
           {mortgageError ? (
-            <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+            <motion.div
+              variants={cardItem}
+              className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.mutuo), 'desktop:col-span-12')}
+              style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.mutuo)}
+            >
               <ErrorNotice
                 collapse={sections.collapse(PATRIMONIO_SECTION_IDS.mutuo)}
                 live={!sections.compact}
@@ -769,7 +796,12 @@ export default function AssetsPage() {
             </motion.div>
           ) : (
             mortgages.map((summary) => (
-              <motion.div key={summary.loanId} variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+              <motion.div
+                key={summary.loanId}
+                variants={cardItem}
+                className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(patrimonioMutuoSectionId(summary.loanId)), 'desktop:col-span-12')}
+                style={tablet.cellStyle(patrimonioMutuoSectionId(summary.loanId))}
+              >
                 <MutuoTile
                   summary={summary}
                   showPropertyName={mortgages.length > 1}
@@ -780,7 +812,11 @@ export default function AssetsPage() {
             ))
           )}
 
-          <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+          <motion.div
+            variants={cardItem}
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.strumenti), 'desktop:col-span-12')}
+            style={tablet.cellStyle(PATRIMONIO_SECTION_IDS.strumenti)}
+          >
             <StrumentiTile
               collapse={sections.collapse(PATRIMONIO_SECTION_IDS.strumenti)}
               asideWhenClosed={strumentiCount || 'nessuno strumento'}
@@ -800,6 +836,7 @@ export default function AssetsPage() {
             />
           </motion.div>
         </motion.div>
+        </div>
       </div>
 
       {/* ── Dialogs — one instance each, shared by the header and every tile ── */}

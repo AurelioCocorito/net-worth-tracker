@@ -31,7 +31,7 @@ interface RendimentoTileProps {
   collapse?: TileCollapse;
   /** What the closed row says beside its eyebrow («vs PMC»). */
   asideWhenClosed?: string;
-  /** The blocks the page's strip prints, hidden below `tablet:`. Default none. */
+  /** The blocks the page's strip prints, hidden below `desktop:`. Default none. */
   liftedFigures?: readonly AssetRendimentoLiftedBlock[];
   className?: string;
 }

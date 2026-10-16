@@ -148,7 +148,7 @@ export function validateStrip(figures: readonly StripFigure[], sections: readonl
 }
 
 /**
- * The blocks of `section` that the strip repeats, to hide on a phone (`LIFTED_FIGURE_CLASS`).
+ * The blocks of `section` that the strip repeats, to hide below `desktop:` (`LIFTED_FIGURE_CLASS`).
  * A cell without a figure lifts nothing: a tile keeps a block the strip could not print.
  */
 export function liftedBlocks(figures: readonly StripFigure[], section: string): string[] {

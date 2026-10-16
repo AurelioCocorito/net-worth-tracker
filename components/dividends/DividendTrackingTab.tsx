@@ -75,6 +75,8 @@ import { ErrorNotice } from '@/components/ui/error-notice';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageRest } from '@/components/ui/page-rest';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { narrativeToText } from '@/lib/utils/narrative';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
 import { DividendsTabSkeleton } from '@/components/cashflow/CashflowTabSkeletons';
@@ -162,6 +164,8 @@ const DIVIDEND_SECTIONS_STATS_FAILED: readonly SectionSpec[] = DIVIDEND_SECTIONS
   section.id === DIVIDEND_SECTION_IDS.rendimento ? { ...section, failed: true } : section,
 );
 const NO_SECTIONS: readonly SectionSpec[] = [];
+/** The five rows of the composed grid, in DOM order (MOB-08); with nothing recorded the grid is not drawn. */
+const DIVIDEND_ORDER = DIVIDEND_SECTIONS.map((section) => section.id);
 /** A provisional coupon asks for its rate inside Pagamenti: the row opens by default while one is there. */
 const PAGAMENTI_OPEN_BY_DEFAULT: readonly string[] = [DIVIDEND_SECTION_IDS.pagamenti];
 
@@ -356,6 +360,8 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
     defaultOpen: provisionalCoupons.length > 0 ? PAGAMENTI_OPEN_BY_DEFAULT : undefined,
     restId: DIVIDENDS_REST_ID,
   });
+  // At 768/1024 the same rows on two or three columns (MOB-08, lib/utils/tabletComposition.ts).
+  const tablet = useTabletComposition({ sections, order: DIVIDEND_ORDER });
 
   // --- Handlers ---
   const handleCreate = useCallback(() => {
@@ -699,8 +705,9 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
           {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width
               (decision 11; the `order-*` the phone used went on 2026-10-12) — THE tile, «Il resto
               della pagina», then the rows ──────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-            <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+          <div className={COMPACT_GRID_WRAPPER_CLASS}>
+          <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
+            <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
               <IncassoNettoTile
                 id={DIVIDEND_SECTION_IDS.incasso}
                 eyebrow={describePeriodEyebrow(period, now)}
@@ -718,9 +725,9 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
               />
             </div>
 
-            <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} />
+            <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />
 
-            <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.affidabilita), 'desktop:col-span-3')} style={tablet.cellStyle(DIVIDEND_SECTION_IDS.affidabilita)}>
               <AffidabilitaTile
                 reliability={reliability}
                 reading={describeReliability(reliability, dryMonthNames(coverage))}
@@ -740,7 +747,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
                 when closed and the row open on every visit (`failed`), spoken by `PageRest`'s one
                 sentence rather than by a `role="alert"` of its own (`live={false}`). At 1440 the
                 tile's own `isError` branch stays. */}
-            <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.rendimento), 'desktop:col-span-4')} style={tablet.cellStyle(DIVIDEND_SECTION_IDS.rendimento)}>
               {sections.compact && statsError ? (
                 <ErrorNotice
                   collapse={sections.collapse(DIVIDEND_SECTION_IDS.rendimento)}
@@ -764,7 +771,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
               )}
             </div>
 
-            <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.pagatori), 'desktop:col-span-4')} style={tablet.cellStyle(DIVIDEND_SECTION_IDS.pagatori)}>
               <PagatoriTile
                 ranking={ranking}
                 reading={describePayerRanking(ranking, subject.inPeriod)}
@@ -775,7 +782,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
               />
             </div>
 
-            <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.perAnno), 'desktop:col-span-3')} style={tablet.cellStyle(DIVIDEND_SECTION_IDS.perAnno)}>
               <PerAnnoTile
                 summary={yearly}
                 reading={describeYearlyIncome(yearly)}
@@ -785,7 +792,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
               />
             </div>
 
-            <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(DIVIDEND_SECTION_IDS.pagamenti), 'desktop:col-span-12')} style={tablet.cellStyle(DIVIDEND_SECTION_IDS.pagamenti)}>
               <PagamentiTile
                 aside={describePaymentsCount(listDividends.length, periodList.length)}
                 reading={describePaymentsInventory(inventory)}
@@ -841,6 +848,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
                 )}
               </PagamentiTile>
             </div>
+          </div>
           </div>
 
           {/* ── Dettaglio, below the fold — or the failed read said in its place, never nothing;

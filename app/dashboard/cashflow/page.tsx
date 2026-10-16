@@ -355,6 +355,7 @@ export default function CashflowPage() {
               variant="ghost"
               asChild
               aria-label="Impostazioni Spese"
+              className="size-11 desktop:size-9"
             >
               <Link href="/dashboard/settings?tab=spese">
                 <Settings className="h-4 w-4" />

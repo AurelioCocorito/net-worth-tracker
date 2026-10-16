@@ -47,7 +47,7 @@ interface BilanciamentoTileProps {
   /** `describeBalance(...)`. */
   reading: Narrative;
   /**
-   * The blocks the verdict's strip already prints, hidden on a phone (The Lifted-Figure Rule):
+   * The blocks the verdict's strip already prints, hidden below `desktop:` (The Lifted-Figure Rule):
    * `liftedBlocks(strip, 'alloc-bilanciamento').filter(isBilanciamentoLiftedBlock)`. Only the KPI's
    * VALUE hides; «… € da spostare», which nothing else prints, stays under the label (decision 17).
    */

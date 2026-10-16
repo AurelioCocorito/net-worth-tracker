@@ -74,6 +74,8 @@ import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { PageRest } from '@/components/ui/page-rest';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { COST_CENTERS_SKELETON_CELLS } from '@/lib/constants/cashflowTabSkeletons';
 import { CostCenterDialog } from './CostCenterDialog';
 import { CostCenterDetail } from './CostCenterDetail';
@@ -99,6 +101,8 @@ const COST_CENTERS_SECTIONS: readonly SectionSpec[] = [
   { id: COST_CENTER_SECTION_IDS.centri, eyebrow: 'Centri' },
   { id: COST_CENTER_SECTION_IDS.dormienti, eyebrow: 'Dormienti' },
 ];
+/** Both rows are always on the composed list: their DOM order is the tablet's (MOB-08). */
+const COST_CENTERS_ORDER = COST_CENTERS_SECTIONS.map((section) => section.id);
 
 interface CostCentersTabProps {
   /** The tab is the one on screen: `PageRest` remounts on activation so its `role="alert"` speaks for it. */
@@ -179,6 +183,8 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
   // The list's rows below `desktop:` (The Closed-Row Rule, since 2026-10-12); the detail has a
   // controller of its own, so Back finds the list's rows as they were (memory per page).
   const sections = useMobileSections({ route: 'cashflow', tab: 'cost-centers', sections: COST_CENTERS_SECTIONS, restId: COST_CENTERS_REST_ID });
+  // At 768/1024 the same rows on two or three columns (MOB-08, lib/utils/tabletComposition.ts).
+  const tablet = useTabletComposition({ sections, order: COST_CENTERS_ORDER });
 
   // --- Handlers ---
   // Whatever had the focus when the dialog was asked for — the header's button (it reaches
@@ -326,8 +332,9 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
         <>
           {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width
               (decision 11; the `order-*` went on 2026-10-12) ─────────────────────── */}
-          <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-            <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+          <div className={COMPACT_GRID_WRAPPER_CLASS}>
+          <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
+            <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
               <TotaleTile
                 id={COST_CENTER_SECTION_IDS.totale}
                 summary={summary}
@@ -340,8 +347,8 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
                 palette={chartColors}
               />
             </div>
-            <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} />
-            <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+            <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.centri), 'desktop:col-span-7')} style={tablet.cellStyle(COST_CENTER_SECTION_IDS.centri)}>
               <CentriTile
                 rows={summary.active}
                 aside={CENTRI_ASIDE}
@@ -354,7 +361,7 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
                 asideWhenClosed={CENTRI_CLOSED_ASIDE}
               />
             </div>
-            <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(COST_CENTER_SECTION_IDS.dormienti), 'desktop:col-span-7')} style={tablet.cellStyle(COST_CENTER_SECTION_IDS.dormienti)}>
               <DormientiTile
                 centers={summary.dormant}
                 aside={DORMIENTI_ASIDE}
@@ -366,6 +373,7 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
                 asideWhenClosed={DORMIENTI_CLOSED_ASIDE}
               />
             </div>
+          </div>
           </div>
 
           {/* ── Archiviati, below the fold ──────────────────────────────────────── */}

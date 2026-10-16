@@ -40,7 +40,7 @@ interface EvoluzioneTileProps {
   /** The section's id: THE tile of the phone composition (`storico-evoluzione`), open at every width. */
   id?: string;
   /**
-   * The blocks a phone's verdict already prints, hidden below `tablet:` (The Lifted-Figure Rule;
+   * The blocks a phone's verdict already prints, hidden below `desktop:` (The Lifted-Figure Rule;
    * since 2026-10-14): `'growth'` and `'cagr'` — the first two chips, which the first sentence
    * restates —, `'trailing'` — the euro of the third chip, the strip's «Ultimi 12 mesi»; its
    * percentage stays (decision 17). Default none.

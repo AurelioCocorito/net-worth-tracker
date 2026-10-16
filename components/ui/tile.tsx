@@ -79,14 +79,15 @@ export const TILE_CELL_CLASS = 'flex min-w-0 [&>section]:flex-1';
 export const TILE_ROW_CELL_CLASS = `${TILE_CELL_CLASS} max-desktop:self-start`;
 
 /**
- * The block of a tile that the verdict's strip already prints, hidden on a phone (The
- * Lifted-Figure Rule): a key from `liftedBlocks(strip, section)` takes this class. The
+ * The block of a tile that the verdict's strip already prints, hidden wherever the strip is drawn —
+ * below `desktop:`, the tablet included since 2026-10-16 (The Lifted-Figure Rule; doc/mobile/README.md
+ * § 9, 104: on a tablet the tile was whole beside the strip and the same figures read twice): a key from `liftedBlocks(strip, section)` takes this class. The
  * convention for a page tile that lifts (first used by the Panoramica): the tile takes
  * `liftedFigures?: readonly K[]` with `K` the union of its block names, and its module exports
  * `isXLiftedBlock(b: string): b is K`, the guard that narrows the `string[]` of `liftedBlocks`
  * at the call site. Only the repeated figure hides; the rest of the block stays (2026-10-10).
  */
-export const LIFTED_FIGURE_CLASS = 'max-tablet:hidden';
+export const LIFTED_FIGURE_CLASS = 'max-desktop:hidden';
 
 /** The card every tile and every error notice is made of. */
 export const TILE_SURFACE_CLASS = 'flex min-w-0 flex-col rounded-2xl border border-border bg-card shadow-sm';

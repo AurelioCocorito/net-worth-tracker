@@ -69,6 +69,8 @@ import { OverviewTile, TILE_CELL_CLASS } from '@/components/dashboard/overview/O
 import { TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
@@ -245,6 +247,8 @@ export default function DashboardPage() {
     [costsVisible, hasGoals, hasExpenseStats],
   );
   const sections = useMobileSections({ route: 'panoramica', sections: overviewSections });
+  // At 768/1024 the same rows, laid out on two or three columns (MOB-08): the rows present ARE the order.
+  const tablet = useTabletComposition({ sections, order: overviewSections.map((section) => section.id) });
 
   const sparklineDisplay = useMemo(() => {
     if (!overview?.sparklineData) return [];
@@ -351,7 +355,8 @@ export default function DashboardPage() {
       disabled={isDemo || creatingSnapshot || (overview?.flags.assetCount ?? 0) === 0}
       title={isDemo ? 'Non disponibile in modalità demo' : undefined}
       variant="outline"
-      className="h-9"
+      // 44px to the thumb below `desktop:`, the 36px of the header row from it (AGENTS.md § Accessibility).
+      className="h-11 desktop:h-9"
       aria-label={creatingSnapshot ? 'Creazione snapshot in corso' : 'Crea snapshot'}
     >
       <Camera className="h-4 w-4" aria-hidden="true" />
@@ -500,16 +505,19 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* ONE sequence: the DOM order is the reading order at every width, no `order-*`
-            (decision 11); a new tile takes its place in the JSX. */}
+            (decision 11); a new tile takes its place in the JSX. At 1024 the rows that precede the
+            first open one sit beside THE tile, the rest under it (lib/utils/tabletComposition.ts). */}
+        <div className={COMPACT_GRID_WRAPPER_CLASS}>
         <motion.div
           variants={staggerContainer}
           initial={entranceInitial}
           animate="visible"
-          className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12"
+          className={COMPACT_GRID_CLASS}
+          style={tablet.gridStyle}
         >
           <motion.div
             variants={cardItem}
-            className={cn(CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}
+            className={cn(CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}
           >
             <PatrimonioTile
               id={OVERVIEW_PATRIMONIO_ID}
@@ -528,9 +536,13 @@ export default function DashboardPage() {
             />
           </motion.div>
 
-          <PageRest sections={sections} />
+          <PageRest sections={sections} className={REST_CELL_CLASS} />
 
-          <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+          <motion.div
+            variants={cardItem}
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.sintesi), 'desktop:col-span-3')}
+            style={tablet.cellStyle(OVERVIEW_SECTION_IDS.sintesi)}
+          >
             <SintesiTile
               metrics={overview.metrics}
               hasCostBasisTracking={overview.flags.hasCostBasisTracking}
@@ -539,7 +551,11 @@ export default function DashboardPage() {
             />
           </motion.div>
 
-          <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+          <motion.div
+            variants={cardItem}
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.cashflow), 'desktop:col-span-4')}
+            style={tablet.cellStyle(OVERVIEW_SECTION_IDS.cashflow)}
+          >
             {expenseStats ? (
               <CashflowTile
                 expenseStats={expenseStats}
@@ -564,7 +580,11 @@ export default function DashboardPage() {
             )}
           </motion.div>
 
-          <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+          <motion.div
+            variants={cardItem}
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.composizione), 'desktop:col-span-3')}
+            style={tablet.cellStyle(OVERVIEW_SECTION_IDS.composizione)}
+          >
             <ComposizioneTile
               data={assetClassData}
               footer={allocazioneFooter}
@@ -574,7 +594,11 @@ export default function DashboardPage() {
           </motion.div>
 
           {costsVisible && (
-            <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, hasGoals ? 'desktop:col-span-2' : 'desktop:col-span-4')}>
+            <motion.div
+              variants={cardItem}
+              className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.costi), hasGoals ? 'desktop:col-span-2' : 'desktop:col-span-4')}
+              style={tablet.cellStyle(OVERVIEW_SECTION_IDS.costi)}
+            >
               <CostiTile
                 metrics={overview.metrics}
                 flags={overview.flags}
@@ -586,7 +610,11 @@ export default function DashboardPage() {
           )}
 
           {hasGoals && (
-            <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, costsVisible ? 'desktop:col-span-2' : 'desktop:col-span-4')}>
+            <motion.div
+              variants={cardItem}
+              className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.obiettivo), costsVisible ? 'desktop:col-span-2' : 'desktop:col-span-4')}
+              style={tablet.cellStyle(OVERVIEW_SECTION_IDS.obiettivo)}
+            >
               <ObiettivoTile
                 goals={goals}
                 collapse={sections.collapse(OVERVIEW_SECTION_IDS.obiettivo)}
@@ -602,7 +630,11 @@ export default function DashboardPage() {
 
           {expenseStats && (
             <>
-              <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+              <motion.div
+                variants={cardItem}
+                className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.spese), 'desktop:col-span-4')}
+                style={tablet.cellStyle(OVERVIEW_SECTION_IDS.spese)}
+              >
                 <CategoryTile
                   eyebrow="Spese per categoria"
                   total={expenseStats.currentMonth.expenses}
@@ -617,7 +649,11 @@ export default function DashboardPage() {
                   asideWhenClosed={asides[OVERVIEW_SECTION_IDS.spese]}
                 />
               </motion.div>
-              <motion.div variants={cardItem} className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+              <motion.div
+                variants={cardItem}
+                className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.entrate), 'desktop:col-span-4')}
+                style={tablet.cellStyle(OVERVIEW_SECTION_IDS.entrate)}
+              >
                 <CategoryTile
                   eyebrow="Entrate per categoria"
                   total={expenseStats.currentMonth.income}
@@ -639,11 +675,12 @@ export default function DashboardPage() {
             variants={cardItem}
             className={cn(
               TILE_ROW_CELL_CLASS,
-              'tablet:col-span-2',
+              tablet.cellClass(OVERVIEW_SECTION_IDS.asset),
               // Three equal tiles on the third row (4 · 4 · 4): at 3 columns the income tile
               // could not hold a label, a 40px bar and two figures without overflowing its row.
               expenseStats ? 'desktop:col-span-4' : 'desktop:col-span-12',
             )}
+            style={tablet.cellStyle(OVERVIEW_SECTION_IDS.asset)}
           >
             <AssetPrincipaliTile
               topAssets={overview.topAssets ?? []}
@@ -653,6 +690,7 @@ export default function DashboardPage() {
             />
           </motion.div>
         </motion.div>
+        </div>
 
         {/* ── SNAPSHOT OVERWRITE CONFIRM ──
             `sm`: one question. The primary is NOT armed — the daily cron rewrites the running

@@ -51,6 +51,8 @@ import type { Asset } from '@/types/assets';
 import { computeGoalTrajectory, type GoalRow } from '@/lib/utils/goalTrajectory';
 import { buildMilestones, GOALS_SECTION_IDS, summarizeAssignments, summarizeDerivedAllocation, summarizeGoals, summarizeTrajectory, sumAssetValues } from '@/lib/utils/goalsSummary';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import {
   ALLOCAZIONE_DERIVATA_ASIDE,
   ALLOCAZIONE_DERIVATA_FOOTER,
@@ -191,6 +193,12 @@ export function GoalBasedInvestingTab() {
   const hasDerived = derivedAllocation !== null;
   const sectionSpecs = useMemo(() => resolveGoalsSections({ hasGoals: hasGoalRows, hasDerived }), [hasGoalRows, hasDerived]);
   const sections = useMobileSections({ route: 'fire-simulations', tab: 'goals', sections: sectionSpecs });
+  // At 768/1024 the rows on two or three columns (MOB-08): those the tab renders, in DOM order —
+  // the Traiettoria only with a goal selected and its trajectory read.
+  const tablet = useTabletComposition({
+    sections,
+    order: sectionSpecs.filter((section) => (trajectory && selectedRow) || section.id !== GOALS_SECTION_IDS.traiettoria).map((section) => section.id),
+  });
   const traiettoriaCollapse = sections.collapse(GOALS_SECTION_IDS.traiettoria);
   const handleSelectGoal = (goalId: string) => {
     setSelectedGoalId(goalId);
@@ -302,9 +310,12 @@ export function GoalBasedInvestingTab() {
         <PageVerdict verdict={verdict} ariaLabel="Verdetto sugli obiettivi" />
       </div>
 
-      {/* ONE sequence, no `order-*` (decision 11). Tablet (768-1439): every tile full width. */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2', hasGoals ? 'desktop:col-span-5 desktop:row-span-2' : 'desktop:col-span-12')}>
+      {/* ONE sequence, no `order-*` (decision 11). Tablet (MOB-08): Obiettivi on two columns, the
+          closed rows two by two at 768 and beside it at 1024, an open row on the whole grid row;
+          without a goal, Obiettivi alone on the grid of before. */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={hasGoals ? COMPACT_GRID_CLASS : 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12'} style={tablet.gridStyle}>
+        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, hasGoals ? 'desktop:col-span-5 desktop:row-span-2' : 'desktop:col-span-12')}>
           <ObiettiviTile
             reading={hasGoals ? describeObiettivi(overview) : null}
             aside={newGoalButton}
@@ -316,10 +327,10 @@ export function GoalBasedInvestingTab() {
           />
         </div>
 
-        {hasGoals && <PageRest sections={sections} />}
+        {hasGoals && <PageRest sections={sections} className={REST_CELL_CLASS} />}
 
         {trajectory && selectedRow && (
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.traiettoria), 'desktop:col-span-7')} style={tablet.cellStyle(GOALS_SECTION_IDS.traiettoria)}>
             <TraiettoriaTile
               collapse={traiettoriaCollapse}
               asideWhenClosed={trajectory.name}
@@ -348,7 +359,10 @@ export function GoalBasedInvestingTab() {
         )}
 
         {hasGoals && (
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2', derivedAllocation ? 'desktop:col-span-4' : 'desktop:col-span-7')}>
+          <div
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.milestone), derivedAllocation ? 'desktop:col-span-4' : 'desktop:col-span-7')}
+            style={tablet.cellStyle(GOALS_SECTION_IDS.milestone)}
+          >
             <MilestoneTile
               collapse={sections.collapse(GOALS_SECTION_IDS.milestone)}
               asideWhenClosed={GOALS_CLOSED_ASIDES[GOALS_SECTION_IDS.milestone]}
@@ -361,7 +375,7 @@ export function GoalBasedInvestingTab() {
         )}
 
         {hasGoals && derivedAllocation && (
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-3')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.allocazione), 'desktop:col-span-3')} style={tablet.cellStyle(GOALS_SECTION_IDS.allocazione)}>
             <AllocazioneDerivataTile
               collapse={sections.collapse(GOALS_SECTION_IDS.allocazione)}
               asideWhenClosed={GOALS_CLOSED_ASIDES[GOALS_SECTION_IDS.allocazione]}
@@ -374,7 +388,7 @@ export function GoalBasedInvestingTab() {
         )}
 
         {hasGoals && (
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.assegnazioni), 'desktop:col-span-12')} style={tablet.cellStyle(GOALS_SECTION_IDS.assegnazioni)}>
             <AssegnazioniTile
               collapse={sections.collapse(GOALS_SECTION_IDS.assegnazioni)}
               asideWhenClosed={describeAssegnazioniAside(assignmentsView)}
@@ -388,6 +402,7 @@ export function GoalBasedInvestingTab() {
             />
           </div>
         )}
+      </div>
       </div>
 
       {hasGoals && <GoalsDettaglio description={DETTAGLIO_DESCRIPTION} goals={goals} progressList={goalProgressList} />}

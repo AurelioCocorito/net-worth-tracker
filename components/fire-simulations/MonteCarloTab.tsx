@@ -58,6 +58,8 @@ import { getItalyYear } from '@/lib/utils/dateHelpers';
 import { summarizeLock } from '@/lib/utils/fireSummary';
 import { describeFireLockScope } from '@/lib/utils/fireNarrative';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   buildOverlaySeries,
@@ -356,6 +358,14 @@ export function MonteCarloTab() {
   // The rows exist only with a run shown (Parametri alone is open); the strip is the SHOWN run's
   // until «Esegui» (The Stale-Run Rule: a stale form moves the Parametri aside, not the cells).
   const sections = useMobileSections({ route: 'fire-simulations', tab: 'montecarlo', sections: run ? MONTE_CARLO_SECTIONS : NO_SECTIONS });
+  // At 768/1024 the rows on two or three columns (MOB-08): the ones the run renders, in DOM order
+  // (Scenari a confronto only with a comparison); without a run the grid of before, Parametri alone.
+  const tablet = useTabletComposition({
+    sections,
+    order: run
+      ? MONTE_CARLO_SECTIONS.filter((section) => comparison || section.id !== MONTE_CARLO_SECTION_IDS.scenari).map((section) => section.id)
+      : [],
+  });
   const { reveal: handleStripOpen } = sections;
   const strip = run ? selectMonteCarloStrip({ run, comparison }) : [];
   const lockScope = sections.compact ? describeFireLockScope(lock) : null;
@@ -395,10 +405,12 @@ export function MonteCarloTab() {
         />
       </div>
 
-      {/* ONE sequence, no `order-*` (decision 11). Tablet (768-1439): every tile full width. */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
+      {/* ONE sequence, no `order-*` (decision 11). Tablet (MOB-08): Probabilità on two columns, the
+          closed rows two by two at 768 and beside it at 1024, an open row on the whole grid row. */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={run ? COMPACT_GRID_CLASS : 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12'} style={tablet.gridStyle}>
         {run && lastRun && (
-          <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5')}>
+          <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5')}>
             <ProbabilitaTile
               reading={describeProbabilita(run)}
               aside={describeProbabilitaAside(run)}
@@ -417,10 +429,10 @@ export function MonteCarloTab() {
           </div>
         )}
 
-        {run && <PageRest sections={sections} />}
+        {run && <PageRest sections={sections} className={REST_CELL_CLASS} />}
 
         {run && (
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-4')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(MONTE_CARLO_SECTION_IDS.distribuzione), 'desktop:col-span-4')} style={tablet.cellStyle(MONTE_CARLO_SECTION_IDS.distribuzione)}>
             <DistribuzioneTile
               collapse={sections.collapse(MONTE_CARLO_SECTION_IDS.distribuzione)}
               asideWhenClosed={MONTE_CARLO_CLOSED_ASIDES[MONTE_CARLO_SECTION_IDS.distribuzione]}
@@ -435,7 +447,7 @@ export function MonteCarloTab() {
         )}
 
         {comparison && (
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-3')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(MONTE_CARLO_SECTION_IDS.scenari), 'desktop:col-span-3')} style={tablet.cellStyle(MONTE_CARLO_SECTION_IDS.scenari)}>
             <ScenariConfrontoTile
               collapse={sections.collapse(MONTE_CARLO_SECTION_IDS.scenari)}
               asideWhenClosed={MONTE_CARLO_CLOSED_ASIDES[MONTE_CARLO_SECTION_IDS.scenari]}
@@ -447,7 +459,10 @@ export function MonteCarloTab() {
           </div>
         )}
 
-        <div className={cn(run ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+        <div
+          className={cn(run ? TILE_ROW_CELL_CLASS : TILE_CELL_CLASS, run ? tablet.cellClass(MONTE_CARLO_SECTION_IDS.parametri) : 'tablet:col-span-2', 'desktop:col-span-12')}
+          style={tablet.cellStyle(MONTE_CARLO_SECTION_IDS.parametri)}
+        >
           <ParametriTile
             collapse={run ? sections.collapse(MONTE_CARLO_SECTION_IDS.parametri) : undefined}
             asideWhenClosed={describeParametriClosedAside(stale)}
@@ -476,6 +491,7 @@ export function MonteCarloTab() {
             stale={stale}
           />
         </div>
+      </div>
       </div>
 
       {lastRun && run && comparison && runPlan && (

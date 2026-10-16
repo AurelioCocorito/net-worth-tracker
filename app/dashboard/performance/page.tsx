@@ -62,6 +62,8 @@ import { queryKeys } from '@/lib/query/queryKeys';
 import { usePerformanceData } from '@/lib/hooks/usePerformanceData';
 import { useFreshness } from '@/lib/hooks/useFreshness';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { performanceYieldsQueryOptions, withYields } from '@/lib/query/performanceQueries';
@@ -579,6 +581,8 @@ export default function PerformancePage() {
     [hasAttribution, realizedState, benchmarkFailed],
   );
   const sections = useMobileSections({ route: 'performance', sections: sectionSpecs });
+  // At 768/1024 the same rows on two or three columns (MOB-08); the specs ARE the DOM's rows.
+  const tablet = useTabletComposition({ sections, order: sectionSpecs.map((section) => section.id) });
   const { reveal: handleStripOpen } = sections;
   // The two figures of the first screen: the return on its basis and the gap on the SAME basis
   // (the page hands over `benchmarkGap`, computed once above — the strip never recomputes it).
@@ -853,11 +857,13 @@ export default function PerformancePage() {
           the plots morph, the heatmap fades cell by cell, the bars slide — so the tiles must survive
           it. Only a refresh, which re-reads the data, dims the grid while it waits. ONE sequence:
           the DOM order is the reading order at every width, no `order-*` (decision 11). */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
       <div
-        className={cn('grid grid-cols-1 gap-3 transition-opacity duration-200 tablet:grid-cols-2 desktop:grid-cols-12', (isRefreshing || loaded.isRecomputing) && 'opacity-60')}
+        className={cn(COMPACT_GRID_CLASS, 'transition-opacity duration-200', (isRefreshing || loaded.isRecomputing) && 'opacity-60')}
+        style={tablet.gridStyle}
         aria-busy={isPendingPeriodChange || isRefreshing || loaded.isRecomputing}
       >
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5')}>
+        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5')}>
           <RendimentoTile
             aside={periodAside}
             reading={
@@ -879,12 +885,12 @@ export default function PerformancePage() {
           />
         </div>
 
-        <PageRest sections={sections} />
+        <PageRest sections={sections} className={REST_CELL_CLASS} />
 
         {/* «Rispetto a cosa?» is the page's question: the models sit beside the return. Every
             series failed → the row is a failed read at every width (decision 36), silent below
             `desktop:` where `PageRest` carries the one live node. */}
-        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.benchmark), 'desktop:col-span-4')} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.benchmark)}>
           {benchmarkFailed ? (
             <ErrorNotice
               compact
@@ -913,7 +919,7 @@ export default function PerformancePage() {
           )}
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.contributi), 'desktop:col-span-3')} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.contributi)}>
           <ContributiTile
             collapse={sections.collapse(PERFORMANCE_SECTION_IDS.contributi)}
             asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.contributi]}
@@ -941,7 +947,7 @@ export default function PerformancePage() {
             `contents`: the tiles are items of the grid again, in the DOM's order. */}
         <div className="contents desktop:flex desktop:flex-col desktop:gap-3 desktop:col-span-7">
           {attribution && (
-            <div className={TILE_ROW_CELL_CLASS}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.attribuzione))} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.attribuzione)}>
               <AttribuzioneTile
                 collapse={sections.collapse(PERFORMANCE_SECTION_IDS.attribuzione)}
                 asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.attribuzione]}
@@ -952,7 +958,7 @@ export default function PerformancePage() {
             </div>
           )}
 
-          <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:flex-1')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.capitale), 'desktop:flex-1')} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.capitale)}>
             <CapitaleMercatoTile
               collapse={sections.collapse(PERFORMANCE_SECTION_IDS.capitale)}
               asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.capitale]}
@@ -966,7 +972,7 @@ export default function PerformancePage() {
         </div>
 
         <div className="contents desktop:flex desktop:flex-col desktop:gap-3 desktop:col-span-5">
-          <div className={TILE_ROW_CELL_CLASS}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.rischio))} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.rischio)}>
             <RischioTile
               collapse={sections.collapse(PERFORMANCE_SECTION_IDS.rischio)}
               asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.rischio]}
@@ -980,7 +986,7 @@ export default function PerformancePage() {
             />
           </div>
 
-          <div className={cn(TILE_ROW_CELL_CLASS, realizedState === 'absent' && 'desktop:flex-1')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.consistenza), realizedState === 'absent' && 'desktop:flex-1')} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.consistenza)}>
             <ConsistenzaTile
               collapse={sections.collapse(PERFORMANCE_SECTION_IDS.consistenza)}
               asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.consistenza]}
@@ -992,7 +998,7 @@ export default function PerformancePage() {
           {/* A tile with a closed sale, a failed read of the ledger's meta, or nothing (`resolveRealizedGainsState`):
               until 2026-10-14 a meta in error read as «not migrated» and the tile vanished in silence. */}
           {realizedState === 'failed' && (
-            <div className={TILE_ROW_CELL_CLASS}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.plusvalenze))} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.plusvalenze)}>
               <ErrorNotice
                 compact
                 collapse={sections.collapse(PERFORMANCE_SECTION_IDS.plusvalenze)}
@@ -1008,7 +1014,7 @@ export default function PerformancePage() {
             </div>
           )}
           {realizedState === 'ready' && realizedSummary && (
-            <div className={TILE_ROW_CELL_CLASS}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.plusvalenze))} style={tablet.cellStyle(PERFORMANCE_SECTION_IDS.plusvalenze)}>
               <PlusvalenzeTile
                 collapse={sections.collapse(PERFORMANCE_SECTION_IDS.plusvalenze)}
                 asideWhenClosed={PERFORMANCE_CLOSED_ASIDES[PERFORMANCE_SECTION_IDS.plusvalenze]}
@@ -1019,6 +1025,7 @@ export default function PerformancePage() {
             </div>
           )}
         </div>
+      </div>
       </div>
 
       {/* ── Dettaglio, below the fold ───────────────────────────────────────────── */}

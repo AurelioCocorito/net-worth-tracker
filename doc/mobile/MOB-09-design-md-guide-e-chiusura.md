@@ -77,15 +77,17 @@ MOB-09, la stessa nelle quattro regole e nel sidecar:
 > narratives, routes and tabs; a strip cell opens the section that explains it. A chart may change its drawing below
 > the width where it stops being legible — the Flusso's Sankey becomes a share bar and ranked rows under 640px — never
 > its figures or where a row lands. **One composition serves 390, 768 and 1024**: two columns from `tablet:`, an open
-> row across both; three at most where the content is 960px wide or more (1024 landscape, a 12.9" iPad upright;
-> `COMPACT_GRID_CLASS`, a container query under `max-desktop:`), THE tile on two and beside it only the closed rows that
-> precede the first open one. `desktop:` stays the only switch.
+> row — and a closed one left alone on its row — across both; where the content is 960px wide or more (1024 landscape, a
+> 12.9" iPad upright; `COMPACT_GRID_CLASS`, a container query under `max-desktop:`) THE tile on the left and a 360px rail
+> holding every row in DOM order, each opening in place — nothing moves away from a tap. A tile inside a row lays out by
+> its CONTAINER, never by the viewport: in the rail it is a phone's width. `desktop:` stays the only switch.
 
 > **The Lifted-Figure Rule** (Composizione mobile, <data>). A figure the phone has already printed — lifted into the
 > strip, or in the verdict's first sentence — is not printed again by its tile on a phone: the PAGE hides that figure
 > (`LIFTED_FIGURE_CLASS`, keyed by `liftedBlocks`), only that figure, and the rest of its block stays («… € da spostare»
 > keeps its caption); when the figure left behind would push the first screen past five, the whole block hides and the
-> figure joins the verdict's «Il perché» as a clause. The tile returns whole from `tablet:`. A reading, a ranking row and
+> figure joins the verdict's «Il perché» as a clause. Wherever the strip is drawn — below `desktop:`, a tablet included — the
+> tile does not repeat it; it returns whole at 1440. A reading, a ranking row and
 > a ledger that adds up to the euro are never lifted, and THE tile's hero never is: a cell may repeat them. A cell that
 > reads `null` hides nothing and prints its reason, never a zero; a signed zero prints bare («0 €»).
 

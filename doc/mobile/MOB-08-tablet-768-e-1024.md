@@ -73,6 +73,13 @@ Analisi 1/1): il landscape è il tablet peggiore. Righe del 2026-09-26, da river
 
 ### 4.1 La griglia compatta (AGENTS § Tailwind Breakpoints and Responsive Layout)
 
+> **Cambiata nella sessione di implementazione (2026-10-16, decisione 104 — README § 9)**: dopo una critica Impeccable della
+> versione qui descritta (25/40; aprendo Sintesi a 1024 la colonna destra restava vuota per 446×323 px), il proprietario ha scelto
+> «la colonna resta»: a 1024 LA tessera a sinistra e una colonna di 360 px con «Il resto» e TUTTE le righe, aperte sul posto;
+> niente `MAX_BESIDE_ROWS`, niente `collapse` avvolto né `flushSync`; a 768 una chiusa rimasta sola prende la riga. Le costanti
+> sono `RAIL_CELL_CLASS` e `WIDE_CELL_CLASS` al posto di `BESIDE/BELOW/OPEN_CELL_CLASS`; § 4.2, § 7 e § 8 si leggono con questa
+> correzione. Con essa la striscia su una riga dal 768, le cifre sollevate nascoste fino a 1439 e i bersagli della testata a 44 px.
+
 Due colonne da `tablet:`; tre con una container query sotto `max-desktop:` (mai `lg:` né `min-[…]:`), su un `div`
 NUOVO attorno alla griglia: non `PageContainer`, perché `container-type` ancora a sé i `fixed` e `SavingsRateBadge`
 (`components/ui/SavingsRateBadge.tsx:114`) lo è, dentro di lui (`app/dashboard/page.tsx:686`). Costanti letterali in
@@ -241,7 +248,9 @@ baseline (51).
   stesso test; 768 → 1024×768 → tre colonne, aperte ancora aperte; (8) nessuno sforamento (guardia di
   `e2e/fire.mobile.spec.ts`, il test «il tab Calcolatore FIRE non scorre in orizzontale a 390px» — le righe si sono mosse con MOB-07); (9) Tracciamento: tab ≥ 44×44, «+» a 768, a 1024 «Aggiungi» ≥ 44 px e niente «+».
 - Falsificare uno alla volta: senza `--beside` → la distanza di (3) cresce (le tracce auto assorbono l'altezza di LA
-  tessera); `_1fr` → `_auto` → idem; senza `BELOW_CELL_CLASS` → la settima di (3); una chiusa dopo l'aperta lasciata in
+  tessera); `_1fr` → `_auto` → idem **[sessione del 2026-10-16: entrambe VERDI — la frase è sbagliata: LA attraversa una
+  traccia in più, vuota, che assorbe tutta l'altezza anche se `auto`; la prova che (3) sa andare rosso è `--lead-rows` =
+  `--beside`, rossa; README § 9 (101–104), `lib/utils/tabletComposition.ts`]**; senza `BELOW_CELL_CLASS` → la settima di (3); una chiusa dopo l'aperta lasciata in
   colonna 3 → (4); senza `OPEN_CELL_CLASS` → (4); `size-7` → (6); `@[960px]` senza `max-desktop:` → (7); `reveal`
   prima del commit → (4) «trigger nel viewport».
 

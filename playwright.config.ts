@@ -94,8 +94,9 @@ export default defineConfig({
       // 1440px is the project's `desktop:` breakpoint — the width where the layout switches.
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, storageState: STORAGE_STATE },
       dependencies: ['setup'],
-      // analisi.* runs in its own projects on the dedicated fixture account.
-      testIgnore: [/\.(mobile|degraded)\.spec\.ts/, /analisi\./, /centri\./, /split\./, /hof\./],
+      // analisi.* runs in its own projects on the dedicated fixture account; *.tablet.* in the two
+      // tablet projects only (MOB-08), or it would run at 1440 as well.
+      testIgnore: [/\.(mobile|degraded|tablet)\.spec\.ts/, /analisi\./, /centri\./, /split\./, /hof\./],
     },
     {
       // Hall of Fame on its own fixture account. Listed BEFORE its mobile twin: with `workers: 1`
@@ -218,6 +219,36 @@ export default defineConfig({
       },
       dependencies: ['setup'],
       testMatch: /\.mobile\.spec\.ts/,
+      testIgnore: [/analisi\./, /centri\./, /split\./, /hof\./, /degraded\./],
+    },
+    {
+      // The small-screen composition on a tablet (MOB-08, 2026-10-16): 768 in portrait, two
+      // columns with the pill. A `*.tablet.spec.ts` runs here AND in `tablet-landscape`, and
+      // branches on `page.viewportSize().width`. Same account and ignores as `mobile`.
+      name: 'tablet',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 768, height: 1024 },
+        hasTouch: true,
+        isMobile: true,
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+      testMatch: /\.tablet\.spec\.ts/,
+      testIgnore: [/analisi\./, /centri\./, /split\./, /hof\./, /degraded\./],
+    },
+    {
+      // 1024 in landscape: three columns, no pill, the hamburger bar over `main`.
+      name: 'tablet-landscape',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1024, height: 768 },
+        hasTouch: true,
+        isMobile: true,
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+      testMatch: /\.tablet\.spec\.ts/,
       testIgnore: [/analisi\./, /centri\./, /split\./, /hof\./, /degraded\./],
     },
   ],

@@ -47,6 +47,8 @@ import { PeriodPicker } from '@/components/ui/period-picker';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
 import { PageRest } from '@/components/ui/page-rest';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { currentMonthPeriod, type Period } from '@/lib/utils/period';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
@@ -131,6 +133,12 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
     [familyMembers],
   );
   const sections = useMobileSections({ route: 'cashflow', tab: 'split', sections: splitSections, restId: SPLIT_REST_ID });
+  // At 768/1024 the same rows on two or three columns (MOB-08): Quota, then one row per person the
+  // summary renders — each person a cell of the PAGE grid below `desktop:` (their box is `contents`).
+  const tablet = useTabletComposition({
+    sections,
+    order: [SPLIT_SECTION_IDS.quota, ...summary.members.map((balance) => splitMemberSectionId(balance.member.id))],
+  });
 
   // The strip: each person's booked residual, their hero lifted (decision 32); the scope line
   // the calendar's clause, out of the sentence at every width (decision 14).
@@ -218,9 +226,10 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
 
       {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width (decision
           11) — THE tile, «Il resto della pagina», then the rows ─────────────────────── */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
         {/* In comune — the pool, and what it is made of */}
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
           <Tile id={SPLIT_SECTION_IDS.comune} eyebrow="In comune" reading={describeCommonSpending(summary)}>
             {/* Nothing recorded is not a measured zero (DESIGN.md → The Absence-Has-Three-Names
                 Rule): with no shared row at all the tile carries NO figure, because a 40px `0 €`
@@ -272,10 +281,10 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
           </Tile>
         </div>
 
-        <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} />
+        <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />
 
         {/* Quota — the split, and the income it comes from */}
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(SPLIT_SECTION_IDS.quota), 'desktop:col-span-7')} style={tablet.cellStyle(SPLIT_SECTION_IDS.quota)}>
           <Tile
             eyebrow="Quota"
             aside={splitAside ? <NarrativeText segments={splitAside} /> : undefined}
@@ -298,19 +307,21 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
           </Tile>
         </div>
 
-        {/* One tile per person — the sentence this page exists for — inside ONE grid cell, so the
-            people stand beside each other and the 12 columns close (see `memberColumns`). */}
-        <div className={cn('tablet:col-span-2 desktop:col-span-7', 'grid grid-cols-1 gap-3 tablet:grid-cols-2', memberColumns)}>
+        {/* One tile per person — the sentence this page exists for — inside ONE grid cell at 1440, so
+            the people stand beside each other and the 12 columns close (see `memberColumns`). Below
+            `desktop:` the box is `contents`: each person is a row of the page grid (MOB-08), beside
+            THE tile at 1024 like any other. */}
+        <div className={cn('contents desktop:col-span-7 desktop:grid desktop:gap-3', memberColumns)}>
           {summary.members.map((balance) => {
             const consumed = describeIncomeConsumed(balance);
             const calendar = describeMemberCalendar(balance);
             const sectionId = splitMemberSectionId(balance.member.id);
-            // The hero is the strip's cell for this person: hidden on a phone when lifted
-            // (decision 15), printed again from `tablet:` beside the strip, which stays drawn
-            // up to 1439 (`LIFTED_FIGURE_CLASS` hides below `tablet:` only).
+            // The hero is the strip's cell for this person: hidden when lifted (decision 15)
+            // wherever the strip is drawn — below `desktop:`, the tablet included since
+            // 2026-10-16 (`LIFTED_FIGURE_CLASS`, decision 104).
             const heroLifted = liftedBlocks(strip, sectionId).includes(SPLIT_MEMBER_HERO_BLOCK);
             return (
-              <div key={balance.member.id} className={TILE_ROW_CELL_CLASS}>
+              <div key={balance.member.id} className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(sectionId))} style={tablet.cellStyle(sectionId)}>
                 <Tile
                   eyebrow={balance.member.name}
                   ariaLabel={`Quanto resta a ${balance.member.name}`}
@@ -368,6 +379,7 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
             );
           })}
         </div>
+      </div>
       </div>
     </div>
   );

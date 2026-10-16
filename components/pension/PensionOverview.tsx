@@ -67,6 +67,8 @@ import {
   type PensionSummaryInput,
 } from '@/lib/utils/pensionSummary';
 import { useMobileSections } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   ANNO_FISCALE_FOOTER,
@@ -204,6 +206,8 @@ export function PensionOverview() {
   const hasFund = funds.length > 0;
   const sectionSpecs = useMemo(() => resolvePensionSections({ hasFund, contributionsError, snapshotsError }), [hasFund, contributionsError, snapshotsError]);
   const sections = useMobileSections({ route: 'pension', sections: sectionSpecs });
+  // At 768/1024 the same rows on two or three columns (MOB-08); the specs ARE the DOM's rows.
+  const tablet = useTabletComposition({ sections, order: sectionSpecs.map((section) => section.id) });
   const { reveal: handleStripOpen } = sections;
   const strip = failures.length > 0 ? [] : selectPensionStrip({ blocks, taxYear: activeYear });
 
@@ -287,9 +291,11 @@ export function PensionOverview() {
       </div>
 
       {/* ONE sequence: the DOM order is the reading order at every width, no `order-*` (decision 11).
-          Tablet (768-1439): Il fondo oggi full, Rendimento beside Anno fiscale, Versato and Versamenti full. */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+          Tablet (MOB-08): Il fondo oggi on two columns, the closed rows two by two at 768 and beside it
+          at 1024, an open row (a failed read, open on its own) on the whole grid row. */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
+        <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
           <FondoOggiTile
             reading={contributionsError ? null : describeFondoOggi(today)}
             aside={describeFondoOggiAside(today)}
@@ -302,11 +308,11 @@ export function PensionOverview() {
           />
         </div>
 
-        <PageRest sections={sections} />
+        <PageRest sections={sections} className={REST_CELL_CLASS} />
 
         {/* A failed read is a red row below `desktop:`, silent — `PageRest` carries the one live node
             (`live={!sections.compact}`); at 1440 the notice of today, in the cell. */}
-        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.rendimento), 'desktop:col-span-3')} style={tablet.cellStyle(PENSION_SECTION_IDS.rendimento)}>
           {contributionsError || snapshotsError ? (
             <ErrorNotice
               compact
@@ -329,7 +335,7 @@ export function PensionOverview() {
           )}
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.annoFiscale), 'desktop:col-span-4')} style={tablet.cellStyle(PENSION_SECTION_IDS.annoFiscale)}>
           {contributionsError ? (
             <ErrorNotice
               compact
@@ -353,7 +359,7 @@ export function PensionOverview() {
           )}
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.versato), 'desktop:col-span-7')} style={tablet.cellStyle(PENSION_SECTION_IDS.versato)}>
           {contributionsError ? (
             <ErrorNotice
               collapse={sections.collapse(PENSION_SECTION_IDS.versato)}
@@ -377,7 +383,7 @@ export function PensionOverview() {
           )}
         </div>
 
-        <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PENSION_SECTION_IDS.versamenti), 'desktop:col-span-12')} style={tablet.cellStyle(PENSION_SECTION_IDS.versamenti)}>
           {contributionsError ? (
             <ErrorNotice
               collapse={sections.collapse(PENSION_SECTION_IDS.versamenti)}
@@ -403,6 +409,7 @@ export function PensionOverview() {
             />
           )}
         </div>
+      </div>
       </div>
 
       <PensionDettaglio description={DETTAGLIO_DESCRIPTION} blocks={contributionsError || snapshotsError ? [] : blocks} crescitaFooter={CRESCITA_FOOTER} comeAggiornare={COME_AGGIORNARE} />

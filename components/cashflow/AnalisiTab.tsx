@@ -49,6 +49,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
 import { COMPACT_QUERY } from '@/lib/hooks/useCompactLayout';
 import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition } from '@/lib/hooks/useTabletComposition';
+import { COMPACT_GRID_CLASS, COMPACT_GRID_WRAPPER_CLASS, LEAD_CELL_CLASS, REST_CELL_CLASS } from '@/lib/utils/tabletComposition';
 import { sectionPanelId, sectionTriggerId, VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { splitVerdict } from '@/lib/utils/narrative';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
@@ -389,7 +391,11 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
     replaceUrl(params.toString());
   }, [periodMode, selectedYear, selectedMonth, drillDown]);
 
+  // The Flusso's drawing: bar and rows under 640px of viewport, and in the 360px rail of a tablet in
+  // landscape (MOB-08, 2026-10-16: an open row stays in the rail, and a Sankey of 320px does not
+  // read) — the same threshold of legibility, measured where the chart is drawn.
   const isMobile = useMediaQuery('(max-width: 639px)');
+  const isTabletRail = useMediaQuery('(width >= 992px) and (width < 1440px)');
 
   // ─── Period ──────────────────────────────────────────────────────────────────
 
@@ -500,6 +506,7 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
     [singleMonth, hasScheda, hasFlow],
   );
   const sections = useMobileSections({ route: 'analisi', sections: sectionSpecs });
+  const tablet = useTabletComposition({ sections, order: sectionSpecs.map((section) => section.id) });
 
   // Cold-load focus restore: the URL triple is captured once at mount, then applied as soon as
   // the data needed to validate it has loaded (expenses/taxonomy, both async).
@@ -819,8 +826,9 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
         </div>
 
         {/* ── Tile grid ───────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-          <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+        <div className={COMPACT_GRID_WRAPPER_CLASS}>
+        <div className={COMPACT_GRID_CLASS} style={tablet.gridStyle}>
+          <div className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
             <PeriodoTile
               id={ANALISI_PERIODO_ID}
               liftedFigures={periodoLifted}
@@ -837,11 +845,11 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
             />
           </div>
 
-          <PageRest sections={sections} buttonId={ANALISI_REST_BUTTON_ID} />
+          <PageRest sections={sections} buttonId={ANALISI_REST_BUTTON_ID} className={REST_CELL_CLASS} />
 
           {/* Fuori scala exists only on a month; without one, Spese maggiori takes its columns. */}
           {singleMonth && (
-            <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.fuoriScala), 'desktop:col-span-3')} style={tablet.cellStyle(ANALISI_SECTION_IDS.fuoriScala)}>
               <FuoriScalaTile
                 collapse={sections.collapse(ANALISI_SECTION_IDS.fuoriScala)}
                 asideWhenClosed={`${MONTH_NAMES[singleMonth.month - 1].toLowerCase()} ${singleMonth.year}`}
@@ -854,7 +862,10 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
             </div>
           )}
 
-          <div className={cn(TILE_ROW_CELL_CLASS, singleMonth ? 'desktop:col-span-4' : 'tablet:col-span-2 desktop:col-span-7')}>
+          <div
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.maggiori), singleMonth ? 'desktop:col-span-4' : 'desktop:col-span-7')}
+            style={tablet.cellStyle(ANALISI_SECTION_IDS.maggiori)}
+          >
             <SpeseMaggioriTile
               top={topExpenses}
               reading={describeTopExpenses(topExpenses)}
@@ -864,7 +875,7 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
             />
           </div>
 
-          <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.spese), 'desktop:col-span-4')} style={tablet.cellStyle(ANALISI_SECTION_IDS.spese)}>
             <CategorieTile
               collapse={sections.collapse(ANALISI_SECTION_IDS.spese)}
               asideWhenClosed={ANALISI_CLOSED_ASIDES.spese}
@@ -879,7 +890,7 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
             />
           </div>
 
-          <div className={cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.entrate), 'desktop:col-span-3')} style={tablet.cellStyle(ANALISI_SECTION_IDS.entrate)}>
             <CategorieTile
               collapse={sections.collapse(ANALISI_SECTION_IDS.entrate)}
               asideWhenClosed={ANALISI_CLOSED_ASIDES.entrate}
@@ -900,7 +911,8 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
               ref={schedaRef}
               tabIndex={-1}
               onKeyDown={handleSchedaKeyDown}
-              className={cn(TILE_ROW_CELL_CLASS, 'scroll-mt-20 outline-none desktop:scroll-mt-4 tablet:col-span-2 desktop:col-span-12')}
+              className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.scheda), 'scroll-mt-20 outline-none desktop:scroll-mt-4 desktop:col-span-12')}
+              style={tablet.cellStyle(ANALISI_SECTION_IDS.scheda)}
             >
               <SchedaTile
                 collapse={sections.collapse(ANALISI_SECTION_IDS.scheda)}
@@ -925,13 +937,13 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
 
           {/* Transfers are not flows: a period holding only transfers has no Sankey to draw. */}
           {hasFlow && (
-            <div className={cn(TILE_ROW_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.flusso), 'desktop:col-span-12')} style={tablet.cellStyle(ANALISI_SECTION_IDS.flusso)}>
               <FlussoTile
                 collapse={sections.collapse(ANALISI_SECTION_IDS.flusso)}
                 liftedFigures={flussoLifted}
                 printedFigures={printedFigures}
                 expenses={periodExpenses}
-                isMobile={isMobile}
+                isMobile={isMobile || isTabletRail}
                 reading={describeFlow(flow, totals.savingsRate)}
                 flow={flow}
                 spendingRoles={spendingRolesFlow}
@@ -942,6 +954,7 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
               />
             </div>
           )}
+        </div>
         </div>
 
         {/* ── Below the grid: the comparison and the reference material, behind disclosures ── */}
