@@ -192,8 +192,10 @@ describe('cleanOrphanedAssignments', () => {
 // ==================== getAvailablePercentage ====================
 
 describe('getAvailablePercentage', () => {
+  const asset1 = mockAssets[0];
+
   it('should return 100% when no assignments exist', () => {
-    const result = getAvailablePercentage('asset1', [], undefined);
+    const result = getAvailablePercentage(asset1, [], undefined);
     expect(result).toBe(100);
   });
 
@@ -203,7 +205,7 @@ describe('getAvailablePercentage', () => {
       { goalId: 'goal2', assetId: 'asset1', percentage: 25 },
     ];
 
-    const result = getAvailablePercentage('asset1', assignments, undefined);
+    const result = getAvailablePercentage(asset1, assignments, undefined);
 
     expect(result).toBe(45);
   });
@@ -215,7 +217,7 @@ describe('getAvailablePercentage', () => {
     ];
 
     // Editing goal1's assignment — should not count goal1's 30%
-    const result = getAvailablePercentage('asset1', assignments, 'goal1');
+    const result = getAvailablePercentage(asset1, assignments, 'goal1');
 
     expect(result).toBe(75); // 100 - 25 (only goal2 counts)
   });
@@ -226,8 +228,22 @@ describe('getAvailablePercentage', () => {
       { goalId: 'goal2', assetId: 'asset1', percentage: 60 },
     ];
 
-    const result = getAvailablePercentage('asset1', assignments, undefined);
+    const result = getAvailablePercentage(asset1, assignments, undefined);
 
     expect(result).toBe(0); // Max(0, 100 - 120)
+  });
+
+  // A quota in UNITS (2026-10-17): 30 of asset1's 100 quote are 30 %, read on ITS quantity.
+  it('should read a units quota as its share of the asset\'s quantity', () => {
+    const assignments = [
+      { goalId: 'goal1', assetId: 'asset1', units: 30 },
+      { goalId: 'goal2', assetId: 'asset1', percentage: 25 },
+    ];
+
+    expect(getAvailablePercentage(asset1, assignments)).toBe(45);
+    // asset1: 45 % free of 10.000 = 4.500; asset2 and asset3 whole = 15.000.
+    expect(getUnassignedValue(mockAssets, assignments)).toBe(19500);
+    // 80 + 30 quote on 100: over, in the same words.
+    expect(validateAssignments([{ goalId: 'goal1', assetId: 'asset1', units: 80 }, { goalId: 'goal2', assetId: 'asset1', units: 30 }], mockAssets)).toEqual(['Vanguard FTSE All-World: assegnato 110.0% (max 100%)']);
   });
 });

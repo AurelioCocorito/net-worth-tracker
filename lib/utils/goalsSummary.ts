@@ -19,7 +19,8 @@
 import type { Asset, AssetClass } from '@/types/assets';
 import type { GoalAssetAssignment, GoalPriority, InvestmentGoal } from '@/types/goals';
 import { calculateAssetValue } from '@/lib/services/assetService';
-import { calculateGoalProgress, deriveTargetAllocationFromGoals } from '@/lib/utils/goalMath';
+import { assignmentFraction, calculateGoalProgress, deriveTargetAllocationFromGoals } from '@/lib/utils/goalMath';
+import { sliceBase, sliceUnit, sliceUnitLabel } from '@/lib/utils/assetSlice';
 import {
   buildGoalProjectionSeries,
   sortGoalRowsByUrgency,
@@ -366,7 +367,12 @@ export interface AssignmentRow {
   name: string;
   /** The display ticker, null when it would only repeat the name. */
   ticker: string | null;
+  /** The quota as a percent of the asset today — DERIVED for a units quota (lib/utils/assetSlice.ts). */
   percentage: number;
+  /** The units typed, null for a percent quota. */
+  units: number | null;
+  /** «quote» / «€» / «USD» — the word a units figure takes. */
+  unitLabel: string;
   value: number;
 }
 
@@ -403,8 +409,8 @@ export interface AssignmentsView {
   freeShare: number | null;
   freeInstrumentCount: number;
   totalInstrumentCount: number;
-  /** Instruments whose quotas add up past 100%. */
-  overAssigned: { assetId: string; name: string; percentage: number }[];
+  /** Instruments whose quotas add up past the whole of them — a units quota a sale outgrew included (`inUnits`: the declaration reads in units). */
+  overAssigned: { assetId: string; name: string; percentage: number; inUnits: { assigned: number; quantity: number; unitLabel: string } | null }[];
 }
 
 /** A share below this is a rounding remainder, not a free quota worth a row. */
@@ -428,12 +434,23 @@ export function summarizeAssignments(goals: InvestmentGoal[], assignments: GoalA
   const assetMap = new Map(assets.map((asset) => [asset.id, asset]));
   const valueOf = new Map(assets.map((asset) => [asset.id, calculateAssetValue(asset)]));
 
+  const unitLabelOf = (asset: Asset) => sliceUnitLabel(sliceUnit(asset));
+
   const groups: GoalAssignmentGroup[] = goals.map((goal) => {
     const rows = assignments
       .filter((a) => a.goalId === goal.id && assetMap.has(a.assetId))
       .map((a) => {
         const asset = assetMap.get(a.assetId)!;
-        return { assetId: a.assetId, name: asset.name, ticker: displayTicker(asset), percentage: a.percentage, value: ((valueOf.get(a.assetId) ?? 0) * a.percentage) / 100 };
+        const fraction = assignmentFraction(a, asset);
+        return {
+          assetId: a.assetId,
+          name: asset.name,
+          ticker: displayTicker(asset),
+          percentage: fraction * 100,
+          units: 'units' in a ? a.units : null,
+          unitLabel: unitLabelOf(asset),
+          value: (valueOf.get(a.assetId) ?? 0) * fraction,
+        };
       })
       .sort((a, b) => b.value - a.value);
     return { goalId: goal.id, name: goal.name, color: goal.color, total: rows.reduce((sum, r) => sum + r.value, 0), rows };
@@ -441,8 +458,11 @@ export function summarizeAssignments(goals: InvestmentGoal[], assignments: GoalA
 
   const liveQuotas = assignments.filter((a) => assetMap.has(a.assetId));
   const assignedPctByAsset = new Map<string, number>();
+  const unitsQuotaByAsset = new Map<string, number>();
   for (const quota of liveQuotas) {
-    assignedPctByAsset.set(quota.assetId, (assignedPctByAsset.get(quota.assetId) ?? 0) + quota.percentage);
+    const asset = assetMap.get(quota.assetId)!;
+    assignedPctByAsset.set(quota.assetId, (assignedPctByAsset.get(quota.assetId) ?? 0) + assignmentFraction(quota, asset) * 100);
+    if ('units' in quota) unitsQuotaByAsset.set(quota.assetId, (unitsQuotaByAsset.get(quota.assetId) ?? 0) + quota.units);
   }
 
   const free: FreeShareRow[] = [];
@@ -450,7 +470,13 @@ export function summarizeAssignments(goals: InvestmentGoal[], assignments: GoalA
   let freeTotal = 0;
   for (const asset of assets) {
     const assignedPct = assignedPctByAsset.get(asset.id) ?? 0;
-    if (assignedPct > 100) overAssigned.push({ assetId: asset.id, name: asset.name, percentage: assignedPct });
+    if (assignedPct > 100 + 1e-9) {
+      // With a units quota in the mix the declaration reads in units: «120 quote assegnate su 100».
+      const inUnits = unitsQuotaByAsset.has(asset.id)
+        ? { assigned: (assignedPct / 100) * sliceBase(asset.quantity), quantity: sliceBase(asset.quantity), unitLabel: unitLabelOf(asset) }
+        : null;
+      overAssigned.push({ assetId: asset.id, name: asset.name, percentage: assignedPct, inUnits });
+    }
     const freePct = Math.max(0, 100 - assignedPct);
     const freeValue = ((valueOf.get(asset.id) ?? 0) * freePct) / 100;
     freeTotal += freeValue;

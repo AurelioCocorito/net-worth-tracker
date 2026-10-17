@@ -20,9 +20,11 @@ vi.mock('@/lib/services/assetService', () => ({
 }));
 
 import {
+  assignmentFraction,
   calculateGoalProgress,
   deriveTargetAllocationFromGoals,
   pickNextGoalColor,
+  serializeAssignmentForFirestore,
   serializeGoalForFirestore,
 } from '@/lib/utils/goalMath';
 import { Asset } from '@/types/assets';
@@ -149,6 +151,23 @@ describe('calculateGoalProgress', () => {
 
     expect(result.progressPercentage).toBeUndefined();
     expect(result.remainingAmount).toBeUndefined();
+  });
+
+  // A quota in UNITS (2026-10-17): 30 of asset1's 100 quote are 30 % of its value, however the price moves.
+  it('should read a units quota as a share of the asset quantity, and never rescale it', () => {
+    const assignments = [
+      { goalId: 'goal1', assetId: 'asset1', units: 30 }, // 30 of 100 quote = €3,000
+      { goalId: 'goal1', assetId: 'asset2', percentage: 50 }, // €5,000
+    ];
+    expect(calculateGoalProgress(mockGoal, assignments, mockAssets).currentValue).toBe(8000);
+    expect(assignmentFraction(assignments[0], mockAssets[0])).toBe(0.3);
+    expect(assignmentFraction(assignments[1], mockAssets[1])).toBe(0.5);
+    // The price doubles: the units quota is worth twice, the same 30 %.
+    const pricier = [{ ...mockAssets[0], currentPrice: 200 }, mockAssets[1]] as Asset[];
+    expect(calculateGoalProgress(mockGoal, assignments, pricier).currentValue).toBe(11000);
+    // Half the quote sold: 30 of 50 is 60 % — the units stay as typed.
+    const sold = [{ ...mockAssets[0], quantity: 50 }, mockAssets[1]] as Asset[];
+    expect(assignmentFraction(assignments[0], sold[0])).toBe(0.6);
   });
 
   it('should handle undefined target amount (open-ended goal)', () => {
@@ -324,5 +343,16 @@ describe('serializeGoalForFirestore', () => {
     const result = serializeGoalForFirestore(makeGoal({ monthlyContribution: 0 }));
 
     expect(result.monthlyContribution).toBe(0);
+  });
+});
+
+// ==================== serializeAssignmentForFirestore ====================
+
+describe('serializeAssignmentForFirestore', () => {
+  it('should keep exactly the form the quota was typed in, and nothing else', () => {
+    expect(serializeAssignmentForFirestore({ goalId: 'g', assetId: 'a', percentage: 40 })).toEqual({ goalId: 'g', assetId: 'a', percentage: 40 });
+    expect(serializeAssignmentForFirestore({ goalId: 'g', assetId: 'a', units: 12.5 })).toEqual({ goalId: 'g', assetId: 'a', units: 12.5 });
+    const stray = { goalId: 'g', assetId: 'a', units: 3, note: 'x' } as unknown as Parameters<typeof serializeAssignmentForFirestore>[0];
+    expect(serializeAssignmentForFirestore(stray)).not.toHaveProperty('note');
   });
 });

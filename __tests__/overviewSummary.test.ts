@@ -326,6 +326,7 @@ describe('describeOverviewClosedAnswers (the landscape index)', () => {
         total: 225000,
         assetCount: 5,
         hasOwners: true,
+        reassign: [],
       },
     });
     expect(text(describeOverviewClosedAnswers(withOwners, CALENDAR)[OVERVIEW_SECTION_IDS.intestatari])).toBe('Marco 53%');

@@ -51,7 +51,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isLoanAsset, type Asset, type FamilyMember } from '@/types/assets';
-import { listAssetOwnerFilterOptions, matchesAssetOwnerFilter, resolveAssetOwnerLabel } from '@/lib/utils/assetOwnership';
+import { describeAssetOwnerLabel, listAssetOwnerFilterOptions, matchesAssetOwnerFilter } from '@/lib/utils/assetOwnership';
 import { OWNER_FILTER_ALL } from '@/lib/utils/movementsOwnerFilter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isLedgerAssetType } from '@/types/assetTransactions';
@@ -291,7 +291,7 @@ export function StrumentiTile({
   const knownMemberIds = useMemo(() => new Set(members.map((member) => member.id)), [members]);
   const ownerOptions = useMemo(() => listAssetOwnerFilterOptions(ownerLookup, members), [ownerLookup, members]);
   const showOwnerFilter = members.length > 0 && assets.length > 0;
-  const ownerLabelOf = (asset: Asset): string | null => (members.length > 0 ? resolveAssetOwnerLabel(asset, ownerLookup, memberNames) : null);
+  const ownerLabelOf = (asset: Asset): string | null => (members.length > 0 ? describeAssetOwnerLabel(asset, ownerLookup, memberNames) : null);
   const visibleAssets = useMemo(
     () => (ownerFilter === OWNER_FILTER_ALL ? assets : assets.filter((asset) => matchesAssetOwnerFilter(asset, ownerLookup, ownerFilter, knownMemberIds))),
     [assets, ownerFilter, ownerLookup, knownMemberIds],

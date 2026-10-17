@@ -307,10 +307,34 @@ describe('summarizeAssignments', () => {
   it('names an instrument assigned past 100%', () => {
     const over: GoalAssetAssignment[] = [...ASSIGNMENTS, { goalId: 'studi', assetId: 'cc', percentage: 30 }];
     const view = summarizeAssignments([CASA, AUTO, STUDI, EMERGENZA], over, ASSETS);
-    expect(view.overAssigned).toEqual([{ assetId: 'cc', name: 'Conto corrente', percentage: 130 }]);
+    expect(view.overAssigned).toEqual([{ assetId: 'cc', name: 'Conto corrente', percentage: 130, inUnits: null }]);
     // An over-assigned instrument has no free share, never a negative one.
     expect(view.free.find((r) => r.assetId === 'cc')).toBeUndefined();
     expect(view.freeTotal).toBe(77_100);
+  });
+
+  // A quota in UNITS (2026-10-17): the units primary, the percent derived on today's quantity.
+  it('reads a units quota as a share of its asset and prints the units beside the derived percent', () => {
+    // VWCE: 40 of 200 quote at 230 € — the fixture's 46.000 € restated as 200 × 230.
+    // The account is a `cash` asset: 5000 € in quantity at price 1, so its quota is euro.
+    const assets = ASSETS.map((a) => (a.id === 'vwce' ? { ...a, quantity: 200, currentPrice: 230 } : a.id === 'cc' ? ({ ...a, type: 'cash', quantity: 5000, currentPrice: 1 } as Asset) : a));
+    const quotas: GoalAssetAssignment[] = [{ goalId: 'studi', assetId: 'vwce', units: 40 }, { goalId: 'casa', assetId: 'cc', units: 1000 }];
+    const view = summarizeAssignments([CASA, STUDI], quotas, assets);
+    const studi = view.groups.find((g) => g.goalId === 'studi')!;
+    expect(studi.rows.map((r) => [r.name, r.units, r.unitLabel, r.percentage, r.value])).toEqual([['Vanguard FTSE All-World', 40, 'quote', 20, 9_200]]);
+    const casa = view.groups.find((g) => g.goalId === 'casa')!;
+    expect(casa.rows.map((r) => [r.units, r.unitLabel, r.percentage, r.value])).toEqual([[1000, '€', 20, 1000]]);
+    expect(view.free.find((r) => r.assetId === 'vwce')?.freePct).toBe(80);
+  });
+
+  it('declares a units quota a sale outgrew, in units, and still lists no free share for it', () => {
+    const assets = ASSETS.map((a) => (a.id === 'vwce' ? { ...a, quantity: 100, currentPrice: 460 } : a));
+    const quotas: GoalAssetAssignment[] = [{ goalId: 'studi', assetId: 'vwce', units: 120 }];
+    const view = summarizeAssignments([STUDI], quotas, assets);
+    expect(view.overAssigned).toEqual([{ assetId: 'vwce', name: 'Vanguard FTSE All-World', percentage: 120, inUnits: { assigned: 120, quantity: 100, unitLabel: 'quote' } }]);
+    expect(view.free.find((r) => r.assetId === 'vwce')).toBeUndefined();
+    // The group's value is the whole of what the quota holds today — never rescaled to 100.
+    expect(view.groups[0].rows[0].value).toBe(55_200);
   });
 
   it('skips a quota whose asset no longer exists', () => {

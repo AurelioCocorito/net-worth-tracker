@@ -63,7 +63,13 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   signatures are what let the re-export be literal and leave every client call site untouched.
 - **`serializeGoalForFirestore` IS the persistence allowlist for `InvestmentGoal`**, the single copy used by
   `saveGoalData` (client) and `POST /api/goals` (server). A new optional field on the type is silently dropped on save
-  until it is added there.
+  until it is added there. **A quota (`GoalAssetAssignment`) is a percent of the asset OR a number of its units**
+  (2026-10-17: quote of an instrument, euro of an account or a property — a discriminated union, `percentage` | `units`),
+  stored as typed (`serializeAssignmentForFirestore`, beside the goal's allowlist, the only other field set the document
+  carries) and resolved into a fraction by `assignmentFraction` (over lib/utils/assetSlice.ts, the primitive the
+  Intestatari share) before ANY formula — `calculateGoalProgress`, `rankGoalProgress`, `summarizeAssignments`,
+  `getAvailablePercentage` (which takes the ASSET since then) — so the trajectory, the derived allocation and the
+  Panoramica never see the form. A units quota a sale outgrew is declared («quote da riassegnare»), never rescaled.
 - **The goal document is rewritten WHOLE, never patched.** So the Admin append is a transaction (the FIRE page writes
   the same doc), the goals already stored and `assignments` pass through **verbatim**, and the colour is picked INSIDE
   the transaction (`pickNextGoalColor`), or two goals created concurrently come out the same hue.

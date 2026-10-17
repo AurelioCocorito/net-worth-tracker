@@ -274,6 +274,10 @@ export async function updateAsset(
     if ('ownerMemberId' in updates && updates.ownerMemberId === undefined) {
       cleanedUpdates.ownerMemberId = deleteField();
     }
+    // ownerShares (the quotas by person) — cleared when the form sends none typed, same guard.
+    if ('ownerShares' in updates && updates.ownerShares === undefined) {
+      cleanedUpdates.ownerShares = deleteField();
+    }
 
     // Rebuy on the same doc: quantity goes from 0 (sold but kept) back to > 0. Stamp the new
     // holding start so YOC ignores the previous holding's dividends (mirrors the ISIN-reuse path
@@ -351,6 +355,9 @@ export async function updateAssetMetadata(
     // ownerMemberId («In comune» = absent) — clearable here too, every ledger type edits through this path.
     if ('ownerMemberId' in updates && updates.ownerMemberId === undefined) {
       cleanedUpdates.ownerMemberId = deleteField();
+    }
+    if ('ownerShares' in updates && updates.ownerShares === undefined) {
+      cleanedUpdates.ownerShares = deleteField();
     }
 
     await updateDoc(assetRef, cleanedUpdates);

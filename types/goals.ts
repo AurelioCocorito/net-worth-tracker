@@ -25,13 +25,16 @@ export interface InvestmentGoal {
   updatedAt: Date;
 }
 
-// Links an asset (by percentage) to a goal.
-// Stored as a flat array — group by assetId and sum percentages to validate <= 100%.
-export interface GoalAssetAssignment {
-  goalId: string;
-  assetId: string;
-  percentage: number; // 0-100, percentage of this asset's value assigned to this goal
-}
+// Links a slice of an asset to a goal — in PERCENT of the asset (the only form until
+// 2026-10-17) or in UNITS (quote of an instrument, euro of an account or a property: the asset's
+// `quantity` is the base). Stored as a flat array; both forms are resolved into a fraction of the
+// asset by `assignmentFraction` (lib/utils/goalMath.ts) before any formula, so FIRE › Obiettivi,
+// the trajectory and the derived allocation never see the difference. Group by assetId and sum
+// the fractions to validate ≤ 1; a units quota a trade has made larger than the asset is
+// declared («quote da riassegnare»), never rescaled (lib/utils/assetSlice.ts).
+export type GoalAssetAssignment =
+  | { goalId: string; assetId: string; percentage: number } // 0-100
+  | { goalId: string; assetId: string; units: number }; // > 0, in the asset's units
 
 // Top-level Firestore document per user (collection: goalBasedInvesting/{userId})
 export interface GoalBasedInvestingData {
