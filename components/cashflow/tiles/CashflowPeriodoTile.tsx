@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Narrative } from '@/lib/utils/narrative';
-import type { MonthFlow, PeriodCashflowTotals, PeriodDelta } from '@/lib/utils/tracciamentoSummary';
+import { TRACKING_TRIO_BLOCK, type MonthFlow, type PeriodCashflowTotals, type PeriodDelta } from '@/lib/utils/tracciamentoSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
@@ -8,6 +8,14 @@ import { CASHFLOW_SERIES_COLOR } from '@/lib/constants/expenseTypeColors';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { CashflowKpiTrio, deltaClass } from './CashflowKpiTrio';
 import { FlowBarsChart } from './FlowBarsChart';
+
+/** The one block of this tile a phone's strip lifts: the trio's three values (doc/guide/cashflow-tracciamento.md). */
+export type CashflowPeriodoLiftedBlock = typeof TRACKING_TRIO_BLOCK;
+
+/** Narrows `liftedBlocks(strip, id)` at the call site (the convention of `LIFTED_FIGURE_CLASS`). */
+export function isCashflowPeriodoLiftedBlock(block: string): block is CashflowPeriodoLiftedBlock {
+  return block === TRACKING_TRIO_BLOCK;
+}
 
 export interface SpendingProjection {
   /** Where spending lands at the current daily pace — a linear extrapolation, named as such. */
@@ -19,6 +27,8 @@ export interface SpendingProjection {
 }
 
 interface CashflowPeriodoTileProps {
+  /** THE tile's anchor (`trk-periodo`): open at every width, never a row (The First-Screen Rule). */
+  id?: string;
   eyebrow: string;
   aside?: ReactNode;
   reading: Narrative | null;
@@ -35,6 +45,12 @@ interface CashflowPeriodoTileProps {
   windowLabel: Narrative;
   /** The month-end projection, only while the period is the current month. */
   projection: SpendingProjection | null;
+  /**
+   * The blocks the phone's strip already prints (`liftedBlocks(strip, id).filter(
+   * isCashflowPeriodoLiftedBlock)`): the trio's three values hide below `desktop:`, its rate,
+   * coverage and deltas stay (The Lifted-Figure Rule). Analisi passes none.
+   */
+  liftedFigures?: readonly CashflowPeriodoLiftedBlock[];
   className?: string;
 }
 
@@ -47,6 +63,7 @@ interface CashflowPeriodoTileProps {
  * doc/guide/cashflow-tracciamento.md).
  */
 export function CashflowPeriodoTile({
+  id,
   eyebrow,
   aside,
   reading,
@@ -57,6 +74,7 @@ export function CashflowPeriodoTile({
   highlightKey,
   windowLabel,
   projection,
+  liftedFigures = [],
   className,
 }: CashflowPeriodoTileProps) {
   const projectionClass =
@@ -65,12 +83,13 @@ export function CashflowPeriodoTile({
       : 'text-foreground';
 
   return (
-    <Tile eyebrow={eyebrow} aside={aside} reading={reading} className={className} ariaLabel="Cashflow del periodo">
+    <Tile id={id} eyebrow={eyebrow} aside={aside} reading={reading} className={className} ariaLabel="Cashflow del periodo">
       <CashflowKpiTrio
         totals={totals}
         incomeDelta={delta?.income ?? null}
         expensesDelta={delta?.expenses ?? null}
         previousLabel={previousLabel}
+        lifted={liftedFigures.includes(TRACKING_TRIO_BLOCK)}
         className="mt-4"
       />
 

@@ -80,6 +80,28 @@ describe('describeSales', () => {
     expect(tax).toMatchObject({ mono: true });
     expect(tax?.sign).toBeUndefined();
   });
+
+  /**
+   * The Binding-Clause Rule (since 2026-10-11): the tax and the counterfactual are the clauses
+   * a phone never hides behind a tap. Falsified on 2026-10-11 with the `binding` wrapper removed
+   * from the tax: this test and `e2e/overview.mobile.spec.ts` (the taxed month) went red.
+   */
+  it('should bind the tax and the month without it, and nothing else', () => {
+    const segments = describeSales(SEPTEMBER_SALE, { delta: -4937.74, marketEffect: -1078.73, savings: null });
+    const bound = segments.filter((segment) => segment.binding).map(text).join('');
+    const free = segments.filter((segment) => !segment.binding).map(text).join('');
+    expect(bound).toBe(
+      ' e pagato circa 4089 € di tasse: senza, il mese avrebbe fatto −849 € (−1079 € dal mercato e +230 € tra risparmio e altre variazioni).',
+    );
+    expect(free).toBe('Hai venduto Vanguard FTSE All-World per 39.052 € con una plusvalenza di 15.726 €');
+  });
+
+  it('should bind the tax even at zero, and nothing on a loss or a missing rate', () => {
+    const zeroTax = describeSales({ ...SEPTEMBER_SALE, realizedGain: 10, estimatedTax: 0 });
+    expect(zeroTax.filter((segment) => segment.binding).map(text).join('')).toBe(' e pagato circa 0 € di tasse');
+    expect(describeSales({ ...SEPTEMBER_SALE, realizedGain: -1200, estimatedTax: 0 }).some((segment) => segment.binding)).toBe(false);
+    expect(describeSales({ ...SEPTEMBER_SALE, estimatedTax: null }).some((segment) => segment.binding)).toBe(false);
+  });
 });
 
 describe('describeMonthSplit', () => {
@@ -102,6 +124,83 @@ describe('describeMonthSplit', () => {
     expect(segments.find((segment) => text(segment) === '+3980 €')).toMatchObject({ mono: true, sign: 'positive' });
     expect(segments.find((segment) => text(segment) === '+1180 €')).toMatchObject({ mono: true, sign: 'positive' });
     expect(segments.find((segment) => text(segment) === '−1040 €')).toMatchObject({ mono: true, sign: 'negative' });
+  });
+
+  /**
+   * A printed zero is unsigned and uncoloured on every figure of the page (AGENTS.md § Layout
+   * and Color Tokens). Seen red on 2026-10-11, in the retirement of the Panoramica's
+   * composition: `signedCompactEuro` still printed «+0 € risparmiati» with a positive colour.
+   */
+  it('should print a part that rounds to zero without a sign and without a colour', () => {
+    const segments = describeMonthSplit({ delta: 3980.3, marketEffect: 3980, savings: 0.3 });
+    expect(plain(segments)).toBe('Di quel movimento: +3980 € dal mercato e 0 € risparmiati.');
+    expect(segments.find((segment) => text(segment) === '0 €')).toMatchObject({ mono: true });
+    expect(segments.find((segment) => text(segment) === '0 €')?.sign).toBeUndefined();
+    expect(plain(describeMonthSplit({ delta: -2000.2, marketEffect: -2000, savings: -0.2 }))).toBe('Di quel movimento: −2000 € dal mercato e 0 € risparmiati.');
+  });
+});
+
+describe("describeMonthSplit — the user's money outside the cashflow", () => {
+  /**
+   * A month whose «altre variazioni» was exactly the pension contributions (owner, 2026-10-14: the
+   * TFR and the voluntary payments read as «+1792 € di altre variazioni», which looked like an
+   * error). 2500 = 2000 − 1500 + 2000: named, nothing is left over, and the clause goes.
+   */
+  it('should name the pension contributions and leave nothing to «altre variazioni»', () => {
+    const split = { delta: 2500, marketEffect: 2000, savings: -1500, flows: { pensionPaidIn: 2000, debts: [] } };
+    expect(plain(describeMonthSplit(split))).toBe(
+      'Di quel movimento: +2000 € dal mercato, −1500 € spesi oltre le entrate, +2000 € versati nel fondo pensione.',
+    );
+  });
+
+  it('should name each debt repaid by its asset, and keep a material residual', () => {
+    const split = {
+      delta: 4000,
+      marketEffect: 1000,
+      savings: 1500,
+      flows: { pensionPaidIn: 500, debts: [{ name: 'Mutuo', repaid: 300 }, { name: 'Prestito auto', repaid: 150 }] },
+    };
+    expect(plain(describeMonthSplit(split))).toBe(
+      'Di quel movimento: +1000 € dal mercato, +1500 € risparmiati, +450 € di debito rimborsato (Mutuo +300 €, Prestito auto +150 €), +500 € versati nel fondo pensione, +550 € di altre variazioni.',
+    );
+  });
+
+  it('should list one debt by its name alone, and call a debt that went up «nuovo debito»', () => {
+    expect(plain(describeMonthSplit({ delta: 2300, marketEffect: 1000, savings: 1000, flows: { pensionPaidIn: 0, debts: [{ name: 'Mutuo', repaid: 300 }] } }))).toBe(
+      'Di quel movimento: +1000 € dal mercato, +1000 € risparmiati, +300 € di debito rimborsato (Mutuo).',
+    );
+    // A new loan: the cash it brought in has no cashflow row (+20.000 € of residual), the debt −20.000 €.
+    expect(plain(describeMonthSplit({ delta: 2000, marketEffect: 1000, savings: 1000, flows: { pensionPaidIn: 0, debts: [{ name: 'Prestito auto', repaid: -20000 }] } }))).toBe(
+      'Di quel movimento: +1000 € dal mercato, +1000 € risparmiati, −20.000 € di nuovo debito (Prestito auto), +20.000 € di altre variazioni.',
+    );
+  });
+
+  it('should print the flows signed but uncoloured, and drop a debt that prints as zero', () => {
+    const segments = describeMonthSplit({
+      delta: 3800,
+      marketEffect: 1000,
+      savings: 1000,
+      flows: { pensionPaidIn: 1500, debts: [{ name: 'Mutuo', repaid: 300 }, { name: 'Prestito chiuso', repaid: 0.2 }] },
+    });
+    expect(plain(segments)).toContain('+300 € di debito rimborsato (Mutuo), +1500 € versati nel fondo pensione');
+    expect(segments.find((segment) => text(segment) === '+1500 €')).toMatchObject({ mono: true });
+    expect(segments.find((segment) => text(segment) === '+1500 €')?.sign).toBeUndefined();
+    expect(segments.find((segment) => text(segment) === '+300 €')?.sign).toBeUndefined();
+    expect(segments.find((segment) => text(segment) === '+1000 €')).toMatchObject({ sign: 'positive' });
+  });
+
+  it('should name the flows before the part that holds the savings when the savings are not known', () => {
+    expect(plain(describeMonthSplit({ delta: 3000, marketEffect: 1000, savings: null, flows: { pensionPaidIn: 500, debts: [] } }))).toBe(
+      'Di quel movimento: +1000 € dal mercato, +500 € versati nel fondo pensione, +1500 € tra risparmio e altre variazioni.',
+    );
+  });
+
+  it("should carry the flows into the taxed sale's month without the tax", () => {
+    const sale = { ...SEPTEMBER_SALE, estimatedTax: 1000, instruments: [{ ...SEPTEMBER_SALE.instruments[0], estimatedTax: 1000 }] };
+    const split = { delta: 1500, marketEffect: 1000, savings: 1000, flows: { pensionPaidIn: 500, debts: [] } };
+    expect(plain(describeSales(sale, split))).toContain(
+      'senza, il mese avrebbe fatto +2500 € (+1000 € dal mercato, +1000 € risparmiati, +500 € versati nel fondo pensione).',
+    );
   });
 });
 

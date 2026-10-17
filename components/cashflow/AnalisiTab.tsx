@@ -10,8 +10,12 @@
  *                                        | Spese per categoria(4) | Entrate per categoria(3)
  *                     Scheda(12, only with a focus)
  *                     Flusso(12)
- *   Mobile (1 col):   Periodo → Fuori scala → Spese per categoria → Entrate → Spese maggiori →
- *                     Scheda → Flusso
+ *   Below desktop:    ONE sequence, the DOM above (The First-Screen Rule; since 2026-10-14 —
+ *                     the `order-1…7` are gone): title → the axis → the first sentence → Entrate and
+ *                     Risparmio as a strip → the calendar's scope → «Il perché» → Periodo, open, its
+ *                     trio lifted and its bars at 120px → «Il resto della pagina» → Fuori scala,
+ *                     Spese maggiori, Spese, Entrate, [Scheda], Flusso as closed rows
+ *                     (`useMobileSections`; doc/guide/cashflow-analisi.md § Composizione mobile).
  *
  * FOUR PERIOD MODES: "Da inizio anno" (January → the end of today's month), "Anno corrente"
  * (the whole current year, optional month), "Anno" (a past year, optional month), "Storico"
@@ -43,6 +47,23 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useChartColors } from '@/lib/hooks/useChartColors';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
+import { COMPACT_QUERY } from '@/lib/hooks/useCompactLayout';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
+import { useElementWidth } from '@/lib/hooks/useElementWidth';
+import { sectionPanelId, sectionTriggerId, VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { splitVerdict } from '@/lib/utils/narrative';
+import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import {
   Expense,
@@ -74,14 +95,20 @@ import {
   resolveCategoryMovers,
   resolvePeriodThroughMonth,
   resolveSingleMonth,
+  selectAnalisiStrip,
   summarizeFlow,
+  ANALISI_PERIODO_ID,
+  ANALISI_SECTION_IDS,
   type AnalisiPeriod,
   type MonthRef,
   type PeriodMode,
   type TopExpenseRow,
 } from '@/lib/utils/analisiSummary';
 import {
+  ANALISI_CLOSED_ASIDES,
   buildAnalisiVerdict,
+  collectPrintedFigures,
+  describeAnalisiScope,
   describeAnalisiScheduledHorizon,
   describeAnalisiSubject,
   describeAnomalies,
@@ -94,14 +121,19 @@ import {
   describeSpendingChart,
   describeSpendingChartFooter,
   describeTopExpenses,
+  describeAnalisiClosedAnswers,
 } from '@/lib/utils/analisiNarrative';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { describeCategoryShare, describePeriodCashflow } from '@/lib/utils/cashflowNarrative';
 import type { TileSkeletonCell } from '@/lib/utils/tileGridSkeleton';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/layout/PageHeader';
 import type { PageFreshness } from '@/lib/hooks/useFreshness';
 import { PageVerdict } from '@/components/ui/page-verdict';
-import { Tile, TILE_CELL_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { NarrativeText } from '@/components/ui/narrative-text';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
@@ -109,11 +141,11 @@ import { EntitySearch } from '@/components/cashflow/EntitySearch';
 import { AnalisiPeriodControls } from '@/components/cashflow/analisi/AnalisiPeriodControls';
 import { ConfrontoDisclosure } from '@/components/cashflow/analisi/ConfrontoDisclosure';
 import { DettaglioDisclosure } from '@/components/cashflow/analisi/DettaglioDisclosure';
-import { PeriodoTile } from '@/components/cashflow/analisi/tiles/PeriodoTile';
+import { isPeriodoLiftedBlock, PeriodoTile } from '@/components/cashflow/analisi/tiles/PeriodoTile';
 import { FuoriScalaTile } from '@/components/cashflow/analisi/tiles/FuoriScalaTile';
 import { SpeseMaggioriTile } from '@/components/cashflow/analisi/tiles/SpeseMaggioriTile';
 import { CategorieTile } from '@/components/cashflow/analisi/tiles/CategorieTile';
-import { FlussoTile } from '@/components/cashflow/analisi/tiles/FlussoTile';
+import { FlussoTile, isFlussoLiftedBlock } from '@/components/cashflow/analisi/tiles/FlussoTile';
 import { summarizeSpendingRoles } from '@/lib/utils/spendingRoles';
 import { SchedaTile, type SchedaFocus } from '@/components/cashflow/analisi/tiles/SchedaTile';
 import { ENTITY_DOSSIER_LAZY_CHARTS } from '@/components/cashflow/EntityDossier';
@@ -136,6 +168,38 @@ interface DrillDownState {
 }
 
 const NO_FOCUS: DrillDownState = { level: 'category', chartType: null, selectedCategory: null, selectedSubCategory: null };
+
+/**
+ * Every row of the phone composition, in the DOM's order (The Closed-Row Rule;
+ * 2026-10-14): every tile but Periodo, which is THE tile and never closes (The First-Screen Rule).
+ * Module-level, as the controller asks; the page hands it the rows PRESENT
+ * (`resolveAnalisiSections`) — Fuori scala exists only on a month, the Scheda only with a focus,
+ * the Flusso only when something flowed. One read for the page: no row is ever `failed`.
+ */
+const ANALISI_SECTIONS: readonly SectionSpec[] = [
+  { id: ANALISI_SECTION_IDS.fuoriScala, eyebrow: 'Fuori scala' },
+  { id: ANALISI_SECTION_IDS.maggiori, eyebrow: 'Spese maggiori' },
+  { id: ANALISI_SECTION_IDS.spese, eyebrow: 'Spese per categoria' },
+  { id: ANALISI_SECTION_IDS.entrate, eyebrow: 'Entrate per categoria' },
+  { id: ANALISI_SECTION_IDS.scheda, eyebrow: 'Scheda' },
+  { id: ANALISI_SECTION_IDS.flusso, eyebrow: 'Flusso' },
+];
+
+/** The rows the period renders — one `SectionSpec` per tile present, the DOM's order kept. */
+function resolveAnalisiSections(present: { fuoriScala: boolean; scheda: boolean; flusso: boolean }): readonly SectionSpec[] {
+  return ANALISI_SECTIONS.filter((section) => {
+    if (section.id === ANALISI_SECTION_IDS.fuoriScala) return present.fuoriScala;
+    if (section.id === ANALISI_SECTION_IDS.scheda) return present.scheda;
+    if (section.id === ANALISI_SECTION_IDS.flusso) return present.flusso;
+    return true;
+  });
+}
+
+/** The Flusso's cell from which the Sankey is drawn: a 640px viewport's cell (640 − `main`'s 2 × 16px). */
+const FLUSSO_SANKEY_MIN_CELL = 608;
+
+/** «Apri tutte», where the focus goes when the Scheda closes with no opener to return to and no Flusso after it. */
+const ANALISI_REST_BUTTON_ID = 'analisi-resto';
 
 /** The page's own grid, for the skeleton: Periodo · Fuori scala · Spese maggiori / Spese · Entrate / Flusso. */
 const SKELETON_CELLS: TileSkeletonCell[] = [
@@ -291,10 +355,19 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
   // keyboard focus returns when the Scheda closes. Closing left it on `body` until 2026-09-14.
   const focusTriggerRef = useRef<HTMLElement | null>(null);
 
-  // The ONE scroll on entity focus — owned by the landing path (handleEntitySelect and the URL
-  // restore), never by a parallel effect. Deferred one tick so the Scheda cell exists.
-  const scrollToScheda = useCallback(() => {
+  // The ONE landing on entity focus — owned by the landing path (handleEntitySelect and the URL
+  // restore), never by a parallel effect. Deferred one tick so the Scheda cell exists. Below
+  // `desktop:` the Scheda is a closed row (since 2026-10-14): the controller's `reveal` opens it,
+  // scrolls to it and focuses its trigger, called here directly — it captures nothing of a render
+  // (it reads the memory from the store and `#analisi-scheda` from the DOM when the timer fires),
+  // and the timer is the effect's async callback, never a `setState` in an effect's body. The width
+  // is read at that moment too: a restore can run before the first render after hydration knows it.
+  const landOnScheda = useCallback((reveal: (id: string) => void) => {
     setTimeout(() => {
+      if (document.getElementById(sectionTriggerId(ANALISI_SECTION_IDS.scheda)) || window.matchMedia(COMPACT_QUERY).matches) {
+        reveal(ANALISI_SECTION_IDS.scheda);
+        return;
+      }
       const cell = schedaRef.current;
       if (!cell) return;
       cell.scrollIntoView({ behavior: 'instant', block: 'start' });
@@ -304,11 +377,14 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
   }, []);
 
   // Closing the Scheda hands the focus back to what opened it (if it is still on the page),
-  // so a keyboard reader lands where it left instead of at the top of the document.
-  const restoreFocusToTrigger = useCallback(() => {
+  // so a keyboard reader lands where it left instead of at the top of the document. False when
+  // there was nothing to return to (a deep link).
+  const restoreFocusToTrigger = useCallback((): boolean => {
     const trigger = focusTriggerRef.current;
     focusTriggerRef.current = null;
-    if (trigger && trigger.isConnected) trigger.focus();
+    if (!trigger || !trigger.isConnected) return false;
+    trigger.focus();
+    return true;
   }, []);
 
   // Keep the URL in sync with the period AND the focus — replace (not push) so filter changes
@@ -330,29 +406,13 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
     replaceUrl(params.toString());
   }, [periodMode, selectedYear, selectedMonth, drillDown]);
 
-  // Cold-load focus restore: the URL triple is captured once at mount, then applied as soon as
-  // the data needed to validate it has loaded (expenses/taxonomy, both async).
-  const initialFocusRef = useRef<UrlFocus | null>(readFocusFromSearchParams(searchParams));
-  useEffect(() => {
-    const focus = initialFocusRef.current;
-    if (!focus || loading) return;
-    initialFocusRef.current = null;
-
-    const withinFloor = allExpenses.filter((e) => getItalyYear(toDate(e.date)) >= historyStartYear);
-    const resolved = resolveFocusLabels(focus, withinFloor, categories);
-    if (!resolved) return;
-    setDrillDown({
-      level: resolved.subCategory ? 'expenseList' : 'subcategory',
-      chartType: focus.expenseType === 'income' ? 'income' : 'expenses',
-      selectedCategory: { expenseType: focus.expenseType, key: focus.categoryKey, label: resolved.categoryLabel },
-      selectedSubCategory: resolved.subCategory,
-    });
-    // A deep link should LAND on the Scheda, not leave it below the fold.
-    scrollToScheda();
-    // Fires once when loading settles: the ref is cleared on the first pass, and scrollToScheda is stable.
-  }, [loading, allExpenses, categories, historyStartYear, scrollToScheda]);
-
-  const isMobile = useMediaQuery('(max-width: 639px)');
+  // The Flusso's drawing: bar and rows where its cell is narrower than 608px — a 640px phone's cell,
+  // the legibility threshold of the chart (owner, 2026-09-27) — so in the 360px index of a tablet in
+  // landscape too, where a Sankey of 320px does not read. Measured on the cell, not the viewport
+  // (owner, 2026-10-16: a tile lays out by its box); the viewport's guess only until the first measure.
+  const isPhoneWidth = useMediaQuery('(max-width: 639px)');
+  const [flussoCellRef, flussoCellWidth] = useElementWidth();
+  const flussoNarrow = flussoCellWidth === null ? isPhoneWidth : flussoCellWidth < FLUSSO_SANKEY_MIN_CELL;
 
   // ─── Period ──────────────────────────────────────────────────────────────────
 
@@ -452,6 +512,43 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
     [allExpenses, singleMonth],
   );
 
+  // ─── The phone composition (2026-10-14) ───────────────────────────────────────
+  // The rows present: Fuori scala on a month, the Scheda with a focus, the Flusso when something
+  // flowed. Here, before every handler that lands on the Scheda: `sections.reveal` closes over
+  // nothing of a tap (lib/hooks/useMobileSections.ts), so it is a stable dependency of theirs.
+  const hasFlow = flow.incomeTotal > 0 || flow.expensesTotal > 0;
+  const hasScheda = drillDown.level !== 'category' && drillDown.selectedCategory !== null && drillDown.chartType !== null;
+  const sectionSpecs = useMemo(
+    () => resolveAnalisiSections({ fuoriScala: singleMonth !== null, scheda: hasScheda, flusso: hasFlow }),
+    [singleMonth, hasScheda, hasFlow],
+  );
+  const sections = useMobileSections({ route: 'analisi', sections: sectionSpecs });
+  const stageRef = useTabletStage();
+  const tablet = useTabletComposition({ sections, order: sectionSpecs.map((section) => section.id) });
+
+  // Cold-load focus restore: the URL triple is captured once at mount, then applied as soon as
+  // the data needed to validate it has loaded (expenses/taxonomy, both async).
+  const initialFocusRef = useRef<UrlFocus | null>(readFocusFromSearchParams(searchParams));
+  useEffect(() => {
+    const focus = initialFocusRef.current;
+    if (!focus || loading) return;
+    initialFocusRef.current = null;
+
+    const withinFloor = allExpenses.filter((e) => getItalyYear(toDate(e.date)) >= historyStartYear);
+    const resolved = resolveFocusLabels(focus, withinFloor, categories);
+    if (!resolved) return;
+    setDrillDown({
+      level: resolved.subCategory ? 'expenseList' : 'subcategory',
+      chartType: focus.expenseType === 'income' ? 'income' : 'expenses',
+      selectedCategory: { expenseType: focus.expenseType, key: focus.categoryKey, label: resolved.categoryLabel },
+      selectedSubCategory: resolved.subCategory,
+    });
+    // A deep link should LAND on the Scheda, not leave it below the fold — on a phone, open.
+    landOnScheda(sections.reveal);
+    // Fires once when loading settles: the ref is cleared on the first pass; landOnScheda and the
+    // controller's reveal are stable.
+  }, [loading, allExpenses, categories, historyStartYear, landOnScheda, sections.reveal]);
+
   // YoY pacing against the year before — scope AND caption from the SAME module the Confronto
   // reads, so the two cannot diverge on which window they measure. Each period compares on its
   // OWN span: «Da inizio anno» on the months lived, «Anno corrente» and a closed year on twelve.
@@ -546,20 +643,25 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
         selectedCategory: { expenseType: target.expenseType, key: target.categoryKey, label: resolved.categoryLabel },
         selectedSubCategory: resolved.subCategory,
       });
-      scrollToScheda();
+      landOnScheda(sections.reveal);
     },
-    [baseExpenses, categories, scrollToScheda],
+    [baseExpenses, categories, landOnScheda, sections.reveal],
   );
 
+  // «Chiudi»: the focus returns to the opener; on a phone, with no opener (a deep link), to the row
+  // after the Scheda in the DOM — the Flusso's trigger — or to «Apri tutte» without a Flusso.
   const resetFocus = () => {
     setDrillDown(NO_FOCUS);
-    restoreFocusToTrigger();
+    if (restoreFocusToTrigger() || !sections.compact) return;
+    (document.getElementById(sectionTriggerId(ANALISI_SECTION_IDS.flusso)) ?? document.getElementById(ANALISI_REST_BUTTON_ID))?.focus();
   };
   const backToCategory = () => setDrillDown((prev) => ({ ...prev, level: 'subcategory', selectedSubCategory: null }));
   const handleBack = () => (drillDown.level === 'expenseList' ? backToCategory() : resetFocus());
   // Escape inside the Scheda closes it, like a modal — the tile is the page's one lifted surface.
+  // As a row it does so only inside the open panel: on the trigger Escape does nothing.
   const handleSchedaKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Escape' || event.defaultPrevented) return;
+    if (sections.compact && !(event.target instanceof Element && event.target.closest(`#${sectionPanelId(ANALISI_SECTION_IDS.scheda)}`))) return;
     event.preventDefault();
     resetFocus();
   };
@@ -710,22 +812,57 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
     />
   );
 
+  // The strip: the period's income and what was left, the trio's own figures (The Binding-Clause Rule
+  // keeps the calendar in the `scope` under them, at every width). The Periodo hides the trio, the
+  // Flusso its «Risparmio» block, and in a cell narrower than 608px (`FLUSSO_SANKEY_MIN_CELL`, since
+  // 2026-10-16) a caption of the bar drops an amount the first screen already prints (2026-10-14).
+  const strip = selectAnalisiStrip(totals, { notStarted: describeAnalisiSubject(period, today, historyStartYear).future });
+  const scheduledScope = describeAnalisiScope({ scheduled, period, today });
+  const periodoLifted = liftedBlocks(strip, ANALISI_PERIODO_ID).filter(isPeriodoLiftedBlock);
+  const flussoLifted = liftedBlocks(strip, ANALISI_SECTION_IDS.flusso).filter(isFlussoLiftedBlock);
+  const printedFigures = sections.compact ? collectPrintedFigures(splitVerdict(verdict).lead, strip) : undefined;
+  // What the closed rows answer in the landscape index, from the figures the tiles already hold.
+  const rowAnswers = describeAnalisiClosedAnswers({
+    anomalies,
+    topExpenses,
+    expenseRanking: toRanking(expenseSlices),
+    incomeRanking: toRanking(incomeSlices),
+    flow,
+    spendingRoles: spendingRolesFlow?.summary ?? null,
+  });
+
   return (
     <>
       {header}
       <div className="space-y-4">
-        {/* ── Verdict, with the one period axis beside it on desktop ──────────────── */}
-        <div className="flex items-start justify-between gap-6 pt-1">
-          <PageVerdict verdict={verdict} ariaLabel="Verdetto del periodo" />
+        {/* ── Verdict, with the one period axis: in the verdict's `axis` slot below `desktop:`, beside
+            it from `desktop:` (two instances of one control, DESIGN.md → Page Verdict) ──────────────── */}
+        {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+            (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+        <div className={STAGE_WRAPPER_CLASS}>
+        <div ref={stageRef} className={STAGE_CLASS}>
+        <div data-stage="verdict" className={cn('flex items-start justify-between gap-6 pt-1', VERDICT_CELL_CLASS)}>
+          <div className="min-w-0 flex-1">
+            <PageVerdict
+              verdict={verdict}
+              ariaLabel="Verdetto del periodo"
+              axis={periodControls}
+              strip={<VerdictStrip figures={strip} onOpen={sections.reveal} eyebrows={sections.eyebrows} />}
+              scope={scheduledScope ? <NarrativeText segments={scheduledScope} className="text-[13px] leading-[1.45] text-muted-foreground" figureClassName="font-medium" /> : undefined}
+              restCollapse={sections.collapse(VERDICT_REST_SECTION)}
+            />
+          </div>
           {/* Bounded, so the picker wraps to two lines instead of squeezing the headline. */}
           <div className="hidden desktop:flex desktop:w-[420px] desktop:shrink-0 desktop:justify-end">{periodControls}</div>
         </div>
-        <div className="desktop:hidden">{periodControls}</div>
 
         {/* ── Tile grid ───────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-          <div className={cn(TILE_CELL_CLASS, 'order-1 desktop:order-none tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+        <div className={COMPACT_GRID_WRAPPER_CLASS}>
+        <div className={COMPACT_GRID_CLASS}>
+          <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
             <PeriodoTile
+              id={ANALISI_PERIODO_ID}
+              liftedFigures={periodoLifted}
               eyebrow={`Periodo · ${periodLabel}`}
               aside={describePeriodScope(period, today, calendar, historyStartYear)}
               reading={periodoReading}
@@ -739,10 +876,16 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
             />
           </div>
 
+          <RowAnswers value={rowAnswers}>
+          <div className={INDEX_CLASS}>
+          <PageRest sections={sections} buttonId={ANALISI_REST_BUTTON_ID} className={REST_CELL_CLASS} />
+
           {/* Fuori scala exists only on a month; without one, Spese maggiori takes its columns. */}
           {singleMonth && (
-            <div className={cn(TILE_CELL_CLASS, 'order-2 desktop:order-none desktop:col-span-3')}>
+            <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.fuoriScala), 'desktop:col-span-3')}>
               <FuoriScalaTile
+                collapse={sections.collapse(ANALISI_SECTION_IDS.fuoriScala)}
+                asideWhenClosed={`${MONTH_NAMES[singleMonth.month - 1].toLowerCase()} ${singleMonth.year}`}
                 anomalies={anomalies}
                 monthLabel={`${MONTH_NAMES[singleMonth.month - 1].toLowerCase()} ${singleMonth.year}`}
                 reading={describeAnomalies(anomalies)}
@@ -752,12 +895,23 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
             </div>
           )}
 
-          <div className={cn(TILE_CELL_CLASS, 'order-5 desktop:order-none', singleMonth ? 'desktop:col-span-4' : 'tablet:col-span-2 desktop:col-span-7')}>
-            <SpeseMaggioriTile top={topExpenses} reading={describeTopExpenses(topExpenses)} onSelect={handleTopExpenseSelect} />
+          <div
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.maggiori), singleMonth ? 'desktop:col-span-4' : 'desktop:col-span-7')}
+           
+          >
+            <SpeseMaggioriTile
+              top={topExpenses}
+              reading={describeTopExpenses(topExpenses)}
+              onSelect={handleTopExpenseSelect}
+              collapse={sections.collapse(ANALISI_SECTION_IDS.maggiori)}
+              asideWhenClosed={ANALISI_CLOSED_ASIDES.maggiori}
+            />
           </div>
 
-          <div className={cn(TILE_CELL_CLASS, 'order-3 desktop:order-none desktop:col-span-4')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.spese), 'desktop:col-span-4')}>
             <CategorieTile
+              collapse={sections.collapse(ANALISI_SECTION_IDS.spese)}
+              asideWhenClosed={ANALISI_CLOSED_ASIDES.spese}
               eyebrow="Spese per categoria"
               kind="expenses"
               slices={expenseSlices}
@@ -769,8 +923,10 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
             />
           </div>
 
-          <div className={cn(TILE_CELL_CLASS, 'order-4 desktop:order-none desktop:col-span-3')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.entrate), 'desktop:col-span-3')}>
             <CategorieTile
+              collapse={sections.collapse(ANALISI_SECTION_IDS.entrate)}
+              asideWhenClosed={ANALISI_CLOSED_ASIDES.entrate}
               eyebrow="Entrate per categoria"
               kind="income"
               slices={incomeSlices}
@@ -788,9 +944,12 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
               ref={schedaRef}
               tabIndex={-1}
               onKeyDown={handleSchedaKeyDown}
-              className={cn(TILE_CELL_CLASS, 'order-6 scroll-mt-20 outline-none desktop:order-none desktop:scroll-mt-4 tablet:col-span-2 desktop:col-span-12')}
+              className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.scheda), 'scroll-mt-20 outline-none desktop:scroll-mt-4 desktop:col-span-12')}
+             
             >
               <SchedaTile
+                collapse={sections.collapse(ANALISI_SECTION_IDS.scheda)}
+                asideWhenClosed={focus.subCategory?.label ?? focus.category.label}
                 focus={focus}
                 scope={focusScope}
                 reading={focusReading}
@@ -810,11 +969,14 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
           )}
 
           {/* Transfers are not flows: a period holding only transfers has no Sankey to draw. */}
-          {(flow.incomeTotal > 0 || flow.expensesTotal > 0) && (
-            <div className={cn(TILE_CELL_CLASS, 'order-7 desktop:order-none tablet:col-span-2 desktop:col-span-12')}>
+          {hasFlow && (
+            <div ref={flussoCellRef} className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ANALISI_SECTION_IDS.flusso), 'desktop:col-span-12')}>
               <FlussoTile
+                collapse={sections.collapse(ANALISI_SECTION_IDS.flusso)}
+                liftedFigures={flussoLifted}
+                printedFigures={printedFigures}
                 expenses={periodExpenses}
-                isMobile={isMobile}
+                isMobile={flussoNarrow}
                 reading={describeFlow(flow, totals.savingsRate)}
                 flow={flow}
                 spendingRoles={spendingRolesFlow}
@@ -825,6 +987,11 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
               />
             </div>
           )}
+          </div>
+          </RowAnswers>
+        </div>
+        </div>
+        </div>
         </div>
 
         {/* ── Below the grid: the comparison and the reference material, behind disclosures ── */}

@@ -5,7 +5,7 @@ import { EXPENSE_TYPE_LABELS, type Expense, type ExpenseType } from '@/types/exp
 import type { Narrative } from '@/lib/utils/narrative';
 import type { EntityScope } from '@/lib/utils/expenseEntityStats';
 import type { CompositionSlice } from '@/lib/utils/cashflowComposition';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { DrillBreadcrumb } from '@/components/ui/drill-breadcrumb';
 import { RankedRows } from '@/components/ui/ranked-rows';
 import { EntityDossier } from '@/components/cashflow/EntityDossier';
@@ -37,6 +37,10 @@ interface SchedaTileProps {
   /** A crumb click: the root closes the focus, the category step returns to it. */
   onCategoryCrumb: () => void;
   onSubcategorySelect: (slice: CompositionSlice) => void;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -51,7 +55,7 @@ const ACTION_CLASS =
  * period's subcategory ranking (category level) or its transactions (subcategory level).
  * The tile is a grid cell like the others; the page scrolls to it on focus.
  */
-export function SchedaTile({ focus, scope, reading, allExpenses, color, period, periodLabel, historyStartYear, subcategoryRows, transactions, onBack, onClose, onCategoryCrumb, onSubcategorySelect, className }: SchedaTileProps) {
+export function SchedaTile({ focus, scope, reading, allExpenses, color, period, periodLabel, historyStartYear, subcategoryRows, transactions, onBack, onClose, onCategoryCrumb, onSubcategorySelect, collapse, asideWhenClosed, className }: SchedaTileProps) {
   const isIncome = focus.kind === 'income';
   const title = focus.subCategory?.label ?? focus.category.label;
   const scopeKey = `${focus.category.expenseType}:${focus.category.key}:${focus.subCategory?.key ?? ''}:${periodLabel}`;
@@ -60,6 +64,8 @@ export function SchedaTile({ focus, scope, reading, allExpenses, color, period, 
       <Tile
         eyebrow={`Scheda · ${title}`}
         ariaLabel={`Scheda di ${title}`}
+        collapse={collapse}
+        asideWhenClosed={asideWhenClosed}
         aside={
           <div className="flex w-full flex-wrap items-center justify-end gap-x-2 gap-y-2 desktop:w-auto">
             <span>

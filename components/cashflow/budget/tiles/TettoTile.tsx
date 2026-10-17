@@ -1,18 +1,27 @@
 'use client';
 
 import type { Narrative } from '@/lib/utils/narrative';
-import type { CeilingSummary, IncomeTargetSummary, SpendingHistory } from '@/lib/utils/budgetSummary';
+import type { CeilingSummary, IncomeTargetSummary, SpendingHistory, TettoLiftedBlock } from '@/lib/utils/budgetSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
 import { describeDailyCaption, describeOverCaption, describeProjectionCaption, describeRemainingCaption } from '@/lib/utils/budgetNarrative';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { LIFTED_FIGURE_CLASS, Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { BudgetTrack } from '@/components/cashflow/budget/BudgetTrack';
 import { progressFillColor } from '@/components/cashflow/budget/budgetProgressStyle';
 import { SpendingBarsChart } from './SpendingBarsChart';
 
+const TETTO_LIFTED_BLOCKS: readonly TettoLiftedBlock[] = ['fine-mese', 'restano', 'oltre'];
+
+/** Narrows `liftedBlocks(strip, id)` at the call site (the convention of `LIFTED_FIGURE_CLASS`). */
+export function isTettoLiftedBlock(block: string): block is TettoLiftedBlock {
+  return (TETTO_LIFTED_BLOCKS as readonly string[]).includes(block);
+}
+
 interface TettoTileProps {
+  /** THE tile's anchor (`bud-tetto`): open at every width, never a row (The First-Screen Rule). */
+  id?: string;
   summary: CeilingSummary;
   aside: Narrative;
   reading: Narrative;
@@ -22,14 +31,29 @@ interface TettoTileProps {
   /** The month's income targets; null without any, and the footer is absent. */
   income: IncomeTargetSummary | null;
   incomeReading: Narrative | null;
+  /**
+   * The KPI blocks the phone's strip already prints (`liftedBlocks(strip, id).filter(
+   * isTettoLiftedBlock)`): each hides WHOLE below `desktop:` — label, value and caption, because
+   * the caption («tolte le spese in calendario») qualified a figure the verdict already qualifies
+   * (The Lifted-Figure Rule; doc/guide/cashflow-budget.md § Composizione mobile). «Al giorno» is never lifted.
+   */
+  liftedFigures?: readonly TettoLiftedBlock[];
   className?: string;
 }
 
-const KPI_VALUE_CLASS = 'font-mono text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums';
+/**
+ * The KPI's value scales to ITS cell (a per-cell `@container`, AGENTS.md § Tailwind): «~11.274 €»
+ * at 22px in Geist Mono is ~120px, and a third of a 390px tile is ~97 — on the fixture the
+ * exceeded ceiling's «Fine mese» ran under «Oltre» (seen by the census on 2026-10-10; since
+ * 2026-10-12 those two KPIs are lifted into the strip below `desktop:` — the tablet too since
+ * 2026-10-16 — and the shrink below guards the widths where they are drawn: at 1440, and a KPI
+ * that is not lifted on a narrow tile). A figure is never truncated: it shrinks until it fits.
+ */
+const KPI_VALUE_CLASS = 'font-mono text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums @max-[120px]:text-[18px] @max-[104px]:text-[16px]';
 
-function Kpi({ label, value, valueClass, caption }: { label: string; value: string; valueClass?: string; caption: Narrative }) {
+function Kpi({ label, value, valueClass, caption, className }: { label: string; value: string; valueClass?: string; caption: Narrative; className?: string }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div className={cn('@container flex min-w-0 flex-col gap-1.5', className)}>
       <p className={TILE_SUB_EYEBROW_CLASS}>{label}</p>
       <p className={cn(KPI_VALUE_CLASS, valueClass ?? 'text-foreground')}>{value}</p>
       <NarrativeText segments={caption} className="text-[11px] text-muted-foreground" figureClassName="font-medium" />
@@ -47,7 +71,8 @@ function Kpi({ label, value, valueClass, caption }: { label: string; value: stri
  * tile computes nothing. The hero used to print `spent` (scheduled rows included) over the
  * word «speso» — 1953 € for 656 € spent, on the owner's account (2026-09-14).
  */
-export function TettoTile({ summary, aside, reading, history, historyCaption, income, incomeReading, className }: TettoTileProps) {
+export function TettoTile({ id, summary, aside, reading, history, historyCaption, income, incomeReading, liftedFigures = [], className }: TettoTileProps) {
+  const lifted = (block: TettoLiftedBlock) => (liftedFigures.includes(block) ? LIFTED_FIGURE_CLASS : undefined);
   const totalRatio = summary.spent / summary.ceiling;
   const bookedRatio = summary.spentToDate / summary.ceiling;
   const scheduledRatio = summary.scheduled / summary.ceiling;
@@ -61,6 +86,7 @@ export function TettoTile({ summary, aside, reading, history, historyCaption, in
 
   return (
     <Tile
+      id={id}
       eyebrow="Tetto del mese"
       aside={<NarrativeText segments={aside} figureClassName="font-medium" />}
       reading={reading}
@@ -110,17 +136,18 @@ export function TettoTile({ summary, aside, reading, history, historyCaption, in
             value={`~${cachedFormatCurrencyEUR(summary.projection, true)}`}
             valueClass={projectionOver ? 'text-destructive' : 'text-foreground'}
             caption={describeProjectionCaption(summary)}
+            className={lifted('fine-mese')}
           />
         ) : (
-          <Kpi label="Fine mese" value="—" valueClass="text-muted-foreground" caption={[{ text: 'dal quarto giorno' }]} />
+          <Kpi label="Fine mese" value="—" valueClass="text-muted-foreground" caption={[{ text: 'dal quarto giorno' }]} className={lifted('fine-mese')} />
         )}
         {/* The second and third KPIs have two faces: under the ceiling they say what is left
             and what that is per day; over it, by how much and since when, and the real daily
             pace against the one the ceiling would hold — «0 € al giorno» told nothing. */}
         {summary.exceeded ? (
-          <Kpi label="Oltre" value={cachedFormatCurrencyEUR(summary.overBy, true)} valueClass="text-destructive" caption={describeOverCaption(summary)} />
+          <Kpi label="Oltre" value={cachedFormatCurrencyEUR(summary.overBy, true)} valueClass="text-destructive" caption={describeOverCaption(summary)} className={lifted('oltre')} />
         ) : (
-          <Kpi label="Restano" value={cachedFormatCurrencyEUR(summary.remaining, true)} caption={describeRemainingCaption(summary)} />
+          <Kpi label="Restano" value={cachedFormatCurrencyEUR(summary.remaining, true)} caption={describeRemainingCaption(summary)} className={lifted('restano')} />
         )}
         {summary.exceeded ? (
           <Kpi

@@ -26,7 +26,8 @@ import { useCssColorTokens } from '@/lib/hooks/useCssColorTokens';
 import { SPENDING_ROLE_TOKEN } from '@/lib/constants/spendingRoleColors';
 import { narrativeToText } from '@/lib/utils/narrative';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
+import { ANALISI_CLOSED_ASIDES } from '@/lib/utils/analisiNarrative';
 import { AsideToggle } from '@/components/ui/aside-toggle';
 import { DrillBreadcrumb } from '@/components/ui/drill-breadcrumb';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,7 +45,7 @@ export interface SpendingRolesFlowInput {
 interface FlussoTileProps {
   /** The period's rows (income + spending); transfers are not flows. */
   expenses: Expense[];
-  /** Below 640px: the tile draws a share bar and rows, never a Sankey. */
+  /** In a cell narrower than a 640px phone's (and in the landscape index): a share bar and rows, never a Sankey. */
   isMobile: boolean;
   /** The reading of the type view. */
   reading: Narrative | null;
@@ -59,7 +60,30 @@ interface FlussoTileProps {
    * them to the one entity-focus path every other entry point uses.
    */
   onEntityClick: (target: { expenseType: ExpenseType; categoryKey: string; subCategoryKey?: string }) => void;
+  /**
+   * The row below `desktop:` (`useMobileSections().collapse(id)`). Closed it says its view in words
+   * («per ruolo» / «per tipo»), which only this tile knows; the toggle is a control, so it opens the
+   * panel. The view is the tile's own state: not in the page's memory, «Per ruolo» at every mount.
+   */
+  collapse?: TileCollapse;
+  /**
+   * The strip's «Risparmio» cell prints the surplus (The Lifted-Figure Rule): in a cell narrower than
+   * 608px (the share bar's drawing, since 2026-10-16) the blocks that print it again hide — the type
+   * view's «Risparmio», the roles view's note (and «Risparmi» whole without a saving row). The bar
+   * stays: its legend prints shares, not euro.
+   */
+  liftedFigures?: readonly FlussoLiftedBlock[];
+  /** The figures the first screen prints: a bar caption equal to one of them drops its amount (2026-10-14). */
+  printedFigures?: ReadonlySet<string>;
   className?: string;
+}
+
+/** The blocks of the Flusso a phone's strip repeats (since 2026-10-14). */
+export type FlussoLiftedBlock = 'risparmio';
+
+/** Narrows the `string[]` of `liftedBlocks(strip, section)` to this tile's blocks at the call site. */
+export function isFlussoLiftedBlock(block: string): block is FlussoLiftedBlock {
+  return block === 'risparmio';
 }
 
 /**
@@ -74,11 +98,15 @@ interface FlussoTileProps {
  * its reads — not when the tile first draws the Sankey, after every expense is read. And it is a
  * `lazyComponent`, not a `next/dynamic`: with the chunk already in memory the chart draws in the
  * same render as the figures, where a Suspense fallback held the placeholder ~275 ms longer
- * (measured on the mirror, the same day). The width test is AnalisiTab's phone query, negated:
- * below it nothing is fetched.
+ * (measured on the mirror, the same day). The width test is where the Sankey is DRAWN: a cell of
+ * 608px or more (AnalisiTab, `FLUSSO_SANKEY_MIN_CELL`) — from a 640px viewport up to the landscape
+ * stage, which starts at a content box of 880px (a 912px viewport: there the Flusso is a row of the
+ * 360px index and draws bar and rows, 2026-10-16), and again at 1440. Elsewhere nothing is fetched;
+ * a rotation that brings the Sankey back downloads it at its first draw.
  */
+const SANKEY_DRAWN_QUERY = '(min-width: 640px) and (max-width: 911px), (min-width: 1440px)';
 const CashflowSankeyChart = lazyComponent(() => import('@/components/cashflow/CashflowSankeyChart').then((m) => m.CashflowSankeyChart));
-if (typeof window !== 'undefined' && !window.matchMedia('(max-width: 639px)').matches) {
+if (typeof window !== 'undefined' && window.matchMedia(SANKEY_DRAWN_QUERY).matches) {
   CashflowSankeyChart.preload().catch(() => {}); // a failure is retried by the first draw
 }
 
@@ -106,18 +134,21 @@ type DrillState =
  * on), the subcategory layer and the single type/role drill — and builds the view, so the words
  * above the plot describe exactly what is drawn.
  *
- * THE FLUSSO PICKS ITS DRAWING AT 640px (owner's decision, 2026-09-27): a legibility threshold of
- * the chart, not a second composition. From 640 the Sankey; below it, where a four-column flow gets
- * ~80px a column, the SAME figures as a share bar and ranked rows — SpendingRolesMobileFlow for the
- * roles view, SpendingTypesMobileFlow for the type view, both drawn by FlowShareMobile. Below 640
- * no Sankey model is built at all (no view, no height, no label), and the role colours are not read.
+ * THE FLUSSO PICKS ITS DRAWING BY ITS CELL (owner's decision, 2026-09-27, at a 640px viewport; by the
+ * cell since 2026-10-16): a legibility threshold of the chart, not a second composition. In a cell of
+ * 608px or more (`FLUSSO_SANKEY_MIN_CELL` in AnalisiTab: a 640px viewport's cell) the Sankey; in a
+ * narrower one — a phone, where a four-column flow gets ~80px a column, and the landscape index — the
+ * SAME figures as a share bar and ranked rows — SpendingRolesMobileFlow for the roles view,
+ * SpendingTypesMobileFlow for the type view, both drawn by FlowShareMobile. In a narrow cell no Sankey
+ * model is built at all (no view, no height, no label), and the role colours are not read.
  */
-export function FlussoTile({ expenses, isMobile, reading, flow, spendingRoles, scheduled, scheduledHorizon, onEntityClick, className }: FlussoTileProps) {
+export function FlussoTile({ expenses, isMobile, reading, flow, spendingRoles, scheduled, scheduledHorizon, onEntityClick, collapse, liftedFigures = [], printedFigures, className }: FlussoTileProps) {
+  const savingsLifted = liftedFigures.includes('risparmio');
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [preferredMode, setPreferredMode] = useState<FlowMode>('roles');
-  // A drill is a place INSIDE the Sankey, and the Sankey exists only from 640px. Stored WITH the
-  // width it was opened at (AGENTS.md → «State belonging to a subject must be stored WITH its
-  // subject»), it resolves to none as soon as the viewport crosses below 640 — no effect resets it,
+  // A drill is a place INSIDE the Sankey, and the Sankey exists only in a cell of 608px or more. Stored
+  // WITH the drawing it was opened in (AGENTS.md → «State belonging to a subject must be stored WITH its
+  // subject»), it resolves to none as soon as the cell narrows below 608px — no effect resets it,
   // and the phone never builds a view for it; widened again, the reader is back where they were.
   const [storedDrill, setStoredDrill] = useState<{ isMobile: boolean; drill: DrillState } | null>(null);
   const drill = storedDrill !== null && storedDrill.isMobile === isMobile ? storedDrill.drill : null;
@@ -202,6 +233,8 @@ export function FlussoTile({ expenses, isMobile, reading, flow, spendingRoles, s
   return (
     <Tile
       eyebrow="Flusso"
+      collapse={collapse}
+      asideWhenClosed={mode === 'roles' ? ANALISI_CLOSED_ASIDES.flussoRoles : ANALISI_CLOSED_ASIDES.flussoTypes}
       aside={
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
           {view && (
@@ -249,10 +282,24 @@ export function FlussoTile({ expenses, isMobile, reading, flow, spendingRoles, s
       )}
       {isMobile ? (
         spendingRoles && mode === 'roles' ? (
-          <SpendingRolesMobileFlow summary={spendingRoles.summary} scheduled={scheduled} horizon={scheduledHorizon} onEntityClick={onEntityClick} />
+          <SpendingRolesMobileFlow
+            summary={spendingRoles.summary}
+            scheduled={scheduled}
+            horizon={scheduledHorizon}
+            onEntityClick={onEntityClick}
+            savingsLifted={savingsLifted}
+            printedFigures={printedFigures}
+          />
         ) : (
           typeBreakdown && (
-            <SpendingTypesMobileFlow breakdown={typeBreakdown} scheduled={scheduled} horizon={scheduledHorizon} onEntityClick={onEntityClick} />
+            <SpendingTypesMobileFlow
+              breakdown={typeBreakdown}
+              scheduled={scheduled}
+              horizon={scheduledHorizon}
+              onEntityClick={onEntityClick}
+              savingsLifted={savingsLifted}
+              printedFigures={printedFigures}
+            />
           )
         )
       ) : (

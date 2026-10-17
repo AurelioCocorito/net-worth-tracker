@@ -9,8 +9,11 @@ interface SpendingBarsChartProps {
   points: SpendingPoint[];
   /** Months of a year (beside the previous year's same months) or whole years. */
   kind: 'month' | 'year';
-  /** Minimum height of the plot; the tile's flex column lets it stretch past it. */
-  minHeight?: number;
+  /**
+   * The plot's minimum height as classes (RecordBars' precedent): the tile's flex column lets it
+   * stretch past it, and a phone can shorten it (`max-desktop:min-h-[120px]`, The First-Screen Rule).
+   */
+  plotClassName?: string;
   className?: string;
 }
 
@@ -32,7 +35,7 @@ const yearOf = (point: SpendingPoint): string => point.key.slice(0, 4);
  * half tone AND outlined: real data the reader must see, not comparable with the closed ones.
  * Labels live outside the SVG so they never stretch with it.
  */
-export function SpendingBarsChart({ points, kind, minHeight = 150, className }: SpendingBarsChartProps) {
+export function SpendingBarsChart({ points, kind, plotClassName = 'min-h-[150px]', className }: SpendingBarsChartProps) {
   const hasBaseline = points.some((point) => point.prevYearValue !== null);
   const max = Math.max(...points.map((point) => Math.max(point.value, point.prevYearValue ?? 0)), 1);
   const slot = VIEW_W / Math.max(points.length, 1);
@@ -52,7 +55,7 @@ export function SpendingBarsChart({ points, kind, minHeight = 150, className }: 
 
   return (
     <div className={cn('flex flex-col', className)}>
-      <div className="relative flex-1" style={{ minHeight }} {...(hover.enabled ? hover.handlers : {})}>
+      <div className={cn('relative flex-1', plotClassName)} {...(hover.enabled ? hover.handlers : {})}>
         <svg
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
           preserveAspectRatio="none"

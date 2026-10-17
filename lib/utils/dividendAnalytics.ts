@@ -29,6 +29,26 @@ import { toDate, getItalyMonth, getItalyYear } from '@/lib/utils/dateHelpers';
 // is the same as year-to-date — so we deliberately don't carry a separate YTD option.
 export type DividendPeriod = 'month' | 'year' | 'rolling12' | 'all';
 
+// ─── The phone composition: the ids (since 2026-10-12) ────────────────────────
+
+/**
+ * THE tile and the rows of Dividendi below `desktop:`, in the desktop DOM's order (The First-Screen
+ * Rule — the `order-*` the phone used to swap them with are gone); `dvd-` keeps them unique among
+ * the five `forceMount` tabs. No strip (doc/guide/cashflow-dividendi.md § Composizione mobile):
+ * received and announced are never one figure, and the two already head THE tile.
+ */
+export const DIVIDEND_SECTION_IDS = {
+  incasso: 'dvd-incasso',
+  affidabilita: 'dvd-affidabilita',
+  rendimento: 'dvd-rendimento',
+  pagatori: 'dvd-pagatori',
+  perAnno: 'dvd-per-anno',
+  pagamenti: 'dvd-pagamenti',
+} as const;
+
+/** The verdict's «Il perché» of this tab (never shown: a Dividendi verdict is one sentence). */
+export const DIVIDENDS_REST_ID = 'dvd-perche';
+
 // ==================== Money helpers ====================
 
 /** Net dividend in EUR (converted field when present, native amount otherwise). */

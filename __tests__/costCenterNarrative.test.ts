@@ -15,14 +15,18 @@ vi.mock('firebase/firestore', () => ({
 
 import type { Expense } from '@/types/expenses';
 import type { CostCenter } from '@/types/costCenters';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
-import { summarizeCenter, summarizeCostCenters, buildCenterMonthStack } from '@/lib/utils/costCenterSummary';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
+import { COST_CENTER_SECTION_IDS, summarizeCenter, summarizeCostCenters, buildCenterMonthStack } from '@/lib/utils/costCenterSummary';
 import { buildCategoryComposition, buildSubCategoryComposition } from '@/lib/utils/costCenterUtils';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import {
+  CATEGORIE_CLOSED_ASIDE,
   CENTRI_ASIDE,
+  CENTRI_CLOSED_ASIDE,
   CENTRI_FOOTER,
+  DORMIENTI_CLOSED_ASIDE,
   EMPTY_CENTRI,
+  describeSottocategorieClosedAside,
   buildCostCenterVerdict,
   buildCostCentersVerdict,
   describeArchiviati,
@@ -69,6 +73,8 @@ import {
   describeTotaleFooter,
   describeTrailingCaption,
   describeYearKpi,
+  describeCostCentersClosedAnswers,
+  describeCostCenterDetailClosedAnswers,
 } from '@/lib/utils/costCenterNarrative';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -145,6 +151,26 @@ describe('buildCostCentersVerdict', () => {
     expect(plain(v.sentence)).toBe(
       '3 centri attivi per 10.300 € in totale: Automobile è il più caro (5200 €, il 50%) e ad agosto arriva a 260 € su 250 € con le spese già in calendario; Bici è fermo da 120 giorni.',
     );
+  });
+
+  // A phone never cuts these verdicts (since 2026-10-12): no strip (doc/guide/centri-di-costo.md), and «con le
+  // spese già in calendario» stays visible because nothing is hidden — even where the sentence has
+  // two («Nessuna spesa nei centri di costo.», `HOW_TO_LINK`). The closed rows speak in words.
+  // Seen red on 2026-10-12 with `leadLength` set half-way through the list's sentence.
+  it('is never cut on a phone, list and detail alike, and its closed rows speak in words', () => {
+    for (const v of [buildCostCentersVerdict(list(), NOW), buildCostCentersVerdict(list({ auto: { budgetAmount: undefined, budgetPeriod: undefined }, bici: { archivedAt: day('2026-05-01') } }), NOW)]) {
+      expect(v.leadLength).toBeUndefined();
+      expect(splitVerdict(v).rest).toEqual([]);
+      expect(v.sentence.some((segment) => segment.binding)).toBe(false);
+    }
+    const detail = buildCostCenterVerdict(summarizeCenter(center({ budgetAmount: 250, budgetPeriod: 'monthly' }), AUTO_ROWS, NOW), NOW);
+    expect(detail.leadLength).toBeUndefined();
+    expect(splitVerdict(detail).rest).toEqual([]);
+    expect(CENTRI_CLOSED_ASIDE).toBe(plain(CENTRI_ASIDE));
+    expect(DORMIENTI_CLOSED_ASIDE).toBe('senza spese da tempo');
+    expect(CATEGORIE_CLOSED_ASIDE).toBe('in totale');
+    expect(describeSottocategorieClosedAside(0)).toBe('in totale');
+    expect(describeSottocategorieClosedAside(2)).toBe('2 escluse');
   });
 
   it('never calls a risk what only a pace would cross: 260 € known on a 300 € ceiling holds', () => {
@@ -551,5 +577,101 @@ describe('«Collega spese…»', () => {
     expect(UNLINK_CONSEQUENCE).toBe('Scollegando, la spesa resta in Cashflow ed esce dal centro.');
     expect(describeUnlinkSeriesReading('installment', 12, 'Dacia Jogger')).toContain('un piano di 12 rate collegate a Dacia Jogger');
     expect(describeUnlinkSeriesReading('recurring', 3, 'Ornitorinco')).toContain('una serie di 3 occorrenze');
+  });
+});
+
+/**
+ * The closed rows' answers of Centri di Costo (2026-10-16), list and detail: what each row says in
+ * the landscape index, the segments joined with a space as the index's gap sets them. Falsified on
+ * 2026-10-16, one at a time: «never the days» went red with the dormant answer printing
+ * `idleDays`; «Senza sottocategoria first says nothing» went red with the `NO_SUBCATEGORY_KEY`
+ * guard removed; «an exclusion keeps «2 escluse»» went red with the `excludedKeys.size > 0` guard
+ * removed; «a dormant center keeps «fermo»» went red with the lifecycle guard reduced to `!lastDate`.
+ */
+describe('closed rows answers (Centri di Costo)', () => {
+  const answer = (narrative: Narrative | null | undefined) => (narrative ? narrative.map((s) => s.text).join(' ').replace(/ /g, ' ') : null);
+  const noon = (iso: string) => new Date(`${iso}T12:00:00`);
+  const row = (iso: string, amount: number, extra: Partial<Expense> = {}) => expense({ date: noon(iso), amount: -amount, ...extra });
+  const PROGETTI = { categoryId: 'p', categoryName: 'Progetti' };
+  const BOLLETTE = { categoryId: 'b', categoryName: 'Bollette' };
+
+  describe('describeCostCentersClosedAnswers', () => {
+    const ACTIVE = { center: center({ id: 'fen', name: 'Fenicottero' }), expenses: [row('2026-08-05', 800)] };
+    const IDLE = { center: center({ id: 'orn', name: 'Ornitorinco' }), expenses: [row('2026-02-10', 200), row('2026-02-12', 70)] };
+    const UNUSED = { center: center({ id: 'nuo', name: 'Nuovo' }), expenses: [] as Expense[] };
+
+    it('should keep Centri its scope: the first center and its share are the verdict’s', () => {
+      expect(describeCostCentersClosedAnswers(summarizeCostCenters([ACTIVE, IDLE], NOW))[COST_CENTER_SECTION_IDS.centri]).toBeNull();
+    });
+
+    it('should answer Dormienti with how much lies idle in the longest-idle center, never its days', () => {
+      const answers = describeCostCentersClosedAnswers(summarizeCostCenters([ACTIVE, IDLE, UNUSED], NOW));
+      expect(answer(answers[COST_CENTER_SECTION_IDS.dormienti])).toBe('Ornitorinco 270 €');
+      expect(answers[COST_CENTER_SECTION_IDS.dormienti]).toEqual([{ text: 'Ornitorinco' }, { text: euroNbsp(270), mono: true }]);
+    });
+
+    it('should say «mai usato» for a never-used center and «nessuno fermo» without dormant ones', () => {
+      expect(answer(describeCostCentersClosedAnswers(summarizeCostCenters([ACTIVE, UNUSED], NOW))[COST_CENTER_SECTION_IDS.dormienti])).toBe('Nuovo mai usato');
+      expect(answer(describeCostCentersClosedAnswers(summarizeCostCenters([ACTIVE], NOW))[COST_CENTER_SECTION_IDS.dormienti])).toBe('nessuno fermo');
+    });
+
+    it('should keep the scope without an active center', () => {
+      const archived = { ...ACTIVE, center: center({ id: 'fen', name: 'Fenicottero', archivedAt: noon('2026-08-10') }) };
+      expect(describeCostCentersClosedAnswers(summarizeCostCenters([archived], NOW))[COST_CENTER_SECTION_IDS.dormienti]).toBeNull();
+    });
+  });
+
+  describe('describeCostCenterDetailClosedAnswers', () => {
+    const detail = (rows: Expense[], options: { archived?: boolean; excluded?: string[] } = {}) => {
+      const summary = summarizeCenter(center({ id: 'fen', name: 'Fenicottero', archivedAt: options.archived ? noon('2026-08-20') : null }), rows, NOW);
+      const booked = rows.filter((r) => (r.date as Date).getTime() <= NOW.getTime() + 86_400_000 / 2);
+      const subComposition = buildSubCategoryComposition(booked);
+      const excludedKeys = new Set(options.excluded ?? []);
+      const netSubTotal = subComposition.filter((s) => !excludedKeys.has(s.key)).reduce((sum, s) => sum + s.total, 0);
+      return describeCostCenterDetailClosedAnswers({ center: summary, composition: buildCategoryComposition(booked), subComposition, excludedKeys, netSubTotal });
+    };
+    const ROWS = [
+      row('2026-08-11', 600, { ...PROGETTI, subCategoryId: 'cem', subCategoryName: 'Cemento' }),
+      row('2026-07-20', 200, { ...PROGETTI, subCategoryId: 'leg', subCategoryName: 'Legno' }),
+      row('2026-07-05', 300, { ...BOLLETTE, subCategoryId: 'luce', subCategoryName: 'Luce' }),
+    ];
+
+    it('should answer Per categoria with the first category and its share', () => {
+      expect(answer(detail(ROWS)[COST_CENTER_SECTION_IDS.centroCategorie])).toBe('Progetti 73%');
+      expect(detail(ROWS.slice(0, 2))[COST_CENTER_SECTION_IDS.centroCategorie]).toBeNull();
+    });
+
+    it('should answer Ciclo di vita, while active, with when the last expense was', () => {
+      expect(answer(detail(ROWS)[COST_CENTER_SECTION_IDS.centroCiclo])).toBe('ultima 11 giorni fa');
+      expect(answer(detail([row('2026-08-22', 10)])[COST_CENTER_SECTION_IDS.centroCiclo])).toBe('ultima spesa oggi');
+      expect(answer(detail([row('2026-08-21', 10)])[COST_CENTER_SECTION_IDS.centroCiclo])).toBe('ultima spesa ieri');
+    });
+
+    it('should keep «fermo» and «archiviato»: the verdict prints their days and date', () => {
+      expect(detail([row('2026-02-10', 270)])[COST_CENTER_SECTION_IDS.centroCiclo]).toBeNull();
+      expect(detail([])[COST_CENTER_SECTION_IDS.centroCiclo]).toBeNull();
+      expect(detail(ROWS, { archived: true })[COST_CENTER_SECTION_IDS.centroCiclo]).toBeNull();
+    });
+
+    it('should answer Per sottocategoria with the first subcategory and its share of the total', () => {
+      expect(answer(detail(ROWS)[COST_CENTER_SECTION_IDS.centroSottocategorie])).toBe('Cemento 55%');
+    });
+
+    it('should keep the scope with one slice, «Senza sottocategoria» first, or an exclusion on', () => {
+      expect(detail(ROWS.slice(0, 1))[COST_CENTER_SECTION_IDS.centroSottocategorie]).toBeNull();
+      const unnamed = [row('2026-08-11', 600, { ...PROGETTI, subCategoryId: undefined, subCategoryName: undefined }), ROWS[2]];
+      expect(detail(unnamed)[COST_CENTER_SECTION_IDS.centroSottocategorie]).toBeNull();
+      expect(detail(ROWS, { excluded: ['luce'] })[COST_CENTER_SECTION_IDS.centroSottocategorie]).toBeNull();
+    });
+
+    it('should leave Movimenti collegati its count (null)', () => {
+      expect(detail(ROWS)[COST_CENTER_SECTION_IDS.centroMovimenti]).toBeNull();
+    });
+
+    it('should fit 22 visible characters on round figures', () => {
+      for (const narrative of Object.values(detail(ROWS))) {
+        if (narrative) expect(answer(narrative)!.length).toBeLessThanOrEqual(22);
+      }
+    });
   });
 });

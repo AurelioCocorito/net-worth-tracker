@@ -4,21 +4,39 @@
  * read from the heatmap (B2), and the current drawdown status (B3).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// The strip's identity test builds the verdict, whose module reaches chartService's Firebase chain: mocked as in performanceNarrative.test.ts.
+vi.mock('@/lib/firebase/config', () => ({ db: {} }));
+vi.mock('@/lib/utils/authFetch', () => ({ authenticatedFetch: vi.fn() }));
+vi.mock('@/lib/services/dashboardOverviewInvalidation', () => ({ invalidateDashboardOverviewSummary: vi.fn() }));
+vi.mock('firebase/firestore', () => ({ doc: vi.fn(), getDoc: vi.fn(), setDoc: vi.fn(), deleteField: vi.fn() }));
 import type {
   MonthlyReturnHeatmapData,
   UnderwaterDrawdownData,
 } from '@/types/performance';
+import type { AssetTransaction, AssetTransactionsMeta } from '@/types/assetTransactions';
 import {
   summarizePerformance,
   computeBenchmarkDelta,
   computeReturnConsistency,
   computeDrawdownStatus,
   deannualizeReturn,
+  PERFORMANCE_SECTION_IDS,
+  RENDIMENTO_BENCHMARK_CHIP_BLOCK,
+  RENDIMENTO_HERO_BLOCK,
   resolveHeroReturn,
+  inMonths,
   resolveCompanionReturnChip,
+  resolveRealizedGainsState,
+  selectPerformanceStrip,
   summarizeCapitalEntered,
+  type PerformanceStripInput,
 } from '@/lib/utils/performanceSummary';
+import { buildPerformanceVerdict, resolveBenchmarkGap, shortBenchmarkName, type PerformanceVerdictInput } from '@/lib/utils/performanceNarrative';
+import { narrativeToText } from '@/lib/utils/narrative';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { formatStripFigure, liftedBlocks, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
 
 // ---------------------------------------------------------------------------
 // summarizePerformance (B1)
@@ -211,6 +229,17 @@ describe('resolveHeroReturn', () => {
     expect(resolveHeroReturn(12.68, 1).label).toBe('nel mese');
   });
 
+  it('says «negli» before 8 and 11 months — the vowel-initial counts below a year — and the strip cell inherits it', () => {
+    // Seen red on 2026-10-14 with the label fixed on «nei» («nei 8 mesi», «nei 11 mesi»).
+    expect(resolveHeroReturn(16.0, 8).label).toBe('negli 8 mesi');
+    expect(resolveHeroReturn(16.0, 11).label).toBe('negli 11 mesi');
+    expect(resolveHeroReturn(16.0, 9).label).toBe('nei 9 mesi');
+    expect(inMonths(2)).toBe('nei');
+    expect(inMonths(8)).toBe('negli');
+    const cell = selectPerformanceStrip({ heroReturn: resolveHeroReturn(16.0, 8), benchmarkGap: null, benchmarkShortName: '60/40', benchmarkLoading: false, hasAttribution: true })[0];
+    expect(cell.label).toBe('Rendimento negli 8 mesi');
+  });
+
   it('is the exact inverse of the annualization, so nothing is invented', () => {
     const annualized = 15.93;
     const months = 3;
@@ -308,5 +337,128 @@ describe('summarizeCapitalEntered', () => {
     const summary = summarizeCapitalEntered([month(1, { net: 250, portfolio: null })], 1);
 
     expect(summary.channels).toEqual([{ key: 'cashflow', amount: 250, months: 1 }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The phone composition (2026-10-14): the strip and the Plusvalenze state
+// ---------------------------------------------------------------------------
+//
+// Seen red, one at a time, the day they were written: (1) the identity — the cell with
+// `decimals: 2` («+2,09%» against the sentence's «+2,1%»), then with an ASCII «-» on a loss;
+// (2) the return cell fixed on `rend-attribuzione` whatever `hasAttribution`; (3) `failed` read
+// from `data` alone (an error with no document read as «not migrated»); (4) `absent` decided on
+// `!!meta.data` (a migrated ledger with no closed sale read as `ready`); (5) an error WITH a
+// document read from `isError` alone (`failed` over a document already held).
+
+describe('selectPerformanceStrip', () => {
+  const plain = (text: string) => text.replace(/[  ]/g, ' ');
+  const cellText = (figure: StripFigure) => plain(narrativeToText([formatStripFigure(figure)!]));
+  const sections = [...Object.values(PERFORMANCE_SECTION_IDS).filter((id) => id !== PERFORMANCE_SECTION_IDS.twr), VERDICT_REST_SECTION];
+
+  const fourMonths: PerformanceVerdictInput = {
+    period: 'YTD',
+    nominalPeriodStart: { year: 2026, month: 1 },
+    startDate: new Date(2026, 0, 1, 12),
+    endDate: new Date(2026, 3, 30, 12),
+    numberOfMonths: 4,
+    heroReturn: resolveHeroReturn(6.4, 4),
+    annualizedReturn: 6.4,
+    quality: { tone: 'solid', headline: 'Solido', detail: '' },
+    sharpeRatio: 1.08,
+    benchmark: { name: 'Portafoglio 60/40', annualized: 5.2 },
+    drawdown: null,
+    consistency: { positiveMonths: 3, totalMonths: 4, positiveShare: 75, best: null, worst: null },
+  };
+
+  function stripOf(input: PerformanceVerdictInput, overrides: Partial<PerformanceStripInput> = {}): StripFigure[] {
+    return selectPerformanceStrip({
+      heroReturn: input.heroReturn,
+      benchmarkGap: resolveBenchmarkGap(input),
+      benchmarkShortName: shortBenchmarkName(input.benchmark?.name ?? 'Portafoglio 60/40'),
+      benchmarkLoading: false,
+      hasAttribution: true,
+      ...overrides,
+    });
+  }
+
+  it('reads two cells — the return on its basis, the gap on the same basis — that open the rows and pass the strip rules', () => {
+    const strip = stripOf(fourMonths);
+    expect(strip.map((figure) => figure.label)).toEqual(['Rendimento nei 4 mesi', 'Sul 60/40']);
+    expect(strip.map((figure) => figure.opens)).toEqual([PERFORMANCE_SECTION_IDS.attribuzione, PERFORMANCE_SECTION_IDS.benchmark]);
+    expect(strip.map((figure) => figure.lifts)).toEqual([
+      { section: PERFORMANCE_SECTION_IDS.twr, block: RENDIMENTO_HERO_BLOCK },
+      { section: PERFORMANCE_SECTION_IDS.twr, block: RENDIMENTO_BENCHMARK_CHIP_BLOCK },
+    ]);
+    expect(validateStrip(strip, sections)).toEqual([]);
+    // Below a year the cell is the PERIOD's return, never the annualised 6,4%; the gap is the period's too (0,4, not 1,2).
+    expect(cellText(strip[0])).toBe('+2,1%');
+    expect(cellText(strip[1])).toBe('+0,4 pt');
+    expect(stripOf({ ...fourMonths, heroReturn: resolveHeroReturn(7.3, 12), annualizedReturn: 7.3, numberOfMonths: 12 })[0].label).toBe('Rendimento annualizzato');
+  });
+
+  it('prints the return exactly as the verdict prints it, built from the SAME heroReturn', () => {
+    const strip = stripOf(fourMonths);
+    const sentence = plain(narrativeToText(buildPerformanceVerdict(fourMonths).sentence));
+    expect(sentence).toContain(cellText(strip[0]));
+    expect(sentence).toContain('0,4 punti sopra');
+
+    // A loss (−9,5% a year is −3,3% over four months): the typographic «−» on both sides, coloured as a loss.
+    const losing: PerformanceVerdictInput = { ...fourMonths, heroReturn: resolveHeroReturn(-9.5, 4), annualizedReturn: -9.5, quality: { tone: 'weak', headline: 'Negativo', detail: '' } };
+    const lossStrip = stripOf(losing);
+    expect(cellText(lossStrip[0])).toBe('−3,3%');
+    expect(plain(narrativeToText(buildPerformanceVerdict(losing).sentence))).toContain('Perde −3,3% nei 4 mesi (TWR)');
+    expect(formatStripFigure(lossStrip[0])!.sign).toBe('negative');
+    expect(formatStripFigure(lossStrip[1])!.sign).toBe('negative');
+  });
+
+  it('says why a cell has no figure, never a zero', () => {
+    const notYet = stripOf({ ...fourMonths, heroReturn: resolveHeroReturn(null, 4), annualizedReturn: null, benchmark: null }, { benchmarkLoading: true });
+    expect(notYet[0]).toMatchObject({ value: null, reason: 'non ancora misurabile' });
+    expect(notYet[1]).toMatchObject({ value: null, reason: 'in arrivo' });
+    expect(stripOf({ ...fourMonths, benchmark: null })[1]).toMatchObject({ value: null, reason: 'modello non disponibile' });
+    expect(validateStrip(notYet, sections)).toEqual([]);
+    // A cell without a figure lifts nothing: the «in arrivo» chip stays in the tile.
+    expect(liftedBlocks(notYet, PERFORMANCE_SECTION_IDS.twr)).toEqual([]);
+    expect(liftedBlocks(stripOf(fourMonths), PERFORMANCE_SECTION_IDS.twr)).toEqual([RENDIMENTO_HERO_BLOCK, RENDIMENTO_BENCHMARK_CHIP_BLOCK]);
+  });
+
+  it('opens Capitale e mercato when no month of the window has a per-instrument breakdown', () => {
+    expect(stripOf(fourMonths, { hasAttribution: false })[0].opens).toBe(PERFORMANCE_SECTION_IDS.capitale);
+  });
+});
+
+describe('resolveRealizedGainsState', () => {
+  const meta = { userId: 'u', migratedAt: new Date(2026, 0, 5, 12), baselineDate: new Date(2026, 0, 5, 12), migratedAssetCount: 2 } as AssetTransactionsMeta;
+  const trade = (type: 'buy' | 'sell', quantity: number, price: number, month: number): AssetTransaction => ({
+    id: `${type}-${quantity}`,
+    userId: 'u',
+    assetId: 'etf',
+    type,
+    date: new Date(2026, month - 1, 10, 12),
+    quantity,
+    pricePerUnit: price,
+    priceEur: price,
+    fees: 0,
+    createdAt: new Date(2026, month - 1, 10, 12),
+    updatedAt: new Date(2026, month - 1, 10, 12),
+  });
+  const closedSale = [trade('buy', 10, 100, 2), trade('sell', 4, 120, 3)];
+
+  it('a meta whose read failed with no document to show is `failed`', () => {
+    expect(resolveRealizedGainsState({ meta: { isError: true, data: undefined }, trades: closedSale })).toBe('failed');
+  });
+
+  it('a ledger never migrated, or with no closed sale, is `absent` — and so is a meta not read yet', () => {
+    expect(resolveRealizedGainsState({ meta: { isError: false, data: null }, trades: closedSale })).toBe('absent');
+    // Still in flight: nothing to show and nothing failed (a `failed` read from `data` alone would say so here).
+    expect(resolveRealizedGainsState({ meta: { isError: false, data: undefined }, trades: closedSale })).toBe('absent');
+    expect(resolveRealizedGainsState({ meta: { isError: false, data: meta }, trades: [trade('buy', 10, 100, 2)] })).toBe('absent');
+    expect(resolveRealizedGainsState({ meta: { isError: false, data: meta }, trades: [] })).toBe('absent');
+  });
+
+  it('a reread that fails over a document already held stays `ready`: the meta decides no figure of the verdict', () => {
+    expect(resolveRealizedGainsState({ meta: { isError: true, data: meta }, trades: closedSale })).toBe('ready');
+    expect(resolveRealizedGainsState({ meta: { isError: false, data: meta }, trades: closedSale })).toBe('ready');
   });
 });

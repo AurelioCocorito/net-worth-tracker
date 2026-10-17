@@ -355,6 +355,7 @@ export default function CashflowPage() {
               variant="ghost"
               asChild
               aria-label="Impostazioni Spese"
+              className="size-11 desktop:size-9"
             >
               <Link href="/dashboard/settings?tab=spese">
                 <Settings className="h-4 w-4" />
@@ -401,6 +402,7 @@ export default function CashflowPage() {
               assetNameMap={assetNameMap}
               splitEnabled={expenseSplitEnabled === true}
               familyMembers={familyMembers}
+              active={effectiveTab === 'tracking'}
             />
           </motion.div>
         </TabsContent>
@@ -427,6 +429,7 @@ export default function CashflowPage() {
                 loading={loading || dividendsLoading || assetsLoading}
                 loadFailed={dividendsError || assetsError}
                 onRefresh={handleRefresh}
+                active={effectiveTab === 'dividends'}
               />
             </motion.div>
           </TabsContent>
@@ -454,6 +457,7 @@ export default function CashflowPage() {
                 categoriesFailed={categoriesError}
                 historyStartYear={cashflowHistoryStartYear}
                 userId={ownerId ?? ''}
+                active={effectiveTab === 'budget'}
               />
             </motion.div>
           </TabsContent>
@@ -477,6 +481,7 @@ export default function CashflowPage() {
                 fallback={<SplitTabSkeleton />}
                 familyMembers={familyMembers}
                 availableYears={availableYears}
+                active={effectiveTab === 'split'}
               />
             </motion.div>
           </TabsContent>
@@ -496,7 +501,7 @@ export default function CashflowPage() {
               animate={effectiveTab === 'cost-centers' ? 'visible' : 'hidden'}
               variants={tabPanelSwitch}
             >
-              <CostCentersTab fallback={<TileGridSkeleton cells={COST_CENTERS_SKELETON_CELLS} className="pt-1" />} />
+              <CostCentersTab fallback={<TileGridSkeleton cells={COST_CENTERS_SKELETON_CELLS} className="pt-1" />} active={effectiveTab === 'cost-centers'} />
             </motion.div>
           </TabsContent>
         )}

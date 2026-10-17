@@ -29,10 +29,16 @@ import {
   describeEvent,
   describeEventFooter,
   describeSensitivity,
+  describeWhatIfClosedAnswers,
   SENSITIVITY_ASIDE,
   SENSITIVITY_FOOTER,
+  WHAT_IF_CLOSED_ASIDES,
 } from '@/lib/utils/whatIfNarrative';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
+import { describeFireLockScope } from '@/lib/utils/fireNarrative';
+import { selectWhatIfStrip, WHAT_IF_SECTION_IDS } from '@/lib/utils/whatIfSummary';
+import { formatStripFigure } from '@/lib/utils/verdictStrip';
+import type { FireLock } from '@/lib/utils/fireSummary';
 import type { MetricPair, SensitivityReading, WhatIfDivergence, WhatIfEvent, WhatIfSummary, WhatIfTimeline } from '@/lib/utils/whatIfSummary';
 
 /** Flattens the no-break space `Intl` puts before € so expectations read like the screen. */
@@ -464,5 +470,118 @@ describe('describeSensitivity', () => {
     expect(plain(SENSITIVITY_FOOTER)).toBe(
       "Ogni cella è lo scenario base con quelle spese e quel risparmio, dal patrimonio di oggi. La cella con il bordo è il piano di oggi; le tinte dicono se ci arrivi prima o dopo. La matrice non applica l'evento: misura quanto conta un'abitudine, non un colpo.",
     );
+  });
+});
+
+// ─── The phone's cut, the scope and the strip (2026-10-15) ────────────────────
+// Seen red one at a time: `leadLength` left `undefined` with a Coast sentence; the bridge note
+// with no scope (the lock fixture's `lockedValue` at 0 while `isBridge` true: the page would have
+// printed the note with no line in sight); the direction words typed in the selector instead of
+// read from the sentence («cala» against «scende»).
+
+describe('buildWhatIfVerdict — the cut (a full stop where it falls; the pension lock as the scope line)', () => {
+  it('keeps the event and its clauses under the title, the Coast and the bridge behind «Il perché»', () => {
+    const verdict = jobLossVerdict();
+    const { lead, rest } = splitVerdict(verdict);
+    expect(plain(lead)).toMatch(/^Con 12 mesi senza .* \(da 1375 € a 1269 €\)\.$/);
+    expect(plain(rest)).toBe(' Sul Coast FIRE ti mancano 47.300 € invece di 15.500 €.');
+    expect(verdict.restLabel).toBe('il Coast FIRE');
+
+    const bridged = buildWhatIfVerdict({ hasBaseline: true, event: makeEvent(), summary: makeSummary({ isBridge: true }) });
+    expect(plain(splitVerdict(bridged).rest)).toMatch(/ Numeri con il modello ponte: il fondo pensione rientra allo sblocco\.$/);
+    expect(bridged.restLabel).toBe('il Coast FIRE e il fondo pensione');
+    expect(buildWhatIfVerdict({ hasBaseline: true, event: makeEvent(), summary: makeSummary({ isBridge: true, coast: null }) }).restLabel).toBe('il fondo pensione');
+    expect(buildWhatIfVerdict({ hasBaseline: true, event: makeEvent(), summary: makeSummary({ coast: null }) }).leadLength).toBeUndefined();
+  });
+
+  it('cuts the empty event after the plan of today, the instruction behind «come simulare»', () => {
+    const verdict = buildWhatIfVerdict({ hasBaseline: true, event: makeEvent({ isEmpty: true }), summary: makeSummary() });
+    const { lead, rest } = splitVerdict(verdict);
+    expect(plain(lead)).toBe('Il piano resta quello di oggi: FIRE nel 2033.');
+    expect(plain(rest)).toBe(' Scegli un evento e inserisci un importo.');
+    expect(verdict.restLabel).toBe('come simulare');
+    expect(buildWhatIfVerdict({ hasBaseline: false, event: null, summary: null }).leadLength).toBeUndefined();
+  });
+
+  it('states the bridge note exactly when the scope line would be there, on a coherent lock', () => {
+    const lock: FireLock = { active: true, lockedValue: 31_400, unlockCalendarYear: 2045, unlockAge: 62, source: 'rita', lockedFundCount: 1, unmodellableCount: 0 };
+    const bridged = buildWhatIfVerdict({ hasBaseline: true, event: makeEvent(), summary: makeSummary({ isBridge: true }) });
+    expect(plain(bridged.sentence)).toContain('Numeri con il modello ponte');
+    expect(describeFireLockScope(lock)).toBe('Modello ponte: fondo pensione escluso fino al 2045');
+    const free = buildWhatIfVerdict({ hasBaseline: true, event: makeEvent(), summary: makeSummary({ isBridge: false }) });
+    expect(plain(free.sentence)).not.toContain('modello ponte');
+    expect(describeFireLockScope({ ...lock, active: false })).toBeNull();
+  });
+
+  it('prints in the cells the figures and the direction the sentences print', () => {
+    const summary = makeSummary();
+    const divergence: WhatIfDivergence = { calendarYear: 2033, before: 854_600, after: 803_400, gapThen: -51_200 };
+    const [today, then] = selectWhatIfStrip({ event: makeEvent(), summary, divergence });
+    const flat = (text: string) => text.replace(/[\u00a0\u202f]/g, ' ');
+    const verdict = flat(plain(jobLossVerdict().sentence));
+    expect(verdict).toContain(`il patrimonio FIRE scende di ${flat(formatStripFigure(today)!.text)}`);
+    expect(today.label.endsWith('scende')).toBe(true);
+    expect(flat(plain(describeBeforeAfter(summary, divergence)))).toContain(`${flat(formatStripFigure(then)!.text)} di distanza allora`);
+    expect(then.label).toBe('Distanza nel 2033');
+  });
+});
+
+// ─── The closed rows' words (2026-10-16, in the retirement of the composition) ───────────────────
+
+describe('the closed rows\' asides — words, never a figure', () => {
+  it('names Prima e dopo, Delta and Sensibilità without a digit', () => {
+    expect(WHAT_IF_CLOSED_ASIDES).toEqual({ [WHAT_IF_SECTION_IDS.primaDopo]: 'le due traiettorie', [WHAT_IF_SECTION_IDS.delta]: 'prima → dopo', [WHAT_IF_SECTION_IDS.sensibilita]: 'spese e risparmio' });
+    for (const aside of Object.values(WHAT_IF_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
+  });
+});
+
+// ─── The closed rows' answers in the landscape index (2026-10-16) ─────────────
+// Falsified on 2026-10-16, one at a time: «keeps the scope» went red with the `!event.isEmpty`
+// guard dropped (the Delta answered an event the verdict already says is empty), and again with the
+// Delta's answer copied onto Prima e dopo.
+
+describe('describeWhatIfClosedAnswers', () => {
+  /** What the index shows: each segment trimmed, joined by the gap the row draws between them. */
+  const visible = (answer: Narrative | null | undefined) =>
+    answer ? answer.map((segment) => segment.text.trim()).join(' ').replace(/[  ]/g, ' ') : answer;
+  const SENSITIVITY: SensitivityReading = {
+    baselineExpenses: 30_000,
+    baselineSavings: 12_000,
+    baselineYears: 30,
+    lessSpending: { annualExpenses: 27_000, years: 26 },
+    moreSaving: { annualSavings: 15_000, label: '+25%', years: 28 },
+  };
+  const answers = (over: Partial<Parameters<typeof describeWhatIfClosedAnswers>[0]> = {}) =>
+    describeWhatIfClosedAnswers({ event: makeEvent(), summary: makeSummary({ progressPct: pair(40, 37) }), sensitivity: SENSITIVITY, ...over });
+
+  it('answers Delta with the progress row as it prints, signed as the row, in at most 22 characters', () => {
+    const delta = answers()[WHAT_IF_SECTION_IDS.delta];
+    expect(visible(delta)).toBe('progresso −3,0 punti');
+    expect(delta?.find((segment) => segment.mono)?.sign).toBe('negative');
+    expect(buildDeltaRows(makeSummary({ progressPct: pair(40, 37) })).fire.find((row) => row.key === 'progress')?.change).toBe(delta?.[1].text);
+    const better = answers({ summary: makeSummary({ progressPct: pair(40, 42.5) }) })[WHAT_IF_SECTION_IDS.delta];
+    expect(visible(better)).toBe('progresso +2,5 punti');
+    expect(better?.find((segment) => segment.mono)?.sign).toBe('positive');
+    for (const answer of Object.values(answers())) expect([...(visible(answer) ?? '')].length).toBeLessThanOrEqual(22);
+  });
+
+  it('says an unchanged progress in words, without a figure', () => {
+    const same = answers({ summary: makeSummary({ progressPct: pair(40, 40.02) }) })[WHAT_IF_SECTION_IDS.delta];
+    expect(visible(same)).toBe('progresso invariato');
+    expect(same?.some((segment) => segment.mono)).toBe(false);
+  });
+
+  it('answers Sensibilità with the −10% cell as the matrix prints it, «50+ anni» beyond the horizon', () => {
+    expect(visible(answers()[WHAT_IF_SECTION_IDS.sensibilita])).toBe('spese −10%: 26 anni');
+    expect(visible(answers({ sensitivity: { ...SENSITIVITY, lessSpending: { annualExpenses: 27_000, years: null } } })[WHAT_IF_SECTION_IDS.sensibilita])).toBe('spese −10%: 50+ anni');
+    expect(visible(answers({ sensitivity: { ...SENSITIVITY, lessSpending: { annualExpenses: 27_000, years: 1 } } })[WHAT_IF_SECTION_IDS.sensibilita])).toBe('spese −10%: 1 anno');
+  });
+
+  it('keeps the scope: Prima e dopo always, an empty event, no matrix, no −10% row', () => {
+    expect(answers()[WHAT_IF_SECTION_IDS.primaDopo]).toBeNull();
+    expect(answers({ event: makeEvent({ isEmpty: true }) })[WHAT_IF_SECTION_IDS.delta]).toBeNull();
+    expect(answers({ event: null, summary: null })[WHAT_IF_SECTION_IDS.delta]).toBeNull();
+    expect(answers({ sensitivity: null })[WHAT_IF_SECTION_IDS.sensibilita]).toBeNull();
+    expect(answers({ sensitivity: { ...SENSITIVITY, lessSpending: null } })[WHAT_IF_SECTION_IDS.sensibilita]).toBeNull();
   });
 });

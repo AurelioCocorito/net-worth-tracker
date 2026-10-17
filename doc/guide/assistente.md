@@ -81,6 +81,13 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 - **`max_tokens` budgets thinking AND text together** (chat 12000, chat+web 16000, structured 18000) — re-check whenever
   the data block grows. **Read `stop_reason` from the terminal `message_delta`** and append `TRUNCATION_NOTICE`: a limit
   either does not exist or announces itself.
+- **The stream runs with the server-side fallback** (2026-10-12, owner's decision): `anthropic.beta.messages.create` with
+  `betas: [SERVER_SIDE_FALLBACK_BETA]` + `fallbacks: 'default'` (`lib/constants/aiModels.ts`, sdk ≥ 0.115). A `cyber` or
+  `frontier_llm` decline is re-run on Sonnet 5 inside the same stream — the text already streamed stays, the answer goes
+  on, a `fallback` content block marks the switch and the log names both models; the other categories still end on
+  `stop_reason: 'refusal'`, which is why `REFUSAL_NOTICE` stays. The history replayed is TEXT only, so a fallback turn needs
+  no block stripping; a future replay of thinking or tool blocks owes the echo rules of the fallback docs. Pinned by
+  `__tests__/anthropicStream.test.ts` (the request shape).
 - Memory: only `status === 'active'` items are injected; the fetch is `.catch(() => null)` and never blocks the stream;
   the Anthropic client is lazily imported (a module-level `new Anthropic()` breaks test environments). The context
   bundle lives in React state and is never persisted. `MARKDOWN_COMPONENTS` must be module-level or ReactMarkdown
@@ -104,6 +111,10 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 - **Structure is NEVER parsed from text.** It arrives from a forced-tool-use Haiku call validated with zod. A malformed
   payload discards the **structure**, not the goal — an un-trackable goal is a legitimate state the panel states out
   loud. `unit` is derived from `kind`, never asked of the model.
+- **The extraction's `max_tokens` holds the tool input alone** (2048 since 2026-10-12): a forced `tool_choice` on Haiku 5.5
+  skips thinking, and the call sends neither `thinking` nor `effort`. The 1024 sized on Haiku 4.5 was doubled for Haiku
+  5.5's tokenizer (~30% more tokens for the same text): a cut mid-input fails the zod parse and drops every candidate in
+  silence. Haiku 5.5 has no server-side fallback — never add `fallbacks` here.
 - **A tool schema's enum description must speak the UI's vocabulary**, or the model splits one sentence across two kinds
   (e.g. "liquidità" is the product's label for the `cash` class).
 - **Goals are always evaluated against the CURRENT month**, never the bundle the request happened to build —
@@ -183,6 +194,10 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   contesto», the tiles by their eyebrow («Conversazione» with `exact: true` — «Conversazione con l'assistente» is the live
   region), the rows by `list` «Domande suggerite», the axis by `tablist` «Periodo di analisi», the disclosure by `button` «Come
   funziona».
+
+## Composizione mobile
+
+No composition, by design: the page's content is a conversation (DESIGN.md → The Conversation-Is-Content Rule), not a grid of tiles answering one question — below `desktop:` the conversation and its composer are the page and the companion tiles follow them in one column; nothing is closed, lifted or remembered (no `mobile-sections:` key). It is not one of the nineteen surfaces of `mobile:census`.
 
 ## Per-page blind spots
 

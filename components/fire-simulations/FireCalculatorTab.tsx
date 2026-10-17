@@ -10,7 +10,15 @@
  *
  *   Desktop (12 col): Traguardo(5, 2 rows) | Base di calcolo(7: rows beside the lock)
  *                                           | Reddito passivo(4) | Scenari(3)
- *   Mobile (1 col):   Traguardo → Scenari → Reddito passivo → Base di calcolo
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule,
+ *                     since 2026-10-15): the verdict's title → the first sentence («…ci arrivi nel
+ *                     2032, a 44 anni.») → the strip of two figures («Ti mancano», «Rendita oggi»)
+ *                     → the lock as the scope line («Modello ponte: fondo pensione escluso fino
+ *                     al 2050», The Binding-Clause Rule) → «Il perché» (what the plan lives on from then, the
+ *                     lock sentence) → Traguardo open, its plot at 120px → «Il resto della pagina»
+ *                     → Base di calcolo, Reddito passivo, Scenari as closed rows (`useMobileSections`
+ *                     with `tab: 'fire'`, doc/guide/fire.md § Composizione mobile) → Parametri →
+ *                     Dettaglio. No `order-*`: the phone reads the DOM.
  *
  * A tile shares a row only with tiles of its own height (AGENTS.md → Hierarchy). Base di calcolo
  * took two rows until 2026-09-22 and ended 190px above its own footer (measured); putting it at
@@ -91,8 +99,10 @@ import { deriveMonteCarloAllocation } from '@/lib/utils/monteCarloParams';
 import { createSeededRandom } from '@/lib/utils/seededRandom';
 import { resolveLeverCap, solveSavingsForTail, summarizeFireYearDistribution, summarizeRetirementSurvival } from '@/lib/utils/fireDistribution';
 import {
+  FIRE_SECTION_IDS,
   formatAllocationLabel,
   resolveFanVerdict,
+  selectFireStrip,
   summarizeLock,
   summarizePassiveIncome,
   summarizeScenarios,
@@ -100,17 +110,34 @@ import {
   summarizeTimeline,
   type FireTargetHonest,
 } from '@/lib/utils/fireSummary';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import Link from 'next/link';
 import {
   buildFireVerdict,
   describeBase,
   describeBaseAside,
+  describeFireClosedAnswers,
   describeBaseFooter,
   describeDettaglio,
   describeEmptyTiles,
   describeFireDistributionMethod,
+  describeFireLockScope,
   describeFireYearDistribution,
   describeLock,
+  FIRE_CLOSED_ASIDES,
+  FIRE_ROW_NOT_COMPUTABLE,
   describeParametri,
   describePassiveIncome,
   describeRetirementSurvival,
@@ -129,13 +156,17 @@ import type { Settings } from '@/types/settings';
 import type { FIREProjectionScenarios } from '@/types/assets';
 import { cn } from '@/lib/utils';
 import { PageVerdict } from '@/components/ui/page-verdict';
-import { Tile, TILE_CELL_CLASS } from '@/components/ui/tile';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
+import { Tile, TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
 import type { TileSkeletonCell } from '@/lib/utils/tileGridSkeleton';
 import { TraguardoTile } from '@/components/fire-simulations/tiles/TraguardoTile';
+import { FireLockScope } from '@/components/fire-simulations/FireLockScope';
 import { BaseDiCalcoloTile } from '@/components/fire-simulations/tiles/BaseDiCalcoloTile';
 import { RedditoPassivoTile } from '@/components/fire-simulations/tiles/RedditoPassivoTile';
 import { ScenariTile } from '@/components/fire-simulations/tiles/ScenariTile';
@@ -175,12 +206,29 @@ const SKELETON_CELLS: TileSkeletonCell[] = [
   { span: 3, lines: 4 },
 ];
 
-/** The four cells of the grid: one class per tile, shared by the data and the empty branches. */
-const GRID_CLASS = 'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12';
-const TRAGUARDO_CELL = cn(TILE_CELL_CLASS, 'order-1 tablet:col-span-2 desktop:order-none desktop:col-span-5 desktop:row-span-2');
-const BASE_CELL = cn(TILE_CELL_CLASS, 'order-4 tablet:col-span-2 desktop:order-none desktop:col-span-7');
-const REDDITO_CELL = cn(TILE_CELL_CLASS, 'order-3 desktop:order-none desktop:col-span-4');
-const SCENARI_CELL = cn(TILE_CELL_CLASS, 'order-2 desktop:order-none desktop:col-span-3');
+/**
+ * The four cells of the grid: one class per tile, shared by the data and the empty branches. ONE
+ * sequence, no `order-*` (The First-Screen Rule): Traguardo, then Base, Reddito, Scenari at every width; on
+ * a tablet a row cell adds the place `useTabletComposition` gives it at 768 (in landscape the rows
+ * sit in the index beside the verdict and THE tile, lib/utils/tabletComposition.ts).
+ */
+const TRAGUARDO_CELL = cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2');
+const BASE_CELL = cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-7');
+const REDDITO_CELL = cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-4');
+const SCENARI_CELL = cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3');
+
+/**
+ * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but Traguardo,
+ * THE tile, which never closes. Module-level, so the controller sees one stable list;
+ * no row carries `failed` — a failed read is the whole tab's notice, as at 1440.
+ */
+const FIRE_SECTIONS: readonly SectionSpec[] = [
+  { id: FIRE_SECTION_IDS.base, eyebrow: 'Base di calcolo' },
+  { id: FIRE_SECTION_IDS.reddito, eyebrow: 'Reddito passivo' },
+  { id: FIRE_SECTION_IDS.scenari, eyebrow: 'Scenari' },
+];
+/** The three rows are on both branches of the tab: their DOM order is the tablet's. */
+const FIRE_ORDER = FIRE_SECTIONS.map((section) => section.id);
 
 /** The one action of the empty state: a link the size of a touch target, in the tile's own ink. */
 const EMPTY_ACTION_CLASS =
@@ -646,6 +694,17 @@ export function FireCalculatorTab() {
     [currentNetWorth, target, timeline, annualSavings, previewWithdrawalRate, passiveIncome, lock, honestSummary],
   );
 
+  // ─── The phone composition (2026-10-15) ──────────────────────────────────────
+  // The rows and the verdict's «Il perché» from the controller (one memory per tab, `tab: 'fire'`);
+  // the strip read from the target and the allowance the tiles print; the lock as the scope line
+  // only below `desktop:` (at 1440 the paragraph says it). Both cells open a row: `reveal` IS the handler.
+  const sections = useMobileSections({ route: 'fire-simulations', tab: 'fire', sections: FIRE_SECTIONS });
+  const stageRef = useTabletStage();
+  const tablet = useTabletComposition({ sections, order: FIRE_ORDER });
+  const { reveal: handleStripOpen } = sections;
+  const strip = target && passiveIncome ? selectFireStrip({ target, passiveIncome }) : [];
+  const lockScope = sections.compact ? describeFireLockScope(lock) : null;
+
   // ─── Mutations ───────────────────────────────────────────────────────────────
   // Every write spreads the cached `settings`, which can lag a lock save by one refetch: the lock
   // state is the source of truth for that field, so each write restates it.
@@ -813,36 +872,54 @@ export function FireCalculatorTab() {
         {empty.action.label}
       </Link>
     );
+    // The same rows as the full tab, closed and saying «non ancora calcolabile»: the Traguardo
+    // keeps the action in sight, the scope line names the lock whatever the number.
     return (
       <div className="space-y-4">
-        <div className="pt-1">
-          <PageVerdict verdict={verdict} ariaLabel="Verdetto sul FIRE" />
+        {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+            (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+        <div className={STAGE_WRAPPER_CLASS}>
+        <div ref={stageRef} className={STAGE_CLASS}>
+        <div data-stage="verdict" className={cn('pt-1', VERDICT_CELL_CLASS)}>
+          <PageVerdict verdict={verdict} ariaLabel="Verdetto sul FIRE" scope={lockScope && <FireLockScope text={lockScope} />} restCollapse={sections.collapse(VERDICT_REST_SECTION)} />
         </div>
-        <div className={GRID_CLASS}>
-          <div className={TRAGUARDO_CELL}>
+        <div className={COMPACT_GRID_WRAPPER_CLASS}>
+        <div className={COMPACT_GRID_CLASS}>
+          <div data-stage="lead" className={TRAGUARDO_CELL}>
             <Tile eyebrow="Traguardo" ariaLabel="Traguardo FIRE">
               <EmptyState className="mt-2" message={empty.traguardo} action={action} />
             </Tile>
           </div>
-          <div className={BASE_CELL}>
-            <Tile eyebrow="Base di calcolo" ariaLabel="Base di calcolo del FIRE">
+          <div className={INDEX_CLASS}>
+          <PageRest sections={sections} className={REST_CELL_CLASS} />
+          <div className={cn(BASE_CELL, tablet.cellClass(FIRE_SECTION_IDS.base))}>
+            <Tile eyebrow="Base di calcolo" ariaLabel="Base di calcolo del FIRE" collapse={sections.collapse(FIRE_SECTION_IDS.base)} asideWhenClosed={FIRE_ROW_NOT_COMPUTABLE}>
               <EmptyState className="mt-2" message={empty.base} />
             </Tile>
           </div>
-          <div className={REDDITO_CELL}>
+          <div className={cn(REDDITO_CELL, tablet.cellClass(FIRE_SECTION_IDS.reddito))}>
             {empty.passiveIncome === null && passiveIncome ? (
-              <RedditoPassivoTile reading={describePassiveIncome(passiveIncome)} income={passiveIncome} />
+              <RedditoPassivoTile
+                collapse={sections.collapse(FIRE_SECTION_IDS.reddito)}
+                asideWhenClosed={FIRE_CLOSED_ASIDES[FIRE_SECTION_IDS.reddito]}
+                reading={describePassiveIncome(passiveIncome)}
+                income={passiveIncome}
+              />
             ) : (
-              <Tile eyebrow="Reddito passivo" ariaLabel="Reddito passivo sostenibile">
+              <Tile eyebrow="Reddito passivo" ariaLabel="Reddito passivo sostenibile" collapse={sections.collapse(FIRE_SECTION_IDS.reddito)} asideWhenClosed={FIRE_ROW_NOT_COMPUTABLE}>
                 <EmptyState className="mt-2" message={empty.passiveIncome ?? empty.traguardo} />
               </Tile>
             )}
           </div>
-          <div className={SCENARI_CELL}>
-            <Tile eyebrow="Scenari" ariaLabel="Scenari di mercato">
+          <div className={cn(SCENARI_CELL, tablet.cellClass(FIRE_SECTION_IDS.scenari))}>
+            <Tile eyebrow="Scenari" ariaLabel="Scenari di mercato" collapse={sections.collapse(FIRE_SECTION_IDS.scenari)} asideWhenClosed={FIRE_ROW_NOT_COMPUTABLE}>
               <EmptyState className="mt-2" message={empty.scenarios} />
             </Tile>
           </div>
+          </div>
+        </div>
+        </div>
+        </div>
         </div>
         {parametri}
         {dettaglio}
@@ -882,13 +959,25 @@ export function FireCalculatorTab() {
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      <div className="pt-1">
-        <PageVerdict verdict={verdict} ariaLabel="Verdetto sul FIRE" />
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
+      <div data-stage="verdict" className={cn('pt-1', VERDICT_CELL_CLASS)}>
+        <PageVerdict
+          verdict={verdict}
+          ariaLabel="Verdetto sul FIRE"
+          strip={<VerdictStrip figures={strip} onOpen={handleStripOpen} eyebrows={sections.eyebrows} />}
+          scope={lockScope && <FireLockScope text={lockScope} />}
+          restCollapse={sections.collapse(VERDICT_REST_SECTION)}
+        />
       </div>
 
-      {/* Tablet (768-1439): Traguardo full, Base di calcolo full, Reddito passivo beside Scenari. */}
-      <div className={GRID_CLASS}>
-        <div className={TRAGUARDO_CELL}>
+      {/* Tablet: Traguardo on two columns, the closed rows two by two at 768, an open row on the
+          whole grid row; in landscape the rows in the index beside the verdict and Traguardo. */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={COMPACT_GRID_CLASS}>
+        <div data-stage="lead" className={TRAGUARDO_CELL}>
           <TraguardoTile
             reading={describeTarget(target)}
             target={target}
@@ -916,8 +1005,16 @@ export function FireCalculatorTab() {
           />
         </div>
 
-        <div className={BASE_CELL}>
+        {/* What each closed row answers in the landscape index (2026-10-16): the same base, allowance
+            and scenario rows the tiles print. */}
+        <RowAnswers value={describeFireClosedAnswers({ base, passiveIncome, scenarioRows, horizonYears: PROJECTION_HORIZON_YEARS })}>
+        <div className={INDEX_CLASS}>
+        <PageRest sections={sections} className={REST_CELL_CLASS} />
+
+        <div className={cn(BASE_CELL, tablet.cellClass(FIRE_SECTION_IDS.base))}>
           <BaseDiCalcoloTile
+            collapse={sections.collapse(FIRE_SECTION_IDS.base)}
+            asideWhenClosed={FIRE_CLOSED_ASIDES[FIRE_SECTION_IDS.base]}
             reading={describeBase(base)}
             aside={describeBaseAside(base)}
             base={base}
@@ -931,21 +1028,38 @@ export function FireCalculatorTab() {
           />
         </div>
 
-        <div className={REDDITO_CELL}>
-          <RedditoPassivoTile reading={describePassiveIncome(passiveIncome)} income={passiveIncome} />
+        <div className={cn(REDDITO_CELL, tablet.cellClass(FIRE_SECTION_IDS.reddito))}>
+          <RedditoPassivoTile
+            collapse={sections.collapse(FIRE_SECTION_IDS.reddito)}
+            asideWhenClosed={FIRE_CLOSED_ASIDES[FIRE_SECTION_IDS.reddito]}
+            reading={describePassiveIncome(passiveIncome)}
+            income={passiveIncome}
+          />
         </div>
 
-        <div className={SCENARI_CELL}>
+        <div className={cn(SCENARI_CELL, tablet.cellClass(FIRE_SECTION_IDS.scenari))}>
           {projection ? (
-            <ScenariTile reading={describeScenarios(scenarioRows)} rows={scenarioRows} horizonYears={PROJECTION_HORIZON_YEARS} footer={describeScenariosFooter()} />
+            <ScenariTile
+              collapse={sections.collapse(FIRE_SECTION_IDS.scenari)}
+              asideWhenClosed={FIRE_CLOSED_ASIDES[FIRE_SECTION_IDS.scenari]}
+              reading={describeScenarios(scenarioRows)}
+              rows={scenarioRows}
+              horizonYears={PROJECTION_HORIZON_YEARS}
+              footer={describeScenariosFooter()}
+            />
           ) : (
             // A projection needs expenses and a positive net worth, which the branch above already
             // guarantees; this is the belt to those braces, and it says so instead of an empty cell.
-            <Tile eyebrow="Scenari" ariaLabel="Scenari di mercato">
+            <Tile eyebrow="Scenari" ariaLabel="Scenari di mercato" collapse={sections.collapse(FIRE_SECTION_IDS.scenari)} asideWhenClosed={FIRE_ROW_NOT_COMPUTABLE}>
               <EmptyState className="mt-2" message={describeEmptyTiles('no-expenses').scenarios} />
             </Tile>
           )}
         </div>
+        </div>
+        </RowAnswers>
+      </div>
+      </div>
+      </div>
       </div>
 
       {parametri}

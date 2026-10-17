@@ -11,7 +11,7 @@ import { UNLINK_CONSEQUENCE } from '@/lib/utils/costCenterNarrative';
 import { useArmedDelete } from '@/lib/hooks/useArmedDelete';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface MovimentiTileProps {
@@ -20,6 +20,10 @@ interface MovimentiTileProps {
   now: Date;
   aside: Narrative;
   reading: Narrative;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («8 voci», a count of rows). */
+  asideWhenClosed?: string;
   /** How many rows are shown; the rest sit behind «Mostra altre». */
   visibleCount: number;
   onShowMore: () => void;
@@ -202,7 +206,7 @@ function MovementListRow({ expense, scheduled, disabled, announce, onOpen, onUnl
  * in its own form, and «Scollega» takes it out of the center without leaving the page —
  * until then the only way was to find the expense again in Tracciamento.
  */
-export function MovimentiTile({ expenses, now, aside, reading, visibleCount, onShowMore, onOpen, onUnlink, onUnlinkSeries, disabled = false, className }: MovimentiTileProps) {
+export function MovimentiTile({ expenses, now, aside, reading, collapse, asideWhenClosed, visibleCount, onShowMore, onOpen, onUnlink, onUnlinkSeries, disabled = false, className }: MovimentiTileProps) {
   const [announcement, setAnnouncement] = useState('');
   const announce = useCallback((text: string) => setAnnouncement(text), []);
   const visible = expenses.slice(0, visibleCount);
@@ -212,7 +216,7 @@ export function MovimentiTile({ expenses, now, aside, reading, visibleCount, onS
   const isScheduled = (expense: Expense) => isItalyDayAfter(toDate(expense.date), now);
 
   return (
-    <Tile eyebrow="Movimenti collegati" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className}>
+    <Tile eyebrow="Movimenti collegati" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} collapse={collapse} asideWhenClosed={asideWhenClosed} className={className}>
       {visible.length > 0 && (
         <>
           {/* Desktop: the table. The first cell of each row is its header. */}

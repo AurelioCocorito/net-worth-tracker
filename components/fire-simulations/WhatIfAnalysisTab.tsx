@@ -9,14 +9,22 @@
  * to the capital, the FIRE number, the year, the passive income and the Coast plan, over a
  * 12-column grid of tiles that each answer one question with a reading line above their figures.
  *
- *   Desktop (12 col): Prima e dopo(5) | Delta(3) | Evento(4)
+ *   Desktop (12 col): Evento(4) | Prima e dopo(5) | Delta(3)
  *                     Sensibilità(12)
- *   Mobile (1 col):   Evento → Prima e dopo → Delta → Sensibilità
+ *   Below desktop:    ONE sequence, the DOM above (The First-Screen Rule, The Input Tile Rule,
+ *                     since 2026-10-15): the verdict's title → the first sentence (the event
+ *                     and its clauses) → the strip of two figures (the hit today, the hit at the
+ *                     FIRE year) → the lock as the scope line with the bridge on → «Il perché»
+ *                     (the Coast, the bridge note) → Evento open → «Il resto della pagina» → Prima
+ *                     e dopo, Delta, Sensibilità as closed rows (`useMobileSections` with `tab:
+ *                     'whatif'`, doc/guide/fire-what-if.md § Composizione mobile).
  *
- * On a phone the Evento comes first: on this tab the event IS the question, the verdict is about
- * what is typed there. The page has NO period axis — an event is applied today (year 0) — and the
- * one control that moves the verdict, the event form, is a tile of the grid, not a disclosure.
- * The Sensibilità matrix runs on the plan of TODAY, off the event, and says so in its aside.
+ * The Evento comes first at every width since 2026-10-15 (the left cell at 1440, until then the
+ * third tile moved first by `order-1` on a phone): on this tab the event IS the question, the
+ * verdict is about what is typed there. The page has NO period axis — an event is applied today
+ * (year 0) — and the one control that moves the verdict, the event form, is a tile of the grid,
+ * not a disclosure. The Sensibilità matrix runs on the plan of TODAY, off the event, and says so
+ * in its aside.
  *
  * Data flow:
  * 1. settings + assets + annual cashflow queries (shared React Query keys with the other FIRE
@@ -55,16 +63,33 @@ import {
 import { calculateWhatIfImpact, WHAT_IF_HORIZON_YEARS } from '@/lib/services/whatIfService';
 import { getItalyYear } from '@/lib/utils/dateHelpers';
 import { summarizeLock } from '@/lib/utils/fireSummary';
+import { describeFireLockScope } from '@/lib/utils/fireNarrative';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   buildWhatIfComparisonSeries,
   decomposeJobLossHit,
+  selectWhatIfStrip,
   summarizeDivergence,
   summarizeSensitivity,
   summarizeWhatIf,
   summarizeWhatIfEvent,
+  WHAT_IF_SECTION_IDS,
 } from '@/lib/utils/whatIfSummary';
 import {
   buildDeltaRows,
+  WHAT_IF_CLOSED_ASIDES,
   buildWhatIfVerdict,
   describeBeforeAfter,
   describeBeforeAfterAside,
@@ -74,6 +99,7 @@ import {
   describeEvent,
   describeEventFooter,
   describeSensitivity,
+  describeWhatIfClosedAnswers,
   SENSITIVITY_ASIDE,
   SENSITIVITY_FOOTER,
 } from '@/lib/utils/whatIfNarrative';
@@ -81,8 +107,12 @@ import type { WhatIfBaseline, WhatIfEventType, WhatIfScenario } from '@/types/wh
 import { WHAT_IF_TAB_SKELETON_CELLS } from './tabSkeletons';
 import { cn } from '@/lib/utils';
 import { PageVerdict } from '@/components/ui/page-verdict';
-import { TILE_CELL_CLASS } from '@/components/ui/tile';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
+import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
+import { FireLockScope } from './FireLockScope';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
 import { categoryLeafKeys, collectLeafKeys, sumSelectedIncome } from '@/components/fire-simulations/whatif/incomeSelection';
@@ -94,6 +124,16 @@ import { SensibilitaTile } from '@/components/fire-simulations/whatif/tiles/Sens
 
 /** The grid's geometry, for the skeleton: the same spans as the tiles below — shared with the page's lazy-tab wait. */
 const SKELETON_CELLS = WHAT_IF_TAB_SKELETON_CELLS;
+
+/** The rows below `desktop:`, in the DOM's order: every tile but Evento, THE tile (The Input Tile Rule). No row carries `failed`. */
+const WHAT_IF_SECTIONS: readonly SectionSpec[] = [
+  { id: WHAT_IF_SECTION_IDS.primaDopo, eyebrow: 'Prima e dopo' },
+  { id: WHAT_IF_SECTION_IDS.delta, eyebrow: 'Delta' },
+  { id: WHAT_IF_SECTION_IDS.sensibilita, eyebrow: 'Sensibilità' },
+];
+
+/** Without a base the tab renders the verdict alone: the controller knows no row (since 2026-10-16, as Monte Carlo and Obiettivi do). */
+const NO_SECTIONS: readonly SectionSpec[] = [];
 
 const EMPTY_FORM: WhatIfEventForm = {
   monthsWithoutIncome: '6',
@@ -331,17 +371,38 @@ export function WhatIfAnalysisTab() {
   const lock = useMemo(() => summarizeLock(pensionLockState, { currentYear, ritaUnlockAge }), [pensionLockState, currentYear, ritaUnlockAge]);
 
   // The Sensibilità runs on the plan of TODAY (the baseline), centred on the actual or the
-  // typed reference expenses — never on the event.
+  // typed reference expenses — never on the event. Since 2026-10-16 it walks the verdict's model
+  // (horizon, locked fund, pensions, tax), so its base cell is the verdict's year.
   const parsedSensitivityBaseline = Number.parseFloat(sensitivityBaselineInput);
   const sensitivityExpenses = Number.isFinite(parsedSensitivityBaseline) && parsedSensitivityBaseline > 0 ? parsedSensitivityBaseline : annualExpenses;
   const sensitivityMatrix = useMemo(() => {
     if (netWorth <= 0 || sensitivityExpenses <= 0 || withdrawalRate <= 0) return null;
-    return calculateFIRESensitivityMatrix(netWorth, sensitivityExpenses, annualSavings, withdrawalRate, scenarios);
-  }, [netWorth, sensitivityExpenses, annualSavings, withdrawalRate, scenarios]);
+    return calculateFIRESensitivityMatrix(netWorth, sensitivityExpenses, annualSavings, withdrawalRate, scenarios, WHAT_IF_HORIZON_YEARS, pensionBridge ?? undefined, honest);
+  }, [netWorth, sensitivityExpenses, annualSavings, withdrawalRate, scenarios, pensionBridge, honest]);
   const sensitivityReading = useMemo(() => (sensitivityMatrix ? summarizeSensitivity(sensitivityMatrix) : null), [sensitivityMatrix]);
 
   // ─── The words (pure layer) ───────────────────────────────────────────────────
   const verdict = useMemo(() => buildWhatIfVerdict({ hasBaseline, event, summary }), [hasBaseline, event, summary]);
+  // What each closed row answers in the landscape index (2026-10-16): the Delta's progress row and
+  // the matrix's −10% cell, read from the same summary and the same matrix the tiles print.
+  const rowAnswers = useMemo(
+    () => describeWhatIfClosedAnswers({ event, summary, sensitivity: sensitivityReading }),
+    [event, summary, sensitivityReading],
+  );
+
+  // ─── The phone composition (2026-10-15) ──────────────────────────────────────
+  // The rows and «Il perché» from the controller (one memory per tab); the strip from the event's
+  // hit today and at the FIRE year; the lock as the scope line only with the bridge on and below
+  // `desktop:` — the bridge note in the paragraph says it at 1440.
+  const whatIfSections = hasBaseline && impact && event && summary ? WHAT_IF_SECTIONS : NO_SECTIONS;
+  const sections = useMobileSections({ route: 'fire-simulations', tab: 'whatif', sections: whatIfSections });
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). The specs ARE the DOM's rows.
+  const stageRef = useTabletStage();
+  const tablet = useTabletComposition({ sections, order: whatIfSections.map((section) => section.id) });
+  const { reveal: handleStripOpen } = sections;
+  const strip = event && summary ? selectWhatIfStrip({ event, summary, divergence }) : [];
+  const lockScope = sections.compact && summary?.isBridge ? describeFireLockScope(lock) : null;
 
   // ─── Loading ─────────────────────────────────────────────────────────────────
   // A failed read comes BEFORE the wait: these queries default to undefined, and a plan built
@@ -380,36 +441,26 @@ export function WhatIfAnalysisTab() {
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      <div className="pt-1">
-        <PageVerdict verdict={verdict} ariaLabel="Verdetto sul What If" />
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
+      <div data-stage="verdict" className={cn('pt-1', VERDICT_CELL_CLASS)}>
+        <PageVerdict
+          verdict={verdict}
+          ariaLabel="Verdetto sul What If"
+          strip={<VerdictStrip figures={strip} onOpen={handleStripOpen} eyebrows={sections.eyebrows} />}
+          scope={lockScope && <FireLockScope text={lockScope} />}
+          restCollapse={sections.collapse(VERDICT_REST_SECTION)}
+        />
       </div>
 
-      {/* Tablet (768-1439): every tile full width, in the phone's order. */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className={cn(TILE_CELL_CLASS, 'order-2 tablet:col-span-2 desktop:order-none desktop:col-span-5')}>
-          <PrimaDopoTile
-            reading={describeBeforeAfter(summary, divergence)}
-            aside={describeBeforeAfterAside(scenarios.base)}
-            chart={
-              <WhatIfProjectionChart
-                series={series}
-                calendarBefore={summary.timeline.reachedBefore ? null : summary.timeline.calendarBefore}
-                calendarAfter={summary.timeline.reachedAfter ? null : summary.timeline.calendarAfter}
-                targetsDiffer={targetsDiffer}
-                height="100%"
-                pensionUnlockCalendarYear={summary.isBridge ? lock.unlockCalendarYear : null}
-              />
-            }
-            targetsDiffer={targetsDiffer}
-            footer={describeBeforeAfterFooter({ isBridge: summary.isBridge, unlockCalendarYear: lock.unlockCalendarYear, lastProjectedYear })}
-          />
-        </div>
-
-        <div className={cn(TILE_CELL_CLASS, 'order-3 tablet:col-span-2 desktop:order-none desktop:col-span-3')}>
-          <DeltaTile reading={describeDelta(summary)} rows={buildDeltaRows(summary)} coastRetirementAge={summary.coast?.retirementAge ?? null} footer={describeDeltaFooter(summary.coast !== null)} />
-        </div>
-
-        <div className={cn(TILE_CELL_CLASS, 'order-1 tablet:col-span-2 desktop:order-none desktop:col-span-4')}>
+      {/* ONE sequence, Evento first at every width (The First-Screen Rule, The Input Tile Rule).
+          Tablet: Evento on two columns, the closed rows two by two at 768, an open row on the whole
+          grid row; in landscape the rows in the index beside the verdict and Evento. */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={COMPACT_GRID_CLASS}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-4')}>
           <EventoTile
             reading={describeEvent(event)}
             event={event}
@@ -436,8 +487,46 @@ export function WhatIfAnalysisTab() {
           />
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'order-4 tablet:col-span-2 desktop:order-none desktop:col-span-12')}>
+        <RowAnswers value={rowAnswers}>
+        <div className={INDEX_CLASS}>
+        <PageRest sections={sections} className={REST_CELL_CLASS} />
+
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.primaDopo), 'desktop:col-span-5')}>
+          <PrimaDopoTile
+            collapse={sections.collapse(WHAT_IF_SECTION_IDS.primaDopo)}
+            asideWhenClosed={WHAT_IF_CLOSED_ASIDES[WHAT_IF_SECTION_IDS.primaDopo]}
+            reading={describeBeforeAfter(summary, divergence)}
+            aside={describeBeforeAfterAside(scenarios.base)}
+            chart={
+              <WhatIfProjectionChart
+                series={series}
+                calendarBefore={summary.timeline.reachedBefore ? null : summary.timeline.calendarBefore}
+                calendarAfter={summary.timeline.reachedAfter ? null : summary.timeline.calendarAfter}
+                targetsDiffer={targetsDiffer}
+                height="100%"
+                pensionUnlockCalendarYear={summary.isBridge ? lock.unlockCalendarYear : null}
+              />
+            }
+            targetsDiffer={targetsDiffer}
+            footer={describeBeforeAfterFooter({ isBridge: summary.isBridge, unlockCalendarYear: lock.unlockCalendarYear, lastProjectedYear })}
+          />
+        </div>
+
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.delta), 'desktop:col-span-3')}>
+          <DeltaTile
+            collapse={sections.collapse(WHAT_IF_SECTION_IDS.delta)}
+            asideWhenClosed={WHAT_IF_CLOSED_ASIDES[WHAT_IF_SECTION_IDS.delta]}
+            reading={describeDelta(summary)}
+            rows={buildDeltaRows(summary)}
+            coastRetirementAge={summary.coast?.retirementAge ?? null}
+            footer={describeDeltaFooter(summary.coast !== null)}
+          />
+        </div>
+
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(WHAT_IF_SECTION_IDS.sensibilita), 'desktop:col-span-12')}>
           <SensibilitaTile
+            collapse={sections.collapse(WHAT_IF_SECTION_IDS.sensibilita)}
+            asideWhenClosed={WHAT_IF_CLOSED_ASIDES[WHAT_IF_SECTION_IDS.sensibilita]}
             reading={sensitivityReading ? describeSensitivity(sensitivityReading, WHAT_IF_HORIZON_YEARS) : [{ text: 'Servono un patrimonio FIRE e spese annue maggiori di zero.' }]}
             aside={SENSITIVITY_ASIDE}
             baselineInput={sensitivityBaselineInput}
@@ -447,6 +536,11 @@ export function WhatIfAnalysisTab() {
             footer={SENSITIVITY_FOOTER}
           />
         </div>
+        </div>
+        </RowAnswers>
+      </div>
+      </div>
+      </div>
       </div>
     </div>
   );

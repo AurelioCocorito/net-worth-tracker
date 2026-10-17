@@ -13,8 +13,73 @@
  */
 
 import type { FIRESensitivityMatrix } from '@/lib/services/fireService';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
 import type { FIREProjectionResult } from '@/types/assets';
 import type { WhatIfAdjustedInputs, WhatIfBaseline, WhatIfEventType, WhatIfImpact, WhatIfScenario } from '@/types/whatIf';
+
+// ─── The phone composition (2026-10-15) ───────────────────────────────────────
+
+/**
+ * The ids of the tab's rows below `desktop:` (`useMobileSections` with `tab: 'whatif'`, The
+ * Closed-Row Rule): every tile but Evento, THE tile — first in the DOM at every width since
+ * 2026-10-15 (The Input Tile Rule) and never closed (The First-Screen Rule).
+ */
+export const WHAT_IF_SECTION_IDS = {
+  primaDopo: 'whatif-prima-dopo',
+  delta: 'whatif-delta',
+  sensibilita: 'whatif-sensibilita',
+} as const;
+
+/**
+ * A change smaller than half a unit is no change: it would print as «0 €». ONE threshold for the
+ * verdict's clauses, the Delta rows («invariato») and the strip's cells (2026-10-15; the narrative
+ * kept a private copy until then).
+ */
+export function isWhatIfChange(delta: number, unit = 0.5): boolean {
+  return Math.abs(delta) >= unit;
+}
+
+export interface WhatIfStripInput {
+  event: WhatIfEvent;
+  summary: WhatIfSummary;
+  divergence: WhatIfDivergence | null;
+}
+
+/**
+ * The two figures of the What If's first screen, once an event is typed: what the event does to
+ * the FIRE net worth today — the verdict's first clause, «il patrimonio FIRE scende di 31.800 €»
+ * — opening the Delta, and the same hit read at the FIRE year of the plan of today — the Prima e
+ * dopo reading's «51.200 € di distanza allora» (or «di vantaggio») — opening that row. The
+ * direction is in the label, as the sentences print it (the builders write no «+»/«−»); the tone
+ * follows it. A delta under the threshold is «invariato», as `buildDeltaRows` prints it, under a
+ * label with no direction and no tone («Patrimonio FIRE oggi», «Al FIRE di oggi»: a word no
+ * sentence prints never heads a cell — owner, 2026-10-16; until then «sale» stood over «invariato»);
+ * no event, no strip.
+ */
+export function selectWhatIfStrip({ event, summary, divergence }: WhatIfStripInput): StripFigure[] {
+  if (event.isEmpty) return [];
+  const today = summary.netWorth.delta;
+  const todayMoved = isWhatIfChange(today);
+  const then = divergence !== null && isWhatIfChange(divergence.gapThen) ? divergence : null;
+  return [
+    {
+      label: todayMoved ? `Patrimonio FIRE ${today < 0 ? 'scende' : 'sale'}` : 'Patrimonio FIRE oggi',
+      value: todayMoved ? Math.abs(today) : null,
+      format: 'currency',
+      tone: !todayMoved ? 'neutral' : today < 0 ? 'negative' : 'positive',
+      opens: WHAT_IF_SECTION_IDS.delta,
+      ...(todayMoved ? {} : { reason: 'invariato' }),
+    },
+    {
+      label: then ? `${then.gapThen < 0 ? 'Distanza' : 'Vantaggio'} nel ${then.calendarYear}` : 'Al FIRE di oggi',
+      value: then ? Math.abs(then.gapThen) : null,
+      format: 'currency',
+      tone: !then ? 'neutral' : then.gapThen < 0 ? 'negative' : 'positive',
+      opens: WHAT_IF_SECTION_IDS.primaDopo,
+      ...(then ? {} : { reason: 'invariato' }),
+    },
+  ];
+}
 
 // ─── The event ────────────────────────────────────────────────────────────────
 

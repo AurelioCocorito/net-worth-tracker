@@ -1,8 +1,9 @@
 import type { DashboardOverviewCostDriver, DashboardOverviewPayload } from '@/types/dashboardOverview';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
-import { describeCosts } from '@/lib/utils/overviewNarrative';
+import { annualPortfolioCostTotal, describeCosts } from '@/lib/utils/overviewNarrative';
 import { cn } from '@/lib/utils';
+import type { TileCollapse } from '@/components/ui/tile';
 import { OverviewTile, TILE_SUB_EYEBROW_CLASS } from './OverviewTile';
 
 const MAX_DRIVERS = 3;
@@ -12,6 +13,10 @@ interface CostiTileProps {
   flags: DashboardOverviewPayload['flags'];
   /** Held instruments by annual TER cost, largest first. */
   costDrivers: DashboardOverviewCostDriver[];
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow (`describeOverviewAsides`). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -19,8 +24,8 @@ interface CostiTileProps {
  * "Quanto mi costa, e per cosa?" — weighted TER and the estimated annual cost (TER + stamp
  * duty) side by side, then the instruments the TER cost actually comes from.
  */
-export function CostiTile({ metrics, flags, costDrivers, className }: CostiTileProps) {
-  const annualTotal = (metrics.annualPortfolioCost ?? 0) + (metrics.annualStampDuty ?? 0);
+export function CostiTile({ metrics, flags, costDrivers, collapse, asideWhenClosed, className }: CostiTileProps) {
+  const annualTotal = annualPortfolioCostTotal(metrics);
   const bothPresent = flags.hasTERTracking && flags.hasStampDuty;
   const drivers = costDrivers.slice(0, MAX_DRIVERS);
 
@@ -28,6 +33,8 @@ export function CostiTile({ metrics, flags, costDrivers, className }: CostiTileP
     <OverviewTile
       eyebrow="Costi"
       aside="stima annua"
+      asideWhenClosed={asideWhenClosed}
+      collapse={collapse}
       reading={describeCosts(annualTotal, metrics.totalValue)}
       className={className}
     >

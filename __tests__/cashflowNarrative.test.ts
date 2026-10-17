@@ -20,9 +20,14 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import type { Period } from '@/lib/utils/period';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import type { MonthFlow, PeriodCashflowTotals, SavingsHistory, ScheduledSlice } from '@/lib/utils/tracciamentoSummary';
 import {
+  TRACKING_CLOSED_ASIDES,
+  TRACKING_REST_LABEL_CLOSING,
+  TRACKING_REST_LABEL_FIGURES,
+  describeTrackingScope,
+  scheduledScope,
   buildCashflowVerdict,
   describeCategoryShare,
   describeComparisonPhrase,
@@ -38,8 +43,10 @@ import {
   describePreviousPeriodLabel,
   describeProjectionReference,
   describeSavingsHistory,
+  describeTrackingClosedAnswers,
   type CashflowVerdictInput,
 } from '@/lib/utils/cashflowNarrative';
+import { TRACKING_SECTION_IDS } from '@/lib/utils/tracciamentoSummary';
 
 // Intl 'it-IT' puts a no-break space before "€" and leaves four-digit amounts ungrouped
 // (CLDR minimumGroupingDigits = 2): expectations are written the way the screen prints
@@ -330,6 +337,71 @@ describe('buildCashflowVerdict', () => {
   });
 });
 
+/**
+ * Where a phone cuts the verdict (since 2026-10-12; The Binding-Clause Rule, and with no strip the
+ * sentence whole) and the scope line under the strip. Seen red on 2026-10-12 with `leadLength` set to the
+ * first sentence in every branch (the no-calendar case then kept «Ad agosto hai messo da parte…»
+ * on the first screen beside the three cells that restate it), and with `describeTrackingScope`
+ * returning `null` whatever the slice.
+ */
+describe('the phone cut of the verdict and the scope line', () => {
+  const CALENDAR: ScheduledSlice = { count: 3, expenses: 1850, income: 500, throughMonth: 12 };
+
+  it('should hide the whole sentence behind «Il perché · le cifre del periodo» without a calendar', () => {
+    const verdict = buildCashflowVerdict(INPUT);
+    expect(verdict.leadLength).toBe(0);
+    expect(verdict.restLabel).toBe(TRACKING_REST_LABEL_FIGURES);
+    const split = splitVerdict(verdict);
+    expect(split.lead).toEqual([]);
+    expect(plain(split.rest)).toBe(plain(verdict.sentence));
+  });
+
+  it('should hide the lone calendar sentence the same way when nothing has happened yet', () => {
+    const verdict = buildCashflowVerdict({
+      ...INPUT,
+      totals: { income: 1850, expenses: 1850, net: 0, savingsRate: 0, coverageRatio: 1, transferCount: 0 },
+      scheduled: { count: 2, expenses: 1850, income: 1850, throughMonth: 8 },
+    });
+    expect(plain(verdict.sentence)).toMatch(/^Con /);
+    expect(verdict.leadLength).toBe(0);
+    expect(verdict.restLabel).toBe(TRACKING_REST_LABEL_FIGURES);
+  });
+
+  it('should keep the lived sentence and hide where the calendar takes it, with a calendar and a lived part', () => {
+    const verdict = buildCashflowVerdict({ ...INPUT, scheduled: CALENDAR });
+    const split = splitVerdict(verdict);
+    expect(plain(split.lead)).toBe('Ad agosto finora hai messo da parte il 76% (3290 €): entrate 4350 €, spese 1060 €, in calo del 6,4% sui primi 22 giorni di luglio.');
+    expect(plain(split.rest)).toBe(' Con 1850 € di spese e 500 € di entrate già in calendario da qui a fine mese, il mese chiude a +1940 € (il 40%).');
+    expect(split.restLabel).toBe(TRACKING_REST_LABEL_CLOSING);
+    // The cut falls on the sentence boundary: the lead ends with the full stop, the rest opens the next sentence.
+    expect(verdict.sentence[verdict.leadLength! - 1].text).toBe('.');
+  });
+
+  it('should not cut a period with no strip: nothing in, nothing out, the one sentence stays whole', () => {
+    const empty = buildCashflowVerdict({ ...INPUT, totals: { income: 0, expenses: 0, net: 0, savingsRate: null, coverageRatio: null, transferCount: 0 } });
+    expect(empty.leadLength).toBeUndefined();
+    expect(splitVerdict(empty).rest).toEqual([]);
+    const transfers = buildCashflowVerdict({ ...INPUT, totals: { income: 0, expenses: 0, net: 0, savingsRate: null, coverageRatio: null, transferCount: 2 } });
+    expect(transfers.leadLength).toBeUndefined();
+  });
+
+  it('should write the scope line without the leading space, and none without a calendar', () => {
+    const scope = describeTrackingScope(AUGUST, NOW, CALENDAR)!;
+    expect(plain(scope)).toBe('Nel totale ci sono ancora 1850 € di spese e 500 € di entrate già in calendario da qui a fine mese.');
+    expect(scope[0].text).not.toMatch(/^\s/);
+    expect(describeTrackingScope(AUGUST, NOW, NOTHING_SCHEDULED)).toBeNull();
+    // A slice with a count and no amount (transfers ahead) is no calendar either.
+    expect(describeTrackingScope(AUGUST, NOW, { count: 1, expenses: 0, income: 0, throughMonth: 9 })).toBeNull();
+    // The scope is `scheduledSentence` trimmed, and nothing else: the two say the same words.
+    expect(plain(scheduledScope(CALENDAR, 'a fine mese'))).toBe(plain(scheduledSentence(CALENDAR, 'a fine mese'))!.trimStart());
+  });
+
+  it('should keep the closed rows in words', () => {
+    expect(Object.values(TRACKING_CLOSED_ASIDES).every((aside) => !/\d/.test(aside))).toBe(true);
+    expect(TRACKING_CLOSED_ASIDES).toEqual({ spese: 'per categoria', entrate: 'per categoria', risparmio: 'mese per mese' });
+  });
+});
+
 describe('describePeriodCashflow', () => {
   it('should state the income delta and the coverage, the two facts the verdict does not', () => {
     expect(plain(describePeriodCashflow(TOTALS, { income: 3.19, expenses: -6.43 }, 'su luglio'))).toBe(
@@ -578,5 +650,102 @@ describe('describeMovements', () => {
     expect(plain(describeMovementsCount(12, 47))).toBe('12 di 47 voci');
     expect(plain(describeMovementsCount(1, 1))).toBe('1 voce');
     expect(plain(describeMovementsCount(0, 0))).toBe('nessuna voce');
+  });
+});
+
+/**
+ * The closed rows' answers of Tracciamento (2026-10-16): what each row says in the landscape index
+ * beside its eyebrow. The index sets a gap between the segments, so the expectations join them with
+ * a space. Falsified on 2026-10-16, one at a time: «one measured month is no mean» went red with the
+ * `measuredCount < 2` guard set to `< 1`; «a printed 100% never claims it all» went red with the
+ * `share >= 100` branch removed; «Movimenti keeps its count» went red with the row answering the
+ * first category.
+ */
+describe('describeTrackingClosedAnswers', () => {
+  const answer = (narrative: Narrative | null | undefined) => (narrative ? narrative.map((s) => s.text).join(' ').replace(/ /g, ' ') : null);
+  const row = (category: string, amount: number, percentage: number) => ({ category, categoryKey: category, amount, percentage });
+  const ranking = (rows: ReturnType<typeof row>[]) => ({ rows, total: rows.reduce((sum, r) => sum + r.amount, 0), remainder: null });
+  const flow = (month: number, savingsRate: number | null): MonthFlow => ({
+    key: `2026-${String(month).padStart(2, '0')}`,
+    year: 2026,
+    month,
+    label: 'x',
+    income: savingsRate === null ? 0 : 100,
+    expenses: 0,
+    net: 0,
+    savingsRate,
+    scheduled: false,
+  });
+  const history = (overrides: Partial<SavingsHistory>): SavingsHistory => ({
+    months: [flow(6, 20), flow(7, 40)],
+    ongoing: null,
+    closedCount: 2,
+    average: 30,
+    best: flow(7, 40),
+    worst: flow(6, 20),
+    deficitMonths: [],
+    measuredCount: 2,
+    ...overrides,
+  });
+  const EXPENSES = ranking([row('Casa', 1200, 40), row('Alimentari', 600, 20), row('Trasporti', 300, 10)]);
+  const INCOME = ranking([row('Stipendio', 3000, 100)]);
+  const input = (overrides: Partial<Parameters<typeof describeTrackingClosedAnswers>[0]> = {}) =>
+    describeTrackingClosedAnswers({ expenseRanking: EXPENSES, incomeRanking: INCOME, savingsHistory: history({}), ...overrides });
+
+  it('should answer the categories with the first row and its share, as the row prints it', () => {
+    const answers = input();
+    expect(answer(answers[TRACKING_SECTION_IDS.spese])).toBe('Casa 40%');
+    // The share is the ONE figure, in the numeric face; the name is prose (it may be cut, never the figure).
+    expect(answers[TRACKING_SECTION_IDS.spese]).toEqual([{ text: 'Casa' }, { text: '40%', mono: true }]);
+    expect(answer(input({ expenseRanking: ranking([row('Casa', 1200, 39.5), row('Svago', 300, 10)]) })[TRACKING_SECTION_IDS.spese])).toBe('Casa 40%');
+  });
+
+  it('should say «tutto in/da» without a figure when one category is the whole total', () => {
+    expect(answer(input()[TRACKING_SECTION_IDS.entrate])).toBe('tutto da Stipendio');
+    expect(answer(input({ expenseRanking: ranking([row('Casa', 1200, 100)]) })[TRACKING_SECTION_IDS.spese])).toBe('tutto in Casa');
+  });
+
+  it('should never claim it all on a share that prints as 100% beside other rows', () => {
+    const almost = ranking([row('Casa', 9960, 99.6), row('Svago', 40, 0.4)]);
+    expect(answer(input({ expenseRanking: almost })[TRACKING_SECTION_IDS.spese])).toBe('quasi tutto in Casa');
+  });
+
+  it('should keep the scope of an empty category row (null)', () => {
+    expect(input({ expenseRanking: ranking([]), incomeRanking: ranking([]) })).toMatchObject({
+      [TRACKING_SECTION_IDS.spese]: null,
+      [TRACKING_SECTION_IDS.entrate]: null,
+    });
+  });
+
+  it('should answer the savings history with its average and its article', () => {
+    expect(answer(input()[TRACKING_SECTION_IDS.risparmio])).toBe('in media il 30%');
+    // The elided article is a segment of its own, which the index binds to the figure («l'8%»).
+    expect(input({ savingsHistory: history({ average: 8.4 }) })[TRACKING_SECTION_IDS.risparmio]).toMatchObject([
+      { text: 'in media' },
+      { text: "l'" },
+      { text: '8%', mono: true },
+    ]);
+  });
+
+  it('should print a negative average with U+2212 in the loss colour, and a printed zero without sign', () => {
+    const negative = input({ savingsHistory: history({ average: -8.2 }) })[TRACKING_SECTION_IDS.risparmio];
+    expect(answer(negative)).toBe('in media −8%');
+    expect(negative?.[1]).toEqual({ text: '−8%', mono: true, sign: 'negative' });
+    expect(answer(input({ savingsHistory: history({ average: -0.3 }) })[TRACKING_SECTION_IDS.risparmio])).toBe('in media lo 0%');
+  });
+
+  it('should keep the scope without a mean: no measured month, or only one', () => {
+    expect(input({ savingsHistory: history({ average: null, best: null, worst: null, measuredCount: 0 }) })[TRACKING_SECTION_IDS.risparmio]).toBeNull();
+    expect(input({ savingsHistory: history({ average: 44, measuredCount: 1 }) })[TRACKING_SECTION_IDS.risparmio]).toBeNull();
+  });
+
+  it('should leave Movimenti its count (null): an inventory answers with how many rows it lists', () => {
+    expect(input()[TRACKING_SECTION_IDS.movimenti]).toBeNull();
+  });
+
+  it('should fit 22 visible characters on round figures', () => {
+    for (const narrative of Object.values(input())) {
+      if (narrative) expect(answer(narrative)!.length).toBeLessThanOrEqual(22);
+    }
   });
 });

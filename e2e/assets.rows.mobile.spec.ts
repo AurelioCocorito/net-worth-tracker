@@ -13,6 +13,11 @@
  * - The line lands without moving the row: with the sparkline's chunk HELD, the opened panel shows
  *   its 32px slot; released, the chart replaces it at the same height. A separate test, because a
  *   held chunk would keep the first one's «0 before opening» green whatever the rows mount.
+ *
+ * Since 2026-10-14 Strumenti is itself a closed ROW at 390 (`#patrimonio-strumenti`):
+ * `openPatrimonio` opens it before waiting for the rows — closed, its panel is empty and no
+ * `AssetRow` exists (`mobile-composition.patrimonio.mobile.spec.ts` holds that). The tile stays
+ * mounted closed, so the sparkline's idle preload still runs: the first test's positive anchor.
  */
 import { test, expect, type Page } from '@playwright/test';
 import { holdChunks, probeChunks } from './chunkProbe';
@@ -38,7 +43,8 @@ async function countInstruments(): Promise<number> {
 
 async function openPatrimonio(page: Page) {
   await page.goto('/dashboard/assets', { waitUntil: 'load' });
-  const rows = page.locator('section#strumenti button[aria-controls^="asset-row-"]');
+  await page.locator('#patrimonio-strumenti-trigger').click({ timeout: 90_000 });
+  const rows = page.locator('section#patrimonio-strumenti button[aria-controls^="asset-row-"]');
   await expect(rows.first()).toBeVisible({ timeout: 90_000 });
   return rows;
 }
@@ -47,7 +53,7 @@ test('Strumenti at 390 is the rows alone, and no row draws its sparkline until i
   const sparklineChunks = probeChunks(page, SPARKLINE_SIGNATURE);
   const instruments = await countInstruments();
   const rows = await openPatrimonio(page);
-  const strumenti = page.locator('section#strumenti');
+  const strumenti = page.locator('section#patrimonio-strumenti');
 
   expect(instruments).toBeGreaterThan(0);
   await expect(rows).toHaveCount(instruments);
@@ -66,7 +72,7 @@ test('Strumenti at 390 is the rows alone, and no row draws its sparkline until i
 test('an opened row holds the sparkline 32px before its code arrives: the line lands in place', async ({ page }) => {
   const held = await holdChunks(page, SPARKLINE_SIGNATURE);
   await openPatrimonio(page);
-  const strumenti = page.locator('section#strumenti');
+  const strumenti = page.locator('section#patrimonio-strumenti');
 
   // Open VWCE's row with the chunk held: its panel opens on the reserved slot.
   const row = page.locator(`button[aria-controls="asset-row-${VWCE_ID}"]`);

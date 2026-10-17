@@ -42,6 +42,10 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
 ## Per-page blind spots
 
+- **In demo the banner shortens the first screen of a tablet in landscape** (2026-10-16): it sits above `main` (beside the
+  56px icon rail, no bar since the landscape stage), so at 1024×768 the first screen is 768px minus the banner's height; the
+  stage measures `main`, so THE tile's fold shrinks with it and the left stack may stop sticking. No criterion holds it — the
+  first-screen budget is measured on `census@example.com`, never in demo (doc/guide/prima-schermata.md).
 - **That the demo account writes nothing to IndexedDB is proven by a pure test, never seen in a browser**
   (2026-09-30): `isPersistableQuery` refuses every key whose owner segment is the demo uid, and
   `__tests__/persistCache.test.ts` pins both that and the position of the owner in every key builder under a

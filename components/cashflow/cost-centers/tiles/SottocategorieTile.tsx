@@ -5,7 +5,7 @@ import type { CostCenterSubCategorySlice } from '@/types/costCenters';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface SottocategorieTileProps {
@@ -20,6 +20,10 @@ interface SottocategorieTileProps {
   color: string;
   onToggle: (key: string) => void;
   onReset: () => void;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («in totale», «2 escluse»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -30,13 +34,15 @@ interface SottocategorieTileProps {
  * the real spend (the footer says so). Rows stay operable when excluded, so they keep their
  * contrast: the line-through carries the state, never an opacity.
  */
-export function SottocategorieTile({ slices, excludedKeys, netTotal, aside, reading, footer, color, onToggle, onReset, className }: SottocategorieTileProps) {
+export function SottocategorieTile({ slices, excludedKeys, netTotal, aside, reading, footer, color, onToggle, onReset, collapse, asideWhenClosed, className }: SottocategorieTileProps) {
   const hasMultipleCategories = new Set(slices.map((slice) => slice.categoryName)).size > 1;
   const maxIncluded = Math.max(...slices.filter((slice) => !excludedKeys.has(slice.key)).map((slice) => slice.total), 0);
 
   return (
     <Tile
       eyebrow="Per sottocategoria"
+      // A string while nothing is excluded, so a closed-or-open row keeps it beside the eyebrow;
+      // with the lens on it carries a control («Reimposta»), which a row moves into its panel.
       aside={
         aside ? (
           <span className="flex items-center gap-1.5">
@@ -47,10 +53,12 @@ export function SottocategorieTile({ slices, excludedKeys, netTotal, aside, read
             </button>
           </span>
         ) : (
-          <span>in totale</span>
+          'in totale'
         )
       }
       reading={reading}
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       className={className}
     >
       <ul className="mt-2 flex flex-col divide-y divide-border">

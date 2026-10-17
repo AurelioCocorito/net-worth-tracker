@@ -15,9 +15,17 @@
  * band-INDEPENDENT (`computeBalanceScore`) and never moves with the band.
  *
  *   Desktop (12 col): Bilanciamento(5) | Piano(7)
- *                     Per classe(6)    | Esposizione(6)
+ *                     Per classe(5)    |
+ *                     Esposizione(12)
  *                     Previdenza(12, only with a pension fund)
- *   Mobile (1 col):   Bilanciamento → Piano → Per classe → Esposizione → Previdenza → Dettaglio
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule,
+ *                     since 2026-10-15): the verdict's title → the first sentence → the strip of
+ *                     two figures («Fuori posizione», the largest drift) → «Il perché» →
+ *                     Bilanciamento open, its KPI value lifted into the strip → «Il resto della
+ *                     pagina» → Per classe, Piano, Esposizione, Previdenza as closed rows
+ *                     (`useMobileSections`, doc/guide/allocazione.md § Composizione mobile) →
+ *                     «Modifica target» → the Dettaglio. No `order-*`: the phone reads the DOM.
+ *                     The Esposizione reads its profiles only once its row has been opened.
  *
  * The «Dettaglio» disclosure under the grid holds the two holdings lists the old hero kept in
  * popovers — Non negoziabili (inside the total, untouchable) and Esclusi (outside it).
@@ -48,6 +56,21 @@ import { useAssets } from '@/lib/hooks/useAssets';
 import { useSettings } from '@/lib/hooks/useSettings';
 import { useGoalData } from '@/lib/hooks/useGoalData';
 import { useFreshness } from '@/lib/hooks/useFreshness';
+import { useInstrumentProfilesState } from '@/lib/hooks/usePortfolioExposure';
+import { useMobileSections } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { calculateAssetValue } from '@/lib/services/assetService';
 import {
   compareAllocations,
@@ -74,6 +97,7 @@ import {
   type RebalanceBand,
 } from '@/lib/utils/allocationUtils';
 import {
+  ALLOCAZIONE_SECTION_IDS,
   buildCompositionPair,
   buildPensionLookThrough,
   buildPlanView,
@@ -81,6 +105,8 @@ import {
   estimatePlanSaleTax,
   offTargetGaps,
   planSaleNodes,
+  resolveAllocazioneSections,
+  selectAllocazioneStrip,
   summarizeClassGaps,
   summarizeHoldings,
   summarizeNextMoney,
@@ -89,7 +115,9 @@ import {
   type PlanMode,
 } from '@/lib/utils/allocazioneSummary';
 import {
+  ALLOCAZIONE_CLOSED_ASIDES,
   buildAllocazioneVerdict,
+  describeAllocazioneClosedAnswers,
   describeAllocazioneHeader,
   describeBalance,
   describeBalanceFooter,
@@ -105,12 +133,15 @@ import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageVerdict } from '@/components/ui/page-verdict';
-import { TILE_CELL_CLASS } from '@/components/ui/tile';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
+import { RowAnswers } from '@/components/ui/row-answers';
+import { TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure } from '@/lib/utils/statesNarrative';
 import type { TileSkeletonCell } from '@/lib/utils/tileGridSkeleton';
-import { BilanciamentoTile } from '@/components/allocation/tiles/BilanciamentoTile';
+import { BilanciamentoTile, isBilanciamentoLiftedBlock } from '@/components/allocation/tiles/BilanciamentoTile';
 import { PianoTile } from '@/components/allocation/tiles/PianoTile';
 import { PerClasseTile } from '@/components/allocation/tiles/PerClasseTile';
 import { EsposizioneTile } from '@/components/allocation/tiles/EsposizioneTile';
@@ -346,6 +377,40 @@ export default function AllocationPage() {
     if (!bandedAllocation || !balanceScore || leverageInPlay || balanceScore.leverageGapPp >= -0.5) return null;
     return { pct: -balanceScore.leverageGapPp, labels: untargetedClassLabels(holdings, bandedAllocation.byAssetClass) };
   }, [bandedAllocation, balanceScore, leverageInPlay, holdings]);
+  // The exposure gap as the reading gets it: the score's only while leverage is in play.
+  const leverageGapPp = leverageInPlay && balanceScore ? balanceScore.leverageGapPp : 0;
+
+  // ─── The phone composition (2026-10-15) ──────────────────────────────────────
+  // The profiles' read state, observed without reading (the tile's hook is the one that reads,
+  // and only once its row has been opened): a failed first read is an `ErrorNotice` row, a failed
+  // «Aggiorna» over profiles already read keeps the tile — both flag the row (`failed`).
+  const profilesState = useInstrumentProfilesState(ownerId, allAssets);
+  const exposureFailed = profilesState.isError;
+  const hasPension = pension !== null;
+  // The rows exist only with the composed grid below: the empty branch renders none, so the
+  // controller knows none (`resolveAllocazioneSections`, lib/utils/allocazioneSummary.ts).
+  const hasRows = hasAssets && !!bandedAllocation && !!balanceSummary && !!balanceScore && !!planView;
+  const sectionSpecs = useMemo(() => resolveAllocazioneSections({ hasRows, hasPension, exposureFailed }), [hasRows, hasPension, exposureFailed]);
+  const sections = useMobileSections({ route: 'allocation', sections: sectionSpecs });
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). The specs ARE the DOM's rows.
+  const stageRef = useTabletStage();
+  const tablet = useTabletComposition({ sections, order: sectionSpecs.map((section) => section.id) });
+  const { reveal: handleStripOpen } = sections;
+  const exposureCollapse = sections.collapse(ALLOCAZIONE_SECTION_IDS.esposizione);
+  // Below `desktop:` the Esposizione reads its profiles only once its row has been opened — React
+  // Query fetches a key as soon as one observer is enabled, so the hook inside the tile is off until
+  // then. `useCompactLayout` is true from the first render inside `ProtectedRoute`, so a phone never
+  // starts with `compact` false and a read already fired.
+  const exposureEnabled = !sections.compact || !!exposureCollapse?.mounted;
+  // The two figures of the first screen, read from the balance and the gaps the tiles already
+  // print, on the same leverage gap and untargeted wealth the Bilanciamento reading gets; the KPI
+  // «Fuori posizione» hides its value on a phone (the strip has it).
+  const strip = balanceScore ? selectAllocazioneStrip({ balance: balanceScore, gaps, leverageGapPp, untargeted }) : [];
+  const bilanciamentoLifted = liftedBlocks(strip, ALLOCAZIONE_SECTION_IDS.bilanciamento).filter(isBilanciamentoLiftedBlock);
+  // What each closed row answers in the landscape index (2026-10-16): figures the page already has.
+  // Memoized: a new map on every render would re-render every row.
+  const rowAnswers = useMemo(() => describeAllocazioneClosedAnswers({ gaps: activeGaps, planView, pension }), [activeGaps, planView, pension]);
 
   // ─── The words (pure layer) ─────────────────────────────────────────────────
   const verdict = useMemo(
@@ -445,34 +510,52 @@ export default function AllocationPage() {
     <PageContainer>
       {header}
 
-      <div className="pt-1">
-        <PageVerdict verdict={verdict} ariaLabel="Verdetto sull'allocazione" />
-      </div>
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <RowAnswers value={rowAnswers}>
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
+      <div data-stage="verdict" className={cn('pt-1', VERDICT_CELL_CLASS)}>
+        <PageVerdict
+          verdict={verdict}
+          ariaLabel="Verdetto sull'allocazione"
+          strip={<VerdictStrip figures={strip} onOpen={handleStripOpen} eyebrows={sections.eyebrows} />}
+          restCollapse={sections.collapse(VERDICT_REST_SECTION)}
+        />
 
-      {/* The band re-classifies the verdict, this page's plan and every chip at once. The region is
-          mounted with the page, before anything changes, so a reader is already watching it when the
-          text is rewritten — one created together with its content announces nothing. */}
-      <p className="sr-only" role="status" aria-live="polite">
-        {describeBandChange({ band, offTargetCount: balanceSummary.offTargetCount, classCount })}
-      </p>
+        {/* The band re-classifies the verdict, this page's plan and every chip at once. The region is
+            mounted with the page, before anything changes, so a reader is already watching it when the
+            text is rewritten — one created together with its content announces nothing. In the
+            verdict's box, never a loose cell of the stage; `sr-only` is out of the flow, so the box
+            measures what it did. */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {describeBandChange({ band, offTargetCount: balanceSummary.offTargetCount, classCount })}
+        </p>
+      </div>
 
       {/* Two columns at NATURAL height from `desktop:`, because the Piano is no longer a tile of
           Bilanciamento's size: naming the instruments of a rebalance makes it ~1060px beside a
           ~380px neighbour, and a tile inflated to fill that is an empty card, not a layout
           (AGENTS.md → a tile stretched beside a taller neighbour is cured in the GRID). Per classe
           rises under Bilanciamento, which closes the void to ~110px, and Esposizione takes the full
-          width below. Below `desktop:` both wrappers are `contents`, so the tiles are items of the
-          grid again in their own `order-*` — the phone keeps reading Bilanciamento → Piano → Per
-          classe → Esposizione.
-          Tablet (768-1439): Bilanciamento and Piano full width, Per classe beside Esposizione. */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className="contents desktop:col-span-5 desktop:flex desktop:min-w-0 desktop:flex-col desktop:gap-3 desktop:self-start">
-        <div className={cn(TILE_CELL_CLASS, 'order-1 tablet:col-span-2 desktop:order-none')}>
+          width below. Below `desktop:` the tiles are items of the grid in the DOM's order — ONE
+          sequence, no `order-*` (The First-Screen Rule): Bilanciamento, «Il resto della pagina», Per classe,
+          Piano, Esposizione, Previdenza.
+          At 768 Bilanciamento on two columns, the closed rows two by two, an open row on the whole
+          grid row; on a tablet in landscape the index beside the verdict and Bilanciamento. */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      {/* At 1440 the left column is placed on the grid, not wrapped (since 2026-10-16, so that «Il resto»
+          and the rows fit ONE index on a tablet in landscape): Bilanciamento on row 1, Per classe under it
+          on row 2, Piano across both; the `1fr` second row takes Piano's extra height, so Per classe sits
+          right under Bilanciamento as the old column made it. */}
+      <div className={cn(COMPACT_GRID_CLASS, 'desktop:grid-rows-[auto_1fr]')}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-start-1 desktop:self-start')}>
           <BilanciamentoTile
+            liftedFigures={bilanciamentoLifted}
             reading={describeBalance({
               marketValue: bandedAllocation.marketValue,
               misallocationPct: balanceScore.misallocationPct,
-              leverageGapPp: leverageInPlay ? balanceScore.leverageGapPp : 0,
+              leverageGapPp,
               offTargetCount: balanceSummary.offTargetCount,
               classCount,
               band,
@@ -496,8 +579,13 @@ export default function AllocationPage() {
           />
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'order-3 desktop:order-none')}>
+        <div className={INDEX_CLASS}>
+        <PageRest sections={sections} className={REST_CELL_CLASS} />
+
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.perClasse), 'desktop:col-span-5 desktop:col-start-1 desktop:row-start-2 desktop:self-start')}>
           <PerClasseTile
+            collapse={sections.collapse(ALLOCAZIONE_SECTION_IDS.perClasse)}
+            asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.perClasse]}
             reading={describeClasses(activeGaps, band)}
             aside="corrente · target · gap"
             allocation={{ ...bandedAllocation, bySubCategory: actionableSubCategories }}
@@ -506,10 +594,11 @@ export default function AllocationPage() {
             excludedByClass={excludedByClass}
           />
         </div>
-        </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'order-2 tablet:col-span-2 desktop:order-none desktop:col-span-7 desktop:self-start')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.piano), 'desktop:col-span-7 desktop:col-start-6 desktop:row-span-2 desktop:row-start-1 desktop:self-start')}>
           <PianoTile
+            collapse={sections.collapse(ALLOCAZIONE_SECTION_IDS.piano)}
+            asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.piano]}
             mode={planMode}
             onModeChange={setPlanMode}
             amountInput={amountInput}
@@ -520,20 +609,54 @@ export default function AllocationPage() {
           />
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'order-4 desktop:order-none desktop:col-span-12')}>
-          {user && ownerId && <EsposizioneTile ownerId={ownerId} assets={allAssets} />}
+        {/* A failed FIRST read of the profiles is a failed row below `desktop:` (silent: `PageRest`
+            carries the one live node); a failed «Aggiorna» over profiles already read keeps the
+            tile with its own notice. An unread slice is never a failed read: `failed` is the
+            query's `isError` alone. At 1440 the tile is the tile of today. */}
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.esposizione), 'desktop:col-span-12')}>
+          {user && ownerId && exposureCollapse && exposureFailed && !profilesState.hasProfiles ? (
+            <ErrorNotice
+              collapse={exposureCollapse}
+              live={false}
+              onRetry={() => void profilesState.refetch()}
+              notice={describeReadFailure({
+                subject: 'Esposizione',
+                consequence: 'Le composizioni degli strumenti quotati non sono state lette: senza di esse titoli, settori ed emittenti non si pesano.',
+                untouched: 'Il portafoglio e i target registrati non sono stati toccati.',
+                canRetry: true,
+              })}
+            />
+          ) : (
+            user &&
+            ownerId && (
+              <EsposizioneTile
+                ownerId={ownerId}
+                assets={allAssets}
+                enabled={exposureEnabled}
+                collapse={exposureCollapse}
+                asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.esposizione]}
+              />
+            )
+          )}
         </div>
 
         {pension && (
-          <div className={cn(TILE_CELL_CLASS, 'order-5 tablet:col-span-2 desktop:order-none desktop:col-span-12')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.previdenza), 'desktop:col-span-12')}>
             <PrevidenzaTile
+              collapse={sections.collapse(ALLOCAZIONE_SECTION_IDS.previdenza)}
+              asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.previdenza]}
               reading={describePension(pension)}
               aside={describePensionAside({ fundNames: pensionFundNames, fundValue: pension.fundValue, allFrozen: pension.allFrozen })}
               lookThrough={pension}
             />
           </div>
         )}
+        </div>
       </div>
+      </div>
+      </div>
+      </div>
+      </RowAnswers>
 
       {mobileAction}
 

@@ -29,12 +29,16 @@ import {
   describeCosts,
   describeGoal,
   describeLiquidity,
+  describeScheduledCaption,
+  describeScheduledNetCaption,
   narrativeToText,
+  overviewRestLabel,
   projectMonthEndSpending,
   resolveLivedCashflow,
   type Narrative,
   type OverviewVerdictInput,
 } from '@/lib/utils/overviewNarrative';
+import { splitVerdict } from '@/lib/utils/narrative';
 import type { DashboardOverviewExpenseStats } from '@/types/dashboardOverview';
 
 // Intl 'it-IT' separates the amount from "€" with a no-break space and leaves four-digit
@@ -140,7 +144,7 @@ describe('buildOverviewVerdict — headline and tone', () => {
     // The sale comes right after the variation and carries the month without the tax, and the
     // pension band reads as a subject, not as its database key.
     expect(plain(verdict.sentence)).toBe(
-      'Il patrimonio vale 412.380,52 €: −4155,63 € (−1,40%) su agosto, +8,29% da inizio anno. ' +
+      'Il patrimonio vale 412.380,52 €: −4155,63 € (−1,40%) su agosto, +8,29% da inizio anno (+31.560,00 €). ' +
         'Hai venduto Vanguard FTSE All-World per 39.052 € con una plusvalenza di 15.726 € e pagato circa 4089 € di tasse: ' +
         'senza, il mese avrebbe fatto −67 € (+153 € dal mercato e −220 € tra risparmio e altre variazioni). ' +
         'Hai messo da parte il 40% delle entrate; sul mercato hanno spinto soprattutto i fondi pensione (+256 €).',
@@ -177,7 +181,7 @@ describe('buildOverviewVerdict — headline and tone', () => {
     expect(verdict.headline).toBe('Settembre è in pari: le tasse sulla vendita di VWCE si sono prese la crescita.');
     expect(verdict.tone).toBe('warning');
     expect(plain(verdict.sentence)).toBe(
-      'Il patrimonio vale 297.209,77 €: +124,32 € (+0,04%) su agosto, +13,47% da inizio anno, nuovo massimo storico. ' +
+      'Il patrimonio vale 297.209,77 €: +124,32 € (+0,04%) su agosto, +13,47% da inizio anno (+35.288,88 €), nuovo massimo storico. ' +
         'Hai venduto VWCE per 39.052 € con una plusvalenza di 15.726 € e pagato circa 4089 € di tasse: ' +
         'senza, il mese avrebbe fatto +4213 € (+2018 € dal mercato e +2095 € risparmiati). ' +
         'Nello stesso mese hai comprato 6 strumenti per 34.305 €. ' +
@@ -244,7 +248,7 @@ describe('buildOverviewVerdict — sentence', () => {
   it('should state value, monthly and yearly change, the record, savings and the market driver', () => {
     const text = plain(buildOverviewVerdict(AUGUST).sentence);
     expect(text).toBe(
-      'Il patrimonio vale 412.380,52 €: +4120,18 € (+1,01%) su luglio, +8,29% da inizio anno, nuovo massimo storico. ' +
+      'Il patrimonio vale 412.380,52 €: +4120,18 € (+1,01%) su luglio, +8,29% da inizio anno (+31.560,00 €), nuovo massimo storico. ' +
         'Hai messo da parte il 40% delle entrate; sul mercato hanno spinto soprattutto le azioni (+3480 €). ' +
         'Di quel movimento: +3980 € dal mercato e +140 € tra risparmio e altre variazioni.',
     );
@@ -339,7 +343,7 @@ describe('buildOverviewVerdict — sentence', () => {
       }).sentence,
     );
     expect(text).toBe(
-      'Il patrimonio vale 412.380,52 €: +4120,18 € (+1,01%) su dicembre, +8,29% da inizio anno. ' +
+      'Il patrimonio vale 412.380,52 €: +4120,18 € (+1,01%) su dicembre, +8,29% da inizio anno (+31.560,00 €). ' +
         'Hai messo da parte il 40% delle entrate.',
     );
   });
@@ -379,6 +383,15 @@ describe('buildOverviewVerdict — the month split and the savings already made'
     const text = plain(buildOverviewVerdict(WITH_CASHFLOW).sentence);
     expect(text).toContain('Hai messo da parte il 28% delle entrate finora; sul mercato');
     expect(text).toContain('Di quel movimento: +3980 € dal mercato, +1180 € risparmiati, −1040 € di altre variazioni.');
+  });
+
+  it("should name the month's pension contributions instead of «altre variazioni»", () => {
+    // 4120,18 = 3980 + 1180 − 1039,82 of which −1039,82 is nothing the flows explain; with 1000 €
+    // paid into the fund the rest is −2040 € (owner, 2026-10-14: the contributions are named).
+    const withFlows = { ...WITH_CASHFLOW, monthFlows: { pensionPaidIn: 1000, debts: [] } };
+    expect(plain(buildOverviewVerdict(withFlows).sentence)).toContain(
+      'Di quel movimento: +3980 € dal mercato, +1180 € risparmiati, +1000 € versati nel fondo pensione, −2040 € di altre variazioni.',
+    );
   });
 
   it('should drop the other changes under 1 €, and say «spesi oltre le entrate» for negative savings', () => {
@@ -519,5 +532,175 @@ describe('projectMonthEndSpending', () => {
   it('should return null when the month has not started or the calendar is malformed', () => {
     expect(projectMonthEndSpending(100, 0, 31)).toBeNull();
     expect(projectMonthEndSpending(100, 5, 0)).toBeNull();
+  });
+});
+
+/**
+ * Where a phone cuts the verdict (since 2026-10-11; The Binding-Clause Rule and doc/guide/panoramica.md).
+ * Falsified on 2026-10-11, one at a time: «title only» went red with `leadLength` set to the
+ * first sentence's length; the taxed-story cut went red moved one segment earlier (the tax's
+ * `binding` segment past the cut cancelled it, no «Il perché» at all) and one later (the savings
+ * clause's first segment landed in the lead); the whole-paragraph case went red with `binding`
+ * removed from `describeSales`; the unsigned zero went red (in the retirement, the same day) with
+ * the `isPrintedZero` branch removed from `signed` («+0,00 €»).
+ */
+describe('buildOverviewVerdict — the phone cut', () => {
+  it('should cut under the title: the strip restates the first sentence, the rest is «Il perché»', () => {
+    const verdict = buildOverviewVerdict(AUGUST);
+    expect(verdict.leadLength).toBe(0);
+    expect(verdict.restLabel).toBe('il patrimonio, il risparmio e il mercato del mese');
+
+    const split = splitVerdict(verdict);
+    expect(split.lead).toEqual([]);
+    expect(plain(split.rest)).toBe(plain(verdict.sentence));
+    expect(split.restLabel).toBe('il patrimonio, il risparmio e il mercato del mese');
+  });
+
+  it('should cut AFTER the sale when the headline names its tax: the tax stays on the first screen', () => {
+    // The flat month: the lead is the first sentence, the sale and the purchases; the savings and
+    // the market go behind «Il perché».
+    const SEPTEMBER_FLAT: OverviewVerdictInput = {
+      month: 9,
+      totalValue: 300000,
+      monthlyVariation: { value: 100, percentage: 0.03 },
+      yearlyVariation: { value: 30000, percentage: 11.11 },
+      isNewATH: false,
+      savingsRate: 40,
+      cashflow: { savings: 2000, savingsRate: 40, scheduledExpenses: 0, scheduledIncome: 0 },
+      marketEffect: 2000,
+      topMover: { assetClass: 'equity', delta: 1500 },
+      sales: {
+        proceeds: 40000,
+        realizedGain: 16000,
+        estimatedTax: 4160,
+        instruments: [{ id: 'a', name: 'VWCE', proceeds: 40000, realizedGain: 16000, estimatedTax: 4160 }],
+        brokenLedgers: 0,
+        purchases: { amount: 30000, instrumentCount: 2 },
+      },
+    };
+    const verdict = buildOverviewVerdict(SEPTEMBER_FLAT);
+    expect(verdict.headline).toContain('è in pari');
+    const split = splitVerdict(verdict);
+    expect(plain(split.lead)).toBe(
+      'Il patrimonio vale 300.000,00 €: +100,00 € (+0,03%) su agosto, +11,11% da inizio anno (+30.000,00 €). ' +
+        'Hai venduto VWCE per 40.000 € con una plusvalenza di 16.000 € e pagato circa 4160 € di tasse: ' +
+        'senza, il mese avrebbe fatto +4260 € (+2000 € dal mercato, +2000 € risparmiati, +260 € di altre variazioni). ' +
+        'Nello stesso mese hai comprato 2 strumenti per 30.000 €.',
+    );
+    expect(plain(split.rest)).toBe(' Hai messo da parte il 40% delle entrate finora; sul mercato hanno spinto soprattutto le azioni (+1500 €).');
+    expect(split.restLabel).toBe('il patrimonio, il risparmio e il mercato del mese');
+    // The cut sits on a segment boundary, right after the sale clause.
+    expect(verdict.leadLength).toBe(verdict.sentence.findIndex((segment) => segment.text.startsWith(' Hai messo da parte')));
+  });
+
+  it('should keep the whole paragraph on a phone when a taxed sale is not the story (its clause is binding)', () => {
+    const verdict = buildOverviewVerdict({
+      ...AUGUST,
+      sales: {
+        proceeds: 10000,
+        realizedGain: 2000,
+        estimatedTax: 520,
+        instruments: [{ id: 'a', name: 'A', proceeds: 10000, realizedGain: 2000, estimatedTax: 520 }],
+        brokenLedgers: 0,
+      },
+    });
+    expect(verdict.headline).toBe('Agosto sta andando bene.');
+    expect(verdict.leadLength).toBe(0);
+    const split = splitVerdict(verdict);
+    expect(split.rest).toEqual([]);
+    expect(split.restLabel).toBeNull();
+    expect(plain(split.lead)).toContain('pagato circa 520 € di tasse');
+  });
+
+  it('should hide a sale without tax behind «Il perché» and name it in the label', () => {
+    const verdict = buildOverviewVerdict({
+      ...AUGUST,
+      sales: {
+        proceeds: 1000,
+        realizedGain: -200,
+        estimatedTax: 0,
+        instruments: [{ id: 'a', name: 'A', proceeds: 1000, realizedGain: -200, estimatedTax: 0 }],
+        brokenLedgers: 0,
+        purchases: null,
+      },
+    });
+    expect(verdict.restLabel).toBe('il patrimonio, il risparmio, il mercato e la vendita del mese');
+    expect(splitVerdict(verdict).rest.length).toBeGreaterThan(0);
+  });
+
+  it('should set no cut when the sentence ends at the lead', () => {
+    // The taxed story with nothing after the sale: no savings, no market.
+    const verdict = buildOverviewVerdict({
+      month: 9,
+      totalValue: 300000,
+      monthlyVariation: { value: 100, percentage: 0.03 },
+      yearlyVariation: null,
+      isNewATH: false,
+      savingsRate: null,
+      marketEffect: null,
+      topMover: null,
+      sales: {
+        proceeds: 40000,
+        realizedGain: 16000,
+        estimatedTax: 4160,
+        instruments: [{ id: 'a', name: 'VWCE', proceeds: 40000, realizedGain: 16000, estimatedTax: 4160 }],
+        brokenLedgers: 0,
+      },
+    });
+    expect(verdict.leadLength).toBeUndefined();
+    expect(verdict.restLabel).toBeUndefined();
+  });
+
+  it('should print a zero without a sign and without a colour, −0,004 included', () => {
+    const verdict = buildOverviewVerdict({ ...AUGUST, monthlyVariation: { value: -0.004, percentage: 0 }, yearlyVariation: { value: 0, percentage: -0.001 } });
+    expect(plain(verdict.sentence)).toContain('Il patrimonio vale 412.380,52 €: 0,00 € (0,00%) su luglio, 0,00% da inizio anno (0,00 €)');
+    const zero = verdict.sentence.find((segment) => plain([segment]) === '0,00 €');
+    expect(zero).toMatchObject({ mono: true });
+    expect(zero?.sign).toBeUndefined();
+  });
+
+  it('should print the year\'s euro in brackets after its percentage, signed', () => {
+    const segments = buildOverviewVerdict({ ...AUGUST, yearlyVariation: { value: -2500, percentage: -0.6 } }).sentence;
+    expect(plain(segments)).toContain(', −0,60% da inizio anno (−2500,00 €)');
+    expect(segments.find((segment) => segment.text.startsWith('−2500'))).toMatchObject({ mono: true, sign: 'negative' });
+  });
+});
+
+/** Seen red on 2026-10-11 (the retirement) with «il patrimonio» removed from the list: four tests, this one first. */
+describe('overviewRestLabel', () => {
+  it('should always open on «il patrimonio» and close on «del mese», the subjects in a fixed order', () => {
+    expect(overviewRestLabel({ savings: false, market: false, sale: false })).toBe('il patrimonio del mese');
+    expect(overviewRestLabel({ savings: true, market: false, sale: false })).toBe('il patrimonio e il risparmio del mese');
+    expect(overviewRestLabel({ savings: false, market: true, sale: false })).toBe('il patrimonio e il mercato del mese');
+    expect(overviewRestLabel({ savings: false, market: false, sale: true })).toBe('il patrimonio e la vendita del mese');
+    expect(overviewRestLabel({ savings: true, market: true, sale: false })).toBe('il patrimonio, il risparmio e il mercato del mese');
+    expect(overviewRestLabel({ savings: true, market: false, sale: true })).toBe('il patrimonio, il risparmio e la vendita del mese');
+    expect(overviewRestLabel({ savings: false, market: true, sale: true })).toBe('il patrimonio, il mercato e la vendita del mese');
+    expect(overviewRestLabel({ savings: true, market: true, sale: true })).toBe('il patrimonio, il risparmio, il mercato e la vendita del mese');
+  });
+});
+
+/**
+ * The calendar as a caption under a figure (The Scheduled-Is-Not-Spent Rule).
+ * Falsified on 2026-10-11: the floor case went red with `> 0` in place of `>= 1`; the words went
+ * red with «già» dropped.
+ */
+describe('describeScheduledCaption', () => {
+  it('should say the amount is inside the figure, with the words of scheduledSentence and the horizon', () => {
+    expect(plain(describeScheduledCaption(350, 30)!)).toBe('di cui 350 € già in calendario, entro il 30');
+    expect(plain(describeScheduledCaption(350, 30)!.filter((segment) => segment.mono))).toBe('350 €');
+  });
+
+  it('should drop the caption under one euro', () => {
+    expect(describeScheduledCaption(0, 30)).toBeNull();
+    expect(describeScheduledCaption(0.5, 30)).toBeNull();
+    expect(describeScheduledCaption(1, 31)).not.toBeNull();
+  });
+
+  it('should name both sides under the month\'s savings, or the one side that is scheduled', () => {
+    expect(plain(describeScheduledNetCaption(350, 2456, 30)!)).toBe('di cui 350 € di spese e 2456 € di entrate già in calendario, entro il 30');
+    expect(plain(describeScheduledNetCaption(350, 0.2, 30)!)).toBe('di cui 350 € di spese già in calendario, entro il 30');
+    expect(plain(describeScheduledNetCaption(0, 2456, 31)!)).toBe('di cui 2456 € di entrate già in calendario, entro il 31');
+    expect(describeScheduledNetCaption(0, 0, 30)).toBeNull();
   });
 });

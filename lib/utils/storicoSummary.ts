@@ -21,6 +21,9 @@ import type { DoublingMilestone, MonthlySnapshot } from '@/types/assets';
 import type { Expense } from '@/types/expenses';
 import { getItalyMonth, getItalyYear } from '@/lib/utils/dateHelpers';
 import type { GrowthDrivers } from '@/lib/utils/growthDrivers';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
+import type { DriverLedgerRow } from '@/lib/utils/storicoNarrative';
 
 export interface PeriodMonth {
   year: number;
@@ -479,4 +482,72 @@ export function summarizeLaborMetrics(
     otherChanges,
     coverage: spending > 0 && totalLaborIncome > 0 ? totalLaborIncome / spending : null,
   };
+}
+
+// ─── The phone composition (2026-10-14) ───────────────────────────────────────
+
+/** THE tile of the page (Evoluzione): open at every width, never a row (The First-Screen Rule). */
+export const STORICO_EVOLUZIONE_ID = 'storico-evoluzione';
+
+/** The rows below `desktop:`, in the DOM's order (The First-Screen Rule: the `order-*` of a phone are gone). */
+export const STORICO_SECTION_IDS = {
+  composizione: 'storico-composizione',
+  raddoppi: 'storico-raddoppi',
+  driver: 'storico-driver',
+  valore: 'storico-valore',
+} as const;
+
+/** The block of `EvoluzioneTile` the strip lifts: the euro of the «ultimi 12 mesi» chip (its percentage stays). */
+export const STORICO_TRAILING_BLOCK = 'trailing';
+
+/**
+ * The phone's strip of Storico (The First-Screen and Lifted-Figure Rules): the last twelve
+ * months in euro — the euro of Evoluzione's third chip, lifted (its percentage stays),
+ * opening «Il perché», whose sentence names the pace — and ONE cell of the Driver, the featured
+ * year's savings exactly as its ledger row prints it (whole euros, signed, uncoloured: a flow;
+ * «0 €» unsigned), opening the Driver. The ledger itself is never lifted: it adds up to the euro
+ * under the reader's eyes, so a cell may repeat a row of it (DESIGN → Ranked Rows with Residual).
+ *
+ * The page passes what `DriverTile` prints — `ledger = buildDriverLedger(featured.row)` and, for a
+ * running year, `window = describeRunningWindowShort(featured.row)` («gen–set»), so the label never
+ * names a whole year that is not there. Types only from `storicoNarrative.ts`: that module imports
+ * this one at runtime. `featured === null` → no Driver cell. The page draws no strip with fewer
+ * than two snapshots.
+ *
+ * Without the twelve months there is no pace sentence, so no «Il perché» to open: the cell says why
+ * and opens THE tile, whose curve shows how short the history is (seen on the base fixture at 390,
+ * 2026-10-14 — a cell opening a rest that does not exist is a dead button).
+ */
+export function selectStoricoStrip({
+  pace,
+  featured,
+  ledger,
+  window,
+}: {
+  pace: Pick<GrowthPace, 'trailingDelta'>;
+  featured: { row: Pick<DriverYear, 'year'>; isRunning: boolean } | null;
+  ledger: readonly Pick<DriverLedgerRow, 'key' | 'value'>[];
+  window: string | null;
+}): StripFigure[] {
+  const figures: StripFigure[] = [
+    {
+      label: `Ultimi ${TRAILING_MONTHS} mesi`,
+      value: pace.trailingDelta,
+      format: 'signed-currency',
+      opens: pace.trailingDelta === null ? STORICO_EVOLUZIONE_ID : VERDICT_REST_SECTION,
+      lifts: { section: STORICO_EVOLUZIONE_ID, block: STORICO_TRAILING_BLOCK },
+      ...(pace.trailingDelta === null ? { reason: 'meno di un anno di storico' } : {}),
+    },
+  ];
+  const savings = ledger.find((row) => row.key === 'savings');
+  if (featured && savings) {
+    figures.push({
+      label: window ? `Risparmio ${featured.row.year} · ${window}` : `Risparmio ${featured.row.year}`,
+      value: savings.value,
+      format: 'signed-currency',
+      tone: 'neutral',
+      opens: STORICO_SECTION_IDS.driver,
+    });
+  }
+  return figures;
 }

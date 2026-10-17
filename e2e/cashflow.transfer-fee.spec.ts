@@ -2,7 +2,7 @@
  * Cashflow — the fee of a row, in a real browser (2026-09-25 on a transfer, lib/utils/expenseFee.ts;
  * on any row and on every occurrence of a series since 2026-10-10), and a transfer that lands on a
  * property (a deposit on a house, 2026-10-10): a plain spesa and a two-row series take a fee each,
- * the fixture plants «Casa Tarsio» at price 1 (the shape a transfer can land on).
+ * the fixture plants «Casa Nibbio» at price 1 (the shape a transfer can land on).
  *
  * What only a browser can prove here: that the setting chosen in Impostazioni › Spese survives a
  * hard reload (the half of the round trip `settingsRoundTrip` cannot see), that without it the
@@ -14,7 +14,7 @@
  * Runs on the base seed (`test@example.com`, «Conto Corrente» = `seed-cash`). It plants a second
  * account «Conto Fenicottero» and a spending category «Commissioni Ornitorinco» (decoys absent
  * from the seed), and RESTORES the WHOLE settings document it read, which other fixtures also write
- * (AGENTS.md → a spec that edits a shared document restores, never deletes): «Salva» rewrites every
+ * (AGENTS.md § Audit habits: a spec that edits a document another fixture writes restores, never deletes): «Salva» rewrites every
  * field the page holds, the allocation `targets` included — the page drops the seed's sub-targets,
  * and on 2026-09-25 restoring only the two fee fields left Allocazione's spec with no class to open.
  */
@@ -31,10 +31,10 @@ const FEE_CATEGORY_ID = 'e2e-fee-category';
 const FEE_CATEGORY_NAME = 'Commissioni Ornitorinco';
 const NOTE = 'Giro Fenicottero';
 const SPESA_NOTE = 'Bonifico Ornitorinco';
-const SERIES_NOTE = 'Rata Tarsio';
-const DEPOSIT_NOTE = 'Caparra Tarsio';
+const SERIES_NOTE = 'Rata Nibbio';
+const DEPOSIT_NOTE = 'Caparra Nibbio';
 const HOUSE_ID = 'e2e-fee-house';
-const HOUSE_NAME = 'Casa Tarsio';
+const HOUSE_NAME = 'Casa Nibbio';
 const AMOUNT = 137.29;
 const DEST_START = 1000;
 

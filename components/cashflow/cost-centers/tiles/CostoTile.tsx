@@ -14,6 +14,8 @@ import { progressFillColor, progressTextClass } from '@/components/cashflow/budg
 import { CenterStackBars } from './CenterStackBars';
 
 interface CostoTileProps {
+  /** THE tile's anchor (`cdc-centro-costo`): open at every width, never a row (The First-Screen Rule). */
+  id?: string;
   summary: CenterSummary;
   /** The center's own trailing months (a one-series stack). */
   stack: CenterMonthStack;
@@ -52,12 +54,12 @@ function Kpi({ label, reading }: { label: string; reading: KpiReading }) {
  * stretches when the tile spans two rows), and the fixed/one-off split as the footer.
  * Every figure is the `CenterSummary`'s; the tile computes nothing.
  */
-export function CostoTile({ summary, stack, stackCaption, aside, reading, footer, kpis, palette, now, className }: CostoTileProps) {
+export function CostoTile({ id, summary, stack, stackCaption, aside, reading, footer, kpis, palette, now, className }: CostoTileProps) {
   const budget = summary.budget;
   const ratio = budget ? budget.spent / budget.amount : 0;
 
   return (
-    <Tile eyebrow="Costo" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className} ariaLabel={`Costo di ${summary.center.name}`}>
+    <Tile id={id} eyebrow="Costo" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className} ariaLabel={`Costo di ${summary.center.name}`}>
       <div className="mt-4 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
         <p className={resolveHeroValueClass(summary.total)}>{cachedFormatCurrencyEUR(summary.total, true)}</p>
         {summary.monthsSpan > 0 && (

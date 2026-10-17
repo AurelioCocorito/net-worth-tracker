@@ -18,7 +18,7 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
-const bottomNav = (page: Page) => page.locator('nav[aria-label="Navigazione principale"]');
+const bottomNav = (page: Page) => page.locator('nav[data-nav="pill"]');
 
 async function openPanoramica(page: Page) {
   await page.goto('/dashboard');
@@ -41,7 +41,7 @@ test('the pill glides aside when the «+» of Tracciamento appears', async ({ pa
 
   // Every frame from before the click: the nav's left edge.
   await page.evaluate(() => {
-    const nav = document.querySelector('nav[aria-label="Navigazione principale"]')!;
+    const nav = document.querySelector('nav[data-nav="pill"]')!;
     const lefts: number[] = [];
     (window as unknown as { __lefts: number[] }).__lefts = lefts;
     const start = performance.now();
@@ -72,7 +72,7 @@ test('a client navigation measures the visible nav — the control of the 0 at 1
     (window as unknown as { __perf14: typeof spy }).__perf14 = spy;
     const getBoundingClientRect = Element.prototype.getBoundingClientRect;
     Element.prototype.getBoundingClientRect = function (this: Element) {
-      if (this.closest('nav[aria-label="Navigazione principale"]')) spy.bottomNavMeasures++;
+      if (this.closest('nav[data-nav="pill"]')) spy.bottomNavMeasures++;
       return getBoundingClientRect.call(this);
     };
   });
@@ -94,7 +94,7 @@ test('a page scene keeps the pill above the page: its own view-transition group,
   await page.evaluate(() => {
     const seen = { groups: new Set<string>(), containerNames: new Set<string>() };
     (window as unknown as { __scene: typeof seen }).__scene = seen;
-    const container = document.querySelector('nav[aria-label="Navigazione principale"]')!.parentElement!.parentElement!;
+    const container = document.querySelector('nav[data-nav="pill"]')!.parentElement!.parentElement!;
     const tick = () => {
       if (document.documentElement.dataset.vt === 'page') {
         seen.containerNames.add(getComputedStyle(container).viewTransitionName);

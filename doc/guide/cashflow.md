@@ -115,7 +115,7 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 - **`ExpenseDialog` type change is shape-aware across all five types**: `editBalanceEffects` (lib/utils/cashSettlement.ts)
   gives back the OLD shape's applied effect and applies the new one, both legs of a transfer included, in one transaction.
   `updateExpense` re-derives the sign from the incoming type and nulls `transferCashAssetId` when it leaves transfer.
-  **That control lives in EDIT mode only** — creation picks the type in step 1 (AGENTS.md § Two-Step Create Dialogs), so the
+  **That control lives in EDIT mode only** — creation picks the type in step 1 (doc/guide/dialog.md § Two-Step Create Dialogs), so the
   reconciliation paths above are reachable exclusively from a saved row.
 - **A transfer IS its two accounts** (2026-09-13): `expenseSchema`'s last `superRefine` refuses a `transfer` without
   origin and destination or with the same account twice, with the error under each Select (the `__none__` sentinel
@@ -287,7 +287,7 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   Until then every opening ran four reads of its own. A category created from the form reaches every reader through
   the invalidation `loadCategories` now is; the default account of a NEW row is set by an effect declared AFTER the
   form-reset effect, so the reset clears the field first in the commit that opens the dialog (the order the old async
-  loader had by accident). The form's reset rules are unchanged (AGENTS.md § Dialog Form Reset).
+  loader had by accident). The form's reset rules are unchanged (doc/guide/dialog.md § Dialog Form Reset).
 - **The other category readers go through the key too**: `CategoryDeleteConfirmDialog`, `CategoryMoveDialog`,
   `CategoryManagementDialog` and the CSV import read once after a write with
   `queryClient.fetchQuery(categoriesQueryOptions(ownerId))` — the import's commit with `staleTime: 0`, because the
@@ -314,6 +314,14 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   390) and 4 (Divisione at 1440); `e2e/lazyTabLanding.ts` holds the geometry. A value imported from a tab module into
   the page puts it back in the initial graph — types only. A deep link (`?tab=dividends`) pays one chunk request
   before the tab's own reads.
+- **Five composed tabs in ONE DOM** (2026-10-12): every panel is `forceMount`, so the five verdicts and their
+  rows live together. Each tab owns a `useMobileSections` controller with its `tab` — the memory is per tab
+  (`mobile-sections:cashflow:tracking|budget|cost-centers|cost-centers-center|split|dividends`) — and every id is prefixed
+  (`trk-`, `bud-`, `cdc-`, `spl-`, `dvd-`, the rest ids `<prefix>-perche` included): two `perche-panel` in one `main`
+  would be one id twice (held by `e2e/mobile-composition.cashflow.split.mobile.spec.ts`). The page passes `active`
+  (`effectiveTab === value`) to each tab: `PageRest` remounts on activation (`key`), so its `role="alert"` — a live
+  region under `display: none` is never heard — speaks for the tab that shows. The two fallbacks draw the axis in the
+  skeleton's `axis` slot (`VerdictSkeleton.axis`), where the tabs put it (`PageVerdict.axis`, also while `pending`).
 
 ## Per-page blind spots
 

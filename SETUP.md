@@ -19,7 +19,7 @@ This guide will walk you through setting up the Portfolio Tracker web app from s
 
 Before you begin, ensure you have:
 
-- **Node.js** 24.x ([Download](https://nodejs.org/)) — `engines.node` in `package.json`, which Vercel honours (Settings → Build and Deployment → Node.js Version is 24.x too). Note that a Vercel Function never `require()`s an ESM-only package at any Node version (`--no-experimental-require-module`): `package.json` `overrides` keeps `jwks-rsa` on 3.x for firebase-admin (AGENTS.md § Server Layer, 2026-10-08)
+- **Node.js** 24.x ([Download](https://nodejs.org/)) — `engines.node` in `package.json`, which Vercel honours (Settings → Build and Deployment → Node.js Version is 24.x too). Note that a Vercel Function never `require()`s an ESM-only package at any Node version (`--no-experimental-require-module`): `package.json` `overrides` keeps `jwks-rsa` on 3.x for firebase-admin (doc/guide/server.md § Server Layer and API Authorization, 2026-10-08)
 - **npm** or **yarn** package manager
 - A **Google account** (for Firebase)
 - A **Vercel account** (free tier available at [vercel.com](https://vercel.com))
@@ -329,9 +329,11 @@ dev:e2e` therefore sets `NEXT_DIST_DIR=.next-e2e` (a conditional line in `next.c
 everywhere else), so the tests can run while your normal dev server stays up on port 3000 — which
 also guarantees they never point at production data.
 
-**What it covers** (`e2e/`), across seven projects — `desktop` (1440px), `mobile` (390px),
-`degraded` (1440px, second account), `analisi` (1440px), `analisi-mobile` (390px), `centri`
-(1440px) and `centri-mobile` (390px):
+**What it covers** (`e2e/`), across fourteen projects (the filename picks one; the full table is
+`doc/guide/e2e-emulatori.md`) — on the base account `desktop` (1440px), `mobile` (390px), `tablet`
+(768×1024) and `tablet-landscape` (1024×768, since 2026-10-16); on accounts of their own `degraded`
+and `degraded-mobile`, `analisi`, `centri`, `split` and `hof` (1440px) with their `-mobile` twins
+(390px):
 
 - **Previdenza** — layout switch, type scale, the year axis, the collapsible, the primary action's
   position, that the empty state never flashes while data loads, and the three degraded states
@@ -373,8 +375,8 @@ throwaway synthetic account.
 - The suite runs with `workers: 1`: all specs share one emulator account, so parallel runs would
   race on it.
 - Chromium only, for every project. The mobile projects are a 390px viewport on Chromium rather than
-  the WebKit-backed iPhone descriptor — one browser to install, and what is under test is the layout
-  at a width, not an engine difference.
+  the WebKit-backed iPhone descriptor (the two tablet projects likewise, at 768 and 1024) — one
+  browser to install, and what is under test is the layout at a width, not an engine difference.
 
 ---
 
@@ -448,7 +450,7 @@ node .next/standalone/server.js
 ```
 
 **`server.js` is not always at the top of `standalone/`.** Next copies the project's path below the tracing root it
-infers: on the Windows laptop the build lands in `.next/standalone/Documents/GitHub/net-worth-tracker/` (2026-09-28),
+infers: on a Windows checkout the build lands in `.next/standalone/Documents/GitHub/net-worth-tracker/` (2026-09-28),
 and the two copies go next to THAT `server.js` (`<dir>/.next/static`, `<dir>/public`). Search for it, never hard-code it.
 
 **Against the emulators, on its own port: `npm run perf:build` + `npm run perf:serve`**. The first builds into

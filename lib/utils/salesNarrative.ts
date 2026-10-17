@@ -8,20 +8,35 @@
 
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import type { DeclineCause, PeriodSalesSummary, TaxedGrowth } from '@/lib/utils/periodSales';
+import type { DebtRepayment, MonthFlows } from '@/lib/utils/marketEffect';
 import type { Narrative, NarrativeSegment } from '@/lib/utils/narrative';
+import { isPrintedZero } from '@/lib/utils/verdictStrip';
 
 const prose = (text: string): NarrativeSegment => ({ text });
 const figure = (text: string): NarrativeSegment => ({ text, mono: true });
 
-/** Signed compact euro figure with a typographic minus, coloured by sign. */
+/**
+ * Signed compact euro figure with a typographic minus, coloured by sign — unless it prints as a
+ * zero: «0 € risparmiati» takes no sign and no colour, like every printed zero of the page
+ * (`isPrintedZero`, AGENTS.md § Layout and Color Tokens; here since 2026-10-11, when the
+ * retirement of the Panoramica's composition found «+0 €» still printed by this helper).
+ */
 function signedCompactEuro(value: number): NarrativeSegment {
-  const sign = value >= 0 ? '+' : '−';
-  return {
-    text: `${sign}${cachedFormatCurrencyEUR(Math.abs(value), true)}`,
-    mono: true,
-    sign: value >= 0 ? 'positive' : 'negative',
-  };
+  const unsigned = cachedFormatCurrencyEUR(Math.abs(value), true);
+  if (isPrintedZero(unsigned)) return { text: unsigned, mono: true };
+  const negative = value < 0;
+  return { text: `${negative ? '−' : '+'}${unsigned}`, mono: true, sign: negative ? 'negative' : 'positive' };
 }
+
+/**
+ * The clauses a phone must never hide behind a tap (DESIGN.md → The
+ * Binding-Clause Rule; since 2026-10-11): the tax paid on a sale and the month without it change the
+ * meaning of the variation already printed, so each of their segments is `binding` and
+ * `splitVerdict` cancels any cut that would leave them in the rest. The proceeds, the gain, a loss
+ * and a missing rate are facts beside the figure, not readings of it: they stay plain. The email
+ * ignores the flag (it has no cut); Patrimonio's verdict reads it too since 2026-10-14.
+ */
+const binding = (segments: Narrative): Narrative => segments.map((segment) => ({ ...segment, binding: true }));
 
 /** «sulla vendita di VWCE» when the period sold exactly one instrument, «sulle vendite» otherwise. */
 function taxObject(sales?: PeriodSalesSummary | null): string {
@@ -81,6 +96,12 @@ export interface MonthSplit {
   delta: number;
   marketEffect: number;
   savings: number | null;
+  /**
+   * The user's money that moved outside the cashflow — the pension contributions and the debts
+   * repaid — each named as its own part; absent on a payload that predates it, and then those
+   * euro stay in «altre variazioni» as before.
+   */
+  flows?: MonthFlows | null;
 }
 
 /** «Altre variazioni» is said only from this many euro… */
@@ -102,23 +123,88 @@ export function isMaterialOtherChange(other: number, total: number): boolean {
 }
 
 /**
- * «+2018 € dal mercato, +2095 € risparmiati, +100 € di altre variazioni» — `total` split into the
- * market, the savings and the exact residual (interest, balances corrected by hand, hand-valued
- * holdings, expenses not recorded). The residual has its own NAME because «dai tuoi movimenti»,
- * the one bucket it used to share with the savings, was read as income − expenses (owner,
- * 2026-09-19); it is dropped below `isMaterialOtherChange`, so the two named parts may not add up
- * to `total` by a few euro. Without the savings the second part says what it holds.
+ * A signed euro figure WITHOUT a sign colour: the user's own money moving (a contribution, a debt
+ * repaid) is a flow, not a gain or a loss — Storico prints its flows the same way (owner,
+ * 2026-10-14). A printed zero is unsigned.
  */
-function monthSplitParts(total: number, marketEffect: number, savings: number | null): Narrative {
-  const market: Narrative = [signedCompactEuro(marketEffect), prose(' dal mercato')];
-  const rest = total - marketEffect;
-  if (savings === null) {
-    return [...market, prose(' e '), signedCompactEuro(rest), prose(' tra risparmio e altre variazioni')];
+function signedCompactFlow(value: number): NarrativeSegment {
+  const { text, mono } = signedCompactEuro(value);
+  return { text, mono };
+}
+
+const printsAsZero = (value: number) => isPrintedZero(cachedFormatCurrencyEUR(Math.abs(value), true));
+
+/** The principal repaid over every debt; negative when the debt went up. */
+export function debtRepaidTotal(debts: DebtRepayment[]): number {
+  return debts.reduce((sum, debt) => sum + debt.repaid, 0);
+}
+
+/**
+ * « (Mutuo +300 €, Prestito auto +150 €)» — the debts behind a total by the names of their assets
+ * (owner, 2026-10-14), « (Mutuo)» alone with one. The names take no article: they are typed by the
+ * user. A debt that prints as zero is not listed; empty when none is left. Shared with the email.
+ */
+export function describeDebtNames(debts: DebtRepayment[]): Narrative {
+  const named = debts.filter((debt) => !printsAsZero(debt.repaid));
+  if (named.length === 0) return [];
+  if (named.length === 1) return [prose(` (${named[0].name})`)];
+  const list: Narrative = [prose(' (')];
+  named.forEach((debt, index) => {
+    list.push(prose(`${index > 0 ? ', ' : ''}${debt.name} `), signedCompactFlow(debt.repaid));
+  });
+  list.push(prose(')'));
+  return list;
+}
+
+/**
+ * «+450 € di debito rimborsato (Mutuo +300 €, Prestito auto +150 €)»; «−20.000 € di nuovo debito
+ * (Prestito auto)» when the total went up. Empty when the total prints as zero.
+ */
+function debtPart(debts: DebtRepayment[]): Narrative {
+  const total = debtRepaidTotal(debts);
+  if (printsAsZero(total)) return [];
+  return [signedCompactFlow(total), prose(total > 0 ? ' di debito rimborsato' : ' di nuovo debito'), ...describeDebtNames(debts)];
+}
+
+/** Two parts read «A e B», three or more «A, B, C» — the split's punctuation since 2026-09-19. */
+function joinParts(parts: Narrative[]): Narrative {
+  const separator = parts.length === 2 ? ' e ' : ', ';
+  return parts.flatMap((part, index) => (index > 0 ? [prose(separator), ...part] : part));
+}
+
+/**
+ * «+2018 € dal mercato, +2095 € risparmiati, +300 € di debito rimborsato (Mutuo), +1792 € versati
+ * nel fondo pensione, +100 € di altre variazioni» — `total` split into the market, the savings,
+ * the money the user moved outside the cashflow (`flows`, each part only when it does not print as
+ * zero) and the exact residual (interest, balances corrected by hand, hand-valued holdings,
+ * expenses not recorded). The residual has its own NAME because «dai tuoi movimenti», the one
+ * bucket it used to share with the savings, was read as income − expenses (owner, 2026-09-19);
+ * the flows have theirs because a month's TFR and voluntary contributions read as «+1792 € di
+ * altre variazioni», a figure that looked like an error (owner, 2026-10-14). The residual is
+ * dropped below `isMaterialOtherChange`, so the named parts may not add up to `total` by a few
+ * euro. Without the savings the last part says what it holds.
+ */
+function monthSplitParts(total: number, split: Omit<MonthSplit, 'delta'>): Narrative {
+  const parts: Narrative[] = [[signedCompactEuro(split.marketEffect), prose(' dal mercato')]];
+  const debts = split.flows?.debts ?? [];
+  const debtTotal = debtRepaidTotal(debts);
+  const pensionPaidIn = split.flows?.pensionPaidIn ?? 0;
+  const flowParts: Narrative[] = [];
+  const debt = debtPart(debts);
+  if (debt.length > 0) flowParts.push(debt);
+  if (!printsAsZero(pensionPaidIn)) flowParts.push([signedCompactFlow(pensionPaidIn), prose(' versati nel fondo pensione')]);
+  const rest = total - split.marketEffect - debtTotal - pensionPaidIn;
+
+  if (split.savings === null) {
+    return joinParts([...parts, ...flowParts, [signedCompactEuro(rest), prose(' tra risparmio e altre variazioni')]]);
   }
-  const saved: Narrative = [signedCompactEuro(savings), prose(savings >= 0 ? ' risparmiati' : ' spesi oltre le entrate')];
-  const other = rest - savings;
-  if (!isMaterialOtherChange(other, total)) return [...market, prose(' e '), ...saved];
-  return [...market, prose(', '), ...saved, prose(', '), signedCompactEuro(other), prose(' di altre variazioni')];
+  // The word follows the PRINTED sign: «−0,2 €» prints as an unsigned «0 €», and a zero is «risparmiati».
+  const savedFigure = signedCompactEuro(split.savings);
+  parts.push([savedFigure, prose(savedFigure.sign === 'negative' ? ' spesi oltre le entrate' : ' risparmiati')]);
+  parts.push(...flowParts);
+  const other = rest - split.savings;
+  if (isMaterialOtherChange(other, total)) parts.push([signedCompactEuro(other), prose(' di altre variazioni')]);
+  return joinParts(parts);
 }
 
 /**
@@ -126,7 +212,7 @@ function monthSplitParts(total: number, marketEffect: number, savings: number | 
  * the month's change in the words the taxed sale's counterfactual uses. Exact by construction.
  */
 export function describeMonthSplit(split: MonthSplit): Narrative {
-  return [prose('Di quel movimento: '), ...monthSplitParts(split.delta, split.marketEffect, split.savings), prose('.')];
+  return [prose('Di quel movimento: '), ...monthSplitParts(split.delta, split), prose('.')];
 }
 
 /** «Vanguard FTSE All-World» for one instrument, «3 strumenti» for more. */
@@ -170,11 +256,14 @@ export function describeSales(sales: PeriodSalesSummary, split?: MonthSplit): Na
     narrative.push(prose(`; senza un'aliquota ${where} le tasse non sono stimate.`));
     return narrative;
   }
-  // «circa» belongs to an estimate; a tax typed from the statement is a fact.
+  // «circa» belongs to an estimate; a tax typed from the statement is a fact. The tax is binding
+  // even at zero: «pagato 0 € di tasse» still says what the variation does not carry.
   narrative.push(
-    prose(sales.taxIsWithheld ? ' e pagato ' : ' e pagato circa '),
-    figure(cachedFormatCurrencyEUR(sales.estimatedTax, true)),
-    prose(' di tasse'),
+    ...binding([
+      prose(sales.taxIsWithheld ? ' e pagato ' : ' e pagato circa '),
+      figure(cachedFormatCurrencyEUR(sales.estimatedTax, true)),
+      prose(' di tasse'),
+    ]),
   );
   if (!split || sales.estimatedTax <= 0) {
     narrative.push(prose('.'));
@@ -182,11 +271,13 @@ export function describeSales(sales: PeriodSalesSummary, split?: MonthSplit): Na
   }
   const withoutTax = split.delta + sales.estimatedTax;
   narrative.push(
-    prose(': senza, il mese avrebbe fatto '),
-    signedCompactEuro(withoutTax),
-    prose(' ('),
-    ...monthSplitParts(withoutTax, split.marketEffect, split.savings),
-    prose(').'),
+    ...binding([
+      prose(': senza, il mese avrebbe fatto '),
+      signedCompactEuro(withoutTax),
+      prose(' ('),
+      ...monthSplitParts(withoutTax, split),
+      prose(').'),
+    ]),
   );
   return narrative;
 }

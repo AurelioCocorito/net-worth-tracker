@@ -11,7 +11,8 @@ rules below name.
   `lib/hooks/useSceneNavigation.ts`, `lib/utils/viewTransition.ts`, `lib/utils/themeTransition.ts`, the `::view-transition-*` rules in `app/globals.css`, `next.config.ts`
 - **Navigation**: `lib/constants/navigation.ts` (`assistantNavItem`), `components/layout/SceneLink.tsx`,
   `components/layout/{Sidebar,BottomNavigation,SecondaryMenuDrawer}.tsx` (`AppSidebar`, `NavItems`, `AddExpenseFab`),
-  `components/ui/sidebar.tsx` (`SIDEBAR_WIDTH_ICON`, `sidebarMenuButtonVariants`)
+  `components/layout/TabletRail.tsx` (a tablet in landscape, since 2026-10-16), the `tablet-landscape` custom variant
+  in `app/globals.css`, `components/ui/sidebar.tsx` (`SIDEBAR_WIDTH_ICON`, `sidebarMenuButtonVariants`)
 - **Page frame**: `components/layout/{PageHeader,PageTabs,PageTabBar,PageContainer}.tsx` (`PageHeaderSkeleton`,
   `pageTabPanelId`), `components/ProtectedRoute.tsx`, `contexts/AuthContext.tsx`, `lib/hooks/useMediaQuery.ts`,
   `components/ui/{tile,tile-grid-skeleton,skeleton,page-verdict}.tsx` (`TILE_EYEBROW_CLASS`); the «Crea snapshot»
@@ -47,6 +48,11 @@ rules below name.
 - **An inactive `PageTabs` panel keeps its `div`, not its CONTENT** (2026-09-22): Radix renders the panel (so its id
   and `aria-controls` survive) but unmounts the children, so a field of another tab is not in the DOM and a spec
   anchors on the OPENED panel (`#<layoutId>-panel-<tab> section`), never on a tile of a tab that is not showing.
+  **Cashflow's panels are `forceMount`** (every visited tab stays mounted, hidden by `tabPanelSwitch`), so there a
+  hidden tab IS in the DOM: since 2026-10-12 each tab's composition ids are prefixed (`trk-`, `bud-`, `cdc-`, `spl-`,
+  `dvd-`), the memory is per tab, and the page passes `active` so the one `role="alert"` of `PageRest` is remounted
+  for the tab that shows (doc/guide/cashflow.md § The tabs load their code on demand). A locator on a Cashflow
+  phone spec scopes to the tabpanel by name (`getByRole('tabpanel', { name: 'Budget' })`) or counts only what is visible.
 - **Single source for nav arrays**: `lib/constants/navigation.ts` — Sidebar, BottomNavigation and SecondaryMenuDrawer all
   import from it, never redeclare inline. **A route link in the shell is a `SceneLink`** (`components/layout/SceneLink.tsx`,
   a `next/link` whose plain left click runs the page scene — prefetch, modifier clicks, `target` and the caller's own
@@ -79,6 +85,10 @@ rules below name.
   `useSearchParams` at their root and `/dashboard/settings` is in the prerender manifest): on the server `loading` is
   always true, so `ProtectedRoute` renders only its fallback and the page function never runs at prerender — the rule
   above is for what sits OUTSIDE it.
+- **The `PageTabBar` pill's tabs are 44×44 since 2026-10-10** (`min-h-11 min-w-11 justify-center`, DESIGN.md →
+  Segmented Pill Control; they measured 38×32 on touch until then): the pill grew from ~40 to 52px, so every tabbed surface
+  of the first-screen budget moved ~12px (`perf/mobile-budget.json`, `raisedBy: "2026-10-10: pill a 44 px"`). `layout="size"`
+  on the tab stays. `e2e/cashflow.mobile.spec.ts` holds the size of every visible tab.
 - **The bottom nav's layout animations run only where it is visible** (2026-10-08): it stays mounted at every
   width (it is in the prerendered shell), but `layout` on the `motion.nav` and the active pill's `layoutId` follow
   `useMediaQuery('(max-width: 1439px) and (orientation: portrait)')` — the complement of its `desktop:hidden
@@ -87,6 +97,26 @@ rules below name.
   to JUMP aside when the «+» appeared. Pinned by `e2e/motion.layout{,.mobile}.spec.ts` (0 measures at 1440, a glide at
   390). In dev the page scene freezes rendering while the route compiles, so the glide is asserted without view
   transitions.
+- **A tablet in landscape has the icon rail, not the bar** (2026-10-16, the landscape redesign, which left the landscape bar below to a phone alone; DESIGN.md → Navigation):
+  `components/layout/TabletRail.tsx` is the 1440 sidebar's routes as a 56px rail on the left (`primaryNav`, `analysisNav`,
+  `planningNav`, the Assistente behind its flag, Impostazioni at the foot), every target 44px, the current page marked (`aria-current="page"`, `--sidebar-accent`), the same landmark «Navigazione principale» as the phone's pill and first in the DOM — a tool that means one of them selects `nav[data-nav="rail"]` or `nav[data-nav="pill"]` (the census and eight E2E files read the rail by mistake on 2026-10-16: eleven red); its last button («Account e preferenze») calls `toggleSidebar`, which below
+  1440 opens the sidebar's sheet — the account, the theme and the logout stay there. It shows by CSS alone through the
+  **`tablet-landscape:` variant** (`app/globals.css`: `orientation: landscape` and 1000–1439px — a viewport condition, the
+  shell has no container; declared after the core variants so it beats `max-desktop:landscape:` on the same property), so
+  the prerendered shell paints it before hydration. With it, in landscape: the page header is the 1440 one-row header
+  (`PageHeader`/`PageHeaderSkeleton`: the compact block `tablet-landscape:hidden`, the desktop row `tablet-landscape:flex`,
+  and `tablet-landscape:static` — no sticky header over the stage), and `PageTabBar` (Cashflow, FIRE) is the 1440 underline
+  bar with labels, its tabs `tablet-landscape:min-h-11`, in place of the centred icon pill. `main` keeps the whole 768px
+  of a 1024×768 tablet (715 with the bar). The content keys its stage on its own width, not on this variant
+  (`max-desktop:@[880px]:`, AGENTS.md § Tailwind Breakpoints, `lib/utils/tabletComposition.ts`). Held by `expectLandscapeShell`
+  (`e2e/tabletLayout.ts`: the rail at x 0 and 56px wide, every target ≥ 44, one current page, `main` at top 0 with the
+  viewport's height, no visible trigger).
+- **The landscape bar is a PHONE turned sideways only** (since 2026-10-16; 53px with a 44px trigger since the landscape
+  tablet's first implementation that day): below 1000px in landscape — where the bottom pill is hidden — `app/dashboard/layout.tsx`'s
+  bar is `py-1` + `SidebarTrigger` at `size-11` (the primitive's default, `components/ui/sidebar.tsx`; it was `size-7`,
+  28px under a thumb, with `py-2.5`: 49px) + `border-b`, and `tablet-landscape:hidden`. A phone loses 4px to it — no
+  budget there (not one of the three viewports). Cashflow › Tracciamento's «Aggiungi» in the verdict's axis, the only add
+  affordance in landscape (phone or tablet), is `h-11` (it was `h-9`; its container is `desktop:hidden`).
 - **Sidebar active state for `/dashboard` must be `pathname === item.href`**, never `startsWith`. **Bottom nav is
   portrait-only**, so an in-page button duplicating the FAB must be hidden **only in portrait** — in landscape the FAB
   is gone and it is the only add affordance.
@@ -119,8 +149,9 @@ rules below name.
 
 ## Per-page blind spots
 
-- **The icon rail's 44px targets are measured at 1440 with a mouse**; no fixture covers a ≥1440px tablet in landscape.
+- **The collapsed 1440 sidebar's icon rail (`SIDEBAR_WIDTH_ICON`) has its 44px targets measured with a mouse**; no
+  fixture covers a ≥1440px tablet in landscape. (The tablet's own `TabletRail`, 1000–1439, is held by `expectLandscapeShell`.)
   (moved from `CLAUDE.md` → Known Issues on 2026-10-07)
 
-The one shell-wide open item that crosses every page (`PageTabBar` and `Switch` below 44px on touch) stays in
-`CLAUDE.md` → Known Issues.
+No shell-wide open item crosses every page any more: the `PageTabBar` pill reached 44×44 on 2026-10-10 (§ Navigation
+above) and the `Switch` its 44×44 hit box on 2026-10-08, and the `CLAUDE.md` → Known Issues entry went with them.

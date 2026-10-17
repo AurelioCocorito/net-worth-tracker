@@ -5,15 +5,21 @@
  * verdict (lib/utils/patrimonioNarrative.ts) whose driver is an INSTRUMENT, then a 12-column
  * bento, each tile one question with a one-line reading above its figures:
  *
- *   Mobile (1 col):   Verdict → Patrimonio → Movimenti → Liquidità → Classi → Rendimento → [Mutuo] → Strumenti
  *   Desktop (12 col): Patrimonio(5, 2 rows) | Liquidità(3) | Movimenti(4)
  *                                           | Classi(3)    | Rendimento(4)
- *                     [Mutuo(12) — one per property with instalments linked to its debt]
+ *                     [Mutuo(12) — one per loan with instalments linked to it]
  *                     Strumenti(12)
+ *   Below desktop:    ONE sequence, the DOM above (The First-Screen Rule; since 2026-10-14):
+ *                     title → the verdict's first sentence → G/P and Liquidità as a strip → «Il
+ *                     perché» → Patrimonio, open, its chips lifted and its curve at 120px → «Il
+ *                     resto della pagina» → Movimenti, Liquidità, Classi, Rendimento, [Mutuo],
+ *                     Strumenti as closed rows (`useMobileSections`; doc/guide/patrimonio.md
+ *                     § Composizione mobile).
  *
- * The DOM order IS the mobile order (Movimenti before Liquidità); the desktop row is placed by
+ * The DOM order IS the reading order (Movimenti before Liquidità); the desktop row is placed by
  * `col-start`, never by a CSS `order` swap, so a screen reader and the eye meet the tiles in
- * the same sequence. The hero's count line links to the Strumenti tile (`#strumenti`).
+ * the same sequence. The hero's count line links to the Strumenti tile (`#strumenti`) at 1440 and
+ * opens its row below `desktop:`.
  *
  * Data: the overview payload (`useDashboardOverview`, shared with the Panoramica — hero,
  * variations, sparkline, composition, top assets, per-instrument market effect), the assets
@@ -51,11 +57,33 @@ import { ASSET_CLASS_CHART_INDEX } from '@/lib/utils/allocationUtils';
 import { filterSparklineByPeriod } from '@/lib/utils/sparklinePeriod';
 import { cardItem, staggerContainer } from '@/lib/utils/motionVariants';
 import { buildPatrimonioVerdict, describeLastPriceUpdate, formatHoldingCounts } from '@/lib/utils/patrimonioNarrative';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
 import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  PLAIN_GRID_CLASS,
+  leadCellClass,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { liftedBlocks } from '@/lib/utils/verdictStrip';
+import { MONTH_NAMES } from '@/lib/constants/months';
+import {
+  describePatrimonioClosedAnswers,
   isCashAccount,
   isHeld,
   isLiquidityRow,
+  PATRIMONIO_PATRIMONIO_ID,
+  PATRIMONIO_SECTION_IDS,
+  patrimonioMutuoSectionId,
+  patrimonioVerdictNamesMarket,
   rankInstrumentReturns,
+  selectPatrimonioStrip,
   resolveLastPriceUpdate,
   summarizeCashAccounts,
   summarizeMonthTrades,
@@ -75,14 +103,17 @@ import { describeWriteError } from '@/lib/utils/dialogNarrative';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageVerdict } from '@/components/ui/page-verdict';
-import { TILE_CELL_CLASS, TILE_FOOTER_ACTION_CLASS } from '@/components/ui/tile';
+import { TILE_CELL_CLASS, TILE_FOOTER_ACTION_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
-import { PatrimonioTile, resolveHeroValueClass } from '@/components/dashboard/overview/PatrimonioTile';
+import { isPatrimonioLiftedBlock, PatrimonioTile, resolveHeroValueClass, type PatrimonioLiftedBlock } from '@/components/dashboard/overview/PatrimonioTile';
 import { ComposizioneTile } from '@/components/dashboard/overview/ComposizioneTile';
 import type { SparklinePeriod } from '@/components/dashboard/PeriodSelector';
 import { LiquiditaTile } from '@/components/assets/tiles/LiquiditaTile';
 import { MovimentiTile } from '@/components/assets/tiles/MovimentiTile';
-import { RendimentoTile } from '@/components/assets/tiles/RendimentoTile';
+import { isAssetRendimentoLiftedBlock, RendimentoTile } from '@/components/assets/tiles/RendimentoTile';
 import { MutuoTile } from '@/components/assets/tiles/MutuoTile';
 import { useMortgageInstalments } from '@/lib/hooks/useMortgageInstalments';
 import { summarizeMortgage } from '@/lib/utils/mortgageSummary';
@@ -106,6 +137,44 @@ const SKELETON_CELLS = [
 
 /** How many instruments the hero footer names in its "Mercato:" digest. */
 const DIGEST_INSTRUMENTS = 3;
+
+/** The rows' eyebrows, as the controller announces them (a failed read, a strip cell's «apre …»). */
+const ROW_EYEBROWS = {
+  movimenti: 'Movimenti del mese',
+  liquidita: 'Liquidità',
+  classi: 'Classi',
+  rendimento: 'Rendimento',
+  strumenti: 'Strumenti',
+} as const;
+
+/** With the overview unread there is no verdict and no hero: the month's movements open by default. */
+const OVERVIEW_FAILED_DEFAULT_OPEN: readonly string[] = [PATRIMONIO_SECTION_IDS.movimenti];
+const NO_DEFAULT_OPEN: readonly string[] = [];
+
+/**
+ * The rows of the phone composition, in the DOM's order (The Closed-Row Rule;
+ * 2026-10-14). Not a module constant: Classi and Rendimento exist with the overview, and «Mutuo»
+ * is one row per loan with linked instalments — or ONE failed row when the instalments were not
+ * read. The page memoizes it on these inputs, so the controller sees a stable list.
+ */
+function resolvePatrimonioSections(input: {
+  overviewAvailable: boolean;
+  movimentiFailed: boolean;
+  mortgageSections: readonly SectionSpec[];
+}): readonly SectionSpec[] {
+  return [
+    { id: PATRIMONIO_SECTION_IDS.movimenti, eyebrow: ROW_EYEBROWS.movimenti, failed: input.movimentiFailed },
+    { id: PATRIMONIO_SECTION_IDS.liquidita, eyebrow: ROW_EYEBROWS.liquidita },
+    ...(input.overviewAvailable
+      ? [
+          { id: PATRIMONIO_SECTION_IDS.classi, eyebrow: ROW_EYEBROWS.classi },
+          { id: PATRIMONIO_SECTION_IDS.rendimento, eyebrow: ROW_EYEBROWS.rendimento },
+        ]
+      : []),
+    ...input.mortgageSections,
+    { id: PATRIMONIO_SECTION_IDS.strumenti, eyebrow: ROW_EYEBROWS.strumenti },
+  ];
+}
 
 // Module-level so the page's try block holds no conditional: keeps it compilable by the React Compiler.
 function describePriceUpdate(data: { updated: number; failed: unknown[] }): string {
@@ -131,7 +200,7 @@ export default function AssetsPage() {
   // The first time an owner has no ledger meta doc, fire the idempotent one-shot migration.
   // Silent: on failure the page degrades to no ledger (trade affordances stay hidden). The ref
   // is keyed by ownerId so switching accounts re-arms it.
-  const { data: ledgerMeta, isLoading: isLedgerMetaLoading } = useAssetLedgerMeta(ownerId);
+  const { data: ledgerMeta, isLoading: isLedgerMetaLoading, isError: ledgerMetaError } = useAssetLedgerMeta(ownerId);
   const ledgerReady = !!ledgerMeta;
   const ledgerMigrationAttemptedRef = useRef<string | null>(null);
 
@@ -201,7 +270,10 @@ export default function AssetsPage() {
   // (userId, date) composite index that does not exist, and every trade mutation already
   // invalidates this cache (doc/guide/registro-operazioni.md § Asset Trade Ledger).
   const tradesQuery = useAssetTransactions(ownerId, undefined, { enabled: ledgerReady });
-  const { data: trades = [], isLoading: loadingTrades } = tradesQuery;
+  const { data: trades = [], isLoading: loadingTrades, isError: tradesError } = tradesQuery;
+  // A failed read of the ledger (or of its meta) is not «nessuna operazione»: Movimenti says so at
+  // every width (2026-10-14) — until then the tile printed the month as empty.
+  const movimentiFailed = ledgerMetaError || tradesError;
 
   // ─── Dialog state ─────────────────────────────────────────────────────────────
   // The two dialogs a reader opens most are MOUNTED only from their opening to the end of their
@@ -335,16 +407,51 @@ export default function AssetsPage() {
       month: today.month,
       totalValue,
       monthlyVariation: overview.variations.monthly,
+      // Its sentence opens «Il perché» on a phone, where the year's chip is lifted (at every width since 2026-10-14).
+      yearlyVariation: overview.variations.yearly,
       isNewATH: overview.ath?.isNewATH ?? false,
       instrumentCount: heldInstruments.length,
       accountCount: cashAccounts.length,
       loanCount: heldLoans.length,
       marketEffect: overview.marketEffect ?? null,
+      monthFlows: overview.monthFlows ?? null,
       topMover: overview.topInstrumentMovers?.[0] ?? null,
       sales: overview.monthSales ?? null,
       savings: resolveLivedCashflow(overview.expenseStats)?.savings ?? null,
     });
   }, [overview, today.month, totalValue, heldInstruments.length, cashAccounts.length, heldLoans.length]);
+
+  // The overview failed (or has not arrived): the management tiles still work on the live assets,
+  // the verdict and the payload-fed tiles are replaced by one notice.
+  const overviewUnavailable = overviewError || !overview || !verdict;
+
+  // ─── The phone composition (2026-10-14) ───────────────────────────────────────
+  // Every hook before the early returns below. A failed read of the instalments is ONE row named
+  // after what it would have shown: «Mutuo» when a loan finances a property, else «Prestito».
+  const mortgageFailedEyebrow = assets.some((a) => (isLoanAsset(a) && Boolean(a.financedAssetId)) || (a.type === 'realestate' && (a.outstandingDebt ?? 0) > 0))
+    ? 'Mutuo'
+    : 'Prestito';
+  const mortgageSections = useMemo(
+    (): readonly SectionSpec[] =>
+      mortgageError
+        ? [{ id: PATRIMONIO_SECTION_IDS.mutuo, eyebrow: mortgageFailedEyebrow, failed: true }]
+        : mortgages.map((summary) => ({ id: patrimonioMutuoSectionId(summary.loanId), eyebrow: summary.kind === 'mortgage' ? 'Mutuo' : 'Prestito' })),
+    [mortgageError, mortgageFailedEyebrow, mortgages],
+  );
+  const sectionSpecs = useMemo(
+    () => resolvePatrimonioSections({ overviewAvailable: !overviewUnavailable, movimentiFailed, mortgageSections }),
+    [overviewUnavailable, movimentiFailed, mortgageSections],
+  );
+  const sections = useMobileSections({
+    route: 'assets',
+    sections: sectionSpecs,
+    defaultOpen: overviewUnavailable ? OVERVIEW_FAILED_DEFAULT_OPEN : NO_DEFAULT_OPEN,
+  });
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts). The specs ARE the DOM's rows. With the overview unread
+  // there is no THE tile and no stage: the plain grid, every wide row on both columns at 768.
+  const stageRef = useTabletStage();
+  const tablet = useTabletComposition({ sections, order: overviewUnavailable ? [] : sectionSpecs.map((section) => section.id) });
 
   // ─── Handlers ─────────────────────────────────────────────────────────────────
   const invalidatePortfolio = () => {
@@ -489,9 +596,37 @@ export default function AssetsPage() {
     );
   }
 
-  // The overview failed (or has not arrived): the management tiles still work on the live assets,
-  // the verdict and the payload-fed tiles are replaced by one notice.
-  const overviewUnavailable = overviewError || !overview || !verdict;
+  // The strip (G/P and Liquidità) and what THE tile and Rendimento hide because of it (The
+  // Lifted-Figure Rule): the month's chip — its figures are in the first sentence —, the year's
+  // chip whole — its euro is in «Il perché» —, the curve's last label (the hero), and the
+  // «Mercato:» digest when the sentence names the market. The hero itself stays (the same rule: a
+  // hero is never lifted).
+  const strip = overviewUnavailable ? [] : selectPatrimonioStrip({ gains, cash: cashSummary });
+  const heroLifted: PatrimonioLiftedBlock[] = [
+    ...liftedBlocks(strip, PATRIMONIO_PATRIMONIO_ID).filter(isPatrimonioLiftedBlock),
+    'monthly',
+    'yearly',
+    'curve-end',
+    ...(verdict && patrimonioVerdictNamesMarket(verdict) ? (['movers'] as const) : []),
+  ];
+  const rendimentoLifted = liftedBlocks(strip, PATRIMONIO_SECTION_IDS.rendimento).filter(isAssetRendimentoLiftedBlock);
+  // What the closed rows say beside their eyebrow: words and counts, never an amount.
+  const personalLoans = liquidityRows.filter((a) => isLoanAsset(a) && isHeld(a)).length;
+  const strumentiCount = formatHoldingCounts(heldInstruments.length, 0, heldLoans.length);
+  const liquiditaCount = formatHoldingCounts(0, cashAccounts.length, personalLoans);
+  const monthName = MONTH_NAMES[today.month - 1].toLowerCase();
+  // What each closed row answers in the landscape index (2026-10-16): figures the strip and THE tile do not print.
+  const rowAnswers = describePatrimonioClosedAnswers({
+    trades: { summary: tradesSummary, ledgerReady, loading: ledgerReady && loadingTrades, failed: movimentiFailed },
+    cash: cashSummary,
+    classes: assetClassData,
+    strip,
+    gains,
+    mortgages,
+    mortgageFailed: mortgageError,
+    instruments,
+    totalValue,
+  });
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -505,7 +640,19 @@ export default function AssetsPage() {
           freshness={freshness}
         />
 
-        <motion.div variants={cardItem} initial="hidden" animate="visible" className="pt-1">
+        {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+            (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). With
+            the overview unread there is no THE tile: a plain box over the plain grid, at every width. */}
+        <RowAnswers value={rowAnswers}>
+        <div className={STAGE_WRAPPER_CLASS}>
+        <div ref={stageRef} className={overviewUnavailable ? 'space-y-4' : STAGE_CLASS}>
+        <motion.div
+          variants={cardItem}
+          initial="hidden"
+          animate="visible"
+          data-stage="verdict"
+          className={cn('pt-1', !overviewUnavailable && VERDICT_CELL_CLASS)}
+        >
           {overviewUnavailable ? (
             <ErrorNotice
               className="max-w-[920px]"
@@ -516,19 +663,28 @@ export default function AssetsPage() {
               })}
             />
           ) : (
-            <PageVerdict verdict={verdict} ariaLabel="Verdetto del portafoglio" />
+            <PageVerdict
+              verdict={verdict}
+              ariaLabel="Verdetto del portafoglio"
+              strip={<VerdictStrip figures={strip} onOpen={sections.reveal} eyebrows={sections.eyebrows} />}
+              restCollapse={sections.collapse(VERDICT_REST_SECTION)}
+            />
           )}
         </motion.div>
 
+        <div className={overviewUnavailable ? undefined : COMPACT_GRID_WRAPPER_CLASS}>
         <motion.div
           variants={staggerContainer}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12"
+          className={overviewUnavailable ? PLAIN_GRID_CLASS : COMPACT_GRID_CLASS}
         >
           {!overviewUnavailable && (
-            <motion.div variants={cardItem} className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+            <motion.div variants={cardItem} data-stage="lead" className={cn(TILE_CELL_CLASS, leadCellClass(!overviewUnavailable), 'desktop:col-span-5 desktop:row-span-2')}>
               <PatrimonioTile
+                id={PATRIMONIO_PATRIMONIO_ID}
+                className="scroll-mt-24"
+                liftedFigures={heroLifted}
                 totalValue={totalValue}
                 heroValueClass={heroValueClass}
                 variations={overview.variations}
@@ -539,12 +695,22 @@ export default function AssetsPage() {
                 sparklineDisplay={sparklineDisplay}
                 movers={instrumentMovers}
                 countLine={
-                  // The count is the way to the table: on a phone Strumenti starts three
-                  // screens down, and «18 strumenti» is the line a reader looks for it under.
+                  // The count is the way to the table, «18 strumenti» the line a reader looks for it
+                  // under: at 1440 a link to the tile, below `desktop:` a button that opens its row.
                   holdingCounts ? (
-                    <a href="#strumenti" className="underline-offset-2 hover:underline">
-                      {holdingCounts}
-                    </a>
+                    sections.compact ? (
+                      <button
+                        type="button"
+                        onClick={() => sections.reveal(PATRIMONIO_SECTION_IDS.strumenti)}
+                        className="inline-flex min-h-11 items-center text-left underline-offset-2 hover:underline [@media(pointer:fine)]:min-h-0"
+                      >
+                        {holdingCounts}
+                      </button>
+                    ) : (
+                      <a href="#strumenti" className="underline-offset-2 hover:underline">
+                        {holdingCounts}
+                      </a>
+                    )
                   ) : (
                     'Aggiungi asset per iniziare'
                   )
@@ -553,36 +719,73 @@ export default function AssetsPage() {
             </motion.div>
           )}
 
+          {/* «Il resto della pagina» right after THE tile — the grid's first child when the overview
+              was not read and there is no tile (then the plain grid). Hidden from `desktop:`. The
+              index opens here and holds every row after it; `contents` at 1440, so the cells placed
+              by column below stay items of the twelve-column grid. */}
+          <div className={overviewUnavailable ? 'contents' : INDEX_CLASS}>
+          <PageRest sections={sections} className={overviewUnavailable ? undefined : REST_CELL_CLASS} />
+
           {/* DOM order = reading order on every width: the month's movements right after the hero
               («cosa si è mosso?»), then the accounts. On desktop the two are placed by column so
               the row still reads hero · Liquidità · Movimenti; a CSS `order` swap used to make a
               screen reader meet Liquidità first while the eye met Movimenti. */}
-          <motion.div variants={cardItem} className={cn(TILE_CELL_CLASS, 'desktop:col-span-4 desktop:col-start-9 desktop:row-start-1')}>
-            <MovimentiTile
-              summary={tradesSummary}
-              month={today.month}
-              ledgerReady={ledgerReady}
-              loading={ledgerReady && loadingTrades}
-              assetsById={assetsById}
-              onOpenMovements={setMovementsAsset}
-            />
+          <motion.div
+            variants={cardItem}
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.movimenti), 'desktop:col-span-4 desktop:col-start-9 desktop:row-start-1')}
+          >
+            {movimentiFailed ? (
+              // A failed read of the ledger is not «nessuna operazione», at every width (2026-10-14).
+              // Silent below `desktop:`, where `PageRest` carries the one live node.
+              <ErrorNotice
+                compact
+                collapse={sections.collapse(PATRIMONIO_SECTION_IDS.movimenti)}
+                live={!sections.compact}
+                notice={describeReadFailure({
+                  subject: ROW_EYEBROWS.movimenti,
+                  consequence: 'Il registro delle operazioni non è stato letto: acquisti e vendite del mese tornano al prossimo caricamento.',
+                  untouched: 'Le operazioni registrate non sono state toccate.',
+                })}
+              />
+            ) : (
+              <MovimentiTile
+                summary={tradesSummary}
+                month={today.month}
+                ledgerReady={ledgerReady}
+                loading={ledgerReady && loadingTrades}
+                assetsById={assetsById}
+                onOpenMovements={setMovementsAsset}
+                collapse={sections.collapse(PATRIMONIO_SECTION_IDS.movimenti)}
+                asideWhenClosed={monthName}
+              />
+            )}
           </motion.div>
 
-          <motion.div variants={cardItem} className={cn(TILE_CELL_CLASS, 'desktop:col-span-3 desktop:col-start-6 desktop:row-start-1')}>
+          <motion.div
+            variants={cardItem}
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.liquidita), 'desktop:col-span-3 desktop:col-start-6 desktop:row-start-1')}
+          >
             <LiquiditaTile
               summary={cashSummary}
               accountsById={assetsById}
               onSelect={openCashDetail}
               onAdd={openCreateCashAccount}
               isDemo={isDemo}
+              collapse={sections.collapse(PATRIMONIO_SECTION_IDS.liquidita)}
+              asideWhenClosed={liquiditaCount || 'nessun conto'}
             />
           </motion.div>
 
           {!overviewUnavailable && (
             <>
-              <motion.div variants={cardItem} className={cn(TILE_CELL_CLASS, 'desktop:col-span-3')}>
+              <motion.div
+                variants={cardItem}
+                className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.classi), 'desktop:col-span-3')}
+              >
                 <ComposizioneTile
                   eyebrow="Classi"
+                  collapse={sections.collapse(PATRIMONIO_SECTION_IDS.classi)}
+                  asideWhenClosed="per asset class"
                   data={assetClassData}
                   footer={
                     <>
@@ -596,32 +799,62 @@ export default function AssetsPage() {
                 />
               </motion.div>
 
-              <motion.div variants={cardItem} className={cn(TILE_CELL_CLASS, 'desktop:col-span-4')}>
-                <RendimentoTile gains={gains} ranking={ranking} rankedFrom={ranking.rankedFrom} />
+              <motion.div
+                variants={cardItem}
+                className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.rendimento), 'desktop:col-span-4')}
+              >
+                <RendimentoTile
+                  gains={gains}
+                  ranking={ranking}
+                  rankedFrom={ranking.rankedFrom}
+                  collapse={sections.collapse(PATRIMONIO_SECTION_IDS.rendimento)}
+                  asideWhenClosed="vs PMC"
+                  liftedFigures={rendimentoLifted}
+                />
               </motion.div>
             </>
           )}
 
-          {/* A failed read of the instalments is not «no mortgage»: it says so where the tile would be. */}
+          {/* A failed read of the instalments is not «no mortgage»: it says so where the tile would be.
+              With the overview unread (the plain grid) the loans and Strumenti take both columns at 768. */}
           {mortgageError ? (
-            <motion.div variants={cardItem} className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+            <motion.div
+              variants={cardItem}
+              className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.mutuo), overviewUnavailable && 'tablet:col-span-2', 'desktop:col-span-12')}
+            >
               <ErrorNotice
+                collapse={sections.collapse(PATRIMONIO_SECTION_IDS.mutuo)}
+                live={!sections.compact}
                 notice={describeReadFailure({
-                  subject: 'Mutuo',
+                  subject: mortgageFailedEyebrow,
                   consequence: 'Le rate collegate ai prestiti non sono state lette: interessi e capitale pagati tornano al prossimo caricamento.',
                 })}
               />
             </motion.div>
           ) : (
             mortgages.map((summary) => (
-              <motion.div key={summary.loanId} variants={cardItem} className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
-                <MutuoTile summary={summary} showPropertyName={mortgages.length > 1} />
+              <motion.div
+                key={summary.loanId}
+                variants={cardItem}
+                className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(patrimonioMutuoSectionId(summary.loanId)), overviewUnavailable && 'tablet:col-span-2', 'desktop:col-span-12')}
+              >
+                <MutuoTile
+                  summary={summary}
+                  showPropertyName={mortgages.length > 1}
+                  collapse={sections.collapse(patrimonioMutuoSectionId(summary.loanId))}
+                  asideWhenClosed={mortgages.length > 1 ? (summary.propertyName ?? summary.loanName) : 'interessi e capitale'}
+                />
               </motion.div>
             ))
           )}
 
-          <motion.div variants={cardItem} className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+          <motion.div
+            variants={cardItem}
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.strumenti), overviewUnavailable && 'tablet:col-span-2', 'desktop:col-span-12')}
+          >
             <StrumentiTile
+              collapse={sections.collapse(PATRIMONIO_SECTION_IDS.strumenti)}
+              asideWhenClosed={strumentiCount || 'nessuno strumento'}
               assets={instruments}
               totalValue={totalValue}
               performance={performance}
@@ -637,7 +870,12 @@ export default function AssetsPage() {
               onCalculateTaxes={setTaxAsset}
             />
           </motion.div>
+          </div>
         </motion.div>
+        </div>
+        </div>
+        </div>
+        </RowAnswers>
       </div>
 
       {/* ── Dialogs — one instance each, shared by the header and every tile ── */}

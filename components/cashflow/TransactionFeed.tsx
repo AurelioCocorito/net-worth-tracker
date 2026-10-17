@@ -20,7 +20,7 @@
  * otherwise they render as one flat list.
  */
 
-import { Suspense, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { format, subDays } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Home, Link2, Pencil, Trash2 } from 'lucide-react';
@@ -349,7 +349,12 @@ export interface TransactionFeedProps {
   /** Total count before slicing, used for the load-more display. */
   totalCount: number;
   showCount: number;
-  onLoadMore: () => void;
+  /**
+   * «Carica altri», with the count the feed SHOWS — which may exceed `showCount` while a saved
+   * row past the window is in focus (`focusRowId`): the next page starts from the shown count, or
+   * the list would shrink (`growFeedWindow`, 2026-10-12).
+   */
+  onLoadMore: (shown: number) => void;
   /** When true, rows are grouped by day (use only when sorting by date). */
   grouped: boolean;
   onEdit: (expense: Expense) => void;
@@ -371,6 +376,15 @@ export interface TransactionFeedProps {
   memberNames?: Map<string, string> | null;
   /** Hint shown in the empty state when no filters are active. */
   emptyHint?: string;
+  /**
+   * The row just saved from the «+» on a phone (2026-10-12, doc/guide/cashflow-tracciamento.md): the
+   * visible window widens to include it, its button takes `focusRowRef`, and the feed puts the
+   * focus on it once it is in the list — the modal that saved it closes first and hands the focus
+   * back through the same ref (`ExpenseDialog.returnFocusTo`); when the refetch is slower than the
+   * close, this effect is what lands it. Cleared by the host on the next gesture.
+   */
+  focusRowId?: string | null;
+  focusRowRef?: RefObject<HTMLButtonElement | null>;
   /**
    * How each day-group is framed:
    *   - `'card'` (default): a standalone rounded card per day. Use on mobile, where the
@@ -401,6 +415,8 @@ export function TransactionFeed({
   categoryMetaMap,
   memberNames = null,
   emptyHint = 'Nessun movimento registrato nel periodo: aggiungi la prima voce per iniziare a tracciare.',
+  focusRowId = null,
+  focusRowRef,
   surface = 'card',
   className,
 }: Readonly<TransactionFeedProps>) {
@@ -409,8 +425,23 @@ export function TransactionFeed({
   const [detail, setDetail] = useState<{ expense: Expense; open: boolean } | null>(null);
   const closeDetail = () => setDetail((current) => (current ? { ...current, open: false } : current));
 
-  // Slice the visible window.
-  const sliced = useMemo(() => transactions.slice(0, showCount), [transactions, showCount]);
+  // The visible window, widened in the render to reach the saved row wherever the sort put it:
+  // a row saved today under «Importo maggiore» may sit past the first page.
+  const focusIndex = focusRowId ? transactions.findIndex((expense) => expense.id === focusRowId) : -1;
+  const effectiveShowCount = Math.max(showCount, focusIndex + 1);
+  const sliced = useMemo(() => transactions.slice(0, effectiveShowCount), [transactions, effectiveShowCount]);
+
+  // Once per saved row: the focus lands on its button the first time the row is in the list. A
+  // ref, not state — the effect only focuses, it never re-renders (AGENTS.md § Motion).
+  const focusedRowId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusRowId || focusedRowId.current === focusRowId) return;
+    if (!sliced.some((expense) => expense.id === focusRowId)) return;
+    const button = focusRowRef?.current ?? document.querySelector<HTMLButtonElement>(`[data-expense-id="${CSS.escape(focusRowId)}"]`);
+    if (!button) return;
+    focusedRowId.current = focusRowId;
+    button.focus();
+  }, [focusRowId, focusRowRef, sliced]);
 
   // Bucket by day with Oggi / Ieri / "EEE d MMM" labels; flat when not grouped.
   const dateGroups = useMemo(() => {
@@ -485,6 +516,7 @@ export function TransactionFeed({
                     categoryColor={catMeta?.color}
                     scheduled={isScheduledRow(expense, now)}
                     ownerLabel={memberNames ? resolveOwnerLabel(expense, memberNames) : null}
+                    buttonRef={expense.id === focusRowId ? focusRowRef : undefined}
                   />
                 </div>
               );
@@ -494,13 +526,13 @@ export function TransactionFeed({
       ))}
 
       {/* Load more */}
-      {showCount < totalCount && (
+      {effectiveShowCount < totalCount && (
         <div className="pt-2 text-center">
-          <Button variant="outline" size="sm" onClick={onLoadMore}>
-            Carica altri {Math.min(20, totalCount - showCount)}
+          <Button variant="outline" size="sm" onClick={() => onLoadMore(effectiveShowCount)}>
+            Carica altri {Math.min(20, totalCount - effectiveShowCount)}
           </Button>
           <p className="text-muted-foreground mt-2 font-mono text-xs tabular-nums">
-            {showCount} di {totalCount} voci
+            {effectiveShowCount} di {totalCount} voci
           </p>
         </div>
       )}

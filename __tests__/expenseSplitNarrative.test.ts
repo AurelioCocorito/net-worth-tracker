@@ -15,6 +15,8 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import {
+  SPLIT_CLOSED_ASIDES,
+  SPLIT_REST_LABEL,
   buildSplitVerdict,
   describeBasisRemedy,
   describeCommonIncome,
@@ -25,9 +27,13 @@ import {
   describeIncomeConsumed,
   describeSplitAside,
   describeSplitBasis,
+  describeSplitClosedAnswers,
+  describeSplitScope,
+  formatBookedResidual,
 } from '@/lib/utils/expenseSplitNarrative';
 import type { CommonSpending, ExpenseSplitSummary, MemberBalance, SplitBasis } from '@/lib/utils/expenseSplitSummary';
-import { narrativeToText } from '@/lib/utils/narrative';
+import { SPLIT_SECTION_IDS, splitMemberSectionId } from '@/lib/utils/expenseSplitSummary';
+import { narrativeToText, splitVerdict } from '@/lib/utils/narrative';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { Period } from '@/lib/utils/period';
 
@@ -272,16 +278,19 @@ describe('buildSplitVerdict', () => {
     expect(plain(verdict.sentence)).not.toContain('%');
   });
 
-  // The same clause Tracciamento and Analisi close on, for the same reason: the amount is INSIDE
-  // the total just printed, not beside it.
-  it('closes on the scheduled part of the pool, as a decomposition', () => {
-    const verdict = buildSplitVerdict({
-      summary: summary({ common: pool({ scheduled: { expenses: 300, income: 0, count: 1, throughMonth: null } }) }),
-      period: AUGUST,
-      now: NOW,
-    });
+  // The scheduled part of the pool is the verdict's SCOPE since 2026-10-12 (The Scheduled-Is-Not-Spent Rule):
+  // the same clause Tracciamento and Analisi print, for the same reason — the amount is INSIDE the
+  // total just printed — but as a caption under the cells, out of the sentence. Seen red on
+  // 2026-10-12 with the clause left in the `sentence`.
+  it('leaves the scheduled part of the pool to the scope line, out of the sentence', () => {
+    const scheduledPool = summary({ common: pool({ scheduled: { expenses: 300, income: 0, count: 1, throughMonth: null } }) });
+    const verdict = buildSplitVerdict({ summary: scheduledPool, period: AUGUST, now: NOW });
 
-    expect(plain(verdict.sentence)).toContain('Nel totale ci sono ancora 300 € di spese già in calendario');
+    expect(plain(verdict.sentence)).not.toContain('Nel totale');
+    const scope = describeSplitScope(scheduledPool, AUGUST, NOW)!;
+    expect(plain(scope)).toBe('Nel totale ci sono ancora 300 € di spese già in calendario da qui a fine mese.');
+    expect(scope[0].text).not.toMatch(/^\s/);
+    expect(describeSplitScope(summary(), AUGUST, NOW)).toBeNull();
   });
 
   // An empty period is not a period whose shares failed. The headline used to say «le quote non
@@ -319,8 +328,8 @@ describe('buildSplitVerdict', () => {
   // not a deficit: the page said «mancano 83 €» over money still in the account.
   it('judges on what has happened, then says where the calendar takes it', () => {
     const giuseppe = balance({ ...GIUSEPPE, name: 'Giuseppe', remaining: 1173, remainingBooked: 1300 });
-    const tarsio = balance({
-      name: 'Tarsio',
+    const nibbio = balance({
+      name: 'Nibbio',
       income:1700,
       share: 0.4,
       commonShare: 803,
@@ -330,7 +339,7 @@ describe('buildSplitVerdict', () => {
     });
     const verdict = buildSplitVerdict({
       summary: summary({
-        members: [giuseppe, tarsio],
+        members: [giuseppe, nibbio],
         common: pool({ total: 2030, rowCount: 8, scheduled: { expenses: 210, income: 0, count: 1, throughMonth: null } }),
       }),
       period: AUGUST,
@@ -340,13 +349,56 @@ describe('buildSplitVerdict', () => {
     // Nobody is short TODAY, so the month is not called short.
     expect(verdict.headline).toBe('Ad agosto resta qualcosa a tutti.');
     expect(verdict.tone).toBe('positive');
-    expect(plain(verdict.sentence)).toContain('A Giuseppe restano 1300 € dei 2400 € di entrate; a Tarsio restano 0 € dei 1700 €.');
-    expect(plain(verdict.sentence)).toContain('Con quelle, a fine periodo a Giuseppe restano 1173 € e a Tarsio mancano 83 €.');
+    expect(plain(verdict.sentence)).toContain('A Giuseppe restano 1300 € dei 2400 € di entrate; a Nibbio restano 0 € dei 1700 €.');
+    // The clause names the calendar itself since 2026-10-12: its antecedent («Con quelle») left the
+    // sentence with the scheduled clause, now the scope line.
+    expect(plain(verdict.sentence)).toContain('Con le spese in calendario, a fine periodo a Giuseppe restano 1173 € e a Nibbio mancano 83 €.');
+    expect(plain(verdict.sentence)).not.toContain('Con quelle');
   });
 
   it('adds no calendar clause when nothing is scheduled', () => {
     const verdict = buildSplitVerdict({ summary: summary(), period: AUGUST, now: NOW });
     expect(plain(verdict.sentence)).not.toContain('a fine periodo');
+  });
+
+  /**
+   * Where a phone cuts it (since 2026-10-12): the first sentence — gross, pool clause, shares —
+   * stands; the residuals and the calendar go behind «Il perché · quanto resta a ciascuno». Seen red
+   * on 2026-10-12 with the cut placed after the residual sentence (the rest held the calendar
+   * clause alone) and with `leadLength` set on a basis that could not be computed.
+   */
+  it('cuts after the shares on a phone, the residuals behind «Il perché · quanto resta a ciascuno»', () => {
+    const verdict = buildSplitVerdict({ summary: summary({ common: pool({ total: 2410, income: 300 }) }), period: AUGUST, now: NOW });
+    const split = splitVerdict(verdict);
+    expect(plain(split.lead)).toBe('Ad agosto le spese in comune sono 2410 €, meno 300 € di entrate in comune: 2110 € da dividere, 600 € a Giuseppe (60%) e 400 € a Marcella (40%).');
+    expect(plain(split.rest)).toBe(' A Giuseppe restano 1500 € dei 2400 € di entrate; a Marcella restano 1100 € dei 1600 €.');
+    expect(split.restLabel).toBe(SPLIT_REST_LABEL);
+    expect(verdict.sentence.some((segment) => segment.binding)).toBe(false);
+  });
+
+  it('does not cut a verdict with nothing behind the tap: no basis, or nothing to divide', () => {
+    const noBasis = buildSplitVerdict({
+      summary: summary({
+        basis: { kind: 'unavailable', reason: 'missing-income', missingNames: ['Marcella'], unattributedIncome: 0 },
+        members: [balance({ name: 'Giuseppe', personalSpending: 300 }), balance({ name: 'Marcella' })],
+      }),
+      period: AUGUST,
+      now: NOW,
+    });
+    expect(noBasis.leadLength).toBeUndefined();
+    const nothing = buildSplitVerdict({ summary: summary({ common: pool({ total: 0, rowCount: 0 }), members: [balance({ name: 'Giuseppe' }), balance({ name: 'Marcella' })] }), period: AUGUST, now: NOW });
+    expect(nothing.leadLength).toBeUndefined();
+  });
+
+  it('prints a residual as the tile does: the compact euro with the U+2212, never Intl\'s hyphen', () => {
+    expect(plain([{ text: formatBookedResidual(-83) }])).toBe('−83 €');
+    expect(plain([{ text: formatBookedResidual(1300) }])).toBe('1300 €');
+    expect(plain([{ text: formatBookedResidual(0) }])).toBe('0 €');
+    // A residual that PRINTS as zero takes no sign either (the printed-zero rule): the strip's cell prints
+    // «0 €» for −0,3 and the tile must print the same. Seen red on 2026-10-12, in the spec's
+    // retirement, with the sign decided on the value («−0 €»).
+    expect(plain([{ text: formatBookedResidual(-0.3) }])).toBe('0 €');
+    expect(SPLIT_CLOSED_ASIDES).toEqual({ quota: 'dalle entrate', member: 'quanto resta' });
   });
 
   // Income left «in comune» pays the pool first (2026-09-27): the sentence says the gross, what
@@ -463,8 +515,8 @@ describe('describeMemberBalance', () => {
   });
 
   it('reads the BOOKED residual, not the period one', () => {
-    const tarsio = balance({
-      name: 'Tarsio',
+    const nibbio = balance({
+      name: 'Nibbio',
       income:1700,
       share: 0.4,
       commonShare: 803,
@@ -472,8 +524,8 @@ describe('describeMemberBalance', () => {
       remaining: -83,
       remainingBooked: 0,
     });
-    expect(plain(describeMemberBalance(tarsio))).toContain('dai 1700 € di entrate restano 0 €.');
-    expect(plain(describeMemberBalance(tarsio))).not.toContain('mancano');
+    expect(plain(describeMemberBalance(nibbio))).toContain('dai 1700 € di entrate restano 0 €.');
+    expect(plain(describeMemberBalance(nibbio))).not.toContain('mancano');
   });
 
 });
@@ -481,7 +533,7 @@ describe('describeMemberBalance', () => {
 describe('describeMemberCalendar', () => {
   it('says where the rows still in the calendar take the residual', () => {
     expect(
-      plain(describeMemberCalendar(balance({ name: 'Tarsio', remaining: -83, remainingBooked: 0 })))
+      plain(describeMemberCalendar(balance({ name: 'Nibbio', remaining: -83, remainingBooked: 0 })))
     ).toBe('Con le spese ancora in calendario mancano 83 €.');
   });
 
@@ -561,5 +613,54 @@ describe('describeSplitAside', () => {
     expect(
       describeSplitAside(summary({ basis: { kind: 'unavailable', reason: 'missing-income', missingNames: ['x'], unattributedIncome: 0 } }))
     ).toBeNull();
+  });
+});
+
+/**
+ * The closed rows' answers of Divisione (2026-10-16): each person's row answers the share of their
+ * income the period took; Quota keeps its scope. Segments joined with a space, as the index's gap
+ * sets them. Falsified on 2026-10-16, one at a time: «the tile's own figure» went red with the
+ * answer measured on the common share alone (`commonShare / income`); «Quota keeps its scope» went
+ * red with Quota answering the split aside; «no basis, no answer» went red with the null branch
+ * dropped (a «NaN%» answer).
+ */
+describe('describeSplitClosedAnswers', () => {
+  const answer = (narrative: Narrative | null | undefined) => (narrative ? narrative.map((s) => s.text).join(' ').replace(/ /g, ' ') : null);
+
+  it('should answer each person with the share of their income the period took', () => {
+    const answers = describeSplitClosedAnswers(summary());
+    // Giuseppe: (600 + 300) / 2400 = 37,5% → 38%; Marcella: (400 + 100) / 1600 = 31,25% → 31%.
+    expect(answer(answers[splitMemberSectionId(GIUSEPPE.member.id)])).toBe('se ne va il 38%');
+    expect(answer(answers[splitMemberSectionId(MARCELLA.member.id)])).toBe('se ne va il 31%');
+    expect(answers[splitMemberSectionId(GIUSEPPE.member.id)]).toEqual([{ text: 'se ne va' }, { text: 'il' }, { text: '38%', mono: true }]);
+  });
+
+  it('should print the figure the tile prints under the hero (one source)', () => {
+    const tileFigure = describeIncomeConsumed(GIUSEPPE)!.find((s) => s.mono)!.text;
+    const answerFigure = describeSplitClosedAnswers(summary())[splitMemberSectionId(GIUSEPPE.member.id)]!.find((s) => s.mono)!.text;
+    expect(answerFigure).toBe(tileFigure);
+  });
+
+  it('should print a share above 100% as it is, like the tile', () => {
+    const over = balance({ name: 'Nibbio', income: 1000, share: 0.5, commonShare: 800, personalSpending: 300, remaining: -100 });
+    expect(answer(describeSplitClosedAnswers(summary({ members: [over] }))[splitMemberSectionId(over.member.id)])).toBe('se ne va il 110%');
+  });
+
+  it('should keep «quanto resta» without income or without a basis', () => {
+    const noIncome = balance({ name: 'Nibbio', income: 0, share: 0.5, commonShare: 300, personalSpending: 100, remaining: -400 });
+    const noBasis = balance({ name: 'Okapi', income: 1000 });
+    const answers = describeSplitClosedAnswers(summary({ members: [noIncome, noBasis] }));
+    expect(answers[splitMemberSectionId(noIncome.member.id)]).toBeNull();
+    expect(answers[splitMemberSectionId(noBasis.member.id)]).toBeNull();
+  });
+
+  it('should leave Quota its scope (null): the shares are the verdict’s first sentence', () => {
+    expect(describeSplitClosedAnswers(summary())[SPLIT_SECTION_IDS.quota]).toBeNull();
+  });
+
+  it('should fit 22 visible characters on round figures', () => {
+    for (const narrative of Object.values(describeSplitClosedAnswers(summary()))) {
+      if (narrative) expect(answer(narrative)!.length).toBeLessThanOrEqual(22);
+    }
   });
 });

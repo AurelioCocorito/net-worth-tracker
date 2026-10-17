@@ -22,8 +22,9 @@
 
 import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
 import type { BudgetAlert, BudgetKind, BudgetPeriod, BudgetRiskSummary } from '@/types/budget';
-import type { BudgetAllocationValidation } from '@/lib/utils/budgetUtils';
-import type { AnnualBudgetSummary, CeilingSummary, IncomeTargetSummary, SpendingHistory } from '@/lib/utils/budgetSummary';
+import { OVERALL_BUDGET_KEY, type BudgetAllocationValidation } from '@/lib/utils/budgetUtils';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
+import { BUDGET_SECTION_IDS, type AnnualBudgetSummary, type BudgetSectionId, type CeilingSummary, type IncomeTargetSummary, type SpendingHistory } from '@/lib/utils/budgetSummary';
 import type { ModalStatusCopy } from '@/lib/utils/dialogNarrative';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
@@ -352,6 +353,24 @@ export function describeCeilingAside(c: CeilingSummary, now: Date): Narrative {
   return [prose(`${monthInSentence(now)} · giorno `), count(c.calendar.dayOfMonth), prose(' di '), count(c.calendar.daysInMonth)];
 }
 
+/**
+ * What each closed row of Budget says beside its eyebrow on a phone (The Closed-Row Rule, since
+ * 2026-10-12): words only. The open asides carry figures the rule forbids on a closed row —
+ * `describeAnnualAside` «anno al 64%», `describeAlertsAside` «soglie di quota 90 · 100» — so each
+ * row has its own: Categorie a rischio «a fine mese» (its horizon: a fixed budget does not follow
+ * the pace, so the rows are projections of month-end), Avvisi «soglie di quota» or «disattivati»
+ * («superati» would lie with nothing crossed), Budget annuali «da gennaio», Per categoria «budget
+ * del mese».
+ */
+export function describeBudgetClosedAsides(alertsEnabled: boolean): Record<Exclude<BudgetSectionId, 'bud-tetto'>, string> {
+  return {
+    [BUDGET_SECTION_IDS.rischio]: 'a fine mese',
+    [BUDGET_SECTION_IDS.avvisi]: alertsEnabled ? 'soglie di quota' : 'disattivati',
+    [BUDGET_SECTION_IDS.annuali]: 'da gennaio',
+    [BUDGET_SECTION_IDS.categorie]: 'budget del mese',
+  };
+}
+
 // ─── Categorie a rischio ──────────────────────────────────────────────────────
 
 /** "3 su 12 rischiano di sforare: Ristoranti di più (+73 €)." */
@@ -614,5 +633,85 @@ export function describeHistory(h: SpendingHistory): Narrative {
         : [prose(`il tetto (il loro da ${h.recordedFrom!.toLowerCase()}, prima quello attuale)`)];
   if (h.overCount === 0) return [prose('Nessun mese oltre '), ...scope, prose(' negli ultimi '), count(h.closedCount), prose(' chiusi.')];
   return [count(h.overCount), prose(` ${pluralize(h.overCount, 'mese', 'mesi')} su `), count(h.closedCount), prose(' oltre '), ...scope, prose('.')];
+}
+
+// ─── The closed rows' answers (2026-10-16) ────────────────────────────────────
+
+/**
+ * «Ristoranti +73 €» — the category the reading names first, with its projected overrun. Null when
+ * nothing is at risk: «nessuna a rischio» is true inside the tile only, and beside the strip's «Oltre»
+ * and categories already over it would read as «all is well». Null too before a pace is a pace.
+ */
+function describeRiskAnswer(risk: BudgetRiskSummary): Narrative | null {
+  if (risk.evaluated === 0 || !risk.canForecast) return null;
+  const worst = risk.atRisk[0];
+  if (!worst) return null;
+  return [prose(worst.label), signed(`+${euro(worst.overBy)}`, 'negative')];
+}
+
+/**
+ * The first alert in the tile's order (used share, highest first), as its row prints it: «Casa
+ * superato» or «Casa al 92%» — the article its own segment, which the index binds to the figure when
+ * elided («all'80%»); the label is its own too, so a long one ends in «…» and the article stays. The
+ * overall ceiling is skipped — its overrun is the strip's
+ * «Oltre» — and the next category alert answers. Null with the alerts off (the aside says
+ * «disattivati») or none.
+ */
+function describeAlertsAnswer(rows: BudgetAlert[], enabled: boolean): Narrative | null {
+  if (!enabled) return null;
+  const first = rows.find((alert) => alert.key !== OVERALL_BUDGET_KEY);
+  if (!first) return null;
+  if (first.level === 'exceeded') return [prose(first.label), prose('superato')];
+  const used = first.usedRatio * 100;
+  return [prose(first.label), prose(atThePercent(used, 0).trim()), figure(pct(used))];
+}
+
+/**
+ * The annual budget the reading names first — the one furthest ahead of the year's calendar, else
+ * the most used (a single budget is itself) — with its used share as the row prints it, in the loss
+ * colour once exceeded. Null without annual budgets (the row is not there).
+ */
+function describeAnnualAnswer(s: AnnualBudgetSummary): Narrative | null {
+  if (s.rows.length === 0) return null;
+  const byUse = (rows: AnnualBudgetSummary['rows']) => [...rows].sort((a, b) => b.usedPct - a.usedPct)[0];
+  const ahead = s.rows.filter((row) => row.ahead);
+  const named = s.rows.length === 1 ? s.rows[0] : ahead.length > 0 ? byUse(ahead) : byUse(s.rows);
+  return [prose(named.label), named.exceeded ? signed(pct(named.usedPct), 'negative') : figure(pct(named.usedPct))];
+}
+
+/**
+ * The allocation against the ceiling, `describeAllocation`'s figure: «non assegnati 1700 €», «tutto
+ * assegnato», «400 € di troppo» (red, unsigned, as the reading prints it), or without a ceiling
+ * «1300 € al mese». Null with neither a ceiling nor a monthly budget (the empty state).
+ */
+function describeAllocationAnswer(v: BudgetAllocationValidation, monthlyExpenseCount: number): Narrative | null {
+  if (v.overall <= 0) return monthlyExpenseCount === 0 ? null : [figure(euro(v.allocated)), prose('al mese')];
+  if (!v.valid) return [signed(euro(-v.available), 'negative'), prose('di troppo')];
+  if (v.available === 0) return [prose('tutto assegnato')];
+  return [prose('non assegnati'), figure(euro(v.available))];
+}
+
+export interface BudgetClosedAnswersInput {
+  risk: BudgetRiskSummary;
+  /** The Avvisi tile's rows (`summarizeAlerts(...).rows`), in its order. */
+  alertRows: BudgetAlert[];
+  alertsEnabled: boolean;
+  annual: AnnualBudgetSummary;
+  validation: BudgetAllocationValidation;
+  monthlyExpenseCount: number;
+}
+
+/**
+ * What Budget's closed rows answer in the landscape index (components/ui/row-answers.tsx), from the
+ * figures their tiles already hold — none of them the strip's end of month or overrun, nor the
+ * Tetto's. Categorie a rischio is a row only with a ceiling; without one its answer is never read.
+ */
+export function describeBudgetClosedAnswers(input: BudgetClosedAnswersInput): RowAnswerMap {
+  return {
+    [BUDGET_SECTION_IDS.rischio]: describeRiskAnswer(input.risk),
+    [BUDGET_SECTION_IDS.avvisi]: describeAlertsAnswer(input.alertRows, input.alertsEnabled),
+    [BUDGET_SECTION_IDS.annuali]: describeAnnualAnswer(input.annual),
+    [BUDGET_SECTION_IDS.categorie]: describeAllocationAnswer(input.validation, input.monthlyExpenseCount),
+  };
 }
 

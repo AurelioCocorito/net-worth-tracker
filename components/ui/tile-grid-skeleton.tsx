@@ -15,6 +15,8 @@ interface TileGridSkeletonProps {
   cells?: TileSkeletonCell[];
   /** A placeholder for a control row between the verdict and the grid (Tracciamento's period bar), so nothing jumps. */
   toolbar?: ReactNode;
+  /** A placeholder for the verdict's `axis` slot, under the headline's line (`VerdictSkeleton`). */
+  axis?: ReactNode;
   /**
    * What the wait is announced as. «Caricamento» is a page waiting for its data; the dashboard
    * layout names the auth wait («Verifica dell'accesso») so a reader hears which one it is — and
@@ -38,20 +40,40 @@ function SkeletonTile({ lines }: { lines: number }) {
   );
 }
 
+/** The headline's line of a verdict still to come — `PageVerdict` draws it too while `pending`. */
+export function VerdictSkeletonHeadline() {
+  return <Skeleton className="h-8 w-72" />;
+}
+
+/** The sentence's two lines of a verdict still to come. */
+export function VerdictSkeletonLines() {
+  return (
+    <>
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-3/4" />
+    </>
+  );
+}
+
 /**
  * The lines a verdict arrives on, alone — for a page that keeps its own controls mounted beside
  * them while it waits (Tracciamento's period picker: a new period is a new read, and the picker
  * that asked for it must keep its place and its focus). Silent like every `Skeleton`: the wait is
  * announced by the grid's `role="status"`.
+ *
+ * `axis`: a placeholder of the verdict's `axis` slot, under the headline's line as `PageVerdict`
+ * puts it (DESIGN.md → Page Verdict) — the two lazy Cashflow tabs' fallbacks draw
+ * their period control there since 2026-10-12 (`CashflowTabSkeletons.tsx`), so a deep link lands
+ * on the same geometry the tab draws.
  */
-export function VerdictSkeleton({ className }: { className?: string }) {
+export function VerdictSkeleton({ className, axis }: { className?: string; axis?: ReactNode }) {
   return (
     // The same `page-verdict` name as `PageVerdict`: the page scene lands on these lines and the
     // verdict arrives in place when the data does.
-    <div className={cn('flex max-w-[920px] flex-col gap-2.5', className)} style={{ viewTransitionName: 'page-verdict' }}>
-      <Skeleton className="h-8 w-72" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-3/4" />
+    <div className={cn('flex max-w-[920px] flex-col gap-2', className)} style={{ viewTransitionName: 'page-verdict' }}>
+      <VerdictSkeletonHeadline />
+      {axis && <div className="desktop:hidden">{axis}</div>}
+      <VerdictSkeletonLines />
     </div>
   );
 }
@@ -69,12 +91,13 @@ export function TileGridSkeleton({
   verdict = true,
   cells = DEFAULT_SKELETON_CELLS,
   toolbar,
+  axis,
   label = 'Caricamento',
   className,
 }: TileGridSkeletonProps) {
   return (
     <div className={cn('space-y-4', className)} role="status" aria-label={label}>
-      {verdict && <VerdictSkeleton className="pt-1" />}
+      {verdict && <VerdictSkeleton className="pt-1" axis={axis} />}
       {toolbar}
       <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
         {cells.map((cell, i) => (

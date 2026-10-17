@@ -30,6 +30,21 @@ import {
 import { ASSET_CLASS_LABELS, assetClassSequenceIndex } from '@/lib/utils/allocationUtils';
 import { getAssetDisplayTicker } from '@/lib/utils/assetDisplay';
 
+// ─── The phone composition (2026-10-15) ───────────────────────────────────────
+
+/**
+ * The ids of the tab's rows below `desktop:` (`useMobileSections` with `tab: 'goals'`, The
+ * Closed-Row Rule): every tile but Obiettivi, THE tile, which never closes (DESIGN.md → The
+ * First-Screen Rule); Allocazione derivata only with goal-driven targets. No strip
+ * (doc/guide/fire-obiettivi.md § Composizione mobile).
+ */
+export const GOALS_SECTION_IDS = {
+  traiettoria: 'goals-traiettoria',
+  milestone: 'goals-milestone',
+  allocazione: 'goals-allocazione',
+  assegnazioni: 'goals-assegnazioni',
+} as const;
+
 // ─── Dates ────────────────────────────────────────────────────────────────────
 
 /** A calendar month: the grain of a deadline and of a projected arrival. `month` is 1-12. */

@@ -5,6 +5,12 @@
  * Same mocking as storicoNarrative.test.ts: the module needs chartService's it-IT percentage
  * formatter, whose Firebase chain is mocked away. Every phrasing is pinned here, and a missing
  * input drops its clause instead of printing a placeholder (The Narrative Honesty Rule).
+ *
+ * The verdict is TWO sentences since 2026-10-10 (the phone shows the first alone, The
+ * Binding-Clause Rule; doc/guide/hall-of-fame.md § Composizione mobile): the record's figures
+ * close the first, the running year and month make the second, `leadLength` points at the
+ * boundary. Falsified that day: the two-sentence cases went red with «; il» put back in place of
+ * «. Il» (the lead no longer ended on «.» and the rest did not open on a capital).
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -19,7 +25,9 @@ vi.mock('firebase/firestore', () => ({
 
 import {
   buildHallOfFameVerdict,
+  describeClosedNotesAside,
   describeFullRanking,
+  describeHallOfFameClosedAnswers,
   describeHallOfFameHeader,
   describeIncomeAverage,
   describeIncomeRecords,
@@ -36,9 +44,9 @@ import {
   describeYearRecords,
   type HallOfFameVerdictInput,
 } from '@/lib/utils/hallOfFameNarrative';
-import type { NotesSummary, RecordBoard, RecordEntry } from '@/lib/utils/hallOfFameSummary';
+import { HOF_SECTION_IDS, type NotesSummary, type RecordBoard, type RecordEntry } from '@/lib/utils/hallOfFameSummary';
 import type { HallOfFameStats } from '@/types/hall-of-fame';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 
 /** The screen prints a no-break space before €; the tests read it as a normal one. */
 const plain = (narrative: Narrative | null) => (narrative ? narrativeToText(narrative).replace(/ /g, ' ') : null);
@@ -97,35 +105,62 @@ describe('buildHallOfFameVerdict', () => {
     expect(verdict.headline).toBe('Il tuo mese migliore è ottobre 2025.');
     expect(verdict.tone).toBe('positive');
     expect(plain(verdict.sentence)).toBe(
-      'In quel mese il patrimonio è salito di +8240 €, il +4,1% in un mese; il 2026 è finora il secondo anno migliore, con +41.300 €, e agosto è oggi al 3° posto tra i mesi.',
+      'In quel mese il patrimonio è salito di +8240 €, il +4,1% in un mese. Il 2026 è finora il secondo anno migliore, con +41.300 €, e agosto è oggi al 3° posto tra i mesi.',
     );
   });
 
-  it('drops the percentage when the month before has no net worth to compare with', () => {
-    const verdict = buildHallOfFameVerdict({ ...FULL_VERDICT, bestMonth: monthEntry({ percentage: null }) });
+  it('cuts after the first sentence: the record alone on a phone, the running year and month behind «Il perché»', () => {
+    const verdict = buildHallOfFameVerdict(FULL_VERDICT);
+    const { lead, rest, restLabel } = splitVerdict(verdict);
 
-    expect(plain(verdict.sentence)).toContain('è salito di +8240 €; il 2026');
-    expect(plain(verdict.sentence)).not.toContain('in un mese');
+    expect(plain(lead)).toBe('In quel mese il patrimonio è salito di +8240 €, il +4,1% in un mese.');
+    expect(plain(rest)).toBe(' Il 2026 è finora il secondo anno migliore, con +41.300 €, e agosto è oggi al 3° posto tra i mesi.');
+    expect(restLabel).toBe("l'anno e il mese in corso");
+    expect(verdict.sentence.some((segment) => segment.binding)).toBe(false);
   });
 
-  it('drops the year clause when the running year is not in the ranking', () => {
+  it('drops the percentage when the month before has no net worth to compare with, and still closes the first sentence', () => {
+    const verdict = buildHallOfFameVerdict({ ...FULL_VERDICT, bestMonth: monthEntry({ percentage: null }) });
+
+    expect(plain(verdict.sentence)).toContain('è salito di +8240 €. Il 2026');
+    expect(plain(verdict.sentence)).not.toContain('in un mese');
+    expect(plain(splitVerdict(verdict).lead)).toBe('In quel mese il patrimonio è salito di +8240 €.');
+  });
+
+  it('opens the second sentence on the month when the running year is not in the ranking', () => {
     const verdict = buildHallOfFameVerdict({ ...FULL_VERDICT, currentYear: null, currentYearRank: null });
 
     expect(plain(verdict.sentence)).toBe(
-      'In quel mese il patrimonio è salito di +8240 €, il +4,1% in un mese, e agosto è oggi al 3° posto tra i mesi.',
+      'In quel mese il patrimonio è salito di +8240 €, il +4,1% in un mese. Agosto è oggi al 3° posto tra i mesi.',
     );
+    expect(splitVerdict(verdict).restLabel).toBe('il mese in corso');
+  });
+
+  it('labels the rest after the year alone when the running month is nowhere', () => {
+    const verdict = buildHallOfFameVerdict({ ...FULL_VERDICT, currentMonth: null, currentMonthRank: null });
+
+    expect(splitVerdict(verdict).restLabel).toBe("l'anno in corso");
+  });
+
+  it('sets no cut when there is neither a running year nor a running month: nothing to hide', () => {
+    const verdict = buildHallOfFameVerdict({ ...FULL_VERDICT, currentYear: null, currentYearRank: null, currentMonth: null, currentMonthRank: null });
+
+    expect(plain(verdict.sentence)).toBe('In quel mese il patrimonio è salito di +8240 €, il +4,1% in un mese.');
+    expect(verdict.leadLength).toBeUndefined();
+    expect(verdict.restLabel).toBeUndefined();
+    expect(splitVerdict(verdict).restLabel).toBeNull();
   });
 
   it('calls the running year the best one when it leads the ranking', () => {
     const verdict = buildHallOfFameVerdict({ ...FULL_VERDICT, bestYear: CURRENT_YEAR, currentYearRank: 1 });
 
-    expect(plain(verdict.sentence)).toContain('il 2026 è finora il tuo anno migliore, con +41.300 €');
+    expect(plain(verdict.sentence)).toContain('. Il 2026 è finora il tuo anno migliore, con +41.300 €');
   });
 
   it('gives a year past the podium its position instead of a word', () => {
     const verdict = buildHallOfFameVerdict({ ...FULL_VERDICT, currentYearRank: 4 });
 
-    expect(plain(verdict.sentence)).toContain('il 2026 è finora al 4° posto tra gli anni, con +41.300 €');
+    expect(plain(verdict.sentence)).toContain('. Il 2026 è finora al 4° posto tra gli anni, con +41.300 €');
   });
 
   it('says so in the headline when the running month IS the record, and never repeats it', () => {
@@ -140,7 +175,7 @@ describe('buildHallOfFameVerdict', () => {
     const verdict = buildHallOfFameVerdict({ ...FULL_VERDICT, currentMonth: null, currentMonthRank: null });
 
     expect(plain(verdict.sentence)).toBe(
-      'In quel mese il patrimonio è salito di +8240 €, il +4,1% in un mese; il 2026 è finora il secondo anno migliore, con +41.300 €.',
+      'In quel mese il patrimonio è salito di +8240 €, il +4,1% in un mese. Il 2026 è finora il secondo anno migliore, con +41.300 €.',
     );
   });
 
@@ -476,5 +511,67 @@ describe('the small labels', () => {
     expect(describeNoteFormReading({ sectionCount: 2, isRanked: false })).toBe(
       'Questo periodo non è in nessuna delle classifiche scelte: la nota resta nella tessera Note.',
     );
+  });
+});
+
+describe('describeClosedNotesAside', () => {
+  const summary = (total: number): NotesSummary => ({ total, periodCount: Math.min(total, 2), latest: null, rows: [] });
+
+  it('says in words what the closed Note row holds, never a figure', () => {
+    expect(describeClosedNotesAside(summary(0))).toBe('nessuna nota');
+    expect(describeClosedNotesAside(summary(1))).toBe('una nota');
+    expect(describeClosedNotesAside(summary(4))).toBe('4 note');
+  });
+});
+
+// ─── The closed rows' answers (landscape index, 2026-10-16) ──────────────────
+
+/**
+ * Each closed row's answer: the term beside the strip's figure of that ranking, or null where the
+ * row keeps its scope. Read as the index lays it out (segments trimmed, one gap between them).
+ * Falsified on 2026-10-16, one at a time: the running-year null of Anni went red with the
+ * `isCurrent` check dropped (it printed the strip's «Quest'anno» figure again); the Entrate null
+ * with the `> 0` guard dropped («media mensile 0 €»).
+ */
+describe('describeHallOfFameClosedAnswers', () => {
+  const answerText = (answer: Narrative | null | undefined) => (answer ? answer.map((segment) => segment.text.trim()).join(' ').replace(/[  ]/g, ' ') : null);
+  const stats = { monthCount: 46, yearCount: 4, averageMonthlyIncome: 3080, averageMonthlyExpenses: 2400, firstMonth: { year: 2022, month: 12 }, lastMonth: { year: 2026, month: 9 } } as HallOfFameStats;
+  const savingsTop = monthEntry({ key: '2022-12', year: 2022, month: 12, label: 'dic 2022', longLabel: 'dicembre 2022', value: 1200, income: 3000, percentage: 40 });
+  const bestYear = yearEntry({ key: '2025', year: 2025, label: '2025', longLabel: '2025', value: 9500, percentage: 3.4 });
+  const input = { stats, savingsTop, bestYear };
+  const answers = describeHallOfFameClosedAnswers(input);
+
+  it('answers Entrate, Risparmio and Anni, never Note', () => {
+    expect(answerText(answers[HOF_SECTION_IDS.entrate])).toBe('media mensile 3080 €');
+    expect(answerText(answers[HOF_SECTION_IDS.risparmio])).toBe('40,0% delle entrate');
+    expect(answerText(answers[HOF_SECTION_IDS.anni])).toBe('2025 +9500 €');
+    expect(answers[HOF_SECTION_IDS.note]).toBeNull();
+  });
+
+  it('fits in 22 characters with one figure; only the year\'s growth is coloured', () => {
+    for (const id of [HOF_SECTION_IDS.entrate, HOF_SECTION_IDS.risparmio, HOF_SECTION_IDS.anni]) {
+      expect(answerText(answers[id])!.length).toBeLessThanOrEqual(22);
+      expect(answers[id]!.filter((segment) => segment.mono)).toHaveLength(1);
+    }
+    expect(answerText(describeHallOfFameClosedAnswers({ ...input, stats: { ...stats, averageMonthlyIncome: 12345 } })[HOF_SECTION_IDS.entrate])).toBe('media mensile 12.345 €');
+    const figure = (id: string) => answers[id]!.find((segment) => segment.mono)!;
+    expect(figure(HOF_SECTION_IDS.anni).sign).toBe('positive');
+    expect(figure(HOF_SECTION_IDS.entrate).sign).toBeUndefined();
+    expect(figure(HOF_SECTION_IDS.risparmio).sign).toBeUndefined();
+  });
+
+  it('Entrate: null without stats or with no income on average', () => {
+    expect(describeHallOfFameClosedAnswers({ ...input, stats: null })[HOF_SECTION_IDS.entrate]).toBeNull();
+    expect(describeHallOfFameClosedAnswers({ ...input, stats: { ...stats, averageMonthlyIncome: 0 } })[HOF_SECTION_IDS.entrate]).toBeNull();
+  });
+
+  it('Risparmio: null without a record or without a rate', () => {
+    expect(describeHallOfFameClosedAnswers({ ...input, savingsTop: null })[HOF_SECTION_IDS.risparmio]).toBeNull();
+    expect(describeHallOfFameClosedAnswers({ ...input, savingsTop: { ...savingsTop, percentage: null } })[HOF_SECTION_IDS.risparmio]).toBeNull();
+  });
+
+  it('Anni: null without a year in growth and when the best year is the running one (the strip prints it)', () => {
+    expect(describeHallOfFameClosedAnswers({ ...input, bestYear: null })[HOF_SECTION_IDS.anni]).toBeNull();
+    expect(describeHallOfFameClosedAnswers({ ...input, bestYear: CURRENT_YEAR })[HOF_SECTION_IDS.anni]).toBeNull();
   });
 });

@@ -70,8 +70,9 @@ function contributi(page: Page) {
   return page.getByRole('region', { name: 'Contributi', exact: true });
 }
 
+/** The measured base is the verdict's `scope` since 2026-10-14, rendered once per width: the visible copy. */
 function baseCaption(page: Page) {
-  return page.getByText(/^Base: /);
+  return page.getByText(/^Base: /).locator('visible=true');
 }
 
 async function gotoPerformance(page: Page): Promise<void> {
@@ -100,7 +101,7 @@ test('toggle OFF: the fund stays out, the attribution lists the ETF alone and it
   await expect(baseCaption(page)).toContainText("Base: portafoglio gestito, al netto dei fondi pensione e degli asset esclusi dall'allocazione.");
 
   // +2%, +1,5%, +2% on 10.000 € over three measured months: 200 + 153 + 207 — the ETF is the whole market.
-  await expect(attribution(page)).toContainText('Il mercato ha reso +560 €: ETF Mondo E2E ne ha portati +560 €.');
+  await expect(attribution(page)).toContainText(/Il mercato ha reso \+560[\s\u00a0]*€: ETF Mondo E2E ne ha portati \+560[\s\u00a0]*€\./);
   await expect(marketRow(page).getByText(euro('\\+560'))).toBeVisible();
   // Rows, not text: the footer explains what «Non attribuito» would be, and must not count as one.
   await expect(attribution(page).getByRole('listitem').filter({ hasText: /^Non attribuito/ })).toHaveCount(0);
@@ -257,9 +258,14 @@ test('a reload paints the last known figures — no page skeleton, the header sa
   await expect(baseCaption(page)).toBeVisible({ timeout: 30_000 });
   const firstVisit = await readRecording(page);
   expect(firstVisit.pageSkeletonSeen, 'the first visit is the anchor: its skeleton must have been seen').toBe(true);
-  // `textContent`, what `toHaveText` compares below (`innerText` would add the line breaks).
-  const verdict = (await page.getByRole('region', { name: 'Verdetto sui rendimenti' }).textContent()) ?? '';
-  expect(verdict).toContain('%');
+  // The title and the paragraph, not the whole region (since 2026-10-14 it also holds the phone's
+  // axis, strip and scope, hidden at 1440 but in the DOM — and the strip's gap cell changes with
+  // the benchmark series, which are not persisted). `textContent`, what `toHaveText` compares
+  // below (`innerText` would add the line breaks). At 1440 the paragraph is the one `<p>`.
+  const region = page.getByRole('region', { name: 'Verdetto sui rendimenti' });
+  const headline = (await region.locator('h2').textContent()) ?? '';
+  const paragraph = (await region.locator('p').first().textContent()) ?? '';
+  expect(paragraph).toContain('%');
 
   // The metrics and the yields of THIS account are on disk (the persister writes on a throttle).
   await expect
@@ -280,6 +286,54 @@ test('a reload paints the last known figures — no page skeleton, the header sa
   expect(reload.pageSkeletonSeen, 'the reload must paint the restored figures, not a skeleton').toBe(false);
   expect(reload.freshnessTexts.some((text) => text.includes('Aggiornato alle')), `texts seen: ${JSON.stringify(reload.freshnessTexts)}`).toBe(true);
   // The same verdict, and the header silent once the fresh reads have landed (both copies emptied, never removed).
-  await expect(page.getByRole('region', { name: 'Verdetto sui rendimenti' })).toHaveText(verdict);
+  await expect(region.locator('h2')).toHaveText(headline);
+  await expect(region.locator('p').first()).toHaveText(paragraph);
   await expect(page.locator('[data-freshness]')).toHaveText(['', '']);
+});
+
+// ─── «Analizza con AI» when the model declines (2026-10-12) ──────────────────
+//
+// The route's refusal events are Vitest's (`__tests__/analyzePerformanceRoute.test.ts`); what only
+// a browser knows is what the dialog does with them. The route is answered by the browser itself,
+// so nothing reaches Anthropic (a probe never opens a control that spends: WORKFLOW.md § 3).
+
+const REFUSAL_EMPTY = 'Il modello ha rifiutato di scrivere questo report. Clicca «Rigenera» per riprovare.';
+const REFUSAL_PARTIAL =
+  'Il modello ha interrotto il report rifiutandosi di continuare: il testo qui sotto è incompleto. Clicca «Rigenera» per riprovare.';
+
+/** An SSE body as the route writes it: one `data:` line per payload, `[DONE]` as the bare string. */
+function sseBody(...payloads: unknown[]): string {
+  return payloads.map((payload) => `data: ${typeof payload === 'string' ? payload : JSON.stringify(payload)}\n\n`).join('');
+}
+
+test('a refused report says so, with «Rigenera» beside it even when no text was written', async ({ page }) => {
+  await setPensionToggle(false);
+  const answers = [
+    sseBody({ error: REFUSAL_EMPTY }, '[DONE]'),
+    sseBody({ text: 'Il fenicottero ha reso.' }, { error: REFUSAL_PARTIAL }, '[DONE]'),
+  ];
+  let calls = 0;
+  await page.route('**/api/ai/analyze-performance', (route) => {
+    const body = answers[Math.min(calls, answers.length - 1)];
+    calls += 1;
+    return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body });
+  });
+  await gotoPerformance(page);
+
+  await page.getByRole('button', { name: 'Analizza con AI', exact: true }).locator('visible=true').click();
+  const dialog = page.getByRole('dialog');
+
+  // Refused before any text: the reading says why the report is empty, and «Rigenera» is there
+  // (it stood only beside a written report); «Copia» has nothing to copy.
+  await expect(dialog).toContainText(REFUSAL_EMPTY);
+  await expect(dialog.getByRole('button', { name: 'Rigenera', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Copia il report' })).toHaveCount(0);
+
+  // Refused halfway: the text stays, the reading says it is incomplete, both actions stand.
+  await dialog.getByRole('button', { name: 'Rigenera', exact: true }).click();
+  await expect(dialog).toContainText(REFUSAL_PARTIAL);
+  await expect(dialog).toContainText('Il fenicottero ha reso.');
+  await expect(dialog.getByRole('button', { name: 'Copia il report' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Rigenera', exact: true })).toBeVisible();
+  expect(calls).toBe(2);
 });

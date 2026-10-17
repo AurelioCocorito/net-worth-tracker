@@ -6,10 +6,18 @@ import type { ReturnAttribution } from '@/lib/utils/performanceAttribution';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { signTextClass } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 
 interface AttribuzioneTileProps {
+  /**
+   * The row of the phone composition (`useMobileSections().collapse(id)`); `undefined` at 1440.
+   * The rows and their `layout="position"` re-rank mount on the first opening (The
+   * Period-Transforms Rule holds for what is mounted).
+   */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (`PERFORMANCE_CLOSED_ASIDES`). */
+  asideWhenClosed?: string;
   aside: string;
   reading: Narrative;
   attribution: ReturnAttribution;
@@ -53,14 +61,14 @@ function isPrintedZero(value: number): boolean {
  * On a period switch the rows re-rank in place and every bar slides to its new length: an
  * instrument that climbs the list is seen climbing, not replaced by a stranger in its slot.
  */
-export function AttribuzioneTile({ aside, reading, attribution, className }: AttribuzioneTileProps) {
+export function AttribuzioneTile({ collapse, asideWhenClosed, aside, reading, attribution, className }: AttribuzioneTileProps) {
   const shown = attribution.rows.slice(0, MAX_ROWS);
   const others = attribution.rows.slice(MAX_ROWS).reduce((sum, row) => sum + row.total, 0);
   const maxAbs = Math.max(...shown.map((row) => Math.abs(row.total)), 1);
   const hasRows = shown.length > 0;
 
   return (
-    <Tile eyebrow="Da dove viene il rendimento" aside={aside} reading={reading} className={className}>
+    <Tile eyebrow="Da dove viene il rendimento" aside={aside} collapse={collapse} asideWhenClosed={asideWhenClosed} reading={reading} className={className}>
       {hasRows && (
         <LayoutGroup id="attribuzione">
         <ul className="@container mt-3 flex flex-col divide-y divide-border" aria-label="Contributo di ogni strumento al rendimento del periodo">

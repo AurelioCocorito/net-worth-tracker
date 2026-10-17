@@ -4,7 +4,7 @@
 > per-session: they hold until this file says otherwise.
 >
 > **Why they live in the repo and not in agent memory**: agent memory is per-machine and per
-> install, so the same rules drift into different versions on the laptop, the desktop and a cloud
+> install, so the same rules drift into different versions on each machine and in a cloud
 > session. A tracked file travels with the clone and can be reviewed in a diff. If you are an agent
 > with persistent memory, do **not** re-save these rules there — save one pointer to this file. If
 > the owner states a new rule, it is added *here*, in that session's commit.
@@ -37,6 +37,11 @@
    recommended option first; never a numbered list of questions in prose. The owner refines the
    wording through the free-text answer («hai pagato», not «pagherai», for a tax the broker
    withholds at the sale).
+
+6. **Figures in tests are invented and round, never the mirror's** (2026-10-12). A Vitest fixture,
+   an E2E decoy or a seed carries amounts like 2500, 1120, 50: the owner's real figures never
+   enter the repo, not even as an expected value. The mirror is for the guided tour only
+   (§ 3, phase G removes it).
 
 ---
 
@@ -135,7 +140,8 @@ npm run dev:emulator     # the app on :3000 pointed at the emulators
 
 Prerequisites (a JDK) and the full guide: SETUP.md → Step 6. Port 3100 (`npm run dev:e2e`, isolated
 `.next-e2e` build dir) is the Playwright server; keep it separate from the tour server on :3000. Port
-3200 (`npm run perf:serve`, the `.next-perf` production build) is the speed benchmark's (`doc/guide/velocita.md`).
+3200 (`npm run perf:serve`, the `.next-perf` production build) is the speed benchmark's and the first-screen census's
+(`npm run mobile:census`, `doc/guide/prima-schermata.md`).
 
 ### Obligation 5 — how to hand the owner an app already authenticated
 
@@ -160,8 +166,9 @@ The app **is** locally runnable; there is no fallback to declare.
   | `analisi@example.com` | `test-user-analisi` | Everything dated to January, so year-to-date windows contain it whatever month it is |
   | `centri@example.com` | `test-user-centri` | Centri di Costo ON: «Fenicottero» (annual ceiling the calendar will cross) and «Ornitorinco» (dormant, 27 movements) — `npm run e2e:seed:centri` |
   | `degraded@example.com` | `test-user-degraded` | The states in which a return is *not* a measure — empty/degraded readings |
-  | `split@example.com` | `test-user-split` | Cashflow › Divisione ON: Ghiandaia and Tarsio at 60/40, with one row dated 31 December that stays «in calendario» all year — `npm run e2e:seed:split` |
+  | `split@example.com` | `test-user-split` | Cashflow › Divisione ON: Ghiandaia and Nibbio at 60/40, with one row dated 31 December that stays «in calendario» all year — `npm run e2e:seed:split` |
   | `hof@example.com` | `hof-user` | Hall of Fame: 47 monthly snapshots from novembre 2022 with a story (best month marzo 2024, worst ottobre 2023, a two-month first year); NO rankings document — the specs press «Aggiorna i record» — `npm run e2e:seed:hof` |
+  | `census@example.com` | `census-user` | The first-screen budget's fixture (since 2026-10-10, doc/guide/prima-schermata.md): every surface with data, each option in its default state — Centri and Divisione on, a coupon, a Budget ceiling, a pension fund, 47 snapshots ending last month, one row «in calendario» on the month's last day; FIRE › Obiettivi ON with ONE invented goal since 2026-10-15, the day that tab was composed for a phone (every option in its default state) — dated relative to the run; `npm run mobile:census` re-seeds it and rebuilds its Hall of Fame (`npm run e2e:seed:census` alone does not) |
 
 - **So the screen is not empty**: `npm run emulators:seed` for the base account, plus the fixture the
   page needs — `npm run e2e:seed` (Previdenza), `npm run e2e:seed:analisi` (Analisi),
@@ -202,7 +209,7 @@ The app **is** locally runnable; there is no fallback to declare.
   files 0): every Cashflow tab stays mounted and hidden (`forceMount`), so ~36 hits per scan were Tracciamento's; the
   9–11px «undersized text» is the enumerated ramp; the shell, the sidebar and the overlay's own yellow (`dark-glow
   #ffba00` on a second injection) are in there too. Count what belongs to the surface, say the rest is not its. **A probe never opens a control that SPENDS** (2026-09-20): «Analizza con AI» starts its analysis on open, and an evidence pass told to «open and press Escape» made five real Anthropic calls. Read what a control does before scripting a click on it; on Rendimenti that dialog is opened once, to check the abort, or not at all. **The session's background tasks die with it**: a restart of the Claude Code session, or its memory watchdog (on the
-  8 GB Mac and on the 16 GB Windows laptop, even with memory free and even mid-suite), kills the emulators and the dev
+  on both of the owner's machines, even with memory free and even mid-suite), kills the emulators and the dev
   server alike, and an emulator killed that way exports nothing. The safe default for the owner's tour: the emulators and
   the dev server run in the OWNER's terminals, which the watchdog does not touch; the agent re-seeds the mirror, checks
   the ports and reports the URLs, and does not restart a killed process on its own. When the owner asks the agent to
@@ -245,19 +252,24 @@ The app **is** locally runnable; there is no fallback to declare.
 ### Where things are recorded
 
 - **Branches**: `develop` is the integration branch, `main` the default; a session branches off
-  whatever is active (usually `develop`) and merges into it by PR. **The `doc/mobile/` specs land on `develop`,
-  one session at a time** (the fourteen `doc/perf/` specs did the same, 2026-09-28 → 2026-10-08). The 2026-09-28 rule
-  («they reach `main` together») was derogated by the owner on 2026-10-08: `develop` goes to `main` **after the last
-  PERF spec and the Known Issues session of 2026-10-08** — the Next 16.4 security fix ships with the perf work — and
-  the MOB specs follow in a second release. PERF-14 was retired on 2026-10-08: from that day the PR from `develop` to
-  `main` is the owner's to open.
-- **A spec is retired by a session of its own** (fourteen times, 2026-09-28 → 2026-10-08): the code is read against the
+  whatever is active (usually `develop`) and merges into it by PR. **A series of specs lands on `develop`, one
+  session at a time, and reaches `main` together after its last spec is retired, by a PR the owner opens** (owner,
+  2026-10-12, for the mobile-composition series, whose last spec was retired on 2026-10-17; the PERF series went to
+  `main` on its own, PR #446). While a series is open, its index's status table says which spec is in `develop`.
+- **A spec is retired by a session of its own** (since 2026-09-28: the fourteen PERF specs, then the nine MOB ones —
+  their history in README.md § Documentation): the code is read against the
   spec, every divergence gets a verdict, the lessons go home (AGENTS.md, the guide, a comment at the line, CLAUDE.md),
-  then the spec and every pointer to it go. A text-only defect found there is fixed in the retirement with `tsc`, lint
+  then the spec and every pointer to it go. **The LAST spec of a series retires its whole folder** (`doc/perf/` on
+  2026-10-08, `doc/mobile/` on 2026-10-17): before the delete, each operative piece of the index goes to ONE home — a rule
+  to AGENTS.md or the guide, a measure table to a guide, a live artefact (a budget file) moved with `git mv` and never
+  deleted —, every numbered decision cited in code, tests and guides is rewritten as its rule and date (a number outlives
+  the document that numbered it), and the series' history goes to README.md § Documentation. A text-only defect found there is fixed in the retirement with `tsc`, lint
   and Vitest, no Playwright; a runtime one only on the owner's call, with the area suite and the full Playwright; a
   deferral nobody wrote goes where its theme lives (a guide's blind spots, the speed manual); a tour done in the
   implementation session is recorded by the dossier's index. **`Draft Release Temp.md` never says a spec was retired**
-  (owner, 2026-10-08): its § Documentation line names what the guides now say, surface by surface.
+  (owner, 2026-10-08): its § Documentation line names what the guides now say, surface by surface. **The draft carries
+  user-visible changes only** (owner, 2026-10-10): a developer tool — a census, a budget, a seed, a script — gets no
+  row, not even a «dev» one; its home is the guide and CLAUDE.md «Latest».
 - **The outcome of a verification**: `SESSION_NOTES.md` during the session (untracked — delete it
   before the commit); it is folded into `CLAUDE.md` (the "Latest" entry) and `Draft Release Temp.md`
   before the PR. **Before the closing prompt it ends with one block** (owner, 2026-09-27): *Cosa* (what
@@ -279,7 +291,11 @@ The app **is** locally runnable; there is no fallback to declare.
 - **Impeccable critiques are committed** (since 2026-09-12): `.impeccable/critique/*.md` is tracked,
   so the snapshot `polish` reads as its backlog is the same on every machine. A critique is
   committed in the session that produces it; one that describes a surface since rebuilt is
-  deleted, not kept as history (the eleven pre-«Verdict over Tiles» ones were removed that day).
+  deleted, not kept as history (the eleven pre-«Verdict over Tiles» ones were removed that day). **A critique is written
+  on the fixture, never on the mirror** (2026-10-15): the sixteen written «live sul mirror» printed the real account's
+  figures and accounts in a public repo and were redacted — amounts «x.xxx €», the account «Banca X», a family surname replaced by an invented name in the fixtures that
+  had copied it. The same rule as for the draft above: nothing of the real account in a tracked file — nor the owner's
+  machines by model or name: «the reference machine» and «the other» (2026-10-15).
   `.impeccable/hook.cache.json` stays local (`.git/info/exclude`). **A snapshot closes only through
   `polish`, never by fixing the code** (2026-09-13): `critique-storage latest` judges it current from the
   fingerprint of the ONE target file (`page.tsx`, a 32-line wrapper), so corrections made in the
@@ -295,9 +311,12 @@ The app **is** locally runnable; there is no fallback to declare.
   snapshot, not the exit code. **A snapshot's `target_path` and
   `target_fingerprint` are those of the machine that wrote it** (2026-09-14): `latest` accepts only the local
   absolute path and the local bytes (a Windows checkout is CRLF under `* text=auto`, so its fingerprint never
-  matches a Mac's), while `trend` and `signals` match by slug. The four snapshots written on Windows were
-  rewritten to this Mac's path and LF fingerprint. The owner also works from a Windows laptop
-  (CLAUDE.md § Current Status), so close a snapshot on the machine that wrote it.
+  matches a macOS checkout's), while `trend` and `signals` match by slug. On 2026-09-14 the four snapshots written on Windows
+  were rewritten to the macOS path and LF fingerprint. The owner works from two machines with different line endings, so
+  close a snapshot on the machine that wrote it. **Impeccable runs on the Windows machine since 2026-10-17** (owner): every
+  command that writes or closes a snapshot — `critique`, `polish`, `critique-storage` — runs there, so a snapshot's path and
+  CRLF fingerprint always match the checkout that reads them. Every snapshot was deleted that day (the owner, closing the mobile-composition series), so the history
+  starts on Windows; the Mac-stamped snapshots before it are in `git log`.
 - **Do not duplicate project conventions here.** Code and comment conventions live in
   `DEVELOPMENT_GUIDELINES.md` and `COMMENTS.md`, repo-wide patterns and traps in `AGENTS.md`, the
   per-area rules in `doc/guide/<tema>.md`, the aesthetic in `DESIGN.md`, environment and emulators

@@ -3,14 +3,32 @@
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { CompanionReturnChip, DrawdownStatus, GrowthOfHundredSeries, HeroReturn } from '@/lib/utils/performanceSummary';
-import { formatNumber, formatPercentage } from '@/lib/services/chartService';
+import { formatSignedPercentIt, formatSignedPoints, printedSign } from '@/lib/utils/formatters';
 import { getMetricValueColor, signChipClass } from '@/lib/utils/metricColors';
 import { useCountUp } from '@/lib/utils/useCountUp';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { LIFTED_FIGURE_CLASS, Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { PERFORMANCE_SECTION_IDS, RENDIMENTO_BENCHMARK_CHIP_BLOCK, RENDIMENTO_HERO_BLOCK } from '@/lib/utils/performanceSummary';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 import { SeriesLegend } from '@/components/ui/series-legend';
 import { GrowthOfHundredChart } from '@/components/performance/GrowthOfHundredChart';
+
+/**
+ * The blocks a phone's strip lifts from this tile (The Lifted-Figure Rule; doc/guide/rendimenti.md
+ * § Composizione mobile): the hero with its qualifier (the return cell), the gap chip (the
+ * model cell), and the «dal massimo del periodo» chip, whose figure the verdict's sequel carries.
+ * The chip on the other basis stays.
+ */
+export type RendimentoLiftedBlock = typeof RENDIMENTO_HERO_BLOCK | typeof RENDIMENTO_BENCHMARK_CHIP_BLOCK | typeof RENDIMENTO_DRAWDOWN_CHIP_BLOCK;
+
+export const RENDIMENTO_DRAWDOWN_CHIP_BLOCK = 'drawdown-chip';
+
+const LIFTED_BLOCKS: readonly string[] = [RENDIMENTO_HERO_BLOCK, RENDIMENTO_BENCHMARK_CHIP_BLOCK, RENDIMENTO_DRAWDOWN_CHIP_BLOCK];
+
+/** Narrows the `string[]` of `liftedBlocks(strip, section)` to this tile's blocks at the call site (the convention of `LIFTED_FIGURE_CLASS`). */
+export function isRendimentoLiftedBlock(block: string): block is RendimentoLiftedBlock {
+  return LIFTED_BLOCKS.includes(block);
+}
 
 interface RendimentoTileProps {
   aside: string;
@@ -31,6 +49,12 @@ interface RendimentoTileProps {
   baseMonthLabel: string | null;
   /** The currency the model is measured in: EUR, or USD when the FX route failed. */
   benchmarkCurrency: 'EUR' | 'USD';
+  /**
+   * The blocks the phone's strip already prints, hidden below `desktop:` (`liftedBlocks(strip,
+   * 'rend-twr').filter(isRendimentoLiftedBlock)` plus the drawdown chip, from the page). The
+   * «in arrivo» chip is never lifted: a cell without a figure lifts nothing.
+   */
+  liftedFigures?: readonly RendimentoLiftedBlock[];
   className?: string;
 }
 
@@ -42,21 +66,20 @@ interface RendimentoTileProps {
 function HeroValue({ value }: { value: number }) {
   const animated = useCountUp(value, { duration: 620, fromPrevious: true });
   const shown = animated ?? value;
-  return <>{`${shown > 0 ? '+' : shown < 0 ? '−' : ''}${formatPercentage(Math.abs(shown), 1)}`}</>;
+  // The sign follows the PRINTED value (AGENTS.md § Layout and Color Tokens, since 2026-10-14): «0,0%» for
+  // +0,03, as the strip cell prints it.
+  return <>{formatSignedPercentIt(shown, 1)}</>;
 }
 
-function formatPoints(delta: number): string {
-  const points = Math.round(Math.abs(delta) * 10) / 10;
-  return `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${formatNumber(points, points === Math.round(points) ? 0 : 1)} pt`;
-}
-
-function Chip({ value, caption, children }: { value: number | null; caption: string; children: React.ReactNode }) {
+/** A chip's tone follows its PRINTED value (one decimal): a figure that prints as zero is uncoloured, like the strip cell that repeats it. */
+function Chip({ value, caption, className, children }: { value: number | null; caption: string; className?: string; children: React.ReactNode }) {
+  const sign = value === null ? null : printedSign(value, 1);
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div className={cn('flex min-w-0 flex-col gap-1', className)}>
       <span
         className={cn(
           'inline-flex w-fit max-w-full items-center gap-1.5 whitespace-nowrap rounded-[9px] px-[11px] py-[6px] font-mono text-[12px] font-semibold leading-none tracking-[-0.01em] tabular-nums',
-          value === null ? 'bg-muted text-foreground' : signChipClass(value),
+          sign === null || sign === 0 ? 'bg-muted text-foreground' : signChipClass(sign),
         )}
       >
         {children}
@@ -86,18 +109,25 @@ export function RendimentoTile({
   series,
   baseMonthLabel,
   benchmarkCurrency,
+  liftedFigures = [],
   className,
 }: RendimentoTileProps) {
-  const DeltaIcon = benchmark && benchmark.delta < 0 ? TrendingDown : TrendingUp;
+  const DeltaIcon = benchmark && printedSign(benchmark.delta, 1) < 0 ? TrendingDown : TrendingUp;
+  const lifted = (block: RendimentoLiftedBlock) => liftedFigures.includes(block);
+  // The chips' row hides whole when nothing of it would stay: a bare `gap` row is a hole on a phone.
+  const benchmarkChipStays = benchmarkLoading || (benchmark !== null && !lifted(RENDIMENTO_BENCHMARK_CHIP_BLOCK));
+  const drawdownChipStays = drawdown !== null && !lifted(RENDIMENTO_DRAWDOWN_CHIP_BLOCK);
+  const chipsRowLifted = !benchmarkChipStays && companionReturn === null && !drawdownChipStays;
   // Two statements, not one inline expression in the JSX: the React Compiler cannot lower `||`
   // whose left side holds conditionals.
   const methodSummaryText = [baseMonthLabel ? `Base 100 a fine ${baseMonthLabel}.` : null, benchmarkCurrency === 'USD' ? 'Modello in USD: cambi non disponibili.' : null].filter(Boolean).join(' ');
   const methodSummary = methodSummaryText || undefined;
 
   return (
-    <Tile eyebrow="Rendimento (TWR)" aside={aside} reading={reading} className={className} ariaLabel="Rendimento">
-      <div className="mt-3.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <p className={cn('font-mono text-[44px] font-bold leading-none tracking-[-0.03em] tabular-nums desktop:text-[54px]', getMetricValueColor(heroReturn.value, 'percentage'))}>
+    <Tile id={PERFORMANCE_SECTION_IDS.twr} eyebrow="Rendimento (TWR)" aside={aside} reading={reading} className={className} ariaLabel="Rendimento">
+      {/* The hero block is the figure WITH its qualifier: lifted, the strip's cell carries both («Rendimento nei 4 mesi»). */}
+      <div className={cn('mt-3.5 flex flex-wrap items-baseline gap-x-3 gap-y-1', lifted(RENDIMENTO_HERO_BLOCK) && LIFTED_FIGURE_CLASS)}>
+        <p className={cn('font-mono text-[44px] font-bold leading-none tracking-[-0.03em] tabular-nums desktop:text-[54px]', getMetricValueColor(heroReturn.value === null ? null : printedSign(heroReturn.value, 1), 'percentage'))}>
           {heroReturn.value === null ? '—' : <HeroValue value={heroReturn.value} />}
         </p>
         {/* A period return already names its months («nei 9 mesi»); the annualised one needs them beside it. */}
@@ -112,7 +142,7 @@ export function RendimentoTile({
         </span>
       </div>
 
-      <div className="mt-3.5 flex flex-col gap-2.5 tablet:flex-row tablet:flex-wrap tablet:items-start tablet:gap-x-2.5 tablet:gap-y-2">
+      <div className={cn('mt-3.5 flex flex-col gap-2.5 tablet:flex-row tablet:flex-wrap tablet:items-start tablet:gap-x-2.5 tablet:gap-y-2', chipsRowLifted && LIFTED_FIGURE_CLASS)}>
         {benchmarkLoading ? (
           <Chip value={null} caption={`vs ${benchmarkName}`}>
             <span className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" aria-hidden="true" />
@@ -120,21 +150,24 @@ export function RendimentoTile({
           </Chip>
         ) : (
           benchmark && (
-            <Chip value={benchmark.delta} caption={`vs ${benchmark.name}`}>
+            <Chip value={benchmark.delta} caption={`vs ${benchmark.name}`} className={lifted(RENDIMENTO_BENCHMARK_CHIP_BLOCK) ? LIFTED_FIGURE_CLASS : undefined}>
               <DeltaIcon className="h-[13px] w-[13px] shrink-0" aria-hidden="true" />
-              {formatPoints(benchmark.delta)}
+              {formatSignedPoints(benchmark.delta)}
             </Chip>
           )
         )}
         {companionReturn && (
           <Chip value={companionReturn.value} caption={companionReturn.label}>
-            {companionReturn.value > 0 ? '+' : companionReturn.value < 0 ? '−' : ''}
-            {formatPercentage(Math.abs(companionReturn.value), 1)}
+            {formatSignedPercentIt(companionReturn.value, 1)}
           </Chip>
         )}
         {drawdown && (
-          <Chip value={drawdown.atPeak ? null : drawdown.current} caption={drawdown.atPeak ? 'oggi' : 'dal massimo del periodo'}>
-            {drawdown.atPeak ? <span className="font-sans font-medium">Massimo del periodo</span> : `−${formatPercentage(Math.abs(drawdown.current), 1)}`}
+          <Chip
+            value={drawdown.atPeak ? null : drawdown.current}
+            caption={drawdown.atPeak ? 'oggi' : 'dal massimo del periodo'}
+            className={lifted(RENDIMENTO_DRAWDOWN_CHIP_BLOCK) ? LIFTED_FIGURE_CLASS : undefined}
+          >
+            {drawdown.atPeak ? <span className="font-sans font-medium">Massimo del periodo</span> : formatSignedPercentIt(drawdown.current, 1)}
           </Chip>
         )}
       </div>
@@ -150,7 +183,8 @@ export function RendimentoTile({
               ]}
             />
           </div>
-          <GrowthOfHundredChart series={series} benchmarkName={benchmarkName} minHeight={160} className="mt-2 flex-1" />
+          {/* The curve yields on a phone (120px below `desktop:`, 160 from it), never the reading (The First-Screen Rule). */}
+          <GrowthOfHundredChart series={series} benchmarkName={benchmarkName} minHeight={160} className="mt-2 flex-1 [--growth-min-h:120px] desktop:[--growth-min-h:160px]" />
         </>
       )}
 

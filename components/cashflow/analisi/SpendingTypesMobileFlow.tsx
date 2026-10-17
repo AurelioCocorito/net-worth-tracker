@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * Flusso's type view below 640px — the only view when the 50/30/20 roles are off: one bar of the
- * SPENDING split by type, then each type's categories as ranked rows, then what was put aside.
- * Drawn by FlowShareMobile.
+ * Flusso's type view in a cell narrower than 608px (since 2026-10-16) — the only view when the
+ * 50/30/20 roles are off: one bar of the SPENDING split by type, then each type's categories as
+ * ranked rows, then what was put aside. Drawn by FlowShareMobile.
  *
  * One base on the screen: the reading above prints the types as shares of the spending («fisse
  * 53%, variabili 37%, debiti 10%»), so the bar is the spending and its legend prints those very
@@ -30,9 +30,13 @@ interface Props {
   /** How far that calendar reaches (`describeAnalisiScheduledHorizon`). */
   horizon: string | null;
   onEntityClick: (target: { expenseType: ExpenseType; categoryKey: string }) => void;
+  /** The strip's «Risparmio» cell prints the surplus: the closing block hides (The Lifted-Figure Rule). */
+  savingsLifted?: boolean;
+  /** The figures the first screen prints (`collectPrintedFigures`): the caption drops an amount among them (2026-10-14). */
+  printedFigures?: ReadonlySet<string>;
 }
 
-export function SpendingTypesMobileFlow({ breakdown, scheduled, horizon, onEntityClick }: Props) {
+export function SpendingTypesMobileFlow({ breakdown, scheduled, horizon, onEntityClick, savingsLifted = false, printedFigures }: Props) {
   const groups: FlowShareGroup[] = breakdown.blocks.map((block) => ({
     key: block.type,
     // The types' full names, as the drill breadcrumb on this same tile prints them.
@@ -49,6 +53,7 @@ export function SpendingTypesMobileFlow({ breakdown, scheduled, horizon, onEntit
       total: breakdown.surplus,
       categories: [],
       note: describeFlowSurplus({ surplus: breakdown.surplus, afterRows: false, scheduled, horizon }),
+      ...(savingsLifted ? { lifted: 'group' as const } : {}),
     });
   }
 
@@ -65,7 +70,7 @@ export function SpendingTypesMobileFlow({ breakdown, scheduled, horizon, onEntit
         })),
         ariaLabel: 'Quote delle spese per tipo',
         incomeEdge: breakdown.incomeEdge,
-        caption: describeTypeFlowBar(breakdown),
+        caption: describeTypeFlowBar(breakdown, printedFigures),
       }}
       groups={groups}
       onEntityClick={onEntityClick}

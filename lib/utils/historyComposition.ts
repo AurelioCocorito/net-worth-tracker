@@ -304,6 +304,17 @@ export function buildLiquidityComposition(points: LiquidityHistoryPoint[]): Comp
 }
 
 /**
+ * The series of one cut — what the Composizione tile draws, and what the page reads for the closed
+ * row's answer (2026-10-16): one function, so the index and the tile's list never disagree on a band.
+ */
+export function resolveCompositionSeries(
+  cut: CompositionCut,
+  history: { assetClassHistory: AssetClassHistoryPoint[]; liquidityHistory: LiquidityHistoryPoint[] },
+): CompositionSeries {
+  return cut === 'assetClass' ? buildAssetClassComposition(history.assetClassHistory) : buildLiquidityComposition(history.liquidityHistory);
+}
+
+/**
  * Italian separators, deliberately.
  *
  * `toFixed(1)` would announce "50.0%" where the breakdown row beside it reads "50,0%" — an

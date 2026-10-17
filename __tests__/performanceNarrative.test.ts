@@ -21,7 +21,7 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(),
 }));
 
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 import type { PerformanceBaseOptions } from '@/lib/utils/performanceBase';
 import type {
   BenchmarkRanking,
@@ -30,8 +30,11 @@ import type {
   RealizedGainsSummary,
   ReturnConsistency,
 } from '@/lib/utils/performanceSummary';
+import { PERFORMANCE_SECTION_IDS, resolveHeroReturn } from '@/lib/utils/performanceSummary';
 import {
   describeAnalysisBase,
+  describePerformanceClosedAnswers,
+  describeReportAuthor,
   buildPerformanceVerdict,
   describeBenchmarkRanking,
   describeCapitalAndMarket,
@@ -48,6 +51,7 @@ import {
   describeRisk,
   describeReturnMetrics,
   describeYields,
+  PERFORMANCE_CLOSED_ASIDES,
   resolveBenchmarkGap,
   signedPercent,
   type PerformanceVerdictInput,
@@ -170,7 +174,8 @@ describe('buildPerformanceVerdict', () => {
     const v = buildPerformanceVerdict({ ...baseInput, benchmark: null });
     expect(v.headline).toBe("Nell'ultimo anno il portafoglio rende bene.");
     expect(plain(v.sentence)).toBe(
-      'Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08; il drawdown massimo è stato −4,1% a marzo, recuperato in 2 mesi; 9 mesi su 12 positivi.',
+      // The first «;» is a full stop since 2026-10-14 (the phone's cut needs a full stop, at 1440 too).
+      'Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08. Il drawdown massimo è stato −4,1% a marzo, recuperato in 2 mesi; 9 mesi su 12 positivi.',
     );
   });
 
@@ -267,6 +272,98 @@ describe('buildPerformanceVerdict', () => {
   it('one point is singular', () => {
     const v = buildPerformanceVerdict({ ...baseInput, benchmark: { name: 'Portafoglio 60/40', annualized: 6.28 } });
     expect(plain(v.sentence)).toContain('1 punto sopra il Portafoglio 60/40');
+  });
+});
+
+// ─── The phone's cut (2026-10-14) ─────────────────────────────────────────────
+//
+// Seen red, one at a time, the day they were written: (1) `leadLength: 0` with the model —
+// `cutSentence` returning the sentence bare; (2) the «.» at the first «;» — the prefix left as
+// «; il» (the first-sentence expectation and `leadLength` both red); (3) the capital — the clause
+// pushed as it was; (4) no cut without a return — `cutSentence` called whatever the value;
+// (5) the «dal massimo» clause — the push removed; (6) the asides — «8 mesi» in place of «mese
+// per mese».
+
+describe('buildPerformanceVerdict — the cut for a phone', () => {
+  it('with the model the title stands alone: leadLength 0, the whole paragraph as it was behind «Il perché»', () => {
+    const v = buildPerformanceVerdict(baseInput);
+    expect(v.leadLength).toBe(0);
+    expect(v.restLabel).toBe('rendimento, Sharpe, drawdown e mesi positivi');
+    // The paragraph itself is untouched (the first two expectations of this file hold its text).
+    expect(plain(v.sentence)).toContain('con uno Sharpe di 1,08; il drawdown massimo');
+    expect(splitVerdict(v)).toEqual({ lead: [], rest: v.sentence, restLabel: 'rendimento, Sharpe, drawdown e mesi positivi' });
+  });
+
+  it('without the model the first «;» becomes a full stop and the next clause a capital, at 1440 too', () => {
+    const v = buildPerformanceVerdict({ ...baseInput, benchmark: null });
+    expect(plain(v.sentence)).toBe(
+      'Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08. Il drawdown massimo è stato −4,1% a marzo, recuperato in 2 mesi; 9 mesi su 12 positivi.',
+    );
+    // The lead ends on the full stop; the Sharpe stays in sight, so the label names what is behind the tap.
+    expect(v.leadLength).toBe(6);
+    expect(v.restLabel).toBe('drawdown e mesi positivi');
+    const split = splitVerdict(v);
+    expect(plain(split.lead)).toBe('Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08.');
+    // The space after the full stop rides with the rest, so the two read as one paragraph at 1440.
+    expect(plain(split.rest)).toBe(' Il drawdown massimo è stato −4,1% a marzo, recuperato in 2 mesi; 9 mesi su 12 positivi.');
+  });
+
+  it('a portfolio that never fell opens the rest on «Mai sotto il massimo»', () => {
+    const v = buildPerformanceVerdict({ ...baseInput, benchmark: null, drawdown: null });
+    expect(plain(v.sentence)).toBe('Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08. Mai sotto il massimo del periodo; 9 mesi su 12 positivi.');
+    expect(plain(splitVerdict(v).rest)).toBe(' Mai sotto il massimo del periodo; 9 mesi su 12 positivi.');
+  });
+
+  it('without a return there is nothing to cut: no leadLength, no label', () => {
+    const v = buildPerformanceVerdict({
+      ...baseInput,
+      heroReturn: { value: null, isPeriodReturn: false, label: 'annualizzato' },
+      annualizedReturn: null,
+      quality: { tone: 'neutral', headline: 'Dati insufficienti', detail: '' },
+      benchmark: null,
+    });
+    expect(v.leadLength).toBeUndefined();
+    expect(v.restLabel).toBeUndefined();
+    expect(plain(v.sentence)).toContain('; il verdetto arriva');
+    // The one-segment sentence has no «; » clause to cut, so the guard is seen only through the
+    // model: a hero with no figure beside a gap that exists (a de-annualisation that overflowed)
+    // must not become «title only» with a label promising a return. Seen red with the guard
+    // removed on 2026-10-14; without this case it stayed green.
+    const overflow = buildPerformanceVerdict({
+      ...baseInput,
+      heroReturn: { value: null, isPeriodReturn: true, label: 'nei 2 mesi' },
+      annualizedReturn: Number.POSITIVE_INFINITY,
+      quality: { tone: 'neutral', headline: 'Dati insufficienti', detail: '' },
+    });
+    expect(overflow.leadLength).toBeUndefined();
+    expect(overflow.restLabel).toBeUndefined();
+  });
+
+  it("today's distance from the peak joins the drawdown clause — only when it prints as a figure", () => {
+    const below = buildPerformanceVerdict({ ...baseInput, drawdownToday: { atPeak: false, current: -1.24 } });
+    expect(plain(below.sentence)).toContain('recuperato in 2 mesi; oggi a −1,2% dal massimo del periodo; 9 mesi su 12 positivi.');
+    expect(below.sentence.find((segment) => flat(segment.text) === '−1,2%')?.sign).toBe('negative');
+    // At the peak, or a dip that prints as zero, the chip has no figure and the sentence adds nothing.
+    expect(plain(buildPerformanceVerdict({ ...baseInput, drawdownToday: { atPeak: true, current: 0 } }).sentence)).not.toContain('oggi a');
+    expect(plain(buildPerformanceVerdict({ ...baseInput, drawdownToday: { atPeak: false, current: -0.04 } }).sentence)).not.toContain('oggi a');
+    // Behind the cut in both branches: after the first «;» without the model too.
+    const noModel = buildPerformanceVerdict({ ...baseInput, benchmark: null, drawdownToday: { atPeak: false, current: -1.24 } });
+    expect(plain(splitVerdict(noModel).rest)).toContain('oggi a −1,2% dal massimo del periodo');
+  });
+});
+
+describe('PERFORMANCE_CLOSED_ASIDES', () => {
+  it('says in words what every closed row holds — never a figure', () => {
+    expect(Object.values(PERFORMANCE_CLOSED_ASIDES).every((aside) => !/\d|€|%/.test(aside))).toBe(true);
+    expect(PERFORMANCE_CLOSED_ASIDES).toEqual({
+      'rend-benchmark': 'contro i portafogli modello',
+      'rend-contributi': 'capitale entrato nel periodo',
+      'rend-attribuzione': 'per strumento',
+      'rend-capitale': 'versato e mercato',
+      'rend-rischio': 'volatilità, Sharpe e drawdown',
+      'rend-consistenza': 'mese per mese',
+      'rend-plusvalenze': 'per anno fiscale',
+    });
   });
 });
 
@@ -554,6 +651,17 @@ describe('describeAttribution', () => {
     );
   });
 
+  it('says «negli 8 mesi», as the hero does — the vowel-initial count (2026-10-14)', () => {
+    // Seen red on 2026-10-14 with the window fixed on «nei» («nei 8 mesi con il dettaglio»).
+    const coverage = { measuredMonths: 44, attributedMonths: 8, firstAttributed: { year: 2026, month: 2 }, lastAttributed: { year: 2026, month: 9 } };
+    expect(plain(describeAttribution({ rows: [row('Vanguard All-World', 20000)], attributed: 20000, gain: 21000, unattributed: 1000, coverage, residualMonths }))).toContain(
+      'negli 8 mesi con il dettaglio per strumento (da febbraio 2026)'
+    );
+    // The verdict's sentence prints the hero's label as resolved: «negli 8 mesi (TWR)», never «nei 8 mesi».
+    const eightMonths = buildPerformanceVerdict({ ...baseInput, period: 'YTD', numberOfMonths: 8, heroReturn: resolveHeroReturn(7.3, 8), benchmark: null });
+    expect(plain(eightMonths.sentence)).toContain('negli 8 mesi (TWR)');
+  });
+
   it('reads the coverage for the Dettaglio: instruments, months, window and residual', () => {
     expect(plain(describeAttributionCoverage({ rows: [row('a', 1), row('b', 2), row('c', 3)], attributed: 6, gain: 8, unattributed: 2, coverage: full, residualMonths }))).toBe(
       '3 strumenti attribuiti su 9 mesi (da gennaio a settembre 2026); +2 € non attribuibili a uno strumento.'
@@ -623,6 +731,19 @@ describe('describeReturnMetrics / describeDrawdownDetail / describeYields', () =
   });
 });
 
+describe('describeReportAuthor', () => {
+  it('names the requested model when it wrote the report, or before the stream says', () => {
+    expect(describeReportAuthor('claude-sonnet-5-5', 'claude-sonnet-5-5')).toBe('claude-sonnet-5-5');
+    expect(describeReportAuthor(null, 'claude-sonnet-5-5')).toBe('claude-sonnet-5-5');
+  });
+
+  it('names the fallback model, and why, when another model wrote it', () => {
+    expect(describeReportAuthor('claude-sonnet-5', 'claude-sonnet-5-5')).toBe(
+      'claude-sonnet-5 (claude-sonnet-5-5 aveva rifiutato la richiesta)',
+    );
+  });
+});
+
 describe('describeAnalysisBase', () => {
   it('names the window and what was paid into it', () => {
     expect(plain(describeAnalysisBase({ monthsMeasured: 31, netCashFlow: 18400 }))).toBe(
@@ -643,5 +764,112 @@ describe('describeAnalysisBase', () => {
 
   it('agrees in number on a single month', () => {
     expect(plain(describeAnalysisBase({ monthsMeasured: 1, netCashFlow: null }))).toBe('1 mese di storico.');
+  });
+});
+
+// ─── The closed rows' answers (landscape index, 2026-10-16) ──────────────────
+
+/**
+ * Each closed row's answer: one figure the strip, THE tile and the verdict's first sentence do not
+ * print, or null where the row keeps its scope. Read as the index lays it out (segments trimmed,
+ * one gap between them). Falsified on 2026-10-16, one at a time: the «batte tutti e» case went red
+ * with the `compared > 1` guard dropped (one model read «batte tutti e 1»); the long-name case
+ * with the `ANSWER_MAX_CHARS` guard removed; the no-coverage case with the `attributedMonths === 0`
+ * branch dropped; the Plusvalenze null with the `state !== 'ready'` branch dropped.
+ */
+describe('describePerformanceClosedAnswers', () => {
+  const answerText = (answer: Narrative | null | undefined) => (answer ? flat(answer.map((segment) => segment.text.trim()).join(' ')) : null);
+  const row = (name: string, total: number) => ({ assetId: name, name, ticker: '', marketEffect: total, dividends: 0, total, isPensionFund: false, monthsAttributed: 9 });
+  const full = { measuredMonths: 9, attributedMonths: 9, firstAttributed: { year: 2026, month: 1 }, lastAttributed: { year: 2026, month: 9 } };
+  const model = (id: string, delta: number) => ({ id, name: id, annualized: 6, delta, lastMonth: { year: 2026, month: 9 } });
+  const ranking: BenchmarkRanking = { rows: [model('a', -1), model('b', 1), model('c', 2), model('d', 0.5)], beaten: 3, tied: 0, measured: 4 };
+  const input = {
+    ranking,
+    capitalEntered: { channels: [], total: 13200 } as CapitalEnteredSummary,
+    attribution: { rows: [row('Bitcoin', 12400), row('Oro', -800)], attributed: 11600, gain: 12000, unattributed: 400, coverage: full, residualMonths: [] },
+    lastChartPoint: { returns: 13100 },
+    volatility: 12.4,
+    consistency,
+    realizedState: 'ready' as const,
+    realizedSummary: { total: 3745, years: [{ year: 2025, amount: 3745 }] } as RealizedGainsSummary,
+  };
+  const answers = describePerformanceClosedAnswers(input);
+
+  it('answers every row with its one figure', () => {
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.benchmark])).toBe('batte 3 su 4');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.contributi])).toBe('entrati 13.200 €');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.attribuzione])).toBe('Bitcoin +12.400 €');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.capitale])).toBe('mercato +13.100 €');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.rischio])).toBe('volatilità 12,4%');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.consistenza])).toBe('peggiore −3,0%');
+    expect(answerText(answers[PERFORMANCE_SECTION_IDS.plusvalenze])).toBe('totale +3745 €');
+  });
+
+  it('fits every answer in 22 characters and sets exactly one figure in mono', () => {
+    for (const answer of Object.values(answers)) {
+      expect(answerText(answer)!.length).toBeLessThanOrEqual(22);
+      expect(answer!.filter((segment) => segment.mono)).toHaveLength(1);
+    }
+  });
+
+  it('colours the gains and losses, never a flow, a volatility or a count', () => {
+    const sign = (id: string) => answers[id]!.find((segment) => segment.mono)!.sign;
+    expect(sign(PERFORMANCE_SECTION_IDS.attribuzione)).toBe('positive');
+    expect(sign(PERFORMANCE_SECTION_IDS.capitale)).toBe('positive');
+    expect(sign(PERFORMANCE_SECTION_IDS.consistenza)).toBe('negative');
+    expect(sign(PERFORMANCE_SECTION_IDS.plusvalenze)).toBe('positive');
+    expect(sign(PERFORMANCE_SECTION_IDS.contributi)).toBeUndefined();
+    expect(sign(PERFORMANCE_SECTION_IDS.rischio)).toBeUndefined();
+    expect(sign(PERFORMANCE_SECTION_IDS.benchmark)).toBeUndefined();
+  });
+
+  it('Benchmark: «tutti e N» when every model is beaten, a bare zero when none is, null with nothing compared', () => {
+    const all = describePerformanceClosedAnswers({ ...input, ranking: { ...ranking, rows: [model('a', 1), model('b', 2)], beaten: 2 } });
+    expect(answerText(all[PERFORMANCE_SECTION_IDS.benchmark])).toBe('batte tutti e 2');
+    const one = describePerformanceClosedAnswers({ ...input, ranking: { ...ranking, rows: [model('a', 1)], beaten: 1 } });
+    expect(answerText(one[PERFORMANCE_SECTION_IDS.benchmark])).toBe('batte 1 su 1');
+    const none = describePerformanceClosedAnswers({ ...input, ranking: { ...ranking, rows: [model('a', -1), model('b', -2)], beaten: 0 } });
+    expect(answerText(none[PERFORMANCE_SECTION_IDS.benchmark])).toBe('batte 0 su 2');
+    const arriving = describePerformanceClosedAnswers({ ...input, ranking: { rows: [{ ...model('a', 0), annualized: null, delta: null }], beaten: 0, tied: 0, measured: 0 } });
+    expect(arriving[PERFORMANCE_SECTION_IDS.benchmark]).toBeNull();
+  });
+
+  it('Contributi: «usciti» on a negative total, and a zero without sign', () => {
+    const out = describePerformanceClosedAnswers({ ...input, capitalEntered: { channels: [], total: -2300 } });
+    expect(answerText(out[PERFORMANCE_SECTION_IDS.contributi])).toBe('usciti 2300 €');
+    const zero = describePerformanceClosedAnswers({ ...input, capitalEntered: { channels: [], total: 0 } });
+    expect(answerText(zero[PERFORMANCE_SECTION_IDS.contributi])).toBe('entrati 0 €');
+  });
+
+  it('Da dove viene il rendimento: null on a name too long for the index, without coverage, without rows or without the row', () => {
+    const long = describePerformanceClosedAnswers({ ...input, attribution: { ...input.attribution, rows: [row('Vanguard FTSE All-World', 16569)] } });
+    expect(long[PERFORMANCE_SECTION_IDS.attribuzione]).toBeNull();
+    const uncovered = describePerformanceClosedAnswers({ ...input, attribution: { ...input.attribution, coverage: { ...full, attributedMonths: 0 } } });
+    expect(uncovered[PERFORMANCE_SECTION_IDS.attribuzione]).toBeNull();
+    const empty = describePerformanceClosedAnswers({ ...input, attribution: { ...input.attribution, rows: [] } });
+    expect(empty[PERFORMANCE_SECTION_IDS.attribuzione]).toBeNull();
+    expect(describePerformanceClosedAnswers({ ...input, attribution: null })[PERFORMANCE_SECTION_IDS.attribuzione]).toBeNull();
+  });
+
+  it('Capitale e mercato: a loss signed and red, a printed zero bare, null without a chart', () => {
+    const loss = describePerformanceClosedAnswers({ ...input, lastChartPoint: { returns: -2300 } })[PERFORMANCE_SECTION_IDS.capitale]!;
+    expect(answerText(loss)).toBe('mercato −2300 €');
+    expect(loss[1].sign).toBe('negative');
+    const zero = describePerformanceClosedAnswers({ ...input, lastChartPoint: { returns: 0.4 } })[PERFORMANCE_SECTION_IDS.capitale]!;
+    expect(answerText(zero)).toBe('mercato 0 €');
+    expect(zero[1].sign).toBeUndefined();
+    expect(describePerformanceClosedAnswers({ ...input, lastChartPoint: null })[PERFORMANCE_SECTION_IDS.capitale]).toBeNull();
+  });
+
+  it('Rischio and Consistenza: null when nothing is measured', () => {
+    expect(describePerformanceClosedAnswers({ ...input, volatility: null })[PERFORMANCE_SECTION_IDS.rischio]).toBeNull();
+    const nothing: ReturnConsistency = { positiveMonths: 0, totalMonths: 0, positiveShare: null, best: null, worst: null };
+    expect(describePerformanceClosedAnswers({ ...input, consistency: nothing })[PERFORMANCE_SECTION_IDS.consistenza]).toBeNull();
+  });
+
+  it('Plusvalenze: null on a failed read or when there is nothing to show', () => {
+    expect(describePerformanceClosedAnswers({ ...input, realizedState: 'failed' })[PERFORMANCE_SECTION_IDS.plusvalenze]).toBeNull();
+    expect(describePerformanceClosedAnswers({ ...input, realizedState: 'absent' })[PERFORMANCE_SECTION_IDS.plusvalenze]).toBeNull();
+    expect(describePerformanceClosedAnswers({ ...input, realizedSummary: null })[PERFORMANCE_SECTION_IDS.plusvalenze]).toBeNull();
   });
 });

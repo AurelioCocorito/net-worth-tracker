@@ -21,7 +21,7 @@ import type { Narrative } from '@/lib/utils/narrative';
 import type { PensionMemberBlock, PensionMemberTax } from '@/lib/utils/pensionSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { ASIDE_LINK_CLASS } from '@/components/pension/pensionStyles';
 
@@ -36,6 +36,9 @@ export interface AnnoFiscaleTileProps {
   footer: Narrative;
   /** One block per contributor (or per unassigned fund), from `summarizePensionMembers`. */
   blocks: PensionMemberBlock[];
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -149,13 +152,13 @@ function UnassignedRow({ block }: { block: PensionMemberBlock }) {
  * The Anno fiscale tile: one block per contributor — KPI, track, rows — and a call to action
  * for a fund nobody is linked to, over the narrative's reading, aside and footer.
  */
-export function AnnoFiscaleTile({ taxYear, reading, aside, footer, blocks, className }: AnnoFiscaleTileProps) {
+export function AnnoFiscaleTile({ taxYear, reading, aside, footer, blocks, collapse, asideWhenClosed, className }: AnnoFiscaleTileProps) {
   const named = blocks.length > 1;
 
   return (
     // The accessible name carries the year the eyebrow shows: a name shorter than the visible
     // label is what a screen reader hears while a sighted reader sees more (WCAG 2.5.3).
-    <Tile eyebrow={`Anno fiscale ${taxYear}`} aside={aside} reading={reading} ariaLabel={`Anno fiscale ${taxYear}`} className={className}>
+    <Tile eyebrow={`Anno fiscale ${taxYear}`} aside={aside} asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel={`Anno fiscale ${taxYear}`} className={className} collapse={collapse}>
       <div className="mt-3.5 flex flex-col gap-4">
         {blocks.map((block) => {
           if (block.kind === 'unassigned') return <UnassignedRow key={block.key} block={block} />;

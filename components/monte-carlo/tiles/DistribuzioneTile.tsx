@@ -21,7 +21,7 @@ import type { Narrative } from '@/lib/utils/narrative';
 import type { MonteCarloRun } from '@/lib/utils/monteCarloSummary';
 import type { DistributionView } from '@/lib/utils/monteCarloNarrative';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { AsideToggle } from '@/components/ui/aside-toggle';
 import { YearBars } from '@/components/ui/year-bars';
@@ -42,6 +42,9 @@ interface DistribuzioneTileProps {
   onViewChange: (view: DistributionView) => void;
   /** The footer of the SELECTED view. */
   footer: Narrative;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -66,7 +69,7 @@ function PlainKpi({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function DistribuzioneTile({ reading, aside, run, view, onViewChange, footer, className }: DistribuzioneTileProps) {
+export function DistribuzioneTile({ reading, aside, run, view, onViewChange, footer, collapse, asideWhenClosed, className }: DistribuzioneTileProps) {
   const hasFailures = run.failureCount > 0 && run.failureYearBins.length > 0;
   const shownView: DistributionView = hasFailures ? view : 'finali';
 
@@ -77,6 +80,8 @@ export function DistribuzioneTile({ reading, aside, run, view, onViewChange, foo
       reading={reading}
       ariaLabel="Distribuzione dei valori finali"
       className={className}
+      asideWhenClosed={asideWhenClosed}
+      collapse={collapse}
     >
       {shownView === 'finali' ? (
         <>

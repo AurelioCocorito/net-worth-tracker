@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { SCENARIO_SLOT } from '@/components/monte-carlo/ScenarioOverlayChart';
 
@@ -64,6 +64,9 @@ interface ParametriTileProps {
   footer: Narrative;
   /** The footer says the results are stale — printed in the warning tone. */
   stale: boolean;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -109,6 +112,8 @@ export function ParametriTile({
   isDemo,
   footer,
   stale,
+  collapse,
+  asideWhenClosed,
   className,
 }: ParametriTileProps) {
   const chartColors = useChartColors();
@@ -124,7 +129,7 @@ export function ParametriTile({
   };
 
   return (
-    <Tile eyebrow="Parametri" aside={aside} reading={reading} ariaLabel="Parametri della simulazione" className={className}>
+    <Tile eyebrow="Parametri" aside={aside} asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Parametri della simulazione" className={className} collapse={collapse}>
       <div className="mt-3.5 grid grid-cols-1 gap-5 desktop:grid-cols-12">
         {/* Piano (5) */}
         <div className="flex min-w-0 flex-col gap-4 desktop:col-span-5">

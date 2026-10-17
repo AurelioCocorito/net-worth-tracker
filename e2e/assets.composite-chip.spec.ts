@@ -67,6 +67,9 @@ async function remove(db: FirebaseFirestore.Firestore) {
 async function openPatrimonio(page: Page, width: number) {
   await page.setViewportSize({ width, height: width >= 1024 ? 900 : 844 });
   await page.goto('/dashboard/assets', { waitUntil: 'load' });
+  // Below `desktop:` Strumenti is a closed row since 2026-10-14: the rows exist once it
+  // opens. The project is `desktop` resized, but the composition reads the width.
+  if (width < 1440) await page.locator('#patrimonio-strumenti-trigger').click({ timeout: 90_000 });
   // One list is in the DOM per width since 2026-10-07 (the table at 1440, the phone rows at 390), so
   // the name is there once; the visible filter stays harmless and says what is being waited for.
   await expect(page.getByText(PELLICANO.name).filter({ visible: true }).first()).toBeVisible({ timeout: 90_000 });

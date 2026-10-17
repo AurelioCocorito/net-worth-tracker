@@ -2,10 +2,30 @@
  * Tests for lib/utils/storicoSummary.ts — the numbers behind Storico's verdict and tiles: the
  * growth since the first snapshot (wealth growth, contributions INCLUDED), the best and worst
  * month, the all-time high, the pace of the last twelve months against the lifetime average,
- * and the next-doubling projection at that pace. Pure: no Firebase, no clock.
+ * and the next-doubling projection at that pace. Pure: no Firebase, no clock — the phone's strip
+ * (2026-10-14) reads the Driver's formatter from storicoNarrative, whose chartService chain is
+ * mocked as in storicoNarrative.test.ts.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/firebase/config', () => ({ db: {} }));
+vi.mock('@/lib/utils/authFetch', () => ({ authenticatedFetch: vi.fn() }));
+vi.mock('@/lib/services/dashboardOverviewInvalidation', () => ({
+  invalidateDashboardOverviewSummary: vi.fn(),
+}));
+vi.mock('firebase/firestore', () => ({
+  doc: vi.fn(),
+  getDoc: vi.fn(),
+  setDoc: vi.fn(),
+  deleteField: vi.fn(),
+}));
+
+import { formatSignedEuro } from '@/lib/utils/formatters';
+import { narrativeToText } from '@/lib/utils/narrative';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { buildDriverLedger, describeRunningWindowShort, formatDriverEuro } from '@/lib/utils/storicoNarrative';
+import { formatStripFigure, liftedBlocks, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
 import type { DoublingMilestone, MonthlySnapshot } from '@/types/assets';
 import type { Expense } from '@/types/expenses';
 import {
@@ -26,6 +46,11 @@ import {
   summarizeMonthlyMoves,
   summarizeLaborMetrics,
   withMonthDeltas,
+  selectStoricoStrip,
+  STORICO_EVOLUZIONE_ID,
+  STORICO_SECTION_IDS,
+  STORICO_TRAILING_BLOCK,
+  type DriverYear,
 } from '@/lib/utils/storicoSummary';
 
 /** A minimal snapshot: only the fields the module reads. */
@@ -408,5 +433,85 @@ describe('summarizeLaborMetrics', () => {
 
   it('should read a legacy Driver row without a baseline as a December-based window', () => {
     expect(laborWindowsOf([{ year: '2026', latest: { year: 2026, month: 8 } }])).toEqual([{ baseline: { year: 2025, month: 12 }, latest: { year: 2026, month: 8 } }]);
+  });
+});
+
+/**
+ * The phone's strip of Storico (2026-10-14; The Lifted-Figure Rule, doc/guide/storico.md). Each cell prints EXACTLY
+ * what its tile prints: «Ultimi 12 mesi» the euro of Evoluzione's chip (`formatSignedEuro`, whole
+ * euros), «Risparmio {anno}» the savings row of the Driver's ledger (`formatDriverEuro`, the
+ * formatter `DriverTile` prints its rows with). Seen red: the cell's `tone: 'neutral'` dropped (the
+ * ledger's flow row is uncoloured, the cell went green); a `lifts` on `storico-driver` added (the
+ * ledger must stay whole).
+ */
+describe('selectStoricoStrip', () => {
+  const plain = (text: string) => text.replace(/[  ]/g, ' ');
+  const cellText = (figure: StripFigure) => plain(narrativeToText([formatStripFigure(figure)!]));
+  const ROW: DriverYear = {
+    year: '2026',
+    netWorthGrowth: 31916,
+    netSavings: 5364,
+    market: 21916,
+    taxes: 0,
+    debtRepaid: 1200,
+    pensionContributions: 2500,
+    other: 936,
+    isMarketMeasured: true,
+    growthPct: 12.4,
+    baseline: { year: 2025, month: 12 },
+    latest: { year: 2026, month: 9 },
+  };
+  const KNOWN = [...Object.values(STORICO_SECTION_IDS), VERDICT_REST_SECTION];
+  const strip = (overrides: Partial<Parameters<typeof selectStoricoStrip>[0]> = {}) =>
+    selectStoricoStrip({
+      pace: { trailingDelta: 34000 },
+      featured: { row: ROW, isRunning: true },
+      ledger: buildDriverLedger(ROW),
+      window: describeRunningWindowShort(ROW),
+      ...overrides,
+    });
+
+  it('should read the last year and ONE Driver cell, open «Il perché» and the Driver, and pass the strip rules', () => {
+    const figures = strip();
+    expect(figures.map((figure) => figure.label)).toEqual(['Ultimi 12 mesi', 'Risparmio 2026 · gen–set']);
+    expect(figures.map((figure) => figure.opens)).toEqual([VERDICT_REST_SECTION, STORICO_SECTION_IDS.driver]);
+    expect(figures.filter((figure) => figure.opens === STORICO_SECTION_IDS.driver)).toHaveLength(1);
+    expect(validateStrip(figures, KNOWN)).toEqual([]);
+    expect(liftedBlocks(figures, STORICO_EVOLUZIONE_ID)).toEqual([STORICO_TRAILING_BLOCK]);
+  });
+
+  it('should never lift the ledger', () => {
+    expect(strip().some((figure) => figure.lifts?.section === STORICO_SECTION_IDS.driver)).toBe(false);
+    expect(liftedBlocks(strip(), STORICO_SECTION_IDS.driver)).toEqual([]);
+  });
+
+  it('should print each cell as its tile prints it', () => {
+    const [trailing, savings] = strip({ pace: { trailingDelta: -3210.4 } });
+    expect(cellText(trailing)).toBe(plain(formatSignedEuro(-3210.4, true)));
+    const ledgerSavings = buildDriverLedger(ROW).find((row) => row.key === 'savings')!;
+    expect(cellText(savings)).toBe(plain(formatDriverEuro(ledgerSavings.value)));
+    expect(cellText(savings)).toBe('+5364 €');
+    // A flow: signed, never coloured — the ledger row is `text-foreground`.
+    expect(formatStripFigure(savings)!.sign).toBeUndefined();
+    expect(formatStripFigure(trailing)!.sign).toBe('negative');
+  });
+
+  it('should print a Driver year with no savings as the ledger does, «0 €»', () => {
+    const zero = { ...ROW, netSavings: 0.3, other: ROW.other - 0.3 };
+    const [, savings] = strip({ featured: { row: zero, isRunning: false }, ledger: buildDriverLedger(zero), window: null });
+    expect(savings.label).toBe('Risparmio 2026');
+    expect(cellText(savings)).toBe('0 €');
+    expect(cellText(savings)).toBe(plain(formatDriverEuro(buildDriverLedger(zero).find((row) => row.key === 'savings')!.value)));
+  });
+
+  it('should say why the last year has no figure, and draw no Driver cell without a featured year', () => {
+    const [trailing] = strip({ pace: { trailingDelta: null } });
+    expect(trailing.value).toBeNull();
+    expect(trailing.reason).toBe('meno di un anno di storico');
+    // No twelve months, no pace sentence, no «Il perché»: the cell opens THE tile instead.
+    expect(trailing.opens).toBe(STORICO_EVOLUZIONE_ID);
+    expect(validateStrip([trailing], [...KNOWN, STORICO_EVOLUZIONE_ID])).toEqual([]);
+    expect(liftedBlocks([trailing], STORICO_EVOLUZIONE_ID)).toEqual([]);
+    expect(strip({ featured: null, ledger: [], window: null })).toHaveLength(1);
   });
 });

@@ -9,6 +9,10 @@
  *    44px target — «Mostra altre» was 36.
  *
  * Runs on the Centri fixture account (`centri-mobile` project — scripts/seedCostCentersE2E.mts).
+ *
+ * Since 2026-10-12 Centri and Movimenti collegati are closed rows below `desktop:`
+ * (doc/guide/centri-di-costo.md § Composizione mobile): each test opens the row before reading it,
+ * and Back finds the list's row still open (the memory is the list's, not the detail's).
  */
 
 import { test, expect } from '@playwright/test';
@@ -20,6 +24,11 @@ test.describe('Centri di Costo — mobile', () => {
     await page.goto('/dashboard/cashflow?tab=cost-centers');
     await expect(page.getByRole('region', { name: 'Verdetto sui centri di costo' })).toBeVisible({ timeout: 60_000 });
 
+    // The list is a closed row: open it, its aside («in ordine di costo») beside the eyebrow.
+    const centri = page.locator('#cdc-centri-trigger');
+    await expect(centri).toContainText('in ordine di costo');
+    await centri.click();
+    await expect(centri).toHaveAttribute('aria-expanded', 'true');
     const row = page.getByRole('region', { name: 'Centri', exact: true }).getByRole('button', { name: /^Apri Fenicottero/ });
     await row.scrollIntoViewIfNeeded();
     // Positive anchor: the defect only exists when the list IS scrolled at the moment of the tap.
@@ -30,6 +39,14 @@ test.describe('Centri di Costo — mobile', () => {
     await expect.poll(() => page.evaluate(() => document.querySelector('main')!.scrollTop)).toBe(0);
     await expect(page.getByRole('button', { name: 'Centri di costo', exact: true })).toBeInViewport();
     await expect(page.getByRole('button', { name: 'Elimina centro di costo', exact: true })).toBeInViewport();
+
+    // Back finds the list with its rows as they were: the memory is the list's own
+    // (`mobile-sections:cashflow:cost-centers`), not the detail's. Seen red on 2026-10-12 with
+    // that key cleared before going back (the row came back closed).
+    await page.goBack();
+    await expect(page.getByRole('region', { name: 'Verdetto sui centri di costo' })).toBeVisible();
+    await expect(page.locator('#cdc-centri-trigger')).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('region', { name: 'Centri', exact: true }).getByRole('button', { name: /^Apri Fenicottero/ })).toBeVisible();
   });
 
   test('the detail neither overflows main nor ships a target under 44px', async ({ page }) => {
@@ -38,6 +55,11 @@ test.describe('Centri di Costo — mobile', () => {
     await page.goto('/dashboard/cashflow?tab=cost-centers&center=e2e-cc-ornitorinco');
     const movimenti = page.getByRole('region', { name: 'Movimenti collegati' });
     await expect(movimenti).toBeVisible({ timeout: 60_000 });
+    // A closed row of the detail (`cost-centers-center`, its own memory): open it first.
+    const movimentiTrigger = page.locator('#cdc-centro-movimenti-trigger');
+    await expect(movimentiTrigger).toContainText(/\d+ (voci|voce)/);
+    await movimentiTrigger.click();
+    await expect(movimentiTrigger).toHaveAttribute('aria-expanded', 'true');
     await expect(movimenti.getByRole('button', { name: /^Mostra altre/ })).toBeVisible();
 
     const report = await page.evaluate(() => {

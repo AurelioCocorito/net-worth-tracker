@@ -9,7 +9,7 @@ import { describeMonthTrades, monthWithPrepositionA } from '@/lib/utils/patrimon
 import type { MonthTradesSummary } from '@/lib/utils/patrimonioSummary';
 import { getAssetDisplayTicker } from '@/lib/utils/assetDisplay';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_FOOTER_ACTION_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_FOOTER_ACTION_CLASS, type TileCollapse } from '@/components/ui/tile';
 
 /** Rows shown by default; beyond these the footer expands to the whole month in place. */
 const MAX_ROWS = 5;
@@ -27,6 +27,10 @@ interface MovimentiTileProps {
   assetsById: Map<string, Asset>;
   /** A row opens the instrument's movements (AssetMovementsDialog). */
   onOpenMovements: (asset: Asset) => void;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -35,20 +39,25 @@ interface MovimentiTileProps {
  * first, and the net money that went into the portfolio. Adjustments and migration baselines
  * are not trades and never appear (see summarizeMonthTrades).
  */
-export function MovimentiTile({ summary, month, ledgerReady, loading = false, assetsById, onOpenMovements, className }: MovimentiTileProps) {
+export function MovimentiTile({ summary, month, ledgerReady, loading = false, assetsById, onOpenMovements, collapse, asideWhenClosed, className }: MovimentiTileProps) {
   // The month's trades, the latest five by default — the footer expands to all of them in place.
   const [showAll, setShowAll] = useState(false);
   const rows = showAll ? summary.rows : summary.rows.slice(0, MAX_ROWS);
   const monthName = MONTH_NAMES[month - 1].toLowerCase();
+  const operations = summary.count === 1 ? 'operazione' : 'operazioni';
 
   return (
     <Tile
       eyebrow="Movimenti del mese"
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       aside={
-        ledgerReady ? (
+        // A row keeps a TEXT aside beside its eyebrow (`Tile`): the same words there, without the mono span.
+        collapse ? (
+          ledgerReady ? `${monthName} · ${summary.count} ${operations}` : monthName
+        ) : ledgerReady ? (
           <span>
-            {monthName} · <span className="font-mono tabular-nums">{summary.count}</span>{' '}
-            {summary.count === 1 ? 'operazione' : 'operazioni'}
+            {monthName} · <span className="font-mono tabular-nums">{summary.count}</span> {operations}
           </span>
         ) : (
           monthName

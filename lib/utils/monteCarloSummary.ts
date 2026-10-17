@@ -15,6 +15,7 @@
 
 import type { MonteCarloCapitalInflow, MonteCarloParams, MonteCarloResults, MonteCarloScenarios, PercentilesData } from '@/types/assets';
 import type { VerdictTone } from '@/lib/utils/narrative';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
 import { binYears, type YearHistogramBin } from '@/lib/utils/yearHistogram';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -155,6 +156,51 @@ export function summarizeMonteCarloRun(results: MonteCarloResults, params: Monte
     failureFirstCalendarYear: failureCalendarYears.length > 0 ? Math.min(...failureCalendarYears) : null,
     failureLastCalendarYear: failureCalendarYears.length > 0 ? Math.max(...failureCalendarYears) : null,
   };
+}
+
+// ─── The phone composition (2026-10-15) ───────────────────────────────────────
+
+/**
+ * The ids of the tab's rows below `desktop:` (`useMobileSections` with `tab: 'montecarlo'`, The
+ * Closed-Row Rule): every tile but Probabilità, THE tile, which never closes (The
+ * First-Screen Rule). Without a run Parametri is the one tile and is not a row.
+ */
+export const MONTE_CARLO_SECTION_IDS = {
+  distribuzione: 'mc-distribuzione',
+  scenari: 'mc-scenari',
+  parametri: 'mc-parametri',
+} as const;
+
+/** The decimals the hero and the verdict print a rate with: none when the rounded rate is whole («95%»), else one («84,2%»). */
+export function rateDecimals(value: number): number {
+  return Number.isInteger(Math.round(value * 10) / 10) ? 0 : 1;
+}
+
+export interface MonteCarloStripInput {
+  run: MonteCarloRun;
+  comparison: ScenarioComparison | null;
+}
+
+/**
+ * The two figures of the Monte Carlo's first screen: the median final value — the verdict's «nel
+ * caso mediano chiudi con» — opening the Distribuzione, and the bear scenario's probability — the
+ * verdict's «nello scenario orso regge nel 61,5%» — opening Scenari. A median at zero is the
+ * verdict's own words, never «0 €» (The Stale-Run Rule). The strip is the SHOWN run's until
+ * «Esegui»: a stale form moves the Parametri footer, not these cells.
+ */
+export function selectMonteCarloStrip({ run, comparison }: MonteCarloStripInput): StripFigure[] {
+  const bear = comparison?.rows.find((row) => row.key === 'bear') ?? null;
+  const cells: StripFigure[] = [
+    {
+      label: 'Mediana',
+      value: run.medianFinal > 0 ? run.medianFinal : null,
+      format: 'currency',
+      opens: MONTE_CARLO_SECTION_IDS.distribuzione,
+      ...(run.medianFinal > 0 ? {} : { reason: 'i soldi finiscono' }),
+    },
+  ];
+  if (bear) cells.push({ label: 'Orso', value: bear.successRate, format: 'percent', decimals: rateDecimals(bear.successRate), opens: MONTE_CARLO_SECTION_IDS.scenari });
+  return cells;
 }
 
 // ─── The three scenarios ──────────────────────────────────────────────────────

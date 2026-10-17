@@ -24,9 +24,113 @@ import type {
   UnderwaterDrawdownData,
 } from '@/types/performance';
 import type { MonthlySnapshot } from '@/types/assets';
+import type { AssetTransaction, AssetTransactionsMeta } from '@/types/assetTransactions';
 import { buildTwrIndex, findMaxDrawdown, type TwrIndexPoint } from '@/lib/utils/drawdownSeries';
 import { annualizeTWR, buildIndexedSeries, type MonthlyReturnPoint } from '@/lib/utils/benchmarkPeriodReturn';
 import { externalFlowOf } from '@/lib/utils/cashFlowMap';
+import { aggregateRealizedByYear } from '@/lib/utils/assetTransactionUtils';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
+
+// ---------------------------------------------------------------------------
+// The phone composition: the ids, the strip and the Plusvalenze state (since 2026-10-14)
+// ---------------------------------------------------------------------------
+
+/**
+ * THE tile and the rows of Rendimenti below `desktop:`, in the DOM's order (The
+ * First-Screen Rule). The DOM ids are not narrative, so they live here and not in
+ * `performanceNarrative.ts` (the Panoramica's precedent, `overviewSummary.ts`).
+ */
+export const PERFORMANCE_SECTION_IDS = {
+  twr: 'rend-twr',
+  benchmark: 'rend-benchmark',
+  contributi: 'rend-contributi',
+  attribuzione: 'rend-attribuzione',
+  capitale: 'rend-capitale',
+  rischio: 'rend-rischio',
+  consistenza: 'rend-consistenza',
+  plusvalenze: 'rend-plusvalenze',
+} as const;
+
+/** The blocks of `RendimentoTile` a strip cell lifts — the hero and the gap chip; the page adds the drawdown chip (doc/guide/rendimenti.md). */
+export const RENDIMENTO_HERO_BLOCK = 'hero';
+export const RENDIMENTO_BENCHMARK_CHIP_BLOCK = 'benchmark-chip';
+
+export interface PerformanceStripInput {
+  /** The hero as the page shows it: the period's return below a year, annualised from one (`resolveHeroReturn`). */
+  heroReturn: HeroReturn;
+  /** The gap against the reference model ON THE HERO'S BASIS (`resolveBenchmarkGap`); `null` while loading or unavailable. */
+  benchmarkGap: number | null;
+  /** «60/40» — the model's name without its label (`shortBenchmarkName`). */
+  benchmarkShortName: string;
+  /** The model's series (or the FX) still in flight: the cell says «in arrivo», never «non disponibile». */
+  benchmarkLoading: boolean;
+  /** «Da dove viene il rendimento» exists for this window: the return cell opens it, else Capitale e mercato. */
+  hasAttribution: boolean;
+}
+
+/**
+ * The two figures under the title on a phone (doc/guide/rendimenti.md § Composizione mobile): the return
+ * ON ITS BASIS — the label carries it («Rendimento nei 4 mesi», «Rendimento annualizzato»), the
+ * binding clause The Binding-Clause Rule asks for — and the gap against the reference model on the
+ * SAME basis (The Same-Basis Rule: the page hands over `resolveBenchmarkGap`'s result, never a
+ * recomputation — `performanceNarrative.ts` imports from this module, so this module cannot call
+ * it). Each cell prints EXACTLY what the verdict's sentence prints (`__tests__/
+ * performanceSummary.test.ts` holds the identity); a `null` prints its reason, never a zero.
+ *
+ * The return cell opens the row that explains where the return comes from, or Capitale e mercato
+ * when no month of the window has a per-instrument breakdown; the gap cell opens Benchmark.
+ */
+export function selectPerformanceStrip(input: PerformanceStripInput): StripFigure[] {
+  const { heroReturn, benchmarkGap, benchmarkShortName, benchmarkLoading, hasAttribution } = input;
+  return [
+    {
+      label: `Rendimento ${heroReturn.label}`,
+      value: heroReturn.value,
+      format: 'signed-percent',
+      opens: hasAttribution ? PERFORMANCE_SECTION_IDS.attribuzione : PERFORMANCE_SECTION_IDS.capitale,
+      reason: 'non ancora misurabile',
+      lifts: { section: PERFORMANCE_SECTION_IDS.twr, block: RENDIMENTO_HERO_BLOCK },
+    },
+    {
+      label: `Sul ${benchmarkShortName}`,
+      value: benchmarkGap,
+      format: 'points',
+      opens: PERFORMANCE_SECTION_IDS.benchmark,
+      reason: benchmarkLoading ? 'in arrivo' : 'modello non disponibile',
+      lifts: { section: PERFORMANCE_SECTION_IDS.twr, block: RENDIMENTO_BENCHMARK_CHIP_BLOCK },
+    },
+  ];
+}
+
+/** What the Plusvalenze tile is in: not on the page, a failed read of the ledger's meta, or ready. */
+export type RealizedGainsState = 'absent' | 'failed' | 'ready';
+
+export interface RealizedGainsStateInput {
+  /** The ledger's meta query: `isError` and `data` (`undefined` not read yet, `null` = not migrated). */
+  meta: { isError: boolean; data: AssetTransactionsMeta | null | undefined };
+  /** The ledger's trades, the list the base resolution already read. */
+  trades: AssetTransaction[];
+}
+
+/**
+ * Whether Plusvalenze realizzate is a tile, an `ErrorNotice` or nothing (the failed-row shape of
+ * Benchmark, a failed read at every width, and the owner's choice of 2026-09-26 that a silent
+ * Plusvalenze becomes a notice; the rule since 2026-10-14, doc/guide/rendimenti.md
+ * § Composizione mobile). Before that day a meta in error read as «not migrated» and the tile
+ * vanished in silence.
+ *
+ *   failed  the meta's read failed WITHOUT a document to show (`data === undefined`): a reread
+ *           that fails over a document already held — the persisted cache included — stays
+ *           `ready`, because the meta decides no figure of the verdict, unlike the six inputs
+ *           that stop the page through `composeReadState`
+ *   absent  the meta is `null` (the migration never ran) or no sale was ever closed
+ *   ready   otherwise: the tile prints `summarizeRealizedGains`
+ */
+export function resolveRealizedGainsState({ meta, trades }: RealizedGainsStateInput): RealizedGainsState {
+  if (meta.isError && meta.data === undefined) return 'failed';
+  if (!meta.data) return 'absent';
+  return summarizeRealizedGains(aggregateRealizedByYear(trades).byYear) === null ? 'absent' : 'ready';
+}
 
 // ---------------------------------------------------------------------------
 // B1 — performance verdict
@@ -178,6 +282,16 @@ export function deannualizeReturn(annualizedPct: number, numberOfMonths: number)
  * @param annualizedReturn - TWR as computed by the service (annualized), or null
  * @param numberOfMonths - Length of the measured period
  */
+/**
+ * «nei N mesi» or «negli N mesi»: the Italian article before a count of months spoken aloud —
+ * «otto» and «undici» open with a vowel, every other count below a year (where this label
+ * lives) with a consonant. Until 2026-10-14 the hero said «nei 8 mesi» and the strip cell
+ * and the verdict repeated it.
+ */
+export function inMonths(numberOfMonths: number): 'nei' | 'negli' {
+  return numberOfMonths === 8 || numberOfMonths === 11 ? 'negli' : 'nei';
+}
+
 export function resolveHeroReturn(
   annualizedReturn: number | null,
   numberOfMonths: number
@@ -194,7 +308,7 @@ export function resolveHeroReturn(
   return {
     value: isFinite(periodReturn) ? periodReturn : null,
     isPeriodReturn: true,
-    label: numberOfMonths === 1 ? 'nel mese' : `nei ${numberOfMonths} mesi`,
+    label: numberOfMonths === 1 ? 'nel mese' : `${inMonths(numberOfMonths)} ${numberOfMonths} mesi`,
   };
 }
 

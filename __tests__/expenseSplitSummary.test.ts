@@ -1,10 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import {
+  MAX_SPLIT_STRIP_MEMBERS,
+  SPLIT_MEMBER_HERO_BLOCK,
+  SPLIT_REST_ID,
+  SPLIT_SECTION_IDS,
   allocateByShare,
+  residualTone,
   resolveSplitBasis,
+  selectSplitStrip,
+  splitMemberSectionId,
   summarizeExpenseSplit,
+  type ExpenseSplitSummary,
+  type MemberBalance,
   type MemberShare,
 } from '@/lib/utils/expenseSplitSummary';
+import { formatBookedResidual } from '@/lib/utils/expenseSplitNarrative';
+import { narrativeToText } from '@/lib/utils/narrative';
+import { formatStripFigure, liftedBlocks, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
 import type { Expense, ExpenseType } from '@/types/expenses';
 import type { FamilyMember } from '@/types/assets';
 
@@ -457,5 +469,107 @@ describe('summarizeExpenseSplit — income left «in comune»', () => {
     expect(summary.common.toSplit).toBe(1000);
     expect(summary.unassigned).toEqual({ total: 0, rowCount: 0, income: 200, incomeRowCount: 1 });
     expect(summary.basis).toMatchObject({ kind: 'computed', totalIncome: 4000, unattributedIncome: 0 });
+  });
+});
+
+/**
+ * The phone's strip (since 2026-10-12): one cell per person on the residual of money that has
+ * MOVED. The identity is the tile's (`formatBookedResidual`: the compact euro, the «−» U+2212 on a
+ * deficit, at 1440 too — doc/guide/cashflow-divisione.md). Seen red on 2026-10-12 with the cell
+ * reading `remaining` (the period's residual: Nibbio's «−100 €» for his «+500 €» of today), and with
+ * the identity compared against `Intl`'s own hyphen-minus on the negative case.
+ */
+describe('selectSplitStrip', () => {
+  const plain = (text: string) => text.replace(/[  ]/g, ' ');
+  const cellText = (figure: StripFigure) => plain(narrativeToText([formatStripFigure(figure)!]));
+  const person = (name: string, remainingBooked: number | null, remaining = remainingBooked): MemberBalance => ({
+    member: { id: `m-${name.toLowerCase()}`, name },
+    income: 2000,
+    share: 0.5,
+    commonShare: 500,
+    personalSpending: 100,
+    remaining,
+    remainingBooked,
+  });
+  const summaryOf = (members: MemberBalance[]): ExpenseSplitSummary => ({
+    basis: { kind: 'computed', totalIncome: 4000, unattributedIncome: 0, members: members.map((m) => ({ member: m.member, income: m.income, share: m.share ?? 0 })) },
+    common: { total: 1000, rowCount: 3, income: 0, incomeRowCount: 0, toSplit: 1000, surplus: 0, scheduled: { count: 0, expenses: 0, income: 0, throughMonth: null } },
+    members,
+    unassigned: { total: 0, rowCount: 0, income: 0, incomeRowCount: 0 },
+    commonExpenses: [],
+  });
+
+  it('reads one cell per person, opening and lifting the person\'s own row, and passes the strip rules', () => {
+    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Nibbio', 500)]));
+    expect(strip.map((f) => f.label)).toEqual(['Ghiandaia', 'Nibbio']);
+    expect(strip.map((f) => f.opens)).toEqual([splitMemberSectionId('m-ghiandaia'), splitMemberSectionId('m-nibbio')]);
+    expect(validateStrip(strip, [...Object.values(SPLIT_SECTION_IDS), SPLIT_REST_ID, ...strip.map((f) => f.opens)])).toEqual([]);
+    expect(liftedBlocks(strip, splitMemberSectionId('m-nibbio'))).toEqual([SPLIT_MEMBER_HERO_BLOCK]);
+    expect(liftedBlocks(strip, splitMemberSectionId('m-ghiandaia'))).toEqual([SPLIT_MEMBER_HERO_BLOCK]);
+  });
+
+  it('prints what the tile prints, the deficit with the U+2212 and in the loss tone, the zero unsigned', () => {
+    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Nibbio', -83), person('Lemure', 0)]));
+    expect(cellText(strip[0])).toBe(plain(formatBookedResidual(2200)));
+    expect(formatStripFigure(strip[0])!.sign).toBe('positive');
+    expect(cellText(strip[1])).toBe(plain(formatBookedResidual(-83)));
+    expect(cellText(strip[1])).toMatch(/^−83/);
+    expect(formatStripFigure(strip[1])!.sign).toBe('negative');
+    expect(cellText(strip[2])).toBe(plain(formatBookedResidual(0)));
+    expect(formatStripFigure(strip[2])!.sign).toBeUndefined();
+  });
+
+  it('prints a residual that rounds to zero as the unsigned, untoned zero — in the cell and in the tile alike', () => {
+    // Seen red on 2026-10-12, in the spec's retirement: the tile printed «−0 €» in the loss colour
+    // for −0,3 while the cell printed «0 €» (a printed zero takes no sign anywhere: AGENTS.md
+    // § Layout and Color Tokens), and the cell still carried the loss tone the strip then dropped.
+    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Pulcino', -0.3)]));
+    expect(cellText(strip[1])).toBe('0 €');
+    expect(cellText(strip[1])).toBe(plain(formatBookedResidual(-0.3)));
+    expect(formatStripFigure(strip[1])!.sign).toBeUndefined();
+    expect(strip[1].tone).toBeUndefined();
+    // The tile reads the same tone: none at a printed zero, the sign's otherwise, null without a basis.
+    expect(residualTone(-0.3)).toBeNull();
+    expect(residualTone(0)).toBeNull();
+    expect(residualTone(-83)).toBe('negative');
+    expect(residualTone(2200)).toBe('positive');
+    expect(residualTone(null)).toBeNull();
+  });
+
+  it('reads the money that has MOVED: +100 booked against −100 over the period is «+100», positive', () => {
+    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Nibbio', 100, -100)]));
+    expect(strip[1]).toMatchObject({ value: 100, tone: 'positive' });
+    expect(cellText(strip[1])).toBe(plain(formatBookedResidual(100)));
+  });
+
+  it('is empty when nobody has a residual (no basis) and past four people', () => {
+    expect(selectSplitStrip(summaryOf([person('Ghiandaia', null), person('Nibbio', null)]))).toEqual([]);
+    const five = ['A', 'B', 'C', 'D', 'E'].map((name) => person(name, 100));
+    expect(five.length).toBe(MAX_SPLIT_STRIP_MEMBERS + 1);
+    expect(selectSplitStrip(summaryOf(five))).toEqual([]);
+    expect(selectSplitStrip(summaryOf(five.slice(0, 4)))).toHaveLength(4);
+  });
+
+  it('prints «senza base» for a person without a residual only beside a measured one', () => {
+    const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Nibbio', null)]));
+    expect(strip[1]).toMatchObject({ value: null, reason: 'senza base', opens: splitMemberSectionId('m-nibbio') });
+    expect(validateStrip(strip, strip.map((f) => f.opens))).toEqual([]);
+  });
+
+  it('comes from the real summary on the split fixture\'s shape: the booked residual, never the period\'s', () => {
+    const input = (expenses: Expense[]) => ({ expenses, members: MEMBERS, now: NOW });
+    const summary = summarizeExpenseSplit(
+      input([
+        incomeOf(GIUSEPPE, 2400),
+        incomeOf(MARCELLA, 1600),
+        makeRow('fixed', 1000),
+        // Still ahead: inside the period's residual, outside the booked one.
+        makeRow('fixed', 1500, { date: new Date(2026, 7, 28, 12) }),
+        makeRow('variable', 1100, { personalMemberId: MARCELLA.id }),
+      ])
+    );
+    const strip = selectSplitStrip(summary);
+    expect(summary.members[1]).toMatchObject({ remaining: -500, remainingBooked: 100 });
+    expect(strip[1]).toMatchObject({ label: 'Marcella', value: 100, tone: 'positive' });
   });
 });

@@ -14,10 +14,12 @@
  */
 
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { projectMonthEndWithScheduled } from '@/lib/utils/spendingProjection';
 import { formatPercentage } from '@/lib/services/chartService';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { atThePercent } from '@/lib/utils/patrimonioNarrative';
 import { PENSION_BAND_KEY } from '@/lib/utils/historyComposition';
+import { isPrintedZero } from '@/lib/utils/verdictStrip';
 import { resolveDeclineCause, resolveTaxedGrowth, type PeriodSalesSummary } from '@/lib/utils/periodSales';
 import {
   declineHeadlineTail,
@@ -28,6 +30,7 @@ import {
 } from '@/lib/utils/salesNarrative';
 
 import type { Narrative, NarrativeSegment, VerdictTone } from '@/lib/utils/narrative';
+import type { MonthFlows } from '@/lib/utils/marketEffect';
 import type { CategoryRanking } from '@/lib/utils/tracciamentoSummary';
 import type { DashboardOverviewCategoryAmount, DashboardOverviewExpenseStats } from '@/types/dashboardOverview';
 
@@ -57,6 +60,8 @@ export interface OverviewVerdictInput {
   cashflow?: LivedCashflow | null;
   /** Portfolio-wide market effect this month; null when not attributable. */
   marketEffect: number | null;
+  /** The pension contributions and the debts repaid this month, named in the split; absent on an older payload. */
+  monthFlows?: MonthFlows | null;
   /** The asset class whose market price moved the most; null when none. */
   topMover: { assetClass: string; delta: number } | null;
   /**
@@ -98,33 +103,48 @@ export function resolveLivedCashflow(stats: DashboardOverviewExpenseStats | null
   };
 }
 
+/**
+ * The Panoramica's verdict: a `PageVerdictModel` (lib/utils/narrative.ts). `leadLength` and
+ * `restLabel` are read only where a phone cuts it (`PageVerdict` with a `restCollapse`); the
+ * Assistente renders the same object whole.
+ */
 export interface OverviewVerdict {
   headline: string;
   tone: VerdictTone;
   sentence: Narrative;
+  /**
+   * Where a phone cuts the sentence (since 2026-10-11; The Binding-Clause Rule, doc/guide/panoramica.md
+   * § Composizione mobile): `0` — title only, the strip restates the first sentence — or, when the
+   * headline names the tax on a sale, the end of the sale clause, so the tax stays on the first
+   * screen. Absent when nothing would be left behind «Il perché».
+   */
+  leadLength?: number;
+  /** What «Il perché» opens: «il patrimonio, il risparmio e il mercato del mese» (`overviewRestLabel`). */
+  restLabel?: string;
 }
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
 const prose = (text: string): NarrativeSegment => ({ text });
 
-/** Signed euro figure with a typographic minus, coloured by sign. */
+/**
+ * A signed figure, or a bare one when it prints as zero: «0,00 €» and «0,00%» take no sign and no
+ * colour whatever the sign of the raw value (−0,004 is a zero as printed; `isPrintedZero`, the
+ * strip's rule — the printed-zero rule, AGENTS.md § Layout and Color Tokens, since 2026-10-11, at 1440 too).
+ */
+function signed(value: number, unsigned: string): NarrativeSegment {
+  if (isPrintedZero(unsigned)) return { text: unsigned, mono: true };
+  const negative = value < 0;
+  return { text: `${negative ? '−' : '+'}${unsigned}`, mono: true, sign: negative ? 'negative' : 'positive' };
+}
+
+/** Signed euro figure with a typographic minus, coloured by sign; a printed zero unsigned. */
 function signedCurrency(value: number, compact = false): NarrativeSegment {
-  const sign = value >= 0 ? '+' : '−';
-  return {
-    text: `${sign}${cachedFormatCurrencyEUR(Math.abs(value), compact)}`,
-    mono: true,
-    sign: value >= 0 ? 'positive' : 'negative',
-  };
+  return signed(value, cachedFormatCurrencyEUR(Math.abs(value), compact));
 }
 
 function signedPercent(value: number, decimals = 2): NarrativeSegment {
-  const sign = value >= 0 ? '+' : '−';
-  return {
-    text: `${sign}${formatPercentage(Math.abs(value), decimals)}`,
-    mono: true,
-    sign: value >= 0 ? 'positive' : 'negative',
-  };
+  return signed(value, formatPercentage(Math.abs(value), decimals));
 }
 
 const figure = (text: string): NarrativeSegment => ({ text, mono: true });
@@ -302,7 +322,17 @@ export function buildOverviewVerdict(input: OverviewVerdictInput): OverviewVerdi
     );
   }
   if (input.yearlyVariation) {
-    sentence.push(prose(', '), signedPercent(input.yearlyVariation.percentage), prose(' da inizio anno'));
+    // The year's euro in brackets after its percentage (since 2026-10-11; DESIGN.md → The
+    // Lifted-Figure Rule): on a phone the year's chip of THE tile is lifted whole — the
+    // percentage is the strip's cell — and nothing else prints its euro; at 1440 it is a
+    // declared addition to the sentence.
+    sentence.push(
+      prose(', '),
+      signedPercent(input.yearlyVariation.percentage),
+      prose(' da inizio anno ('),
+      signedCurrency(input.yearlyVariation.value),
+      prose(')'),
+    );
   }
   if (input.isNewATH) {
     sentence.push(prose(', nuovo massimo storico'));
@@ -320,6 +350,7 @@ export function buildOverviewVerdict(input: OverviewVerdictInput): OverviewVerdi
           delta: input.monthlyVariation.value,
           marketEffect: input.marketEffect,
           savings: input.cashflow?.savings ?? null,
+          flows: input.monthFlows ?? null,
         }
       : undefined;
   const saleCarriesSplit = split !== undefined && (input.sales?.estimatedTax ?? 0) > 0;
@@ -330,12 +361,21 @@ export function buildOverviewVerdict(input: OverviewVerdictInput): OverviewVerdi
     if (purchases.length > 0) saleClause.push(prose(' '), ...purchases);
   }
   if (taxIsTheStory) sentence.push(...saleClause);
+  // Where a phone cuts (doc/guide/panoramica.md § Composizione mobile): after the sale when the
+  // headline names its tax — the tax is binding, and a cut before it would be cancelled by
+  // `splitVerdict` — otherwise under the title (The Binding-Clause Rule: the first sentence would
+  // restate the strip's euro and percentage).
+  const leadLength = taxIsTheStory ? sentence.length : 0;
 
   const hasSavingsClause = input.savingsRate !== null;
   if (input.savingsRate !== null) {
+    // Rounded once, here; the strip's cell carries the same rounded value (doc/guide/panoramica.md
+    // § Composizione mobile). A negative rate takes the typographic minus, as every figure does
+    // (The Comma Rule; since 2026-10-11).
+    const rate = Math.round(input.savingsRate);
     sentence.push(
       prose(' Hai messo da parte il '),
-      figure(`${Math.round(input.savingsRate)}%`),
+      figure(`${rate < 0 ? '−' : ''}${Math.abs(rate)}%`),
       prose(input.cashflow ? ' delle entrate finora' : ' delle entrate'),
       ...describeCalendarAside(input.cashflow),
     );
@@ -356,17 +396,94 @@ export function buildOverviewVerdict(input: OverviewVerdictInput): OverviewVerdi
 
   // The split between the market and everything the user did, then the sale that explains it:
   // a month that fell by 4.900 € with the market at −1.100 € must not read as a market month.
+  const hasMonthSplit = !taxIsTheStory && split !== undefined && !saleCarriesSplit;
   if (!taxIsTheStory) {
-    if (split && !saleCarriesSplit) {
+    if (hasMonthSplit) {
       sentence.push(prose(' '), ...describeMonthSplit(split));
     }
     sentence.push(...saleClause);
   }
 
-  return { headline, tone, sentence };
+  // The cut exists only with something behind it (a sentence that ends at the lead has no
+  // «Il perché»); in a taxed month that is not the story the sale's binding clause sits past
+  // the cut and `splitVerdict` keeps the whole paragraph on the phone (The Binding-Clause Rule).
+  if (sentence.length <= leadLength) return { headline, tone, sentence };
+  const restLabel = overviewRestLabel({
+    savings: hasSavingsClause,
+    market: driverClause !== null || hasMonthSplit,
+    sale: saleClause.length > 0 && !taxIsTheStory,
+  });
+  return { headline, tone, sentence, leadLength, restLabel };
+}
+
+/**
+ * The subjects behind «Il perché» on a phone: always «il patrimonio», then, in this order, «il
+ * risparmio» (the savings clause), «il mercato» (the driver or the month's split) and «la
+ * vendita» (a sale clause past the cut), joined by commas and a final «e», closed by «del mese»
+ * — «il patrimonio, il risparmio e il mercato del mese»; with none of the three «il patrimonio
+ * del mese».
+ */
+export function overviewRestLabel(subjects: { savings: boolean; market: boolean; sale: boolean }): string {
+  const names = ['il patrimonio'];
+  if (subjects.savings) names.push('il risparmio');
+  if (subjects.market) names.push('il mercato');
+  if (subjects.sale) names.push('la vendita');
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+  return `${list} del mese`;
+}
+
+// ─── The calendar under a figure ──────────────────────────────────────────────
+
+/** Below one euro a scheduled slice is not worth a caption (the verdict's aside has the same floor). */
+const SCHEDULED_CAPTION_MIN_EUR = 1;
+
+/**
+ * «di cui 350 € già in calendario, entro il 30» — the caption under ONE figure that contains
+ * rows dated after today (The Scheduled-Is-Not-Spent Rule, at every width since
+ * 2026-10-11): the Cashflow tile's Entrate and Spese,
+ * the total of the two category tiles. The words «già in calendario» are `scheduledSentence`'s
+ * (cashflowNarrative.ts); the short form is a caption, without a verb, and «di cui» says the
+ * amount is INSIDE the figure above it. `null` under one euro: no caption, never «0 €».
+ */
+export function describeScheduledCaption(amount: number, daysInMonth: number): Narrative | null {
+  if (amount < SCHEDULED_CAPTION_MIN_EUR) return null;
+  return [prose('di cui '), figure(cachedFormatCurrencyEUR(amount, true)), prose(` già in calendario, entro il ${daysInMonth}`)];
+}
+
+/**
+ * The same caption under the month's «Risparmio» (income − expenses, both sides whole): «di cui
+ * 350 € di spese e 2456 € di entrate già in calendario, entro il 30», or one side alone when the
+ * other is under one euro; `null` when both are.
+ */
+export function describeScheduledNetCaption(scheduledExpenses: number, scheduledIncome: number, daysInMonth: number): Narrative | null {
+  const parts: Narrative[] = [];
+  if (scheduledExpenses >= SCHEDULED_CAPTION_MIN_EUR) parts.push([figure(cachedFormatCurrencyEUR(scheduledExpenses, true)), prose(' di spese')]);
+  if (scheduledIncome >= SCHEDULED_CAPTION_MIN_EUR) parts.push([figure(cachedFormatCurrencyEUR(scheduledIncome, true)), prose(' di entrate')]);
+  if (parts.length === 0) return null;
+  const narrative: Narrative = [prose('di cui ')];
+  parts.forEach((part, index) => {
+    if (index > 0) narrative.push(prose(' e '));
+    narrative.push(...part);
+  });
+  narrative.push(prose(` già in calendario, entro il ${daysInMonth}`));
+  return narrative;
 }
 
 // ─── Tile readings ────────────────────────────────────────────────────────────
+
+/**
+ * Cash plus liquid investments, and their share of the gross total in percent; null without a
+ * total. One source for the Sintesi reading and its closed row's answer (2026-10-16).
+ */
+export function liquidityShare(
+  cashNetWorth: number,
+  liquidInvestmentsNetWorth: number,
+  totalValue: number,
+): { liquid: number; share: number } | null {
+  if (totalValue <= 0) return null;
+  const liquid = cashNetWorth + liquidInvestmentsNetWorth;
+  return { liquid, share: (liquid / totalValue) * 100 };
+}
 
 /** "Il 72,9% è liquidabile: 300.380 €." — cash plus liquid investments over the gross total. */
 export function describeLiquidity(
@@ -374,9 +491,9 @@ export function describeLiquidity(
   liquidInvestmentsNetWorth: number,
   totalValue: number,
 ): Narrative | null {
-  if (totalValue <= 0) return null;
-  const liquid = cashNetWorth + liquidInvestmentsNetWorth;
-  const share = (liquid / totalValue) * 100;
+  const measured = liquidityShare(cashNetWorth, liquidInvestmentsNetWorth, totalValue);
+  if (!measured) return null;
+  const { liquid, share } = measured;
   return [
     prose('Il '),
     figure(formatPercentage(share, 1)),
@@ -499,3 +616,34 @@ export function describeGoal(currentValue: number, targetAmount: number): Narrat
 // The projection rule lives in spendingProjection.ts (SDK-free, shared with the budget layer
 // and the emails); re-exported here for the two tiles that read it from this module.
 export { projectMonthEndSpending } from '@/lib/utils/spendingProjection';
+
+/**
+ * The Cashflow tile's «Al ritmo attuale»: the pace on what is booked up to today, plus the rows
+ * already in the calendar as they are (`projectMonthEndWithScheduled`). Null on a calendar that
+ * has not started. One source for the tile and its closed row's answer (2026-10-16).
+ */
+export function projectCashflowMonthEnd(
+  currentMonth: { expenses: number; expensesScheduled?: number },
+  dayOfMonth: number,
+  daysInMonth: number,
+): number | null {
+  const scheduled = currentMonth.expensesScheduled ?? 0;
+  return projectMonthEndWithScheduled(currentMonth.expenses - scheduled, scheduled, dayOfMonth, daysInMonth);
+}
+
+/** The Costi tile's «Costo annuo»: TER and stamp duty together (one source with the row's answer, 2026-10-16). */
+export function annualPortfolioCostTotal(metrics: { annualPortfolioCost?: number | null; annualStampDuty?: number | null }): number {
+  return (metrics.annualPortfolioCost ?? 0) + (metrics.annualStampDuty ?? 0);
+}
+
+/**
+ * The first line of a composition legend as a closed row's answer — «Immobili 82,8%»: the class
+ * name in words, its share as the one figure, as the legend prints it. `data` is the legend's own
+ * order (largest first); null with no class or a first class at zero. Shared by the Panoramica's
+ * «Composizione» and Patrimonio's «Classi» (2026-10-16).
+ */
+export function describeLeadingClass(data: ReadonlyArray<{ name: string; percentage: number }>): Narrative | null {
+  const top = data[0];
+  if (!top || top.percentage <= 0) return null;
+  return [prose(`${top.name} `), figure(formatPercentage(top.percentage, 1))];
+}

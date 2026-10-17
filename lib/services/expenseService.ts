@@ -202,6 +202,9 @@ export async function createExpense(
  * `createExpense` keeps the older contract (series linked on the first row only, nothing
  * pending) for the callers that move the balance themselves — a voluntary pension
  * contribution's transfer, recorded and settled by `pensionContributionService`.
+ *
+ * `parents` (2026-10-12) are the parent rows as written, the fees excluded, so the form can hand
+ * the first one to its host before the refetch lands (`ExpenseDialog.onSuccess(saved)`).
  */
 export async function createExpenseSettledOnDate(
   userId: string,
@@ -210,7 +213,7 @@ export async function createExpenseSettledOnDate(
   subCategoryName: string | undefined,
   now: Date,
   fee?: ExpenseFee
-): Promise<{ ids: string[]; appliedEffects: BalanceEffect[]; appliedDebtRows: DebtRow[] }> {
+): Promise<{ ids: string[]; parents: Expense[]; appliedEffects: BalanceEffect[]; appliedDebtRows: DebtRow[] }> {
   const created = await writeExpenseRows(userId, expenseData, categoryName, subCategoryName, now, fee);
   // The rows already happened that repay a loan: applied by the caller with the balances
   // (lib/services/debtRepaymentService.ts), in date order on the debt as it stands. A fee row
@@ -218,7 +221,7 @@ export async function createExpenseSettledOnDate(
   const appliedDebtRows = created.rows
     .map((row, index) => ({ ...row, id: created.ids[index] }))
     .filter((row) => repaysDebt(row) && !row.balancePending);
-  return { ids: created.ids, appliedEffects: created.rows.flatMap(appliedBalanceEffectsOf), appliedDebtRows };
+  return { ids: created.ids, parents: created.parents, appliedEffects: created.rows.flatMap(appliedBalanceEffectsOf), appliedDebtRows };
 }
 
 /**
@@ -297,7 +300,19 @@ type WrittenRow = SettlementRow & { date: Date; isDebtPayoff?: boolean };
 interface WrittenRows {
   ids: string[];
   rows: WrittenRow[];
+  /**
+   * The parent rows as the readers hand them out (`getExpensesByDateRange`), one per `ids`
+   * position of a parent and in the same order — the fees are not here. For the caller that
+   * wants to show the row it just saved before the refetch lands (Tracciamento's «+» on a phone,
+   * since 2026-10-12).
+   */
+  parents: Expense[];
   isSeries: boolean;
+}
+
+/** The document as a reader would return it: its fields, its id, and its date back as a `Date`. */
+function writtenExpense(id: string, data: Record<string, unknown>, date: Date): Expense {
+  return { ...(data as Omit<Expense, 'id' | 'date'>), id, date };
 }
 
 /** Firestore's ceiling on one `writeBatch`, with room to spare. */
@@ -450,7 +465,12 @@ async function writeExpenseRows(
     await commitInBatches([{ ref: docRef, data: cleanedData }, ...(feeDoc ? [{ ref: feeDoc.ref, data: feeDoc.data }] : [])]);
     await invalidateDashboardOverviewSummary(userId, 'expense_created');
 
-    return { ids: [docRef.id, ...(feeDoc ? [feeDoc.ref.id] : [])], rows: [row, ...(feeDoc ? [feeDoc.row] : [])], isSeries: false };
+    return {
+      ids: [docRef.id, ...(feeDoc ? [feeDoc.ref.id] : [])],
+      rows: [row, ...(feeDoc ? [feeDoc.row] : [])],
+      parents: [writtenExpense(docRef.id, cleanedData, expenseData.date)],
+      isSeries: false,
+    };
   } catch (error) {
     console.error('Error creating expense:', error);
     throw new Error('Failed to create expense');
@@ -487,6 +507,7 @@ async function createRecurringExpenses(
     const expensesRef = collection(db, EXPENSES_COLLECTION);
     const createdIds: string[] = [];
     const rows: WrittenRow[] = [];
+    const parents: Expense[] = [];
     const now = new Date();
 
     // Create parent expense ID for reference
@@ -548,12 +569,13 @@ async function createRecurringExpenses(
       if (feeDoc) feeDocs.push(feeDoc);
       createdIds.push(docRef.id);
       rows.push({ ...row, ...settlement });
+      parents.push(writtenExpense(docRef.id, cleanedData, expenseDate));
     });
 
     await commitInBatches([...docs, ...feeDocs.map(({ ref, data }) => ({ ref, data }))]);
     await invalidateDashboardOverviewSummary(userId, 'expense_created');
 
-    return { ids: [...createdIds, ...feeDocs.map((feeDoc) => feeDoc.ref.id)], rows: [...rows, ...feeDocs.map((feeDoc) => feeDoc.row)], isSeries: true };
+    return { ids: [...createdIds, ...feeDocs.map((feeDoc) => feeDoc.ref.id)], rows: [...rows, ...feeDocs.map((feeDoc) => feeDoc.row)], parents, isSeries: true };
   } catch (error) {
     console.error('Error creating recurring expenses:', error);
     throw new Error('Failed to create recurring expenses');
@@ -594,6 +616,7 @@ async function createInstallmentExpenses(
     const expensesRef = collection(db, EXPENSES_COLLECTION);
     const createdIds: string[] = [];
     const rows: WrittenRow[] = [];
+    const parents: Expense[] = [];
     const now = new Date();
 
     // Generate unique parent ID for linking all installments together
@@ -683,13 +706,14 @@ async function createInstallmentExpenses(
       if (feeDoc) feeDocs.push(feeDoc);
       createdIds.push(docRef.id);
       rows.push({ ...row, ...settlement });
+      parents.push(writtenExpense(docRef.id, cleanedData, installmentDate));
     }
 
     await commitInBatches([...docs, ...feeDocs.map(({ ref, data }) => ({ ref, data }))]);
     await invalidateDashboardOverviewSummary(userId, 'expense_created');
 
     console.log(`Created ${installmentCount} installment expenses with parent ID: ${parentId}`);
-    return { ids: [...createdIds, ...feeDocs.map((feeDoc) => feeDoc.ref.id)], rows: [...rows, ...feeDocs.map((feeDoc) => feeDoc.row)], isSeries: true };
+    return { ids: [...createdIds, ...feeDocs.map((feeDoc) => feeDoc.ref.id)], rows: [...rows, ...feeDocs.map((feeDoc) => feeDoc.row)], parents, isSeries: true };
   } catch (error) {
     console.error('Error creating installment expenses:', error);
     throw new Error('Failed to create installment expenses');

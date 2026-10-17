@@ -38,7 +38,7 @@ import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
 import type { Asset } from '@/types/assets';
 import { Button } from '@/components/ui/button';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { AsideToggle } from '@/components/ui/aside-toggle';
@@ -49,6 +49,14 @@ interface EsposizioneTileProps {
   ownerId: string;
   /** The page's whole asset list; the role and the base are the engine's business. */
   assets: Asset[];
+  /**
+   * Whether the profiles may be read: below `desktop:` the page passes it only once the row has
+   * been opened (`collapse.mounted`), so a closed Esposizione downloads nothing (2026-10-15).
+   */
+  enabled?: boolean;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -129,11 +137,11 @@ function SourcesBlock({ row }: { row: ExposureRow }) {
   );
 }
 
-export function EsposizioneTile({ ownerId, assets, className }: EsposizioneTileProps) {
+export function EsposizioneTile({ ownerId, assets, enabled = true, collapse, asideWhenClosed, className }: EsposizioneTileProps) {
   const [view, setView] = useState<ExposureViewKey>('holdings');
   const [activeKey, setActiveKey] = useState<string | null>(null);
 
-  const { exposure, profiles, oldestFetchedAt, isError, isFetching, refresh, refetch } = usePortfolioExposure(ownerId, assets);
+  const { exposure, profiles, oldestFetchedAt, isError, isFetching, refresh, refetch } = usePortfolioExposure(ownerId, assets, { enabled });
   // React Query keeps the last profiles through a failed refresh, so "no data" and "error" are two
   // different states: a stale list beats an empty tile.
   const isWaiting = !exposure && !isError;
@@ -184,7 +192,7 @@ export function EsposizioneTile({ ownerId, assets, className }: EsposizioneTileP
   const hasList = (exposureView?.rows.length ?? 0) + (exposureView?.remainders.length ?? 0) > 0;
 
   return (
-    <Tile eyebrow="Esposizione" aside={aside} reading={reading} className={className} ariaLabel="Esposizione del portafoglio">
+    <Tile eyebrow="Esposizione" aside={aside} asideWhenClosed={asideWhenClosed} reading={reading} className={className} ariaLabel="Esposizione del portafoglio" collapse={collapse}>
       {isWaiting && (
         <>
           <p className="mt-2 text-[13px] leading-[1.45] text-muted-foreground">Sto leggendo le composizioni degli strumenti quotati…</p>
@@ -196,8 +204,11 @@ export function EsposizioneTile({ ownerId, assets, className }: EsposizioneTileP
         </>
       )}
 
+      {/* A failed «Aggiorna» over profiles already read keeps the list and adds this notice. As a row
+          of the phone composition it is silent: the page's ONE live node for failed reads is
+          `PageRest`'s announcement, and the row's red eyebrow says it (AGENTS.md § Accessibility). */}
       {isError && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5" role="alert">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5" role={collapse ? undefined : 'alert'}>
           <p className="text-[13px] leading-[1.45] text-destructive">Errore nel caricamento delle composizioni.</p>
           <Button type="button" variant="outline" className="h-11 px-2.5 text-[11px] desktop:h-8" disabled={isFetching} onClick={() => refetch()}>
             Riprova

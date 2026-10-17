@@ -21,6 +21,17 @@ async function fetchInstrumentProfiles(ownerId: string, force: boolean): Promise
 /** Stable, so a portfolio with nothing to ask computes once and not on every render. */
 const NO_PROFILES: Record<string, InstrumentProfile> = {};
 
+export interface PortfolioExposureOptions {
+  /**
+   * Whether the profiles may be read at all (default `true`). Below `desktop:` the Esposizione is
+   * a closed row and the page passes `false` until the row has been opened once: React Query
+   * fetches a key as soon as ONE observer of it is enabled, so the hook inside the tile has to be
+   * off, not just its content unmounted (2026-10-15, doc/guide/allocazione.md § Composizione
+   * mobile). Off, `profiles` is `undefined` and the engine does not run, whatever the signature.
+   */
+  enabled?: boolean;
+}
+
 /**
  * The Esposizione of the OWNER's Allocazione portfolio: the route answers only the Yahoo profiles
  * of the tickers in view (`/api/portfolio/instrument-profiles`, one shared cache per ticker), and
@@ -40,7 +51,8 @@ const NO_PROFILES: Record<string, InstrumentProfile> = {};
  * stays true forever on a disabled query, AGENTS.md § React Query) is still returned for a caller
  * with a request in flight; the tile does not read it.
  */
-export function usePortfolioExposure(ownerId: string | undefined, assets: Asset[]) {
+export function usePortfolioExposure(ownerId: string | undefined, assets: Asset[], options: PortfolioExposureOptions = {}) {
+  const enabled = options.enabled ?? true;
   const signature = useMemo(() => profileRequestsSignature(selectProfileRequests(assets)), [assets]);
 
   // Set to true by `refresh()` and consumed on the next queryFn call — a ref, not state, so
@@ -54,13 +66,14 @@ export function usePortfolioExposure(ownerId: string | undefined, assets: Asset[
       forceRef.current = false;
       return fetchInstrumentProfiles(ownerId!, force);
     },
-    enabled: !!ownerId && signature !== '',
+    enabled: enabled && !!ownerId && signature !== '',
     staleTime: 60 * 60 * 1000,
   });
 
   // React Query keeps the last payload through a failed refresh, so a stale list beats an empty
-  // tile; with nothing to ask the profiles are simply empty and the engine runs at once.
-  const profiles = signature === '' ? NO_PROFILES : query.data?.profiles;
+  // tile; with nothing to ask the profiles are simply empty and the engine runs at once — but
+  // only while the hook is on: a closed row computes nothing.
+  const profiles = !enabled ? undefined : signature === '' ? NO_PROFILES : query.data?.profiles;
   const exposure = useMemo(() => (profiles ? computeExposure(assets, profiles) : null), [assets, profiles]);
 
   const refresh = () => {
@@ -78,4 +91,23 @@ export function usePortfolioExposure(ownerId: string | undefined, assets: Asset[
     refetch: query.refetch,
     refresh,
   };
+}
+
+/**
+ * What the PAGE needs of the profiles' read without reading them: whether the last attempt failed
+ * (the Esposizione row's `failed`, its red eyebrow) and whether a payload was ever read (a failed
+ * «Aggiorna» over profiles already read keeps the tile; a failed first read is an `ErrorNotice`
+ * row). An observer on the SAME key as `usePortfolioExposure`'s with `enabled: false` — it
+ * downloads nothing by itself, and `refetch()` on it («Riprova») fetches regardless of `enabled`,
+ * so the row's hook sees the answer the moment it lands (2026-10-15).
+ */
+export function useInstrumentProfilesState(ownerId: string | undefined, assets: Asset[]) {
+  const signature = useMemo(() => profileRequestsSignature(selectProfileRequests(assets)), [assets]);
+  const query = useQuery({
+    queryKey: queryKeys.portfolio.instrumentProfiles(ownerId ?? '', signature),
+    queryFn: () => fetchInstrumentProfiles(ownerId!, false),
+    enabled: false,
+    staleTime: 60 * 60 * 1000,
+  });
+  return { isError: query.isError, hasProfiles: query.data !== undefined, refetch: query.refetch };
 }

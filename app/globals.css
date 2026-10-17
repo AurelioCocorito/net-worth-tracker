@@ -3,6 +3,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* A tablet in landscape (2026-10-16): the SHELL's switch — the icon rail in place of the bar, the
+   one-row page header. A viewport condition because the shell has no container; the CONTENT keys
+   its composition on its own width instead (`max-desktop:@[880px]:`, lib/utils/tabletComposition.ts).
+   A phone turned sideways (~844) stays below it. Declared after the core variants, so it is emitted
+   after `max-desktop:landscape:` and wins over it on the same property. */
+@custom-variant tablet-landscape (@media (orientation: landscape) and (width >= 1000px) and (width < 1440px));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -56,6 +63,12 @@
   --breakpoint-desktop: 1440px;
   /* Tablet — iPad portrait and above */
   --breakpoint-tablet: 768px;
+
+  /* The spring standard (stiffness 400, damping 35, ζ ≈ 0,875) sampled over 300 ms as a CSS
+     easing (`ease-spring`), for a transition Framer cannot drive — a row's `grid-template-rows`
+     and its chevron (The Closed-Row Rule, 2026-10-10; `TileRowShell` in components/ui/tile.tsx).
+     The same curve as `SPRING` in the motion code. */
+  --ease-spring: linear(0, 0.093 8.3%, 0.280 16.7%, 0.476 25%, 0.643 33.3%, 0.771 41.7%, 0.861 50%, 0.922 58.3%, 0.960 66.7%, 0.982 75%, 0.994 83.3%, 1);
 }
 
 :root {

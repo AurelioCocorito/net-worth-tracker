@@ -18,13 +18,14 @@
  * `cachedFormatCurrencyEUR` (no-break space before €) — AGENTS.md → Italian Localization.
  */
 
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, isPrintedZero } from '@/lib/utils/formatters';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 import { formatPercentage } from '@/lib/services/chartService';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { articleForPercent, atThePercent, monthWithPrepositionA, ofThePercent } from '@/lib/utils/patrimonioNarrative';
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
 import type { GoalContributionSlice } from '@/lib/utils/goalTrajectory';
-import type { AssignmentsView, DerivedAllocationView, GoalDate, GoalLine, GoalsOverview, MilestoneEntry, TrajectoryView } from '@/lib/utils/goalsSummary';
+import { GOALS_SECTION_IDS, type AssignmentsView, type DerivedAllocationView, type GoalDate, type GoalLine, type GoalsOverview, type MilestoneEntry, type TrajectoryView } from '@/lib/utils/goalsSummary';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -328,11 +329,19 @@ export function describeTraiettoria(t: TrajectoryView): Narrative {
   return out;
 }
 
+/**
+ * A dated goal still before its deadline, with a projected value there: the hero's «Valore
+ * previsto» case, and the only one the closed row answers (2026-10-16) — one predicate for both.
+ */
+function projectsAtDeadline(t: TrajectoryView): boolean {
+  return (t.verdict === 'onTrack' || t.verdict === 'offTrack') && t.deadline !== null && t.monthsToDeadline !== 0 && t.projectedAtDeadline !== null;
+}
+
 /** The tile's one figure: what the goal is worth at the deadline, else when it arrives, else what it holds. */
 export function resolveTraiettoriaHero(t: TrajectoryView): { label: string; value: string } | null {
   if (t.verdict === 'noTarget' || t.targetAmount === null) return null;
-  if ((t.verdict === 'onTrack' || t.verdict === 'offTrack') && t.deadline && t.monthsToDeadline !== 0 && t.projectedAtDeadline !== null) {
-    return { label: `Valore previsto ${atDate(t.deadline)}`, value: formatAmount(t.projectedAtDeadline) };
+  if (projectsAtDeadline(t)) {
+    return { label: `Valore previsto ${atDate(t.deadline!)}`, value: formatAmount(t.projectedAtDeadline!) };
   }
   if (t.verdict === 'noDeadline' && t.projectedDate) return { label: 'Arrivo al ritmo attuale', value: formatGoalDate(t.projectedDate) };
   return { label: 'Valore assegnato', value: formatAmount(t.currentValue) };
@@ -373,6 +382,12 @@ export function describeTraiettoriaFooter(t: TrajectoryView): Narrative {
 // ─── Milestone ────────────────────────────────────────────────────────────────
 
 export const MILESTONE_ASIDE = 'al ritmo attuale';
+
+/** What each closed row says beside its eyebrow — words, never a figure (The Closed-Row Rule); Traiettoria's is the goal's name, Assegnazioni's its own aside. */
+export const GOALS_CLOSED_ASIDES = {
+  [GOALS_SECTION_IDS.milestone]: MILESTONE_ASIDE,
+  [GOALS_SECTION_IDS.allocazione]: 'gap × priorità',
+} as const;
 
 export const MILESTONE_FOOTER: Narrative = [prose('Date proiettate ai versamenti e ai rendimenti attesi di oggi; un obiettivo senza versamenti né rendimento non ha una data.')];
 
@@ -479,6 +494,80 @@ export function describeAssegnazioniFooter(view: AssignmentsView): { narrative: 
     return { tone: 'warning', narrative: [prose(`${joinNames(view.overAssigned.map((o) => o.name))} sono assegnati oltre il `), pct(100), prose(': riduci una quota.')] };
   }
   return { tone: 'neutral', narrative: [prose('Una quota è la percentuale del valore di uno strumento; lo stesso strumento può servire più obiettivi fino al '), pct(100), prose('.')] };
+}
+
+// ─── The closed rows' answers (the landscape index) ───────────────────────────
+
+/** The index's width for an answer, in visible characters: past it the words would be cut. */
+const ANSWER_MAX_CHARS = 22;
+
+/**
+ * «previsto 64.763 €» — the hero's value at the deadline. The answer takes the place of the aside
+ * that names the goal, so with more than one goal it names the goal instead of «previsto» («Casa
+ * 64.763 €»), and only when name and figure fit: a cut name beside a figure says nobody's goal.
+ * Null without a target, reached, past the deadline, or undated (that hero is the arrival date,
+ * which the goal's row in THE tile already prints).
+ */
+function traiettoriaAnswer(t: TrajectoryView | null, goalCount: number): Narrative | null {
+  if (!t || !projectsAtDeadline(t)) return null;
+  const hero = resolveTraiettoriaHero(t);
+  if (!hero) return null;
+  if (goalCount <= 1) return [prose('previsto'), figure(hero.value)];
+  const name = t.name.trim();
+  if ([...`${name} ${hero.value}`].length > ANSWER_MAX_CHARS) return null;
+  return [prose(name), figure(hero.value)];
+}
+
+/**
+ * «in ritardo di 15 mesi» — how far past its deadline the first late goal lands, a figure only this
+ * tile prints. Null when every dated goal is in time: the next arrival is already in THE tile's row.
+ */
+function milestoneAnswer(entries: MilestoneEntry[]): Narrative | null {
+  const late = entries.find((e) => e.kind === 'dated' && e.date && e.monthsPastDeadline !== null);
+  if (!late || late.monthsPastDeadline === null) return null;
+  return [prose('in ritardo di'), count(late.monthsPastDeadline), prose(plural(late.monthsPastDeadline, 'mese', 'mesi'))];
+}
+
+/** «Obbligazioni 65%» — the class the goals to fill ask for most, as the tile prints its share. */
+function allocazioneAnswer(view: DerivedAllocationView | null): Narrative | null {
+  if (!view) return null;
+  const top = view.rows.filter((r) => r.derivedPct > 0).sort((a, b) => b.derivedPct - a.derivedPct)[0];
+  if (!top) return null;
+  return [prose(top.label), pct(top.derivedPct)];
+}
+
+/**
+ * «liberi 286.005 €» — what no goal holds yet, in euro: the free SHARE is the complement of the 5,3%
+ * THE tile prints. An instrument past 100% wins, as the tile's warning footer does; nothing free
+ * reads «tutto assegnato».
+ */
+function assegnazioniAnswer(view: AssignmentsView): Narrative {
+  if (view.overAssigned.length > 0) return [prose('quote oltre il'), pct(100)];
+  if (isPrintedZero(formatAmount(view.freeTotal))) return [prose('tutto assegnato')];
+  return [prose('liberi'), amount(view.freeTotal)];
+}
+
+export interface GoalsClosedAnswersInput {
+  /** The trajectory of the selected goal, null when none is drawn. */
+  trajectory: TrajectoryView | null;
+  goalCount: number;
+  milestones: MilestoneEntry[];
+  derivedAllocation: DerivedAllocationView | null;
+  assignments: AssignmentsView;
+}
+
+/**
+ * What Obiettivi's closed rows answer in the landscape index (components/ui/row-answers.tsx;
+ * 2026-10-16): figures neither the verdict nor THE tile (the goals, their assigned total and share,
+ * each goal's pace and arrival) print. The tab has no strip.
+ */
+export function describeGoalsClosedAnswers({ trajectory, goalCount, milestones, derivedAllocation, assignments }: GoalsClosedAnswersInput): RowAnswerMap {
+  return {
+    [GOALS_SECTION_IDS.traiettoria]: traiettoriaAnswer(trajectory, goalCount),
+    [GOALS_SECTION_IDS.milestone]: milestoneAnswer(milestones),
+    [GOALS_SECTION_IDS.allocazione]: allocazioneAnswer(derivedAllocation),
+    [GOALS_SECTION_IDS.assegnazioni]: assegnazioniAnswer(assignments),
+  };
 }
 
 // ─── Dettaglio ────────────────────────────────────────────────────────────────

@@ -222,6 +222,10 @@ export function calculateWhatIfImpact(
     const c = baseline.coast;
     // `undefined` currentDate keeps the function's own default; the inflows ride along
     // unchanged on both sides — a life event perturbs free capital, not the locked fund.
+    // The tax on withdrawals is the Coast tab's (the same profile: FIRE-eligible assets minus the
+    // locked funds), read on each side's own basis (`honestFor`). Until 2026-10-16 this block
+    // passed none, so «Numero Coast oggi» read the untaxed figure: 249.548 € on the census
+    // fixture against the Coast tab's 307.326 € on the same data.
     const coastBefore = calculateCoastFIREMetrics(
       baseline.netWorth,
       c.annualExpenses,
@@ -233,7 +237,8 @@ export function calculateWhatIfImpact(
       c.pensions,
       c.taxBrackets,
       undefined,
-      c.capitalInflowsToday
+      c.capitalInflowsToday,
+      honestFor(baseline, baseline.netWorth)?.withdrawalTax
     );
     const coastAfter = calculateCoastFIREMetrics(
       adjusted.netWorth,
@@ -246,7 +251,8 @@ export function calculateWhatIfImpact(
       c.pensions,
       c.taxBrackets,
       undefined,
-      c.capitalInflowsToday
+      c.capitalInflowsToday,
+      honestFor(baseline, adjusted.netWorth)?.withdrawalTax
     );
 
     coast = {

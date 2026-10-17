@@ -18,7 +18,7 @@ import type { AssignmentsView, GoalAssignmentGroup } from '@/lib/utils/goalsSumm
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface AssegnazioniTileProps {
@@ -29,6 +29,9 @@ interface AssegnazioniTileProps {
   onRemove: (goalId: string, assetId: string) => void;
   footer: { narrative: Narrative; tone: 'neutral' | 'warning' };
   isDemo: boolean;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -65,11 +68,11 @@ function GroupHead({ group, onAdd, disabled }: { group: GoalAssignmentGroup; onA
   );
 }
 
-export function AssegnazioniTile({ reading, aside, view, onAdd, onRemove, footer, isDemo, className }: AssegnazioniTileProps) {
+export function AssegnazioniTile({ reading, aside, view, onAdd, onRemove, footer, isDemo, collapse, asideWhenClosed, className }: AssegnazioniTileProps) {
   const removeLabel = (asset: string, goal: string) => `Rimuovi ${asset} da ${goal}`;
 
   return (
-    <Tile eyebrow="Assegnazioni" aside={aside} reading={reading} ariaLabel="Assegnazioni" className={className}>
+    <Tile eyebrow="Assegnazioni" aside={aside} asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Assegnazioni" className={className} collapse={collapse}>
       {/* Desktop: two tables side by side — the quotas by goal, the free shares. */}
       <div className="mt-3.5 hidden grid-cols-2 gap-x-8 gap-y-3 desktop:grid">
         <table className="w-full text-[13px]">

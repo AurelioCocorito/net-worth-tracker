@@ -9,7 +9,7 @@ import {
   getApiAuthErrorResponse,
   requireFirebaseAuth,
 } from '@/lib/server/apiAuth';
-import { PERFORMANCE_ANALYSIS_MODEL } from '@/lib/constants/aiModels';
+import { PERFORMANCE_ANALYSIS_MODEL, SERVER_SIDE_FALLBACK_BETA } from '@/lib/constants/aiModels';
 import { checkRateLimit } from '@/lib/server/rateLimit';
 
 const ANALYZE_RATE_LIMIT_MAX = 10;
@@ -56,13 +56,19 @@ const anthropic = new Anthropic({
  * - web_search_20260209: Claude autonomously searches for market events (max 3 uses); the
  *   variant with dynamic filtering, the one the Sonnet 5.x generation is documented on
  *
+ * - Server-side fallback (`fallbacks: 'default'`, 2026-10-12): a policy decline is re-run on the
+ *   fallback model inside the same stream, so the report may be written — in part or whole — by
+ *   another model; the stream names it (`buildPerformanceSseStream`)
+ *
  * `signal` is the SDK's own request option: aborting it closes the upstream HTTP stream, which is
  * what stops the generation (and its billing) when the reader walks away.
  */
 async function callAnthropicForPerformanceAnalysis(prompt: string, signal: AbortSignal) {
-  return anthropic.messages.create(
+  return anthropic.beta.messages.create(
     {
       model: PERFORMANCE_ANALYSIS_MODEL,
+      betas: [SERVER_SIDE_FALLBACK_BETA],
+      fallbacks: 'default',
       max_tokens: 16000, // covers thinking AND text together
       thinking: { type: 'adaptive' },
       output_config: { effort: 'high' },
@@ -129,11 +135,45 @@ function readAnthropicFailure(error: unknown): AnthropicFailure {
 }
 
 /**
+ * The dialog's reading when the model declined (`stop_reason: 'refusal'`, an HTTP 200): the
+ * Sonnet 5.x generation declines in more categories than before, and without a sentence an
+ * empty report closed on `[DONE]` as a finished one (2026-10-12; the assistant's twin is
+ * `REFUSAL_NOTICE` in lib/server/assistant/anthropicStream.ts). A refusal after some text
+ * leaves that text on screen, so its sentence says the report is incomplete.
+ */
+const REFUSAL_EMPTY_MESSAGE =
+  'Il modello ha rifiutato di scrivere questo report. Clicca «Rigenera» per riprovare.';
+const REFUSAL_PARTIAL_MESSAGE =
+  'Il modello ha interrotto il report rifiutandosi di continuare: il testo qui sotto è incompleto. Clicca «Rigenera» per riprovare.';
+
+/**
+ * The same reading for a cut at `max_tokens` (2026-10-12): the 16000-token ceiling covers
+ * thinking AND text, and a cut closed on `[DONE]` like a finished report. Spent before any
+ * text, nothing was written.
+ */
+const TRUNCATED_EMPTY_MESSAGE =
+  'Il report ha esaurito lo spazio prima di essere scritto. Clicca «Rigenera» per riprovare.';
+const TRUNCATED_PARTIAL_MESSAGE =
+  'Il report ha raggiunto la lunghezza massima e si è interrotto: il testo qui sotto è incompleto. Clicca «Rigenera» per riprovare.';
+
+/** The `{ error }` sentence a stop reason owes the reader, or null for a finished report. */
+function describeIncompleteReport(stopReason: string | null, hasWrittenText: boolean): string | null {
+  if (stopReason === 'refusal') return hasWrittenText ? REFUSAL_PARTIAL_MESSAGE : REFUSAL_EMPTY_MESSAGE;
+  if (stopReason === 'max_tokens') return hasWrittenText ? TRUNCATED_PARTIAL_MESSAGE : TRUNCATED_EMPTY_MESSAGE;
+  return null;
+}
+
+/**
  * Wraps an Anthropic stream in a ReadableStream formatted as Server-Sent Events.
  *
  * SSE FORMAT: `data: {JSON}\n\n` chunks, terminated by `data: [DONE]\n\n`.
  * Tool use and thinking blocks are silently skipped — only text_delta chunks
- * (Claude's written response) are forwarded to the client.
+ * (Claude's written response) are forwarded to the client. A refusal or a `max_tokens` cut read
+ * from the terminal `message_delta` becomes one `{ error }` chunk before `[DONE]`.
+ *
+ * THE MODEL THAT WROTE IT (server-side fallback, 2026-10-12): `message_start` names the model
+ * serving the stream and a `fallback` content block names the one that took over after a
+ * decline; each becomes a `{ model }` chunk, the last one being the model the dialog prints.
  *
  * CANCELLATION (2026-09-20): the reader closing the dialog is not a failure. Until this date the
  * upstream generation ran to its end after the client had gone (8–14 s, paid for) and the next
@@ -143,22 +183,44 @@ function readAnthropicFailure(error: unknown): AnthropicFailure {
  * there — no SSE line, no log line.
  */
 function buildPerformanceSseStream(
-  anthropicStream: AsyncIterable<Anthropic.MessageStreamEvent>,
+  anthropicStream: AsyncIterable<Anthropic.Beta.BetaRawMessageStreamEvent>,
   upstream: AbortController
 ): ReadableStream {
   const encoder = new TextEncoder();
   return new ReadableStream({
     async start(controller) {
       try {
+        let hasWrittenText = false;
+        let stopReason: string | null = null;
         for await (const chunk of anthropicStream) {
           if (upstream.signal.aborted) return;
+          if (chunk.type === 'message_start') {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ model: chunk.message.model })}\n\n`)
+            );
+          }
+          if (chunk.type === 'content_block_start' && chunk.content_block.type === 'fallback') {
+            const { from, to } = chunk.content_block;
+            console.info(`[API /ai/analyze-performance] ${from.model} declined; ${to.model} continued`);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ model: to.model })}\n\n`));
+          }
+          // The terminal message_delta carries why generation stopped.
+          if (chunk.type === 'message_delta' && chunk.delta.stop_reason) {
+            stopReason = chunk.delta.stop_reason;
+          }
           if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            hasWrittenText = true;
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`)
             );
           }
         }
         if (upstream.signal.aborted) return;
+        const incomplete = describeIncompleteReport(stopReason, hasWrittenText);
+        if (incomplete) {
+          console.warn(`[API /ai/analyze-performance] Report incomplete: stop_reason ${stopReason}`);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: incomplete })}\n\n`));
+        }
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
       } catch (streamError: unknown) {

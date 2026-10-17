@@ -16,6 +16,12 @@ import { costBasisPerUnitEur } from '@/lib/utils/costBasisEur';
 import { hasMarketPrice } from '@/lib/utils/assetPricing';
 import { getItalyMonthYear, toDate } from '@/lib/utils/dateHelpers';
 import { getNextCouponDate, hasCouponPayments } from '@/lib/utils/couponUtils';
+import { narrativeToText, type Narrative, type PageVerdictModel } from '@/lib/utils/narrative';
+import { formatStripFigure, type StripFigure } from '@/lib/utils/verdictStrip';
+import { cachedFormatCurrencyEUR, formatPercentageIt, formatSignedEuro, formatSignedPercentIt, printedSign, withTypographicMinus } from '@/lib/utils/formatters';
+import { describeLeadingClass } from '@/lib/utils/overviewNarrative';
+import { pluralArticleFor, shortMonthYear } from '@/lib/utils/patrimonioNarrative';
+import type { MortgageSummary } from '@/lib/utils/mortgageSummary';
 
 // ─── Bond row facts ───────────────────────────────────────────────────────────
 
@@ -292,4 +298,159 @@ export function resolveLastPriceUpdate(assets: Asset[]): Date | null {
     if (!latest || asset.lastPriceUpdate.getTime() > latest.getTime()) latest = asset.lastPriceUpdate;
   }
   return latest;
+}
+
+// ─── The phone composition (2026-10-14) ───────────────────────────────────────
+
+/** THE tile of the page (Patrimonio totale lordo): open at every width, never a row (The First-Screen Rule). */
+export const PATRIMONIO_PATRIMONIO_ID = 'patrimonio-patrimonio';
+
+/**
+ * The rows below `desktop:`, in the DOM's order (The First-Screen Rule). A loan's «Mutuo» row is
+ * `patrimonio-mutuo-<loanId>` (`patrimonioMutuoSectionId`), one per loan with linked instalments;
+ * a failed read of the instalments is ONE row, `mutuo`.
+ */
+export const PATRIMONIO_SECTION_IDS = {
+  movimenti: 'patrimonio-movimenti',
+  liquidita: 'patrimonio-liquidita',
+  classi: 'patrimonio-classi',
+  rendimento: 'patrimonio-rendimento',
+  mutuo: 'patrimonio-mutuo',
+  strumenti: 'patrimonio-strumenti',
+} as const;
+
+/** The row of one loan's «Mutuo» tile: a row opened before the first-visit migration closes after it (its id changes). */
+export function patrimonioMutuoSectionId(loanId: string): string {
+  return `${PATRIMONIO_SECTION_IDS.mutuo}-${loanId}`;
+}
+
+/** The block of `RendimentoTile` the strip lifts: the «G/P non realizzato» KPI. */
+export const PATRIMONIO_GAIN_BLOCK = 'gain';
+
+/**
+ * The two figures under the verdict on a phone (The First-Screen Rule; doc/guide/patrimonio.md
+ * § Composizione mobile): the unrealized gain over the cost basis, with the cents the Rendimento
+ * tile prints (its KPI is lifted), and the share of the gross total on the accounts, which repeats
+ * the Liquidità READING — a reading stays whole (The Lifted-Figure Rule). The month's change is in
+ * the verdict's first sentence, the total is THE tile's hero (never lifted). If the census counts
+ * more than five figures outside the verdict, the Liquidità cell is the one to go.
+ */
+export function selectPatrimonioStrip({ gains, cash }: { gains: UnrealizedGainsSummary; cash: CashAccountsSummary }): StripFigure[] {
+  const cashReason =
+    cash.accounts.length === 0
+      ? 'nessun conto registrato'
+      : cash.shareOfTotal === null
+        ? 'nessun totale su cui misurarla'
+        : cash.shareOfTotal <= 0
+          ? 'i debiti superano i conti'
+          : null;
+  return [
+    {
+      label: 'G/P non realizzato',
+      value: gains.count > 0 ? gains.gainLoss : null,
+      format: 'signed-currency',
+      decimals: 2,
+      opens: PATRIMONIO_SECTION_IDS.rendimento,
+      lifts: { section: PATRIMONIO_SECTION_IDS.rendimento, block: PATRIMONIO_GAIN_BLOCK },
+      ...(gains.count > 0 ? {} : { reason: 'nessuna posizione con un prezzo di carico' }),
+    },
+    {
+      label: 'Liquidità',
+      value: cashReason === null ? cash.shareOfTotal : null,
+      format: 'percent',
+      decimals: 1,
+      opens: PATRIMONIO_SECTION_IDS.liquidita,
+      ...(cashReason === null ? {} : { reason: cashReason }),
+    },
+  ];
+}
+
+/**
+ * Whether the verdict names the market in words — then THE tile's «Mercato:» digest is lifted on a
+ * phone (its words are behind «Il perché»), otherwise it stays. The Panoramica's
+ * `verdictNamesMarket` on the built model: the sentence names it only with a top mover and a
+ * measured market effect, or with the month's split.
+ */
+export function patrimonioVerdictNamesMarket(verdict: PageVerdictModel): boolean {
+  return /mercato/.test(narrativeToText(verdict.sentence));
+}
+
+// ─── The closed rows' answers (the landscape index, 2026-10-16) ───────────────
+
+export interface PatrimonioClosedAnswersInput {
+  trades: { summary: MonthTradesSummary; ledgerReady: boolean; loading: boolean; failed: boolean };
+  cash: CashAccountsSummary;
+  /** The «Classi» legend, largest first (the overview's `charts.assetClassData`). */
+  classes: ReadonlyArray<{ name: string; percentage: number }>;
+  /** The strip under the verdict: a figure it prints is never repeated by a row. */
+  strip: readonly StripFigure[];
+  gains: UnrealizedGainsSummary;
+  mortgages: readonly MortgageSummary[];
+  mortgageFailed: boolean;
+  /** The Strumenti table's positions and the gross total they weigh on (`computeTopWeightShare`). */
+  instruments: Asset[];
+  totalValue: number;
+}
+
+/**
+ * What each closed row of Patrimonio ANSWERS in the landscape index (components/ui/row-answers.tsx):
+ * words and at most one figure, never one the strip or THE tile print (The Lifted-Figure Rule) —
+ * Liquidità answers with the amount because its share is the strip's cell, Rendimento with the
+ * percentage because its euro is. `null` keeps the scope aside: no operation in the month, a
+ * ledger not active, loading or failed; no account; «Classi» when its first share prints as a
+ * strip cell does; several loans, whose aside is the name that tells «Mutuo» from «Mutuo»; a
+ * failed read of the instalments; three positions or fewer, where «the largest three» is the
+ * whole table. Every figure is printed as its tile prints it, from the same function.
+ */
+export function describePatrimonioClosedAnswers(input: PatrimonioClosedAnswersInput): Record<string, Narrative | null> {
+  const { trades, cash, gains, mortgages } = input;
+  const answers: Record<string, Narrative | null> = {};
+
+  // Investing is not a gain: the net carries its sign but no sign colour, as the footer prints it.
+  answers[PATRIMONIO_SECTION_IDS.movimenti] =
+    trades.failed || !trades.ledgerReady || trades.loading || trades.summary.count === 0
+      ? null
+      : [{ text: 'netto ' }, { text: formatSignedEuro(trades.summary.net, true), mono: true }];
+
+  answers[PATRIMONIO_SECTION_IDS.liquidita] =
+    cash.accounts.length === 0
+      ? null
+      : [{ text: 'sui conti ' }, { text: withTypographicMinus(cash.total, cachedFormatCurrencyEUR(Math.abs(cash.total))), mono: true }];
+
+  const leadingClass = describeLeadingClass(input.classes);
+  const stripTexts = new Set(input.strip.map((cell) => formatStripFigure(cell)?.text).filter(Boolean));
+  const classFigure = leadingClass?.find((segment) => segment.mono)?.text;
+  answers[PATRIMONIO_SECTION_IDS.classi] = leadingClass && classFigure && !stripTexts.has(classFigure) ? leadingClass : null;
+
+  const gainPercent = gains.count > 0 ? gains.gainPercent : null;
+  const gainSign = gainPercent === null ? 0 : printedSign(gainPercent, 1);
+  answers[PATRIMONIO_SECTION_IDS.rendimento] =
+    gainPercent === null
+      ? null
+      : [
+          { text: 'sul costo ' },
+          gainSign === 0
+            ? { text: formatSignedPercentIt(gainPercent, 1), mono: true }
+            : { text: formatSignedPercentIt(gainPercent, 1), mono: true, sign: gainSign > 0 ? 'positive' : 'negative' },
+        ];
+
+  answers[PATRIMONIO_SECTION_IDS.mutuo] = null;
+  for (const summary of input.mortgageFailed ? [] : mortgages) {
+    answers[patrimonioMutuoSectionId(summary.loanId)] = mortgages.length > 1 ? null : describePayoffAnswer(summary.payoff);
+  }
+
+  const topShare = computeTopWeightShare(input.instruments, input.totalValue);
+  answers[PATRIMONIO_SECTION_IDS.strumenti] = topShare
+    ? [{ text: `${pluralArticleFor(topShare.count)} ${topShare.count} maggiori ` }, { text: formatPercentageIt(topShare.percent, 1), mono: true }]
+    : null;
+
+  return answers;
+}
+
+/** One loan's answer: where the plan ends (the «Fine prevista» KPI), in the reading's words when it never does. */
+function describePayoffAnswer(payoff: MortgageSummary['payoff']): Narrative | null {
+  if (!payoff) return null;
+  if (payoff.kind === 'repaid') return [{ text: 'estinto' }];
+  if (payoff.kind === 'never') return [{ text: 'il debito non scende' }];
+  return [{ text: 'fine prevista ' }, { text: shortMonthYear(payoff.date), mono: true }];
 }

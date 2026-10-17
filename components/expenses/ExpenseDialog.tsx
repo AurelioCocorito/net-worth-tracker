@@ -25,7 +25,7 @@
  * On desktop: Dialog modal.
  */
 
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useForm, useFormState, Controller, useWatch, type FieldErrors, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -193,7 +193,7 @@ const expenseSchema = z
   })
   .superRefine((data, ctx) => {
     // A transfer IS the pair of accounts: the two labels carried an asterisk the schema did
-    // not honour (AGENTS.md → «a marker on a label is a claim the validation has to honour»),
+    // not honour (doc/guide/dialog.md § Two-Step Create Dialogs, «a marker on a label is a claim the validation has to honour»),
     // so a transfer saved without them moved no money and nothing said so (2026-09-13). The
     // Select stores the `__none__` sentinel, which counts as empty here.
     if (data.type !== 'transfer') return;
@@ -374,11 +374,29 @@ function ExpenseTypePicker({ selectedType, onSelect }: Readonly<ExpenseTypePicke
 // Props
 // ---------------------------------------------------------------------------
 
+/**
+ * The row a save produced, as the readers will hand it out once the refetch lands: on a creation
+ * the first parent written (a series hands its first occurrence), on an edit the row as
+ * `updateExpense` wrote it. A host that wants to show the row at once (Tracciamento's «+» on a
+ * phone, 2026-10-12) needs the row and not the id alone: its list in the closure precedes the
+ * refetch, and whether the row is in the period or passes the filters is read off the row.
+ */
+export interface SavedExpense {
+  id: string;
+  row: Expense;
+}
+
 interface ExpenseDialogProps {
   open: boolean;
   onClose: () => void;
   expense?: Expense | null;
-  onSuccess?: () => void;
+  /** After the write and its balances, before the close; `saved` is the row (never `null` today — the type leaves room for a save that writes none). */
+  onSuccess?: (saved: SavedExpense | null) => void;
+  /**
+   * The control the focus goes back to when the modal closes, where the opener never held it
+   * (doc/guide/dialog.md): the row just saved on a phone, which the host's feed mounts.
+   */
+  returnFocusTo?: RefObject<HTMLElement | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -1362,7 +1380,7 @@ const EMPTY_ASSETS: Asset[] = [];
 const EMPTY_COST_CENTERS: CostCenter[] = [];
 const EMPTY_FAMILY_MEMBERS: FamilyMember[] = [];
 
-export function ExpenseDialog({ open, onClose, expense, onSuccess }: Readonly<ExpenseDialogProps>) {
+export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo }: Readonly<ExpenseDialogProps>) {
   const { user } = useAuth();
   const { ownerId } = useActiveAccount();
   const queryClient = useQueryClient();
@@ -1942,6 +1960,8 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess }: Readonly<Ex
       // One «now» for the whole save: whether a row moves its account today or on its date
       // (lib/utils/cashSettlement.ts) must not change between the write and the balances.
       const now = new Date();
+      // What the host is handed after the write (`onSuccess`), set by the branch that wrote it.
+      let saved: SavedExpense | null = null;
 
       if (expense) {
         // Editing always has an amount: the instalment toggle is creation-only, so the field is
@@ -2024,13 +2044,38 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess }: Readonly<Ex
           queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(ownerId) });
         }
 
+        // The row as `updateExpense` wrote it: the plain values (never a `deleteField()` sentinel),
+        // the amount signed as the service signs it, the names denormalised.
+        saved = {
+          id: expense.id,
+          row: {
+            ...expense,
+            ...expenseData,
+            id: expense.id,
+            userId: expense.userId,
+            amount: data.type === 'income' || data.type === 'transfer' ? editedAmount : -editedAmount,
+            categoryName: category.name,
+            subCategoryName,
+            linkedCashAssetId,
+            transferCashAssetId: data.type === 'transfer' ? transferCashAssetId : undefined,
+            costCenterId: resolvedCostCenterId,
+            costCenterName: resolvedCostCenterName,
+            personalMemberId: resolvedPersonalMemberId,
+            balancePending: settlement.pending ? true : undefined,
+            transferFeeExpenseId: fee.feeExpenseId ?? undefined,
+            debtAssetId: resolvedDebtAssetId,
+            isDebtPayoff: resolvedIsDebtPayoff ? true : undefined,
+            updatedAt: now,
+          },
+        };
+
         toast.success(data.type === 'transfer' ? 'Trasferimento aggiornato con successo' : 'Spesa aggiornata con successo');
       } else {
         // Every row of the shape carries its account; the rows already happened move it now
         // (in one transaction, BEFORE the success toast), the ones to come on their own date.
         // A row with a fee writes the pair in one batch, a series one pair per occurrence
         // (lib/utils/expenseFee.ts).
-        const { ids: result, appliedEffects, appliedDebtRows } = await createExpenseSettledOnDate(
+        const { ids: result, parents, appliedEffects, appliedDebtRows } = await createExpenseSettledOnDate(
           ownerId,
           expenseData,
           category.name,
@@ -2038,6 +2083,8 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess }: Readonly<Ex
           now,
           newFee
         );
+        // The first parent written — a series hands its first occurrence, the fees are not parents.
+        saved = parents.length > 0 ? { id: result[0], row: parents[0] } : null;
         // The instalments already happened repay their loan now, in date order.
         const debtMoved = await applyDebtRepayments(appliedDebtRows);
         if ((await applyBalanceEffects(appliedEffects)) || debtMoved) {
@@ -2075,7 +2122,7 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess }: Readonly<Ex
       // an edit may move a transaction out of a center just as easily as into one.
       queryClient.invalidateQueries({ queryKey: queryKeys.costCenters.all(ownerId) });
 
-      onSuccess?.();
+      onSuccess?.(saved);
       onClose();
     };
 
@@ -2259,6 +2306,7 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess }: Readonly<Ex
         title={dialogTitle}
         reading={reading}
         width="lg"
+        returnFocusTo={returnFocusTo}
         footer={
           /* Step 1 has nothing to submit: picking a card IS the action, so the only footer
              control is the way out. The modal lays the buttons out — «Annulla» then the

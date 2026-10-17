@@ -2,11 +2,11 @@
 
 import type { Narrative } from '@/lib/utils/narrative';
 import type { SavingsHistory } from '@/lib/utils/tracciamentoSummary';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, withTypographicMinus } from '@/lib/utils/formatters';
 import { ChartHoverTip, useChartHover } from '@/components/ui/chart-hover';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface RisparmioTileProps {
@@ -18,6 +18,10 @@ interface RisparmioTileProps {
   footer: Narrative | null;
   /** The month the page is about, drawn at full strength. */
   highlightKey: string | null;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («mese per mese»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -43,8 +47,9 @@ function SavingsRateBars({ history, highlightKey }: { history: SavingsHistory; h
   const slot = VIEW_W / history.months.length;
   const barWidth = slot * BAR_SHARE;
 
-  // The typographic minus, as everywhere on the page (The Comma Rule).
-  const rateText = (rate: number) => `${rate < 0 ? '−' : ''}${formatPercentage(Math.abs(rate), 0)}`;
+  // The typographic minus, as everywhere on the page (The Comma Rule) — none on a rate that
+  // prints as zero («0%» for −0,4; the printed-zero rule, since 2026-10-12).
+  const rateText = (rate: number) => withTypographicMinus(rate, formatPercentage(Math.abs(rate), 0));
   const label = history.months
     .map((m) => `${m.label}: ${m.savingsRate === null ? 'nessuna entrata' : rateText(m.savingsRate)}`)
     .join('; ');
@@ -130,9 +135,9 @@ function SavingsRateBars({ history, highlightKey }: { history: SavingsHistory; h
  * (`summarizeSavingsHistory`), read as average, best and worst, drawn as bars around the
  * average. Months without income draw no bar: a missing denominator is not a zero.
  */
-export function RisparmioTile({ history, aside, reading, footer, highlightKey, className }: RisparmioTileProps) {
+export function RisparmioTile({ history, aside, reading, footer, highlightKey, collapse, asideWhenClosed, className }: RisparmioTileProps) {
   return (
-    <Tile eyebrow="Risparmio nel tempo" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className}>
+    <Tile eyebrow="Risparmio nel tempo" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} collapse={collapse} asideWhenClosed={asideWhenClosed} className={className}>
       {history.measuredCount === 0 ? (
         <p className="mt-3 text-[13px] text-muted-foreground">Nessun mese con entrate nella finestra.</p>
       ) : (

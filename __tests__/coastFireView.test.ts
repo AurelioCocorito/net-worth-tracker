@@ -13,6 +13,8 @@ import {
   buildCoastInflowEvents,
   buildCoastVerdict,
   buildPensionDraftIssues,
+  COAST_SECTION_IDS,
+  selectCoastStrip,
   buildPensionSnapshotKey,
   describeCoastDettaglio,
   describeCoastEmptyTiles,
@@ -38,9 +40,16 @@ import {
   toPensionDrafts,
   type CoastFirePensionDraft,
   type CoastTarget,
+  type CoastInflowEvent,
+  type CoastPensionCoverage,
+  type CoastScenarioRow,
+  COAST_CLOSED_ASIDES,
+  describeCoastClosedAnswers,
 } from '@/lib/utils/coastFireView';
 import { INACTIVE_LOCK, type FireLock } from '@/lib/utils/fireSummary';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
+import { formatStripFigure, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import {
   calculateCoastFIREProjection,
   getDefaultCoastFireTaxBrackets,
@@ -668,5 +677,139 @@ describe('coastFireView — parity with the projection', () => {
     printed.forEach((printedAmount) => {
       expect(allowed).toContain(printedAmount);
     });
+  });
+});
+
+// ─── The phone's cut and the strip (2026-10-15) ───────────────────────────────
+// Seen red one at a time: «Margine» printed «0 €» at a surplus under 0,5 (the floor removed);
+// the bear cell on the base scenario's number; `leadLength` left `undefined` with a pace. The
+// promised «euro non compatto» falsification was never recorded here: the identity assertions
+// below would catch it, and the retirement of 2026-10-16 says so instead of claiming a red.
+
+describe('coastFireView — the cut (a full stop at 1440 too, the lock as the scope line)', () => {
+  it('keeps the walk under the title, the pace and the lock behind «Il perché»', () => {
+    const { target } = buildTarget();
+    const verdict = buildCoastVerdict({ target, incompleteReason: null, pace: buildPace()!, lock: LOCK });
+    const { lead, rest } = splitVerdict(verdict);
+    expect(plain(lead)).toMatch(/^Ti mancano .* richiesti\.$/);
+    expect(plain(rest)).toMatch(/^ Al ritmo attuale, .* I 29\.800 € nel fondo pensione sono esclusi .* in poi\.$/);
+    expect(verdict.restLabel).toBe('il ritmo e il fondo pensione');
+    expect(buildCoastVerdict({ target, incompleteReason: null, pace: buildPace()!, lock: INACTIVE_LOCK }).restLabel).toBe('il ritmo');
+    expect(buildCoastVerdict({ target, incompleteReason: null, pace: null, lock: LOCK }).restLabel).toBe('il fondo pensione');
+    expect(buildCoastVerdict({ target, incompleteReason: null, pace: null, lock: INACTIVE_LOCK }).leadLength).toBeUndefined();
+  });
+
+  it('cuts a reached target before the lock sentence, and never a verdict that cannot run', () => {
+    const { target } = buildTarget(base0().coastFireNumberToday + 10_000);
+    const reached = buildCoastVerdict({ target, incompleteReason: null, pace: null, lock: LOCK });
+    expect(plain(splitVerdict(reached).lead)).toMatch(/richiesti\.$/);
+    expect(reached.restLabel).toBe('il fondo pensione');
+    expect(buildCoastVerdict({ target: null, incompleteReason: 'Serve un patrimonio FIRE positivo.', pace: null, lock: LOCK }).leadLength).toBeUndefined();
+  });
+});
+
+describe('selectCoastStrip — the two cells of the Coast tab', () => {
+  const cellText = (figure: StripFigure) => narrativeToText([formatStripFigure(figure)!]).replace(/[\u00a0\u202f]/g, ' ');
+  const KNOWN = [...Object.values(COAST_SECTION_IDS), VERDICT_REST_SECTION];
+
+  it('prints the gap the verdict prints and the bear scenario\'s Coast number the row prints', () => {
+    const { target } = buildTarget();
+    const projection = buildProjection();
+    const scenarios = summarizeCoastScenarios(projection.scenarios, getDefaultScenarios(), NET_WORTH);
+    const strip = selectCoastStrip({ target, scenarios });
+    expect(strip.map((figure) => figure.label)).toEqual(['Ti mancano', "Nell'orso"]);
+    expect(strip.map((figure) => figure.opens)).toEqual([COAST_SECTION_IDS.afflussi, COAST_SECTION_IDS.scenari]);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    const verdict = plain(buildCoastVerdict({ target, incompleteReason: null, pace: null, lock: INACTIVE_LOCK }).sentence);
+    expect(verdict).toContain(`Ti mancano ${cellText(strip[0])} al numero Coast FIRE`);
+    expect(cellText(strip[1])).toBe(euro(scenarios.find((row) => row.key === 'bear')!.coastNumberToday));
+    expect(plain(describeCoastScenarios(scenarios))).toContain(cellText(strip[1]));
+  });
+
+  it('reads the margin once the target is behind, and «raggiunto» when it is met to the euro', () => {
+    const { target } = buildTarget(base0().coastFireNumberToday + 10_000);
+    const [margin] = selectCoastStrip({ target, scenarios: [] });
+    expect(margin.label).toBe('Margine');
+    expect(cellText(margin)).toBe(euro(10_000));
+    const [met] = selectCoastStrip({ target: { ...target, surplus: 0.2 }, scenarios: [] });
+    expect(met.value).toBeNull();
+    expect(met.reason).toBe('raggiunto');
+    expect(validateStrip([met], KNOWN)).toEqual([]);
+  });
+});
+
+// ─── One floor for the cell and the sentence, and the closed rows' words (2026-10-16, in the retirement) ──
+// Seen red with the selector's floor moved to 0,3 while the sentence kept its own 0,5: at a
+// surplus of 0,4 the cell printed «Margine 0 €» under a verdict that said «raggiunge».
+
+describe('selectCoastStrip — «raggiunto» exactly where the verdict says «raggiunge»', () => {
+  const cellText = (figure: StripFigure) => narrativeToText([formatStripFigure(figure)!]).replace(/[\u00a0\u202f]/g, ' ');
+
+  it('decides the met-to-the-euro case from the one floor the sentence uses', () => {
+    const { target } = buildTarget(base0().coastFireNumberToday + 10_000);
+    for (const surplus of [0.4, 0.6]) {
+      const reached = { ...target, surplus };
+      const [cell] = selectCoastStrip({ target: reached, scenarios: [] });
+      const verdict = plain(buildCoastVerdict({ target: reached, incompleteReason: null, pace: null, lock: INACTIVE_LOCK }).sentence);
+      expect(cell.reason === 'raggiunto').toBe(verdict.includes('raggiunge il numero Coast FIRE'));
+      if (cell.reason !== 'raggiunto') expect(verdict).toContain(cellText(cell));
+    }
+  });
+});
+
+describe('the closed rows\' asides — words, never a figure', () => {
+  it('names Afflussi and Scenari without a digit', () => {
+    expect(COAST_CLOSED_ASIDES).toEqual({ [COAST_SECTION_IDS.afflussi]: 'pensioni e fondo', [COAST_SECTION_IDS.scenari]: 'rendimento reale' });
+    for (const aside of Object.values(COAST_CLOSED_ASIDES)) expect(aside).not.toMatch(/\d/);
+  });
+});
+
+// ─── The closed rows' answers in the landscape index (2026-10-16) ─────────────
+// Falsified on 2026-10-16, each in its own test: «the pensions win over the fund» went red with the
+// fund branch moved first («fondo nel 2045» over 13.400 € of pensions); «Scenari answers the bull»
+// went red reading the bear (the strip's «Nell'orso» figure, repeated).
+
+describe('describeCoastClosedAnswers', () => {
+  /** What the index shows: each segment trimmed, joined by the gap the row draws between them. */
+  const visible = (answer: Narrative | null | undefined) =>
+    answer ? answer.map((segment) => segment.text.trim()).join(' ').replace(/[  ]/g, ' ') : answer;
+
+  const FUND: CoastInflowEvent = { id: 'pension-fund-0', kind: 'pensionFund', year: 2045, title: 'Sblocco fondo pensione', amount: '30.000 €', amountValue: 30_000, amountCaption: 'al valore di oggi', note: null };
+  const INPS: CoastInflowEvent = { id: 'inps', kind: 'statePension', year: 2055, title: 'Pensione INPS', amount: '13.400 €', amountValue: 13_400, amountCaption: "netti reali l'anno", note: null };
+  const NO_PENSIONS: CoastPensionCoverage = { count: 0, entries: [], annualNetReal: 0, monthlyNetReal: 0, annualNetRealAtRetirement: 0 };
+  const ONE_PENSION: CoastPensionCoverage = {
+    count: 1,
+    entries: [{ label: 'Pensione INPS', startYear: 2055, startAge: 67, netAnnualReal: 13_400, isActiveAtRetirement: false }],
+    annualNetReal: 13_400,
+    monthlyNetReal: 13_400 / 12,
+    annualNetRealAtRetirement: 0,
+  };
+  const row = (key: CoastScenarioRow['key'], coastNumberToday: number): CoastScenarioRow => ({
+    key,
+    label: key === 'bear' ? 'Orso' : key === 'base' ? 'Base' : 'Toro',
+    realReturnRate: 4,
+    growthRate: 6,
+    inflationRate: 2,
+    coastNumberToday,
+    progressPct: 50,
+    gap: 10_000,
+    surplus: 0,
+    reached: false,
+  });
+  const SCENARIOS = [row('bear', 700_000), row('base', 300_000), row('bull', 127_000)];
+
+  it('answers Afflussi with the pensions, else the fund, else «nessun afflusso», in at most 22 characters', () => {
+    const withPensions = describeCoastClosedAnswers({ events: [FUND, INPS], pensions: ONE_PENSION, scenarios: SCENARIOS });
+    expect(visible(withPensions[COAST_SECTION_IDS.afflussi])).toBe("13.400 € netti l'anno");
+    expect(visible(describeCoastClosedAnswers({ events: [FUND], pensions: NO_PENSIONS, scenarios: SCENARIOS })[COAST_SECTION_IDS.afflussi])).toBe('fondo nel 2045');
+    expect(visible(describeCoastClosedAnswers({ events: [], pensions: NO_PENSIONS, scenarios: SCENARIOS })[COAST_SECTION_IDS.afflussi])).toBe('nessun afflusso');
+    for (const answer of Object.values(withPensions)) expect([...(visible(answer) ?? '')].length).toBeLessThanOrEqual(22);
+  });
+
+  it('answers Scenari with the bull, unsigned, and keeps the scope without the rows', () => {
+    const answers = describeCoastClosedAnswers({ events: [], pensions: NO_PENSIONS, scenarios: SCENARIOS });
+    expect(visible(answers[COAST_SECTION_IDS.scenari])).toBe('nel toro 127.000 €');
+    expect(answers[COAST_SECTION_IDS.scenari]?.some((segment) => segment.sign)).toBe(false);
+    expect(describeCoastClosedAnswers({ events: [], pensions: NO_PENSIONS, scenarios: [] })[COAST_SECTION_IDS.scenari]).toBeNull();
   });
 });

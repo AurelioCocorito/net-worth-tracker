@@ -19,7 +19,7 @@
  * `cachedFormatCurrencyEUR` (no-break space before €, four-digit amounts ungrouped).
  */
 
-import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
+import { narrativeToText, type Narrative, type NarrativeSegment, type PageVerdictModel, type VerdictTone } from '@/lib/utils/narrative';
 import type {
   CoverageMonth,
   DividendNetComparison,
@@ -34,6 +34,8 @@ import type {
   YearlyIncomeSummary,
   YieldSummary,
 } from '@/lib/utils/dividendAnalytics';
+import { DIVIDEND_SECTION_IDS } from '@/lib/utils/dividendAnalytics';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, ofThePercent, pluralArticleFor } from '@/lib/utils/patrimonioNarrative';
@@ -681,6 +683,28 @@ export function describePaymentsCount(shown: number, total: number): Narrative {
 }
 
 /**
+ * What the closed rows of Dividendi say beside their eyebrow on a phone (The Closed-Row Rule,
+ * since 2026-10-12): words or a count of rows, never an amount. Rendimento «ultimi 12 mesi» (a
+ * window, not an amount: the tile does not follow the axis and says so closed too); Chi paga di
+ * più «in portafoglio» (its open aside is the period's net, a figure); Affidabilità its window
+ * and population («9 mesi · in portafoglio», `describeReliabilityClosedAside`); Per anno its years
+ * (`describeYearsAside`); Pagamenti its count (`describePaymentsCount`).
+ */
+export const RENDIMENTO_CLOSED_ASIDE = 'ultimi 12 mesi';
+export const PAGATORI_CLOSED_ASIDE = 'in portafoglio';
+
+/** «9 mesi · in portafoglio» — the open aside of Affidabilità, as the closed row's words. */
+export function describeReliabilityClosedAside(monthsInWindow: number): string {
+  return `${narrativeToText(describeReliabilityWindow(monthsInWindow))} · in portafoglio`;
+}
+
+/** «5 anni» / «1 anno» — the years Per anno draws; «nessun incasso» with none. */
+export function describeYearsAside(years: number): string {
+  if (years === 0) return 'nessun incasso';
+  return `${years} ${pluralize(years, 'anno', 'anni')}`;
+}
+
+/**
  * The sub-eyebrow over the hero's bars. A year draws its own months, so it is "mese per mese";
  * every other period draws a trailing window and the label says how long it is — the chart and
  * the KPIs above it are then visibly on different windows, which is the point.
@@ -787,4 +811,52 @@ export function describePaymentsFooter(): Narrative {
 /** The names of the months the coverage strip marks as unpaid, in order. */
 export function dryMonthNames(months: CoverageMonth[]): string[] {
   return months.filter((month) => !month.paid).map((month) => monthInSentence(month.month));
+}
+
+// ─── The closed rows' answers (2026-10-16) ────────────────────────────────────
+
+export interface DividendiClosedAnswersInput {
+  reliability: DividendReliability;
+  /** `summarizeYield` of the stats; null while they load, without a cost basis, or on a failed read. */
+  yieldSummary: YieldSummary | null;
+  ranking: PayerRanking;
+  yearly: YearlyIncomeSummary;
+}
+
+/**
+ * What Dividendi's closed rows answer in the landscape index (components/ui/row-answers.tsx), each
+ * the first figure of its tile and none the verdict's (the net, the gross YOC, the payer count):
+ * - Affidabilità: «copertura 10%», the months that paid over the window, as the KPI prints it;
+ * - Rendimento: «YOC netto 2,23%», two decimals as the KPI — the gross one is the verdict's;
+ * - Chi paga di più: «BTP 412 €», the largest payer still held; with one held payer «solo BTP»,
+ *   no figure — its net would be the verdict's total again;
+ * - Per anno: «in media 1200 €» over at least two closed years, «primo anno» with only the running
+ *   one; one closed year keeps «2 anni» (the mean of one year is not a mean).
+ * Pagamenti keeps its count: an inventory's honest answer is how many rows it lists, and it
+ * follows the filters. A failed Rendimento is a red row, which never shows an answer.
+ */
+export function describeDividendiClosedAnswers({ reliability, yieldSummary, ranking, yearly }: DividendiClosedAnswersInput): RowAnswerMap {
+  return {
+    [DIVIDEND_SECTION_IDS.affidabilita]:
+      reliability.payerCount === 0 ? null : [prose('copertura'), figure(formatPercentage(reliability.coveragePct * 100, 0))],
+    [DIVIDEND_SECTION_IDS.rendimento]:
+      yieldSummary?.yocNet == null ? null : [prose('YOC netto'), figure(formatPercentage(yieldSummary.yocNet, 2))],
+    [DIVIDEND_SECTION_IDS.pagatori]: describePayersAnswer(ranking),
+    [DIVIDEND_SECTION_IDS.perAnno]: describeYearlyAnswer(yearly),
+    [DIVIDEND_SECTION_IDS.pagamenti]: null,
+  };
+}
+
+function describePayersAnswer(ranking: PayerRanking): Narrative | null {
+  const { top } = ranking;
+  if (ranking.payerCount === 0 || !top) return null;
+  const leader = top.assetTicker || top.assetName;
+  if (ranking.heldPayerCount < 2) return [prose(`solo ${leader}`)];
+  return [prose(leader), figure(euro(top.net))];
+}
+
+function describeYearlyAnswer(yearly: YearlyIncomeSummary): Narrative | null {
+  if (yearly.closedCount === 0) return yearly.ongoing ? [prose('primo anno')] : null;
+  if (yearly.closedCount < 2 || yearly.average === null) return null;
+  return [prose('in media'), figure(euro(yearly.average))];
 }

@@ -24,7 +24,8 @@ import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
 import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
 import type { HallOfFameSectionKey, HallOfFameStats, SinceWorstMonth } from '@/types/hall-of-fame';
 import { SECTION_LABELS } from '@/lib/constants/hallOfFame';
-import { isPartialYear, type NotesSummary, type RecordBoard, type RecordCategory, type RecordEntry, type RecordPeriod } from '@/lib/utils/hallOfFameSummary';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
+import { HOF_SECTION_IDS, isPartialYear, type NotesSummary, type RecordBoard, type RecordCategory, type RecordEntry, type RecordPeriod } from '@/lib/utils/hallOfFameSummary';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -159,31 +160,43 @@ export function buildHallOfFameVerdict(input: HallOfFameVerdictInput): PageVerdi
     ? `${capitalize(bestMonth.longLabel)} è il tuo mese migliore.`
     : `Il tuo mese migliore è ${bestMonth.longLabel}.`;
 
+  // The first sentence closes on the record's figures — a phone shows it alone (The Binding-Clause
+  // Rule, since 2026-10-10); the running year and month follow as a SECOND sentence at
+  // every width («; il 2026» became «. Il 2026» on 2026-10-10: the cut needs a full stop, at 1440 too).
   const sentence: Narrative = [prose('In quel mese il patrimonio è salito di '), signedCurrency(bestMonth.value)];
   if (bestMonth.percentage !== null) {
     sentence.push(prose(', il '), signedPercent(bestMonth.percentage), prose(' in un mese'));
   }
+  sentence.push(prose('.'));
+  const leadLength = sentence.length;
 
-  if (currentYear && currentYearRank !== null) {
+  const hasYear = !!currentYear && currentYearRank !== null;
+  const hasMonth = !!currentMonth && currentMonthRank !== null && !bestMonth.isCurrent;
+
+  if (hasYear) {
     sentence.push(
-      prose('; il '),
+      prose(' Il '),
       figure(currentYear.label),
       prose(` è finora ${yearRankPhrase(currentYearRank)}, con `),
       signedCurrency(currentYear.value),
     );
   }
 
-  if (currentMonth && currentMonthRank !== null && !bestMonth.isCurrent) {
+  if (hasMonth) {
+    const month = monthNameOf(currentMonth);
     sentence.push(
-      prose(`, e ${monthNameOf(currentMonth)} è oggi al `),
+      prose(hasYear ? `, e ${month} è oggi al ` : ` ${capitalize(month)} è oggi al `),
       figure(ordinal(currentMonthRank)),
       prose(' posto tra i mesi'),
     );
   }
 
-  sentence.push(prose('.'));
+  // Without a running year nor month there is no second sentence: no cut, no «Il perché».
+  if (!hasYear && !hasMonth) return { headline, tone: 'positive', sentence };
 
-  return { headline, tone: 'positive', sentence };
+  sentence.push(prose('.'));
+  const restLabel = hasYear && hasMonth ? "l'anno e il mese in corso" : hasYear ? "l'anno in corso" : 'il mese in corso';
+  return { headline, tone: 'positive', sentence, leadLength, restLabel };
 }
 
 // ─── Tile readings ────────────────────────────────────────────────────────────
@@ -419,6 +432,17 @@ export function describeNotes(summary: NotesSummary): Narrative {
   return narrative;
 }
 
+/**
+ * «nessuna nota» / «una nota» / «4 note» — what the closed Note row says beside its eyebrow on a
+ * phone (The Closed-Row Rule: words, never an amount). A count of notes is not a figure of the
+ * census (only € and % are: doc/guide/prima-schermata.md), so it may stand on a closed row.
+ */
+export function describeClosedNotesAside(summary: NotesSummary): string {
+  if (summary.total === 0) return 'nessuna nota';
+  if (summary.total === 1) return 'una nota';
+  return `${summary.total} note`;
+}
+
 /** What each ranking is, in the singular and in the plural. */
 const RANKING_SUBJECT: Record<RecordCategory, { monthly: string; annual: string }> = {
   growth: { monthly: 'con la crescita di patrimonio più alta', annual: 'con la crescita di patrimonio più alta' },
@@ -526,4 +550,32 @@ export function describeNoteFormReading(input: {
 export function describeNoteViewReading(sections: HallOfFameSectionKey[]): string {
   if (sections.length === 1) return `Appesa a una classifica: ${SECTION_LABELS[sections[0]]}.`;
   return `Appesa a ${sections.length} classifiche di questo periodo.`;
+}
+
+// ─── The closed rows' answers (landscape index) ───────────────────────────────
+
+export interface HallOfFameClosedAnswersInput {
+  stats: HallOfFameStats | null;
+  /** The first of the monthly savings ranking. */
+  savingsTop: RecordEntry | null;
+  /** The first of the yearly growth ranking. */
+  bestYear: RecordEntry | null;
+}
+
+/**
+ * What each closed row of Hall of Fame answers in the landscape index (2026-10-16). The strip
+ * already prints the headline figure of every ranking row (the running year, the income record,
+ * the savings record), so each answer is the term beside it: the income average the record is
+ * measured against (the Entrate footer, `describeIncomeAverage`), the record month's savings rate,
+ * the best year. Null where the row keeps its scope:
+ *   - Anni when the best year is the running one — its value IS the strip's «Quest'anno» cell;
+ *   - Note always — its closed aside («2 note») already answers, and the latest period does not fit.
+ */
+export function describeHallOfFameClosedAnswers({ stats, savingsTop, bestYear }: HallOfFameClosedAnswersInput): RowAnswerMap {
+  return {
+    [HOF_SECTION_IDS.entrate]: stats && stats.averageMonthlyIncome > 0 ? [prose('media mensile'), amount(stats.averageMonthlyIncome)] : null,
+    [HOF_SECTION_IDS.risparmio]: savingsTop && savingsTop.percentage !== null ? [share(savingsTop.percentage), prose('delle entrate')] : null,
+    [HOF_SECTION_IDS.anni]: bestYear && !bestYear.isCurrent ? [prose(bestYear.label), signedCurrency(bestYear.value)] : null,
+    [HOF_SECTION_IDS.note]: null,
+  };
 }

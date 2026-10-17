@@ -19,6 +19,79 @@ import { type Period, periodToRange, MONTH_NAMES_SHORT } from '@/lib/utils/perio
 import { endOfMonthBound, getItalyDate, getItalyDateIso, getItalyMonth, getItalyMonthYear, getItalyYear, isItalyDayAfter, toDate } from '@/lib/utils/dateHelpers';
 import { getExpenseDate } from '@/lib/utils/expenseHelpers';
 import { getCategoryKey, getCategoryName, resolveDisplayLabels } from '@/lib/utils/expenseGrouping';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
+
+// ─── The phone composition: the ids and the strip (since 2026-10-12) ──────────
+
+/**
+ * THE tile and the rows of Tracciamento below `desktop:`, in the DOM's order (The First-Screen
+ * Rule). The `trk-` prefix keeps every id unique in `main`: the five Cashflow tabs stay
+ * mounted together (`forceMount`), so a bare `movimenti` would exist twice. The DOM ids are not
+ * narrative, so they live here and not in `cashflowNarrative.ts` (the Panoramica's precedent,
+ * `overviewSummary.ts`).
+ */
+export const TRACKING_SECTION_IDS = {
+  periodo: 'trk-periodo',
+  spese: 'trk-spese',
+  entrate: 'trk-entrate',
+  risparmio: 'trk-risparmio',
+  movimenti: 'trk-movimenti',
+} as const;
+
+/** The verdict's «Il perché» of this tab, a row of its controller (`useMobileSections`' `restId`). */
+export const TRACKING_REST_ID = 'trk-perche';
+
+/** The block of `CashflowPeriodoTile` the strip lifts: the trio's three values, never its rate or deltas. */
+export const TRACKING_TRIO_BLOCK = 'trio';
+
+/** Rows the Movimenti feed reveals per «Carica altri». */
+export const FEED_PAGE_SIZE = 20;
+
+/**
+ * The feed's next window after «Carica altri»: one page past what is SHOWN, never past what is
+ * stored. The two differ after a save from the «+»: the feed widens its window in the render to
+ * reach the saved row (`TransactionFeed.focusRowId`), so the row at index 50 shows 51 rows while
+ * the stored window is still 20 — and a page counted from the stored window (20 + 20) took rows
+ * away (51 → 40; seen red on 2026-10-12, in the spec's retirement). The feed hands over what it
+ * shows, the tab keeps the larger of the two.
+ */
+export function growFeedWindow({ stored, shown, page = FEED_PAGE_SIZE }: { stored: number; shown: number; page?: number }): number {
+  return Math.max(stored, shown) + page;
+}
+
+/**
+ * The three figures under the title on a phone — the trio of THE tile, lifted whole (the
+ * PERIOD's totals, calendar included, which is why the page passes `describeTrackingScope` as
+ * the verdict's `scope`): Entrate opens the income categories, Spese the spending ones, Risparmio
+ * the savings history. Each prints EXACTLY what `CashflowKpiTrio` prints (`__tests__/
+ * tracciamentoSummary.test.ts` holds the identity): the compact euro, `text-positive` on an income
+ * above zero, `text-destructive` on spending above zero, the «−» of the trio on a negative net and
+ * no colour on it. Nothing in, nothing out: `[]` with income and spending at zero (the verdict
+ * then says «Nessun movimento registrato.» whole).
+ */
+export function selectTracciamentoStrip({ totals }: { totals: PeriodCashflowTotals }): StripFigure[] {
+  if (totals.income <= 0 && totals.expenses <= 0) return [];
+  const lifts = { section: TRACKING_SECTION_IDS.periodo, block: TRACKING_TRIO_BLOCK };
+  return [
+    {
+      label: 'Entrate',
+      value: totals.income,
+      format: 'currency',
+      ...(totals.income > 0 ? { tone: 'positive' as const } : {}),
+      opens: TRACKING_SECTION_IDS.entrate,
+      lifts,
+    },
+    {
+      label: 'Spese',
+      value: totals.expenses,
+      format: 'currency',
+      ...(totals.expenses > 0 ? { tone: 'negative' as const } : {}),
+      opens: TRACKING_SECTION_IDS.spese,
+      lifts,
+    },
+    { label: 'Risparmio', value: totals.net, format: 'currency', opens: TRACKING_SECTION_IDS.risparmio, lifts },
+  ];
+}
 
 // ─── Period totals ────────────────────────────────────────────────────────────
 

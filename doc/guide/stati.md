@@ -66,6 +66,27 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   product's own Italian (the assistant hooks' `payload?.error ?? '<italiano>'`), the throw is marked with
   `userFacingError` so the translation keeps it; everything unmarked takes the generic sentence. The assistant's SSE
   route no longer forwards the Anthropic SDK's English message to the client either — that string is a log line.
+- **Below `desktop:` an `ErrorNotice` IS the tile's closed row, and it is silent** (2026-10-10, `components/ui/error-notice.tsx`):
+  with `collapse` (from `useMobileSections().collapse(id)`, the section marked `failed: true`) it takes the row's
+  structure — `section[id]` → `h3` → trigger with `aria-controls` — the red eyebrow («Benchmark · lettura fallita») with
+  its `AlertTriangle` as the trigger, open on every visit until the reader closes it, message, reassurance and «Riprova»
+  in the panel; `live={!sections.compact}` drops its `role="alert"` there, because the page's ONE live node for failed
+  reads is `PageRest`'s `describeFailedSections` («Una sezione non è stata letta: Benchmark.» / «2 sezioni non sono state
+  lette: Benchmark, Contributi.» / `null`). At 1440 nothing changes: `collapse` is `undefined`, `live` true. Hall of Fame
+  has one payload and renders neither a row nor an announcement for a failure; the first row in error is Dividendi's
+  Rendimento (since 2026-10-12), then Rendimenti's Benchmark and Plusvalenze realizzate (since 2026-10-14: every one
+  of the six model series failed, or the ledger's meta failed with no document to show — `ErrorNotice` in the cell at
+  every width, a failed row below `desktop:`; doc/guide/rendimenti.md § Composizione mobile), then Allocazione's
+  Esposizione and the four rows of Previdenza (since 2026-10-15: the Esposizione's profiles failed on their first
+  read — a failed «Aggiorna» over profiles already read keeps the tile with its own notice; doc/guide/allocazione.md and
+  doc/guide/previdenza.md § Composizione mobile). The five FIRE tabs keep a failed read as the WHOLE tab's notice: no row
+  there carries `failed`. **A failed read of a WHOLE tab is
+  the verdict's `pending` notice** (`PageVerdict.pending`, `{ kind: 'failed', notice }`, since 2026-10-12: Tracciamento,
+  Divisione and — from the spec's retirement — Centri di Costo, whose empty summary's verdict «Nessun centro di costo.»
+  stood above the notice until then): the `section` stays, the axis keeps its slot and its focus, the notice takes the
+  sentence's place; `VerdictSkeleton`'s gap (its pieces `VerdictSkeletonHeadline` and `VerdictSkeletonLines`, which `PageVerdict.pending` reuses) went from 2,5 to 2 that day so the wait matches the verdict it stands for,
+  on every page's `TileGridSkeleton`. `compact` (the cell width, drops the reassurance) is NOT
+  `sections.compact` (the composition's width): write the latter in full at the call site.
 - **Where the 20 surfaces are**: `app/dashboard/{page,assets,history,performance,allocation,hall-of-fame,settings}`,
   the five Cashflow tabs (the `loadFailed` prop is threaded from `app/dashboard/{cashflow,analisi}/page.tsx`, because
   the tabs do not own their queries), Dividendi, the five FIRE tabs, Previdenza and Centri di Costo. Adding a
@@ -116,4 +137,4 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
 ## Per-page blind spots
 
-- **Il ramo `isError` copre 20 superfici, non ogni query**: cablate quelle da cui dipende il verdetto o l'inventario, non le secondarie (prezzi, benchmark, FX) — una di quelle che fallisce degrada ancora in silenzio. (moved from `CLAUDE.md` → Known Issues on 2026-09-19)
+- **Il ramo `isError` copre 20 superfici, non ogni query**: cablate quelle da cui dipende il verdetto o l'inventario, non le secondarie (prezzi, FX) — una di quelle che fallisce degrada ancora in silenzio; i sei benchmark di Rendimenti lo fanno solo quando falliscono TUTTI (dal 2026-10-14: una serie sola mancante resta un «—» nella riga del modello). (moved from `CLAUDE.md` → Known Issues on 2026-09-19)

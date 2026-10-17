@@ -11,7 +11,12 @@ import { useMorphingSeries } from '@/lib/hooks/useMorphingSeries';
 interface GrowthOfHundredChartProps {
   series: GrowthOfHundredSeries;
   benchmarkName: string;
-  /** Minimum height of the plot; the tile's flex column lets it stretch past it, up to `maxHeight`. */
+  /**
+   * Minimum height of the plot; the tile's flex column lets it stretch past it, up to `maxHeight`.
+   * The caller may set `--growth-min-h` on the chart's box by width (`RendimentoTile`: 120px below
+   * `desktop:`, 160px from it — the curve yields on a phone, never the reading, DESIGN.md
+   * → The First-Screen Rule); this prop is the fallback where the variable is not set.
+   */
   minHeight?: number;
   /** The plot stops growing here whatever flex space it is given: see the component's note. */
   maxHeight?: number;
@@ -165,7 +170,7 @@ export function GrowthOfHundredChart({ series, benchmarkName, minHeight = 160, m
         {/* A lifted or cancelled touch clears the reading: on a hybrid device (fine pointer AND a touch screen) a tap moved the pointer and never left. */}
         <div
           className="relative flex-1"
-          style={{ minHeight }}
+          style={{ minHeight: `var(--growth-min-h, ${minHeight}px)` }}
           {...(hover.enabled
             ? {
                 ...hover.handlers,

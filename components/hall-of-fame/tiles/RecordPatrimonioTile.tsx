@@ -73,12 +73,15 @@ export function RecordPatrimonioTile({
                 <p className={TILE_SUB_EYEBROW_CLASS}>{describeTimelineCaption(timeline.length, board.total)} nel tempo</p>
                 <span className="text-[10px] text-muted-foreground">in ordine cronologico</span>
               </div>
-              {/* It stretches with the tile's free height, but not past a ceiling: with three
+              {/* It stretches with the tile's free height, but not past a ceiling: with five
                   podium rows above it, a 450px plot reads as the tile's subject rather than its
-                  second fact. Whatever slack is left sits above the footer. */}
+                  second fact. Whatever slack is left sits above the footer. Below `desktop:` THE
+                  tile yields its chart to the first screen — 120px, always, never the podium
+                  (The First-Screen Rule; doc/guide/hall-of-fame.md § Composizione mobile). */}
               <RecordBars
                 points={timeline}
                 ariaLabel="I mesi record, in ordine cronologico."
+                plotClassName="min-h-[120px] desktop:min-h-[130px]"
                 className="mt-2.5 max-h-[300px] flex-1"
               />
             </>

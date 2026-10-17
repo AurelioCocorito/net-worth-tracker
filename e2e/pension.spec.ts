@@ -8,6 +8,9 @@
  * numbers and `pensionNarrative` the words — those have unit tests. What is tested here is that the
  * page puts them in the right place, at the right size, under the right control: the verdict over
  * the tile grid, the two-row hero, the year axis beside the verdict, the «Dettaglio» disclosure.
+ *
+ * The 1440 test of today's page (no closed row, no strip, the whole sentence) was seen red on
+ * 2026-10-16 with `useCompactLayout` forced true.
  */
 
 import { test, expect, type Page, type Locator } from '@playwright/test';
@@ -91,12 +94,12 @@ test('opens with the verdict: three causes, three numbers, the year axis beside 
   const verdict = page.getByRole('region', { name: 'Verdetto sul fondo pensione' });
   await expect(verdict.getByRole('heading', { name: 'Il fondo sta lavorando' })).toBeVisible();
   const sentence = (await verdict.textContent())?.replace(/ /g, ' ') ?? '';
-  expect(sentence).toContain('Il fondo di Marco vale 29.800 €');
+  expect(sentence).toMatch(/Il fondo di Marco vale 29\.800[\s\u00a0]*€/);
   expect(sentence).toContain(`il mercato ha reso ${TWR} (TWR)`);
-  expect(sentence).toContain('nel 2026 il datore ha aggiunto 134 €');
+  expect(sentence).toMatch(/nel 2026 il datore ha aggiunto 134[\s\u00a0]*€/);
   // The deductible 2026 contributions are 152,02 + 134,11 = 286,13 € (the TFR does not count); RAL
   // 35.000 puts them entirely in the 35% bracket: 100,15 → «circa 100 €».
-  expect(sentence).toContain('il fisco restituisce circa 100 €');
+  expect(sentence).toMatch(/il fisco restituisce circa 100[\s\u00a0]*€/);
 
   // The verdict is the page's headline: 30px on desktop, above every tile.
   expect(await fontSizePx(verdict.getByRole('heading'))).toBe(30);
@@ -162,7 +165,7 @@ test('the year axis governs the annual tiles and the annual clauses, and leaves 
 
   // The verdict follows the axis for its annual clauses only: a closed year is said in the past.
   const sentence = (await page.getByRole('region', { name: 'Verdetto sul fondo pensione' }).textContent())?.replace(/ /g, ' ') ?? '';
-  expect(sentence).toContain('nel 2025 il fisco ha restituito circa 350 €');
+  expect(sentence).toMatch(/nel 2025 il fisco ha restituito circa 350[\s\u00a0]*€/);
   expect(sentence).not.toContain('il datore');
   expect(sentence).toContain(`il mercato ha reso ${TWR} (TWR)`);
 
@@ -246,4 +249,16 @@ test('«Aggiorna valore» overwrites the fund from the statement, on the page, a
   await again.getByRole('button', { name: 'Aggiorna' }).click();
   await expect(again).toBeHidden();
   await expect(heroValue(page)).toBeVisible({ timeout: 15_000 });
+});
+
+test('at 1440 the page is the page of today: no closed row, no strip, the whole sentence, one axis beside the verdict', async ({ page }) => {
+  await gotoPension(page);
+  await expect(page.locator('main [id$="-trigger"]')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Le cifre del verdetto' })).toBeHidden();
+  await expect(page.getByRole('heading', { level: 2, name: 'Il resto della pagina' })).toBeHidden();
+  const verdict = page.getByRole('region', { name: 'Verdetto sul fondo pensione' });
+  await expect(verdict.getByText(/Il fondo di Marco vale/)).toBeVisible();
+  await expect(verdict.getByRole('button', { name: /^Il perché/ })).toHaveCount(0);
+  // The axis is mounted twice (DESIGN.md → Page Verdict); one is visible, and it is the one beside the verdict.
+  await expect(page.getByRole('radiogroup', { name: 'Anno fiscale' })).toHaveCount(1);
 });

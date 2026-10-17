@@ -33,7 +33,8 @@ import { articleForPercent, ofThePercent, pluralArticleFor } from '@/lib/utils/p
 import { getItalyDate, getItalyMonthYear } from '@/lib/utils/dateHelpers';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
-import { comparedDaysOfPreviousMonth, isYearToDate, resolveAnchorMonth, settleTotals } from '@/lib/utils/tracciamentoSummary';
+import { TRACKING_SECTION_IDS, comparedDaysOfPreviousMonth, isYearToDate, resolveAnchorMonth, settleTotals } from '@/lib/utils/tracciamentoSummary';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 
 /** A month saving this share of its income or more is going well (the Panoramica's bar). */
 export const GOOD_SAVINGS_RATE = 20;
@@ -263,6 +264,50 @@ export function scheduledSentence(scheduled: ScheduledSlice, horizon: string | n
   return narrative;
 }
 
+/**
+ * The same words as a caption of their own — the leading space of `scheduledSentence` dropped, so
+ * the clause can open a line instead of closing a sentence. The `scope` of a verdict whose strip
+ * prints totals that CONTAIN the calendar (The Binding-Clause Rule, since 2026-10-10: rendered at
+ * every width by `PageVerdict`, after the strip on a phone and under the paragraph at 1440).
+ */
+export function scheduledScope(scheduled: ScheduledSlice, horizon: string | null): Narrative | null {
+  const sentence = scheduledSentence(scheduled, horizon);
+  if (!sentence) return null;
+  return [{ ...sentence[0], text: sentence[0].text.trimStart() }, ...sentence.slice(1)];
+}
+
+/**
+ * Tracciamento's scope line: «Nel totale ci sono ancora 1850 € di spese e 500 € di entrate già in
+ * calendario da qui a fine mese.» under the three cells, which print the PERIOD's totals;
+ * `null` with nothing in the calendar, and the line is simply absent. Its words are
+ * `scheduledSentence`'s, the one source of that clause. Analisi gets a scope line of its own in
+ * the same form (since 2026-10-14, `describeAnalisiScope` over its own horizon): what it shares is
+ * `scheduledScope` above, not this function.
+ */
+export function describeTrackingScope(period: Period, now: Date, scheduled: ScheduledSlice): Narrative | null {
+  return scheduledScope(scheduled, describeScheduledHorizon(period, now));
+}
+
+/**
+ * The two labels of «Il perché» on a phone (The Binding-Clause Rule): the first sentence restates the strip's
+ * three figures, so without a calendar the title stands alone and the whole sentence is «le cifre
+ * del periodo»; with a calendar and a lived part, the first sentence (what has happened) stands
+ * and the second — «dove chiude il periodo» — goes behind the tap.
+ */
+export const TRACKING_REST_LABEL_FIGURES = 'le cifre del periodo';
+export const TRACKING_REST_LABEL_CLOSING = 'dove chiude il periodo';
+
+/**
+ * What the closed rows of Tracciamento say beside their eyebrow (The Closed-Row Rule): words, never
+ * a figure. Movimenti is the exception that is no exception — its count («12 di 24 voci»,
+ * `describeMovementsCount`) is a count of rows, not of euro.
+ */
+export const TRACKING_CLOSED_ASIDES = {
+  spese: 'per categoria',
+  entrate: 'per categoria',
+  risparmio: 'mese per mese',
+} as const;
+
 function resolveTone(savingsRate: number | null, expenses: number): VerdictTone {
   if (savingsRate === null) return expenses > 0 ? 'negative' : 'neutral';
   if (savingsRate < 0) return 'negative';
@@ -381,6 +426,15 @@ function calendarSentence(period: Period, now: Date, totals: PeriodCashflowTotal
  * sentence come from the lived part («A settembre finora …»), and a second sentence says where
  * the calendar takes it. Until 2026-09-14 the tone came from the whole span, so on the 14th a
  * salary dated the 15th made the month «andare bene».
+ *
+ * Where a phone cuts it (since 2026-10-12; The Binding-Clause Rule): the strip
+ * under the title prints the period's three totals, so a sentence that restates them goes whole
+ * behind «Il perché» (`leadLength: 0`) — without a calendar, or with the calendar alone (nothing
+ * lived yet: the verdict IS the calendar sentence). With a calendar AND a lived part the first
+ * sentence judges what happened on figures the strip does not print, and stands; the calendar
+ * sentence goes behind the tap. A period with no strip at all (nothing in, nothing out) keeps
+ * its one sentence whole: the title alone would say less than it (2026-10-12,
+ * doc/guide/cashflow-tracciamento.md).
  */
 export function buildCashflowVerdict(input: CashflowVerdictInput): PageVerdictModel {
   const subject = describePeriodSubject(input.period, input.now);
@@ -399,7 +453,13 @@ export function buildCashflowVerdict(input: CashflowVerdictInput): PageVerdictMo
           : [prose('Nessun movimento registrato.')];
       return { headline, tone, sentence };
     }
-    return { headline, tone, sentence: figuresSentence(capitalise(subject.inPeriod), subject, totals, input.delta, comparison) };
+    return {
+      headline,
+      tone,
+      sentence: figuresSentence(capitalise(subject.inPeriod), subject, totals, input.delta, comparison),
+      leadLength: 0,
+      restLabel: TRACKING_REST_LABEL_FIGURES,
+    };
   }
 
   const settled = settleTotals(totals, scheduled);
@@ -409,12 +469,19 @@ export function buildCashflowVerdict(input: CashflowVerdictInput): PageVerdictMo
 
   if (settled.income <= 0 && settled.expenses <= 0) {
     // Nothing lived yet: the calendar sentence stands alone (its leading space trimmed).
-    return { headline, tone, sentence: [{ ...calendar[0], text: calendar[0].text.trimStart() }, ...calendar.slice(1)] };
+    return {
+      headline,
+      tone,
+      sentence: [{ ...calendar[0], text: calendar[0].text.trimStart() }, ...calendar.slice(1)],
+      leadLength: 0,
+      restLabel: TRACKING_REST_LABEL_FIGURES,
+    };
   }
 
   // «finora» marks the lived part; the ytd subject already says it.
   const opening = `${capitalise(subject.inPeriod)}${input.period.kind === 'ytd' ? '' : ' finora'}`;
-  return { headline, tone, sentence: [...figuresSentence(opening, subject, settled, input.delta, comparison), ...calendar] };
+  const lived = figuresSentence(opening, subject, settled, input.delta, comparison);
+  return { headline, tone, sentence: [...lived, ...calendar], leadLength: lived.length, restLabel: TRACKING_REST_LABEL_CLOSING };
 }
 
 // ─── Tile readings ────────────────────────────────────────────────────────────
@@ -679,4 +746,59 @@ export function describeMovementsCount(shown: number, total: number): Narrative 
   if (total === 0) return [prose('nessuna voce')];
   const voci: Narrative = [figure(String(total)), prose(` ${pluralize(total, 'voce', 'voci')}`)];
   return shown === total ? voci : [figure(String(shown)), prose(' di '), ...voci];
+}
+
+// ─── The closed rows' answers (2026-10-16) ────────────────────────────────────
+
+/**
+ * A category ranking as a closed row answers it: «Auto 29%», the first row as `RankedRows` prints
+ * it (the share rounded to the integer). One category is «tutto in Casa» with no figure (it is the
+ * whole total), and a first share that PRINTS as 100% beside other rows is «quasi tutto in Casa»,
+ * the reading's own words — the row never claims it all. Null without rows (the empty state).
+ * Shared by Tracciamento and Analisi, whose category tiles are the same tile.
+ */
+export function describeCategoryShareAnswer(ranking: CategoryRanking, kind: 'expenses' | 'income'): Narrative | null {
+  const [top, ...rest] = ranking.rows;
+  if (!top) return null;
+  const preposition = kind === 'income' ? 'da' : 'in';
+  if (rest.length === 0) return [prose(`tutto ${preposition} ${top.category}`)];
+  const share = Math.round(top.percentage);
+  if (share >= 100) return [prose(`quasi tutto ${preposition} ${top.category}`)];
+  return [prose(top.category), figure(`${share}%`)];
+}
+
+/**
+ * «in media il 22%» — the savings history's average, the tile reading's first words; a negative one
+ * «in media −8%» in the loss colour, as `historyRate` prints it (no article before a minus). The
+ * article is its own segment, which the index binds to the figure when elided («in media l'8%»). Null when no closed month
+ * had income, and with ONE measured month: the mean of one month is not a mean (the reading names
+ * that month instead). Beside THE tile's rate of the period, «in media» tells them apart.
+ */
+function describeSavingsHistoryAnswer(history: SavingsHistory): Narrative | null {
+  if (history.average === null || history.measuredCount < 2) return null;
+  // Decided on the printed integer: −0,3 prints «0%», with no sign.
+  if (Math.round(history.average) < 0) return [prose('in media'), historyRate(history.average)];
+  const average = Math.max(history.average, 0);
+  return [prose('in media'), prose(articleForPercent(average, 0).trim()), figure(formatPercentage(average, 0))];
+}
+
+export interface TrackingClosedAnswersInput {
+  expenseRanking: CategoryRanking;
+  incomeRanking: CategoryRanking;
+  savingsHistory: SavingsHistory;
+}
+
+/**
+ * What Tracciamento's closed rows answer in the landscape index (components/ui/row-answers.tsx):
+ * the first category of each ranking and the savings history's average — none of them in the strip,
+ * THE tile or the verdict's first sentence. Movimenti keeps its count: an inventory's honest answer
+ * is how many rows it lists, and it follows the toolbar's filters.
+ */
+export function describeTrackingClosedAnswers({ expenseRanking, incomeRanking, savingsHistory }: TrackingClosedAnswersInput): RowAnswerMap {
+  return {
+    [TRACKING_SECTION_IDS.spese]: describeCategoryShareAnswer(expenseRanking, 'expenses'),
+    [TRACKING_SECTION_IDS.entrate]: describeCategoryShareAnswer(incomeRanking, 'income'),
+    [TRACKING_SECTION_IDS.risparmio]: describeSavingsHistoryAnswer(savingsHistory),
+    [TRACKING_SECTION_IDS.movimenti]: null,
+  };
 }

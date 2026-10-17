@@ -32,6 +32,28 @@ import { summarizeCeiling } from '@/lib/utils/budgetSummary';
 import { getItalyDate, getItalyMonth, getItalyYear, isItalyDayAfter, toDate } from '@/lib/utils/dateHelpers';
 import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
 
+// ─── The phone composition: the ids (since 2026-10-12) ────────────────────────
+
+/**
+ * The tiles of Centri di Costo below `desktop:` — the list's three and the detail's five — in the
+ * DOM's order; `cdc-` keeps them unique among the five `forceMount` tabs. No strip on either view
+ * (doc/guide/centri-di-costo.md § Composizione mobile): Totale's three figures each name their own window.
+ */
+export const COST_CENTER_SECTION_IDS = {
+  totale: 'cdc-totale',
+  centri: 'cdc-centri',
+  dormienti: 'cdc-dormienti',
+  centro: 'cdc-centro-costo',
+  centroCategorie: 'cdc-centro-categorie',
+  centroCiclo: 'cdc-centro-ciclo',
+  centroSottocategorie: 'cdc-centro-sottocategorie',
+  centroMovimenti: 'cdc-centro-movimenti',
+} as const;
+
+/** The verdict's «Il perché» of the list and of the detail — two controllers, two memories (`cost-centers`, `cost-centers-center`). */
+export const COST_CENTERS_REST_ID = 'cdc-perche';
+export const COST_CENTER_DETAIL_REST_ID = 'cdc-centro-perche';
+
 // ─── Calendar ─────────────────────────────────────────────────────────────────
 
 export interface YearCalendar {

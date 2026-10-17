@@ -39,14 +39,17 @@ import type {
   BenchmarkRanking,
   CapitalEnteredChannel,
   CapitalEnteredSummary,
+  DrawdownStatus,
   DrawdownStory,
   HeroReturn,
   PerformanceVerdict,
+  RealizedGainsState,
   RealizedGainsSummary,
   ReturnConsistency,
 } from '@/lib/utils/performanceSummary';
-import { deannualizeReturn, printedGap } from '@/lib/utils/performanceSummary';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { deannualizeReturn, inMonths, PERFORMANCE_SECTION_IDS, printedGap } from '@/lib/utils/performanceSummary';
+import { cachedFormatCurrencyEUR, formatSignedEuro, isPrintedZero } from '@/lib/utils/formatters';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 import { formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, monthWithPrepositionA, ofThePercent, startsWithVowel } from '@/lib/utils/patrimonioNarrative';
 import { MONTH_NAMES } from '@/lib/constants/months';
@@ -148,10 +151,26 @@ function inTheName(name: string): string {
   return /^[aeiou]/i.test(name) ? `nell'${name}` : `nel ${name}`;
 }
 
-/** «60/40» out of «Portafoglio 60/40» — the headline names the model, not its label. */
-function shortBenchmarkName(name: string): string {
+/** «60/40» out of «Portafoglio 60/40» — the headline names the model, not its label; the phone's strip cell too («Sul 60/40»). */
+export function shortBenchmarkName(name: string): string {
   return name.replace(/^Portafoglio\s+/i, '');
 }
+
+/**
+ * What a CLOSED row says beside its eyebrow on a phone (The Closed-Row Rule), by section: words
+ * only, never a figure — the asides of the open tiles carry the months, the risk-free rate and
+ * the window, which the budget would count outside the verdict. Held by
+ * `__tests__/performanceNarrative.test.ts` (no digit, no «€», no «%»).
+ */
+export const PERFORMANCE_CLOSED_ASIDES = {
+  [PERFORMANCE_SECTION_IDS.benchmark]: 'contro i portafogli modello',
+  [PERFORMANCE_SECTION_IDS.contributi]: 'capitale entrato nel periodo',
+  [PERFORMANCE_SECTION_IDS.attribuzione]: 'per strumento',
+  [PERFORMANCE_SECTION_IDS.capitale]: 'versato e mercato',
+  [PERFORMANCE_SECTION_IDS.rischio]: 'volatilità, Sharpe e drawdown',
+  [PERFORMANCE_SECTION_IDS.consistenza]: 'mese per mese',
+  [PERFORMANCE_SECTION_IDS.plusvalenze]: 'per anno fiscale',
+} as const;
 
 // ─── The period as a grammatical subject ──────────────────────────────────────
 
@@ -244,6 +263,14 @@ export interface PerformanceVerdictInput extends PerformancePeriodInput {
   benchmark: { name: string; annualized: number } | null;
   /** The deepest drawdown of the period; null when the portfolio never fell. */
   drawdown: DrawdownStory | null;
+  /**
+   * Where the portfolio stands TODAY against the period's peak (`computeDrawdownStatus`): below
+   * it, the figure joins the drawdown clause («…; oggi a −1,2% dal massimo del periodo») — the
+   * Rendimento tile's «dal massimo del periodo» chip, which the phone hides (2026-10-10;
+   * doc/guide/rendimenti.md § Composizione mobile; at 1440 a declared addition). Absent or at the
+   * peak, no clause.
+   */
+  drawdownToday?: DrawdownStatus | null;
   consistency: ReturnConsistency;
 }
 
@@ -342,6 +369,14 @@ function buildSentence(input: PerformanceVerdictInput, gap: number | null): Narr
     out.push(prose('; mai sotto il massimo del periodo'));
   }
 
+  // Today's distance from the peak, where the sentence already speaks of the drawdown: the
+  // tile's chip on a phone (doc/guide/rendimenti.md). Only a printed figure is a clause — at the peak, or a
+  // dip that prints as zero, the chip has none and the sentence says nothing more.
+  const today = input.drawdownToday;
+  if (today && !today.atPeak && printed(today.current) < 0) {
+    out.push(prose('; oggi a '), percentSegment(today.current), prose(' dal massimo del periodo'));
+  }
+
   const c = input.consistency;
   if (c.totalMonths > 0) {
     out.push(prose('; '), figure(`${c.positiveMonths} ${pluralize(c.positiveMonths, 'mese', 'mesi')} su ${c.totalMonths}`), prose(` ${pluralize(c.positiveMonths, 'positivo', 'positivi')}.`));
@@ -351,11 +386,47 @@ function buildSentence(input: PerformanceVerdictInput, gap: number | null): Narr
   return out;
 }
 
-/** The page's opening: a headline whose tone is the risk-adjusted quality, then the facts. */
+/** The segment a «; » clause opens with: a prose segment, never a figure. */
+const CLAUSE_PREFIX = '; ';
+
+/**
+ * Where a phone cuts the paragraph (DESIGN.md → The Binding-Clause Rule; every strip cell counts),
+ * on the strip's two cells — the return and the gap against the model:
+ *
+ *   - with the model, the first sentence would reprint BOTH cells («+2,1%», «0,4 punti»): title
+ *     only (`leadLength: 0`), the whole paragraph behind «Il perché»;
+ *   - without it, the first sentence reprints one cell: the paragraph is cut at its first «;»,
+ *     which becomes a full stop — at 1440 too, so the two widths read one punctuation — and the
+ *     clause after it opens with a capital («Il drawdown massimo…», «Mai sotto il massimo…»; a
+ *     clause that opens with a figure stays as it is). The Sharpe clause sits before that «;»
+ *     and stays in sight, so the label names only the drawdown and the months (owner, 2026-10-14);
+ *   - without a return there is nothing to cut.
+ *
+ * No clause here is `binding`: the measured base is the verdict's `scope`, visible at every width.
+ */
+function cutSentence(sentence: Narrative, hasBenchmark: boolean): Pick<PageVerdictModel, 'sentence' | 'leadLength' | 'restLabel'> {
+  if (hasBenchmark) return { sentence, leadLength: 0, restLabel: 'rendimento, Sharpe, drawdown e mesi positivi' };
+
+  const at = sentence.findIndex((segment) => !segment.mono && segment.text.startsWith(CLAUSE_PREFIX));
+  if (at === -1) return { sentence };
+
+  const clause = sentence[at].text.slice(CLAUSE_PREFIX.length);
+  // The space after the full stop rides with the clause: the lead ends on «.», as every sentence does.
+  const next: Narrative = clause.length > 0 ? [prose(` ${clause.charAt(0).toUpperCase()}${clause.slice(1)}`)] : [prose(' ')];
+  return {
+    sentence: [...sentence.slice(0, at), prose('.'), ...next, ...sentence.slice(at + 1)],
+    leadLength: at + 1,
+    restLabel: 'drawdown e mesi positivi',
+  };
+}
+
+/** The page's opening: a headline whose tone is the risk-adjusted quality, then the facts, cut for a phone where a cut exists. */
 export function buildPerformanceVerdict(input: PerformanceVerdictInput): PageVerdictModel {
   const gap = resolveBenchmarkGap(input);
   const { headline, tone } = resolveHeadline(input, gap);
-  return { headline, tone, sentence: buildSentence(input, gap) };
+  const sentence = buildSentence(input, gap);
+  if (input.heroReturn.value === null) return { headline, tone, sentence };
+  return { headline, tone, ...cutSentence(sentence, !!input.benchmark && gap !== null) };
 }
 
 // ─── Tile readings ────────────────────────────────────────────────────────────
@@ -706,7 +777,7 @@ export function describeAttribution(attribution: ReturnAttribution): Narrative {
 
   const partial = coverage.attributedMonths < coverage.measuredMonths && coverage.firstAttributed;
   const window = partial
-    ? ` nei ${coverage.attributedMonths} ${pluralize(coverage.attributedMonths, 'mese', 'mesi')} con il dettaglio per strumento (da ${monthAndYear(coverage.firstAttributed!)})`
+    ? ` ${inMonths(coverage.attributedMonths)} ${coverage.attributedMonths} ${pluralize(coverage.attributedMonths, 'mese', 'mesi')} con il dettaglio per strumento (da ${monthAndYear(coverage.firstAttributed!)})`
     : '';
   const shownGain = Math.round(gain);
   const lead: Narrative =
@@ -819,4 +890,131 @@ export function describeAnalysisBase(input: { monthsMeasured: number; netCashFlo
   }
   out.push(prose('.'));
   return out;
+}
+
+/**
+ * Who wrote the AI report, for the dialog's «scritto da …» (2026-10-12). The route runs with the
+ * server-side fallback: after a decline the report is written — in part or whole — by the
+ * fallback model, and the stream names it. Printing the REQUESTED model then would be the claim
+ * typed into the copy that `lib/constants/aiModels.ts` exists to prevent. `servedModel` is null
+ * until the stream names one (a report from before the stream said so reads as the requested).
+ */
+export function describeReportAuthor(servedModel: string | null, requestedModel: string): string {
+  if (servedModel === null || servedModel === requestedModel) return requestedModel;
+  return `${servedModel} (${requestedModel} aveva rifiutato la richiesta)`;
+}
+
+// ─── The closed rows' answers (landscape index) ───────────────────────────────
+
+/**
+ * The longest answer the landscape index holds whole (2026-10-16): past it the words would be
+ * cut beside a figure that is never cut, and a name cut to «Vanguard FTSE…» answers nothing.
+ */
+const ANSWER_MAX_CHARS = 22;
+
+/** The answer as the index lays it out: each segment trimmed, one gap between them. */
+function answerLength(answer: Narrative): number {
+  return answer.map((segment) => segment.text.trim()).join(' ').length;
+}
+
+/** A signed whole-euro figure, coloured on the PRINTED value; a printed zero has neither sign nor colour. */
+function signedEuroAnswer(value: number): NarrativeSegment {
+  const text = formatSignedEuro(value, true);
+  if (isPrintedZero(text)) return figure(text);
+  return { text, mono: true, sign: value < 0 ? 'negative' : 'positive' };
+}
+
+export interface PerformanceClosedAnswersInput {
+  ranking: BenchmarkRanking;
+  capitalEntered: CapitalEnteredSummary;
+  /** Null when the row is absent (no base, no snapshot). */
+  attribution: ReturnAttribution | null;
+  /** The capital chart's last point; null with no chart. */
+  lastChartPoint: { returns: number } | null;
+  volatility: number | null;
+  consistency: ReturnConsistency;
+  realizedState: RealizedGainsState;
+  realizedSummary: RealizedGainsSummary | null;
+}
+
+/**
+ * «batte 4 su 6» — the models beaten over the models compared, the count of the reading
+ * (`describeBenchmarkRanking`); «batte tutti e 6» when none is above or tied. A tie is counted
+ * neither way, as in the reading. Null while nothing is compared (the series still arriving, a
+ * portfolio without a TWR): the reading is null then too.
+ */
+function benchmarkAnswer(ranking: BenchmarkRanking): Narrative | null {
+  const compared = ranking.rows.filter((r) => r.annualized !== null && r.delta !== null).length;
+  if (compared === 0) return null;
+  if (compared > 1 && ranking.beaten === compared) return [prose('batte tutti e'), figure(String(compared))];
+  return [prose('batte'), figure(String(ranking.beaten)), prose(`su ${compared}`)];
+}
+
+/**
+ * «entrati 13.200 €» / «usciti 2300 €» — the capital the return formulas neutralised, in the
+ * reading's own verbs (`describeContributions`). A flow, so never coloured.
+ */
+function contributiAnswer(capital: CapitalEnteredSummary): Narrative {
+  return [prose(capital.total >= 0 ? 'entrati' : 'usciti'), figure(euro(capital.total))];
+}
+
+/**
+ * «Bitcoin +12.400 €» — the instrument that moved the return most, the attribution's first row
+ * (largest |total| first). The name is the one the user typed: past `ANSWER_MAX_CHARS` the row
+ * keeps its scope rather than print a cut name. Never «mercato +X €» here: Capitale e mercato
+ * answers with its own «mercato», on another measure.
+ */
+function attribuzioneAnswer(attribution: ReturnAttribution | null): Narrative | null {
+  if (!attribution || attribution.coverage.attributedMonths === 0) return null;
+  const [first] = attribution.rows;
+  if (!first) return null;
+  const answer: Narrative = [prose(first.name), signedEuroAnswer(first.total)];
+  return answerLength(answer) <= ANSWER_MAX_CHARS ? answer : null;
+}
+
+/** «mercato +13.100 €» — the net worth minus the capital put in, at the window's end (`describeCapitalAndMarket`). */
+function capitaleAnswer(last: { returns: number } | null): Narrative | null {
+  if (!last) return null;
+  return [prose('mercato'), signedEuroAnswer(last.returns)];
+}
+
+/**
+ * «volatilità 12,4%» — the Rischio tile's first row. Not the Sharpe (without the AI model the
+ * verdict's first sentence prints it) nor the drawdown (the verdict's sequel and THE tile's chip).
+ */
+function rischioAnswer(volatility: number | null): Narrative | null {
+  if (volatility === null) return null;
+  return [prose('volatilità'), figure(formatPercentage(volatility, 1))];
+}
+
+/**
+ * «peggiore −3,0%» — the worst month of the period, as the reading prints it. Not the share of
+ * positive months: the verdict's sequel says it as «9 mesi su 12 positivi».
+ */
+function consistenzaAnswer(consistency: ReturnConsistency): Narrative | null {
+  if (consistency.totalMonths === 0 || !consistency.worst) return null;
+  return [prose('peggiore'), percentSegment(consistency.worst.return)];
+}
+
+/** «totale +3745 €» — every realised gain of the ledger, all-time like the tile. Null on a failed read or nothing to show. */
+function plusvalenzeAnswer(state: RealizedGainsState, summary: RealizedGainsSummary | null): Narrative | null {
+  if (state !== 'ready' || !summary) return null;
+  return [prose('totale'), signedEuroAnswer(summary.total)];
+}
+
+/**
+ * What each closed row of Rendimenti answers in the landscape index (2026-10-16): one figure per
+ * row that the strip, THE tile and the verdict's first sentence do not print, read from what the
+ * page already computed; null where the row keeps its scope. Keyed by `PERFORMANCE_SECTION_IDS`.
+ */
+export function describePerformanceClosedAnswers(input: PerformanceClosedAnswersInput): RowAnswerMap {
+  return {
+    [PERFORMANCE_SECTION_IDS.benchmark]: benchmarkAnswer(input.ranking),
+    [PERFORMANCE_SECTION_IDS.contributi]: contributiAnswer(input.capitalEntered),
+    [PERFORMANCE_SECTION_IDS.attribuzione]: attribuzioneAnswer(input.attribution),
+    [PERFORMANCE_SECTION_IDS.capitale]: capitaleAnswer(input.lastChartPoint),
+    [PERFORMANCE_SECTION_IDS.rischio]: rischioAnswer(input.volatility),
+    [PERFORMANCE_SECTION_IDS.consistenza]: consistenzaAnswer(input.consistency),
+    [PERFORMANCE_SECTION_IDS.plusvalenze]: plusvalenzeAnswer(input.realizedState, input.realizedSummary),
+  };
 }

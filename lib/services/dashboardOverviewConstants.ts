@@ -48,7 +48,9 @@ export const DASHBOARD_OVERVIEW_SUMMARY_COLLECTION = 'dashboardOverviewSummaries
 // (`withheldTaxEur`, `taxIsWithheld`), and the estimate stands on the gain the broker taxes —
 // the price difference, no commission on either side (`taxableGainEur`, lib/utils/saleTax.ts):
 // a stored settembre would keep 4089 €.
-export const DASHBOARD_OVERVIEW_SOURCE_VERSION = 20;
+// Bumped from 20→21: monthFlows (the pension contributions and the principal repaid per debt),
+// so the month's split names them instead of a «+1792 € di altre variazioni» that was the TFR.
+export const DASHBOARD_OVERVIEW_SOURCE_VERSION = 21;
 // The materialized summary is stale when invalidated, of another source version, computed on an
 // earlier Italian DAY (the payload is the day's: the current/previous month and the month-end
 // projection are read from «today»), or older than this. Every mutation of an input already

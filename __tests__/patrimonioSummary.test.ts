@@ -3,6 +3,14 @@
  * accounts, the month's trades, unrealized gains, instrument return ranking, top weights, last
  * price update). Mocks mirror dashboardOverviewUtils.test.ts: calculateAssetValue lives in
  * assetService, which imports the client Firebase SDK at module load.
+ *
+ * Falsified on 2026-10-16, one at a time, on `describePatrimonioClosedAnswers` (the closed rows'
+ * answers): without the `count === 0` branch → the Movimenti test red; the footer's hand-written
+ * sign («+0 €») → red; `cachedFormatCurrencyEUR(total)` with Intl's hyphen → the negative balance
+ * red; without the strip check → «Classi» red; the rendimento zero signed → red; several loans
+ * answered, the `never` branch dropped, a failed read answered → the loan test red each time; an
+ * answer on three positions → Strumenti red; Liquidità answering with the strip's share → the
+ * Lifted-Figure test red.
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -22,7 +30,22 @@ vi.mock('firebase/firestore', () => ({
   deleteField: vi.fn(),
 }));
 
+import { formatSignedEuro } from '@/lib/utils/formatters';
+import { narrativeToText } from '@/lib/utils/narrative';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { describeCashAccounts } from '@/lib/utils/patrimonioNarrative';
+import { formatStripFigure, liftedBlocks, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
+import type { Narrative } from '@/lib/utils/narrative';
+import type { MortgageSummary } from '@/lib/utils/mortgageSummary';
 import {
+  describePatrimonioClosedAnswers,
+  type PatrimonioClosedAnswersInput,
+  PATRIMONIO_GAIN_BLOCK,
+  PATRIMONIO_SECTION_IDS,
+  patrimonioMutuoSectionId,
+  selectPatrimonioStrip,
+  type CashAccountsSummary,
+  type UnrealizedGainsSummary,
   computeTopWeightShare,
   computeUnrealizedGain,
   hasCostBasis,
@@ -416,5 +439,203 @@ describe('resolveBondRowFacts — the dates under a bond row', () => {
     );
     expect(zero).toMatchObject({ hasCoupons: false, nextCoupon: null });
     expect(resolveBondRowFacts(makeAsset())).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// selectPatrimonioStrip — the phone's two cells (2026-10-14)
+// ---------------------------------------------------------------------------
+
+/**
+ * Each cell prints EXACTLY what its tile prints: the G/P through the formatter `RendimentoTile`
+ * calls for its KPI (`formatSignedEuro`, with the cents), the Liquidità share as the tile's
+ * reading prints it (`describeCashAccounts`). Seen red: `decimals: 2` dropped from the G/P cell
+ * (it printed the compact «+1235 €» beside the tile's «+1234,56 €»).
+ */
+describe('selectPatrimonioStrip', () => {
+  const plain = (text: string) => text.replace(/[  ]/g, ' ');
+  const cellText = (figure: StripFigure) => plain(narrativeToText([formatStripFigure(figure)!]));
+  const gains = (gainLoss: number, count = 4): UnrealizedGainsSummary => ({ gainLoss, costBasis: 20000, gainPercent: (gainLoss / 20000) * 100, count });
+  const cash = (shareOfTotal: number | null, accounts = 2): CashAccountsSummary => ({
+    accounts: Array.from({ length: accounts }, (_, i) => ({ id: `c${i}`, name: `Conto ${i}`, balance: 1000, shareOfCash: 50 })),
+    total: 2000,
+    shareOfTotal,
+    largest: accounts > 0 ? { id: 'c0', name: 'Conto 0', balance: 1000, shareOfCash: 50 } : null,
+  });
+  const KNOWN = [...Object.values(PATRIMONIO_SECTION_IDS), VERDICT_REST_SECTION];
+
+  it('should open the Rendimento and Liquidità rows, lift only the G/P KPI and pass the strip rules', () => {
+    const strip = selectPatrimonioStrip({ gains: gains(1234.56), cash: cash(12.34) });
+    expect(strip.map((figure) => figure.label)).toEqual(['G/P non realizzato', 'Liquidità']);
+    expect(strip.map((figure) => figure.opens)).toEqual([PATRIMONIO_SECTION_IDS.rendimento, PATRIMONIO_SECTION_IDS.liquidita]);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    expect(liftedBlocks(strip, PATRIMONIO_SECTION_IDS.rendimento)).toEqual([PATRIMONIO_GAIN_BLOCK]);
+    expect(liftedBlocks(strip, PATRIMONIO_SECTION_IDS.liquidita)).toEqual([]);
+  });
+
+  it('should print the G/P as the tile prints its KPI — with the cents, the U+2212, a zero unsigned', () => {
+    for (const value of [1234.56, -80, -0.004, 0]) {
+      const [gain] = selectPatrimonioStrip({ gains: gains(value), cash: cash(10) });
+      expect(cellText(gain)).toBe(plain(formatSignedEuro(value)));
+    }
+    expect(formatStripFigure(selectPatrimonioStrip({ gains: gains(-0.004), cash: cash(10) })[0])!.sign).toBeUndefined();
+  });
+
+  it('should print the Liquidità share as the tile reading does', () => {
+    const [, share] = selectPatrimonioStrip({ gains: gains(100), cash: cash(7.96) });
+    const reading = plain(narrativeToText(describeCashAccounts(7.96, { name: 'Conto 0', balance: 1000 }, 2)!));
+    expect(reading).toContain(cellText(share));
+    expect(cellText(share)).toBe('8,0%');
+  });
+
+  it('should say why a cell has no figure', () => {
+    const [gain] = selectPatrimonioStrip({ gains: gains(0, 0), cash: cash(10) });
+    expect(gain.value).toBeNull();
+    expect(gain.reason).toBe('nessuna posizione con un prezzo di carico');
+    expect(liftedBlocks([gain], PATRIMONIO_SECTION_IDS.rendimento)).toEqual([]);
+    expect(selectPatrimonioStrip({ gains: gains(1), cash: cash(null) })[1].reason).toBe('nessun totale su cui misurarla');
+    expect(selectPatrimonioStrip({ gains: gains(1), cash: cash(-3) })[1].reason).toBe('i debiti superano i conti');
+    expect(selectPatrimonioStrip({ gains: gains(1), cash: cash(0) })[1].reason).toBe('i debiti superano i conti');
+    expect(selectPatrimonioStrip({ gains: gains(1), cash: cash(0, 0) })[1].reason).toBe('nessun conto registrato');
+    for (const strip of [selectPatrimonioStrip({ gains: gains(0, 0), cash: cash(null, 0) })]) expect(validateStrip(strip, KNOWN)).toEqual([]);
+  });
+
+  it('should give each loan a row of its own', () => {
+    expect(patrimonioMutuoSectionId('loan-7')).toBe('patrimonio-mutuo-loan-7');
+  });
+});
+
+describe('describePatrimonioClosedAnswers (the landscape index)', () => {
+  const plain = (text: string) => text.replace(/[  ]/g, ' ');
+  const text = (answer: Narrative | null | undefined) => (answer ? plain(narrativeToText(answer)).trim() : null);
+  const GAINS: UnrealizedGainsSummary = { gainLoss: 4000, costBasis: 20000, gainPercent: 20, count: 4 };
+  const CASH: CashAccountsSummary = {
+    accounts: [{ id: 'c0', name: 'Conto', balance: 8000, shareOfCash: 100 }],
+    total: 8000,
+    shareOfTotal: 2.6,
+    largest: { id: 'c0', name: 'Conto', balance: 8000, shareOfCash: 100 },
+  };
+  const LOAN: MortgageSummary = {
+    loanId: 'mutuo-casa',
+    loanName: 'Mutuo Casa',
+    propertyName: 'Casa',
+    kind: 'mortgage',
+    debt: 120000,
+    annualRatePct: 2,
+    year: 2026,
+    yearPrincipal: 5000,
+    yearInterest: 2000,
+    yearInstalments: 10,
+    totalInterest: 2000,
+    trackedSince: new Date(2026, 0, 15, 12),
+    byYear: [{ year: 2026, interest: 2000, principal: 5000, instalments: 10, partialFrom: null }],
+    next: { date: new Date(2026, 10, 15, 12), amount: 700, principal: 500, interest: 200 },
+    payoff: { kind: 'date', months: 121, date: new Date(2036, 10, 15, 12) },
+  };
+  /** Five positions of 1000 € on a 5000 € total: the largest three weigh 60,0%. */
+  const INSTRUMENTS = Array.from({ length: 5 }, (_, i) => makeAsset({ id: `a${i}`, ticker: `T${i}` }));
+  const input = (overrides: Partial<PatrimonioClosedAnswersInput> = {}): PatrimonioClosedAnswersInput => ({
+    trades: { summary: { bought: 2000, sold: 300, net: 1700, count: 2, rows: [] }, ledgerReady: true, loading: false, failed: false },
+    cash: CASH,
+    classes: [
+      { name: 'Immobili', percentage: 80 },
+      { name: 'Azioni', percentage: 20 },
+    ],
+    strip: selectPatrimonioStrip({ gains: GAINS, cash: CASH }),
+    gains: GAINS,
+    mortgages: [LOAN],
+    mortgageFailed: false,
+    instruments: INSTRUMENTS,
+    totalValue: 5000,
+    ...overrides,
+  });
+  const MUTUO = patrimonioMutuoSectionId(LOAN.loanId);
+
+  it('should answer every row with words and at most one figure, as the tile prints it', () => {
+    const answers = describePatrimonioClosedAnswers(input());
+    expect(Object.fromEntries(Object.entries(answers).map(([id, answer]) => [id, text(answer)]))).toEqual({
+      [PATRIMONIO_SECTION_IDS.movimenti]: 'netto +1700 €',
+      [PATRIMONIO_SECTION_IDS.liquidita]: 'sui conti 8000,00 €',
+      [PATRIMONIO_SECTION_IDS.classi]: 'Immobili 80,0%',
+      [PATRIMONIO_SECTION_IDS.rendimento]: 'sul costo +20,0%',
+      [PATRIMONIO_SECTION_IDS.mutuo]: null,
+      [MUTUO]: 'fine prevista nov 2036',
+      [PATRIMONIO_SECTION_IDS.strumenti]: 'i 3 maggiori 60,0%',
+    });
+    for (const answer of Object.values(answers)) {
+      if (!answer) continue;
+      expect(answer.filter((segment) => segment.mono).length).toBeLessThanOrEqual(1);
+      expect(text(answer)!.length).toBeLessThanOrEqual(22);
+    }
+    // Only the return on cost is a gain: the net invested is not, nor is the balance.
+    expect(answers[PATRIMONIO_SECTION_IDS.rendimento]!.find((segment) => segment.mono)!.sign).toBe('positive');
+    expect(answers[PATRIMONIO_SECTION_IDS.movimenti]!.some((segment) => segment.sign)).toBe(false);
+  });
+
+  it('should never repeat a figure the strip prints (The Lifted-Figure Rule)', () => {
+    const answers = describePatrimonioClosedAnswers(input());
+    const stripTexts = input().strip.map((cell) => plain(narrativeToText([formatStripFigure(cell)!])));
+    for (const answer of Object.values(answers)) {
+      const figure = answer?.find((segment) => segment.mono);
+      if (figure) expect(stripTexts).not.toContain(plain(figure.text));
+    }
+  });
+
+  it('should keep «Classi» on its scope when its first share prints as the strip\'s Liquidità cell', () => {
+    // A cash-heavy portfolio: the class «Liquidità» at 2,6% and the accounts at 2,6% of the total.
+    const cashFirst = input({ classes: [{ name: 'Liquidità', percentage: 2.6 }] });
+    expect(describePatrimonioClosedAnswers(cashFirst)[PATRIMONIO_SECTION_IDS.classi]).toBeNull();
+    expect(describePatrimonioClosedAnswers(input({ classes: [] }))[PATRIMONIO_SECTION_IDS.classi]).toBeNull();
+  });
+
+  it('should keep Movimenti on its scope with no operation, a ledger not active, a read in flight or failed', () => {
+    const trades = input().trades;
+    for (const override of [
+      { summary: { bought: 0, sold: 0, net: 0, count: 0, rows: [] } },
+      { ledgerReady: false },
+      { loading: true },
+      { failed: true },
+    ]) {
+      expect(describePatrimonioClosedAnswers(input({ trades: { ...trades, ...override } }))[PATRIMONIO_SECTION_IDS.movimenti]).toBeNull();
+    }
+    // Bought = sold: a measured zero, without a sign (the footer prints «+0 €»).
+    const even = input({ trades: { ...trades, summary: { bought: 500, sold: 500, net: 0, count: 2, rows: [] } } });
+    expect(text(describePatrimonioClosedAnswers(even)[PATRIMONIO_SECTION_IDS.movimenti])).toBe('netto 0 €');
+    const out = input({ trades: { ...trades, summary: { bought: 0, sold: 800, net: -800, count: 1, rows: [] } } });
+    expect(text(describePatrimonioClosedAnswers(out)[PATRIMONIO_SECTION_IDS.movimenti])).toBe('netto −800 €');
+  });
+
+  it('should print a negative balance with the typographic minus and say nothing without an account', () => {
+    const debt = input({ cash: { ...CASH, total: -1234 } });
+    expect(text(describePatrimonioClosedAnswers(debt)[PATRIMONIO_SECTION_IDS.liquidita])).toBe('sui conti −1234,00 €');
+    const none = input({ cash: { accounts: [], total: 0, shareOfTotal: 0, largest: null } });
+    expect(describePatrimonioClosedAnswers(none)[PATRIMONIO_SECTION_IDS.liquidita]).toBeNull();
+  });
+
+  it('should print a return that rounds to zero unsigned and be null without a cost basis', () => {
+    const flat = describePatrimonioClosedAnswers(input({ gains: { ...GAINS, gainPercent: -0.04 } }))[PATRIMONIO_SECTION_IDS.rendimento];
+    expect(text(flat)).toBe('sul costo 0,0%');
+    expect(flat!.some((segment) => segment.sign)).toBe(false);
+    const none = describePatrimonioClosedAnswers(input({ gains: { gainLoss: 0, costBasis: 0, gainPercent: null, count: 0 } }));
+    expect(none[PATRIMONIO_SECTION_IDS.rendimento]).toBeNull();
+  });
+
+  it('should answer one loan by its end, and leave several loans their names', () => {
+    const one = (payoff: MortgageSummary['payoff']) => text(describePatrimonioClosedAnswers(input({ mortgages: [{ ...LOAN, payoff }] }))[MUTUO]);
+    expect(one({ kind: 'repaid' })).toBe('estinto');
+    expect(one({ kind: 'never' })).toBe('il debito non scende');
+    expect(one(null)).toBeNull();
+    const two = describePatrimonioClosedAnswers(input({ mortgages: [LOAN, { ...LOAN, loanId: 'prestito-auto' }] }));
+    expect(two[MUTUO]).toBeNull();
+    expect(two[patrimonioMutuoSectionId('prestito-auto')]).toBeNull();
+    // A failed read of the instalments is ONE red row: never an answer.
+    const failed = describePatrimonioClosedAnswers(input({ mortgageFailed: true }));
+    expect(failed[PATRIMONIO_SECTION_IDS.mutuo]).toBeNull();
+    expect(failed[MUTUO]).toBeUndefined();
+  });
+
+  it('should leave Strumenti its count when the largest three are the whole table', () => {
+    const three = describePatrimonioClosedAnswers(input({ instruments: INSTRUMENTS.slice(0, 3), totalValue: 3000 }));
+    expect(three[PATRIMONIO_SECTION_IDS.strumenti]).toBeNull();
   });
 });

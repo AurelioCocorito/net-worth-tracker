@@ -2,8 +2,8 @@
  * SETTINGS PAGE — the orchestrator (2026-10-08).
  *
  * Six tabs, six views, ONE draft. Until 2026-10-08 this file was one 4100-line component with 70
- * `useState`s, and every keystroke re-ran the whole function (286 components per key on the
- * laptop with the compiler on, 318 on the Mac — the census, doc/guide/velocita.md). Now the page holds
+ * `useState`s, and every keystroke re-ran the whole function (286 components per key on one
+ * machine with the compiler on, 318 on another — the census, doc/guide/velocita.md). Now the page holds
  * the draft in a single `useReducer(settingsDraftReducer)`
  * (lib/utils/settingsDraft.ts) and each tab — `components/settings/tabs/*Tab.tsx` — is a
  * controlled view of its SLICE: it receives the slice, emits a patch, keeps no form state. It has

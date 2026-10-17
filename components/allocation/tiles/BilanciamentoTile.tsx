@@ -22,22 +22,36 @@
 import type { ReactNode } from 'react';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { RebalanceBand } from '@/lib/utils/allocationUtils';
-import { buildCompositionLegend, type CompositionPair, type CompositionSegment } from '@/lib/utils/allocazioneSummary';
+import { BILANCIAMENTO_MISALLOCATION_BLOCK, buildCompositionLegend, type CompositionPair, type CompositionSegment } from '@/lib/utils/allocazioneSummary';
 import { formatLeverage } from '@/lib/utils/allocazioneNarrative';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { useChartColors } from '@/lib/hooks/useChartColors';
 import { CHART_COLORS } from '@/lib/constants/colors';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { LIFTED_FIGURE_CLASS, Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { CompositionBar, type CompositionBarSegment } from '@/components/ui/composition-bar';
 import { BandToggle } from '@/components/allocation/BandToggle';
 import { BalanceRing } from '@/components/allocation/BalanceRing';
 
+/** The one block of this tile a strip cell can lift: the «Fuori posizione» KPI (its value; the caption stays). */
+export type BilanciamentoLiftedBlock = typeof BILANCIAMENTO_MISALLOCATION_BLOCK;
+
+/** Narrows the `string[]` of `liftedBlocks` at the call site, the convention of every lifting tile (`LIFTED_FIGURE_CLASS`). */
+export function isBilanciamentoLiftedBlock(block: string): block is BilanciamentoLiftedBlock {
+  return block === BILANCIAMENTO_MISALLOCATION_BLOCK;
+}
+
 interface BilanciamentoTileProps {
   /** `describeBalance(...)`. */
   reading: Narrative;
+  /**
+   * The blocks the verdict's strip already prints, hidden below `desktop:` (The Lifted-Figure Rule):
+   * `liftedBlocks(strip, 'alloc-bilanciamento').filter(isBilanciamentoLiftedBlock)`. Only the KPI's
+   * VALUE hides; «… € da spostare», which nothing else prints, stays under the label.
+   */
+  liftedFigures?: readonly BilanciamentoLiftedBlock[];
   band: RebalanceBand;
   onBandChange: (band: RebalanceBand) => void;
   /** `BalanceScore.score`, 0-100. */
@@ -59,11 +73,11 @@ interface BilanciamentoTileProps {
 
 const KPI_VALUE_CLASS = 'mt-1.5 font-mono text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums text-foreground';
 
-function Kpi({ label, value, caption }: { label: string; value: ReactNode; caption: string }) {
+function Kpi({ label, value, caption, lifted = false }: { label: string; value: ReactNode; caption: string; lifted?: boolean }) {
   return (
     <div className="min-w-0">
       <p className={TILE_SUB_EYEBROW_CLASS}>{label}</p>
-      <p className={KPI_VALUE_CLASS}>{value}</p>
+      <p className={cn(KPI_VALUE_CLASS, lifted && LIFTED_FIGURE_CLASS)}>{value}</p>
       <p className="mt-1.5 text-[11px] leading-[1.4] text-muted-foreground">{caption}</p>
     </div>
   );
@@ -87,6 +101,7 @@ function BarRow({ label, segments, ariaLabel }: { label: string; segments: Compo
 
 export function BilanciamentoTile({
   reading,
+  liftedFigures = [],
   band,
   onBandChange,
   score,
@@ -132,6 +147,7 @@ export function BilanciamentoTile({
             label="Fuori posizione"
             value={formatPercentage(misallocationPct, 1)}
             caption={`${cachedFormatCurrencyEUR(misallocationValue, true)} da spostare`}
+            lifted={liftedFigures.includes(BILANCIAMENTO_MISALLOCATION_BLOCK)}
           />
           <Kpi
             label="Fuori target"

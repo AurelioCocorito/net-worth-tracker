@@ -25,7 +25,7 @@ const UID = 'test-user-1';
 const ORNITORINCO_ID = 'e2e-btpei-ornitorinco';
 const ZERO_TICKER = 'FENICOTTEROZERO';
 const ZERO_COUPON_ISIN = 'IT0005696338'; // BTP Valore Marzo 2032 — not in the base seed
-const INSIEME_TICKER = 'TARSIOINSIEME';
+const INSIEME_TICKER = 'NIBBIOINSIEME';
 
 test.setTimeout(240_000);
 
@@ -207,7 +207,7 @@ test('a bond with ONE coupon at maturity (BTP Valore Insieme) materialises it on
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('radio', { name: /Obbligazione/ }).click();
     await dialog.locator('#ticker').fill(INSIEME_TICKER);
-    await dialog.locator('#name').fill('BTP Valore Insieme Tarsio');
+    await dialog.locator('#name').fill('BTP Valore Insieme Nibbio');
     await dialog.locator('#quantity').fill('5000');
     await dialog.locator('#averageCost').fill('1');
     await dialog.getByRole('switch', { name: 'Dettagli cedole' }).check();

@@ -61,7 +61,8 @@ export function ProbabilitaTile({ reading, aside, run, chart, footer, className 
 
       {/* The chart stretches with the tile's free height: the SVG's 100% height resolves
           against the absolutely positioned box, never against its own ratio. */}
-      <div className="relative mt-4 min-h-[240px] flex-1">
+      {/* Below `desktop:` the fan yields to 120px, never the reading (The First-Screen Rule, since 2026-10-15). */}
+      <div className="relative mt-4 flex-1 max-desktop:min-h-[120px] desktop:min-h-[240px]">
         <div className="absolute inset-0">{chart}</div>
       </div>
 

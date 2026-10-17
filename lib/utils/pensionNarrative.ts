@@ -22,12 +22,13 @@
  * `cachedFormatCurrencyEUR` (no-break space before €) — AGENTS.md → Italian Localization.
  */
 
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatSignedEuro, printedSign } from '@/lib/utils/formatters';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 import { formatPercentage } from '@/lib/services/chartService';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
 import type { PensionContributionNature } from '@/types/pension';
-import type { FundTodaySummary, LedgerRow, LedgerSummary, PensionMemberBlock, VersatoSummary } from '@/lib/utils/pensionSummary';
+import { hasPensionStrip, PENSION_SECTION_IDS, type FundTodaySummary, type LedgerRow, type LedgerSummary, type PensionMemberBlock, type VersatoSummary } from '@/lib/utils/pensionSummary';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -39,10 +40,17 @@ const amount = (value: number): NarrativeSegment => figure(cachedFormatCurrencyE
 
 const TYPOGRAPHIC_MINUS = '−';
 
-/** «+7,96%» / «−2,40%», coloured by sign. */
+/**
+ * «+7,96%» / «−2,40%», coloured by sign — and «0,00%», unsigned and uncoloured, when the value
+ * PRINTS as zero (`printedSign`, AGENTS.md § Layout and Color Tokens; since 2026-10-16): the
+ * strip cell «Mercato da …» prints the same TWR through `formatStripFigure`, which decides on the
+ * text, and the two read «+0,00%» against «0,00%» until then.
+ */
 function signedPct(value: number): NarrativeSegment {
-  const sign = value >= 0 ? '+' : TYPOGRAPHIC_MINUS;
-  return { text: `${sign}${formatPercentage(Math.abs(value), 2)}`, mono: true, sign: value >= 0 ? 'positive' : 'negative' };
+  const sign = printedSign(value, 2);
+  const magnitude = formatPercentage(Math.abs(value), 2);
+  if (sign === 0) return { text: magnitude, mono: true };
+  return { text: `${sign > 0 ? '+' : TYPOGRAPHIC_MINUS}${magnitude}`, mono: true, sign: sign > 0 ? 'positive' : 'negative' };
 }
 
 /** 'YYYY-MM' → «novembre 2025» / «nov 2025». */
@@ -185,7 +193,90 @@ export function buildPensionVerdict({ blocks, taxYear, currentYear }: PensionVer
     if (index > 0) sentence.push(prose(' '));
     sentence.push(...blockSentence(block, taxYear, currentYear));
   });
+  // With ONE contributor measured the strip prints the three causes, and the sentence would print
+  // them again: «title only» on a phone (The Binding-Clause Rule, `leadLength: 0`), the sentence whole
+  // behind «Il perché», where it may repeat the cells (The Lifted-Figure Rule). With two or more, or a return
+  // that is not a measure, there is no strip and nothing is cut.
+  if (hasPensionStrip(blocks)) return { headline, tone, sentence, leadLength: 0, restLabel: 'le tre cause' };
   return { headline, tone, sentence };
+}
+
+// ─── The rows below `desktop:` ─────────────────────────────────────────────────
+
+/** What each closed row says beside its eyebrow — words, never a figure (The Closed-Row Rule); Rendimento and Versamenti take their own aside. */
+export const PENSION_CLOSED_ASIDES = {
+  [PENSION_SECTION_IDS.annoFiscale]: 'beneficio e plafond',
+  [PENSION_SECTION_IDS.versato]: 'per natura',
+} as const;
+
+export interface PensionClosedAnswersInput {
+  blocks: PensionMemberBlock[];
+  versato: VersatoSummary;
+  ledger: LedgerSummary;
+  contributionsError: boolean;
+  snapshotsError: boolean;
+}
+
+/**
+ * «perdita −1527,00 €» — the market gain of the ONE block, in cents and signed on the printed value
+ * as the tile's «Guadagno di mercato» row prints it. Not the annualised TWR: over twelve exact months
+ * it IS the strip's «Mercato da …» figure. Null with two or more blocks (one figure cannot say whose
+ * it is) and on a return that is not a measure (the row's aside says why).
+ */
+function rendimentoAnswer(blocks: PensionMemberBlock[]): Narrative | null {
+  if (blocks.length !== 1) return null;
+  const [block] = blocks;
+  if (block.returnState !== 'measured' || !block.return) return null;
+  const gain = block.return.marketGain;
+  const sign = printedSign(gain, 2);
+  const text = formatSignedEuro(gain);
+  return [prose(sign < 0 ? 'perdita' : 'guadagno'), sign === 0 ? figure(text) : { text, mono: true, sign: sign > 0 ? 'positive' : 'negative' }];
+}
+
+/**
+ * «restano 7050 €» — the year's deductible headroom, or «oltre il tetto 1200 €» when the deductible
+ * contributions passed it (the reading's own two clauses). The IRPEF saving is the strip's «Fisco»
+ * cell, so it is never the answer. Null with two or more blocks, and on a fund linked to no member.
+ */
+function annoFiscaleAnswer(blocks: PensionMemberBlock[]): Narrative | null {
+  if (blocks.length !== 1) return null;
+  const [block] = blocks;
+  if (block.kind === 'unassigned' || !block.tax) return null;
+  const tax = block.tax;
+  if (tax.deductible > tax.effectiveCeiling) return [prose('oltre il tetto'), amount(tax.deductible - tax.effectiveCeiling)];
+  return [prose('restano'), amount(tax.remaining)];
+}
+
+/**
+ * «TFR 60%» — the largest nature's share, rounded as the ranked rows print it. A share and not the
+ * year's total: the total sits too close to THE tile's «versati in tutto» chip, and the strip's
+ * «Datore» cell is in euro, so even «Datoriale» never repeats it. Null on a year with nothing paid.
+ */
+function versatoAnswer(versato: VersatoSummary): Narrative | null {
+  const top = versato.rows[0];
+  if (!top) return null;
+  return [prose(top.label), figure(`${Math.round(top.percentage)}%`)];
+}
+
+/** «ultimo il 20 settembre» — the latest contribution's day, in words as the reading says it; null on an empty year. */
+function versamentiAnswer(ledger: LedgerSummary): Narrative | null {
+  if (ledger.count === 0 || !ledger.latest) return null;
+  return [prose(`${ledger.count === 1 ? 'il' : 'ultimo il'} ${formatDayLong(ledger.latest.date)}`)];
+}
+
+/**
+ * What Previdenza's closed rows answer in the landscape index (components/ui/row-answers.tsx;
+ * 2026-10-16): figures the strip (market, employer, IRPEF saving), THE tile and the verdict's title
+ * never print. A row whose read failed keeps its red notice: Rendimento fails on the contributions
+ * or the snapshots, the other three on the contributions — the same mapping as `resolvePensionSections`.
+ */
+export function describePensionClosedAnswers({ blocks, versato, ledger, contributionsError, snapshotsError }: PensionClosedAnswersInput): RowAnswerMap {
+  return {
+    [PENSION_SECTION_IDS.rendimento]: contributionsError || snapshotsError ? null : rendimentoAnswer(blocks),
+    [PENSION_SECTION_IDS.annoFiscale]: contributionsError ? null : annoFiscaleAnswer(blocks),
+    [PENSION_SECTION_IDS.versato]: contributionsError ? null : versatoAnswer(versato),
+    [PENSION_SECTION_IDS.versamenti]: contributionsError ? null : versamentiAnswer(ledger),
+  };
 }
 
 // ─── Il fondo oggi ────────────────────────────────────────────────────────────

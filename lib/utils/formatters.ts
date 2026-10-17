@@ -38,6 +38,71 @@ export function cachedFormatCurrencyEUR(amount: number, compact = false): string
 }
 
 /**
+ * True when a formatted figure prints as a zero: the sign is decided on the TEXT (The Comma
+ * Rule), so «−0,004» is a zero too. A printed zero takes no sign anywhere (AGENTS.md §
+ * Layout and Color Tokens, 2026-10-10): the verdict strip, the Panoramica's `signedCurrency`/`signedPercent` and the
+ * shared `salesNarrative` since 2026-10-11, the Cashflow trio, the Risparmio rate and Divisione's
+ * residual since 2026-10-12 (the strip's cell printed «0 €» while the tile printed «−0 €»).
+ */
+export function isPrintedZero(text: string): boolean {
+  return !/[1-9]/.test(text);
+}
+
+/**
+ * The typographic «−» (U+2212) in front of an already formatted MAGNITUDE when the value is
+ * negative — and nothing when the magnitude prints as zero: «0 €» for −0,3, «0%» for −0,4
+ * (`isPrintedZero`). `Intl` would write the hyphen-minus, and deciding on the value instead of on
+ * the text put a «−» on a figure the reader sees as zero (2026-10-12). The ONE rule for a tile
+ * whose figure a strip cell repeats: the cell (`formatStripFigure`) decides the same way.
+ */
+export function withTypographicMinus(value: number, printedMagnitude: string): string {
+  if (isPrintedZero(printedMagnitude)) return printedMagnitude;
+  return `${value < 0 ? '−' : ''}${printedMagnitude}`;
+}
+
+/** The compact euro (no cents) with the typographic minus, unsigned when it prints as zero. */
+export function formatEuroMinus(value: number): string {
+  return withTypographicMinus(value, cachedFormatCurrencyEUR(Math.abs(value), true));
+}
+
+/**
+ * The sign of a figure AS PRINTED at `decimals`: 0 when it rounds to zero («0,0%» for +0,03),
+ * the raw sign otherwise. The tone of a figure follows this, never `value < 0` (the printed-zero rule; on
+ * the Rendimenti tile since 2026-10-14, where the hero and the gap chip repeat a strip cell).
+ */
+export function printedSign(value: number, decimals: number): -1 | 0 | 1 {
+  if (Number(Math.abs(value).toFixed(decimals)) === 0) return 0;
+  return value < 0 ? -1 : 1;
+}
+
+/**
+ * «+1234,56 €», «−80,00 €», «0,00 €» — a euro amount signed on the PRINTED value (`isPrintedZero`),
+ * «−» typographic; `compact` drops the cents («+1235 €»). The figure of a tile that a strip cell
+ * repeats (Patrimonio's G/P, Storico's twelve months, since 2026-10-14): the cell's
+ * `formatStripFigure` decides the same way, so the two never disagree on a zero.
+ */
+export function formatSignedEuro(value: number, compact = false): string {
+  const magnitude = cachedFormatCurrencyEUR(Math.abs(value), compact);
+  if (isPrintedZero(magnitude)) return magnitude;
+  return `${value < 0 ? '−' : '+'}${magnitude}`;
+}
+
+/** «+7,3%», «−4,1%», «0,0%» — the it-IT percent signed on the PRINTED value, «−» typographic. */
+export function formatSignedPercentIt(value: number, decimals = 1): string {
+  const magnitude = formatPercentageIt(Math.abs(value), decimals);
+  const sign = printedSign(value, decimals);
+  return sign > 0 ? `+${magnitude}` : sign < 0 ? `−${magnitude}` : magnitude;
+}
+
+/** «+0,4 pt», «−9,3 pt», «1 pt», «0 pt» — a gap in points to one decimal, whole when it prints whole, signed on the printed value. */
+export function formatSignedPoints(delta: number): string {
+  const points = Math.round(Math.abs(delta) * 10) / 10;
+  const magnitude = `${formatNumberIt(points, points === Math.round(points) ? 0 : 1)} pt`;
+  const sign = printedSign(delta, 1);
+  return sign > 0 ? `+${magnitude}` : sign < 0 ? `−${magnitude}` : magnitude;
+}
+
+/**
  * Format a number as currency (Italian format)
  * @param amount - The amount to format
  * @param currency - The currency code (default: EUR)

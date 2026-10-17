@@ -18,7 +18,7 @@
 import { Landmark, LockOpen } from 'lucide-react';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { CoastInflowEvent } from '@/lib/utils/coastFireView';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeSegments } from '@/components/ui/narrative-text';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 
@@ -30,6 +30,9 @@ interface AfflussiTileProps {
   footer: Narrative;
   /** The method, one paragraph per entry, behind «Come si calcola». */
   method: readonly string[];
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -38,25 +41,28 @@ const EVENT_ICON = {
   pensionFund: LockOpen,
 } as const;
 
-export function AfflussiTile({ reading, events, footer, method, className }: AfflussiTileProps) {
+export function AfflussiTile({ reading, events, footer, method, collapse, asideWhenClosed, className }: AfflussiTileProps) {
   return (
-    <Tile eyebrow="Afflussi" aside="in euro di oggi" reading={reading} ariaLabel="Afflussi già considerati" className={className}>
+    <Tile eyebrow="Afflussi" aside="in euro di oggi" asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Afflussi già considerati" className={className} collapse={collapse}>
+      {/* The timeline runs across from a 560px tile, by the TILE's width (a container query): in the 360px
+          index of a tablet in landscape it is a phone's list at a 1024px viewport (2026-10-16). */}
       {events.length > 0 && (
-        <ol aria-label="Afflussi già considerati" className="mt-5 grid gap-5 tablet:grid-flow-col tablet:auto-cols-fr tablet:gap-0">
+        <div className="@container">
+        <ol aria-label="Afflussi già considerati" className="mt-5 grid gap-5 @[560px]:grid-flow-col @[560px]:auto-cols-fr @[560px]:gap-0">
           {events.map((event, index) => {
             const Icon = EVENT_ICON[event.kind];
             const isLast = index === events.length - 1;
             return (
-              <li key={event.id} className="min-w-0 tablet:pr-5">
+              <li key={event.id} className="min-w-0 @[560px]:pr-5">
                 <div className="flex items-center gap-2">
                   <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full border border-border bg-muted" />
                   <span className="font-mono text-[13px] font-semibold tabular-nums text-foreground">{event.year}</span>
                   {/* Rail segment, in flow rather than absolutely positioned: it is then centred on
                       the marker by the row itself, and it stops at the last event instead of
                       trailing off into nothing. */}
-                  {!isLast && <span aria-hidden="true" className="hidden h-px flex-1 bg-border tablet:block" />}
+                  {!isLast && <span aria-hidden="true" className="hidden h-px flex-1 bg-border @[560px]:block" />}
                 </div>
-                <div className="mt-2 flex items-start gap-1.5 tablet:ml-[2px]">
+                <div className="mt-2 flex items-start gap-1.5 @[560px]:ml-[2px]">
                   <Icon className="mt-[3px] h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <div className="min-w-0">
                     <p className="text-[13px] font-medium text-foreground">{event.title}</p>
@@ -70,6 +76,7 @@ export function AfflussiTile({ reading, events, footer, method, className }: Aff
             );
           })}
         </ol>
+        </div>
       )}
 
       <TileMethodNote subject="Afflussi già considerati" summary={<NarrativeSegments segments={footer} figureClassName="font-medium" />}>

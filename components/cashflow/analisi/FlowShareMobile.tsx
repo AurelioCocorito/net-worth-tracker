@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * Analisi's Flusso below 640px: one share bar, then each group's categories as ranked rows. A
+ * Analisi's Flusso in a cell narrower than 608px (`FLUSSO_SANKEY_MIN_CELL`, since 2026-10-16; 640px of
+ * viewport before): one share bar, then each group's categories as ranked rows. A
  * four-column Sankey gets ~80 px a column at 390 and stops saying anything, so on a phone the tile
  * draws its DATA instead — the same figures, the same words, the same landing (a row opens the
  * Scheda through the page's one entry path).
@@ -23,12 +24,12 @@ import { ChevronDown } from 'lucide-react';
 import type { ExpenseType } from '@/types/expenses';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { FlowAbsence } from '@/lib/utils/spendingRoles';
-import { describeFlowAbsence } from '@/lib/utils/analisiNarrative';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { describeFlowAbsence, formatFlowAmount } from '@/lib/utils/analisiNarrative';
 import { cn } from '@/lib/utils';
 import { CompositionBar } from '@/components/ui/composition-bar';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { RankedRows, type RankedRow } from '@/components/ui/ranked-rows';
+import { LIFTED_FIGURE_CLASS } from '@/components/ui/tile';
 
 /** Rows of a group shown before «Mostra tutte». */
 const ROWS_SHOWN = 5;
@@ -59,6 +60,11 @@ export interface FlowShareGroup {
   categories: FlowShareCategory[];
   /** A muted line under the rows (describeFlowSurplus). */
   note?: Narrative | null;
+  /**
+   * What the verdict's strip already prints (The Lifted-Figure Rule, since 2026-10-14): `'group'`
+   * hides the whole group — its header IS the lifted figure —, `'note'` the line under its rows.
+   */
+  lifted?: 'group' | 'note';
 }
 
 export interface FlowShareBarModel {
@@ -80,8 +86,6 @@ interface FlowShareMobileProps {
   groups: FlowShareGroup[];
   onEntityClick: (target: { expenseType: ExpenseType; categoryKey: string }) => void;
 }
-
-const euro = (value: number) => cachedFormatCurrencyEUR(value, true);
 
 export function FlowShareMobile({ absence, bar, groups, onEntityClick }: FlowShareMobileProps) {
   if (absence !== null) {
@@ -132,13 +136,13 @@ function GroupRows({ group, onEntityClick }: { group: FlowShareGroup; onEntityCl
   const restLabel = rest.length === 1 ? "Un'altra categoria" : `Altre ${rest.length} categorie`;
 
   return (
-    <section aria-label={group.label}>
+    <section aria-label={group.label} className={group.lifted === 'group' ? LIFTED_FIGURE_CLASS : undefined}>
       <div className="flex items-baseline justify-between gap-2 border-b border-border pb-1.5">
         <span className="flex items-center gap-2 text-[13px] font-semibold">
           <span className="h-2 w-2 rounded-[2px]" style={{ background: group.color }} aria-hidden="true" />
           {group.label}
         </span>
-        <span className="font-mono text-[12px] tabular-nums">{euro(group.total)}</span>
+        <span className="font-mono text-[12px] tabular-nums">{formatFlowAmount(group.total)}</span>
       </div>
       {rows.length > 0 && (
         // The disclosure below names this wrapper: it is the list «Mostra tutte» opens.
@@ -169,7 +173,13 @@ function GroupRows({ group, onEntityClick }: { group: FlowShareGroup; onEntityCl
           <ChevronDown className={cn('h-3 w-3 transition-transform', expanded && 'rotate-180')} aria-hidden="true" />
         </button>
       )}
-      {group.note && <NarrativeText segments={group.note} className="mt-1.5 text-[12px] text-muted-foreground" figureClassName="font-medium" />}
+      {group.note && (
+        <NarrativeText
+          segments={group.note}
+          className={cn('mt-1.5 text-[12px] text-muted-foreground', group.lifted === 'note' && LIFTED_FIGURE_CLASS)}
+          figureClassName="font-medium"
+        />
+      )}
     </section>
   );
 }

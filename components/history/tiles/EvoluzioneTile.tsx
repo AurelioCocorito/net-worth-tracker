@@ -18,11 +18,11 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import type { Narrative } from '@/lib/utils/narrative';
 import type { EvolutionPoint, GrowthPace, GrowthSummary } from '@/lib/utils/storicoSummary';
 import { formatPeriodMonth } from '@/lib/utils/storicoNarrative';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatSignedEuro, formatSignedPercentIt, printedSign } from '@/lib/utils/formatters';
 import { formatCurrencyCompact, formatPercentage } from '@/lib/services/chartService';
 import { signChipClass, signTextClass } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { LIFTED_FIGURE_CLASS, Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
 import { OverviewAnimatedCurrency } from '@/components/dashboard/OverviewAnimatedCurrency';
 import { CHART_TICK_STYLE } from '@/components/cashflow/costCenterStyles';
 
@@ -37,7 +37,26 @@ interface EvoluzioneTileProps {
   onAddNote: () => void;
   /** Demo mode: the note dialog would write into the shared demo snapshots. */
   disabled?: boolean;
+  /** The section's id: THE tile of the phone composition (`storico-evoluzione`), open at every width. */
+  id?: string;
+  /**
+   * The blocks a phone's verdict already prints, hidden below `desktop:` (The Lifted-Figure Rule;
+   * since 2026-10-14): `'growth'` and `'cagr'` — the first two chips, which the first sentence
+   * restates —, `'trailing'` — the euro of the third chip, the strip's «Ultimi 12 mesi»; its
+   * percentage stays (only the repeated figure hides). Default none.
+   */
+  liftedFigures?: readonly EvoluzioneLiftedBlock[];
   className?: string;
+}
+
+/** The blocks of Evoluzione a phone's verdict or strip repeats. */
+export type EvoluzioneLiftedBlock = 'growth' | 'cagr' | 'trailing';
+
+const EVOLUZIONE_LIFTED_BLOCKS: readonly string[] = ['growth', 'cagr', 'trailing'];
+
+/** Narrows the `string[]` of `liftedBlocks(strip, section)` to this tile's blocks at the call site. */
+export function isEvoluzioneLiftedBlock(block: string): block is EvoluzioneLiftedBlock {
+  return EVOLUZIONE_LIFTED_BLOCKS.includes(block);
 }
 
 // ─── Chips ────────────────────────────────────────────────────────────────────
@@ -47,9 +66,9 @@ interface EvoluzioneTileProps {
  * longer than its figure wraps under it instead of pushing the next chip away — at 1440 it opened
  * an uneven gap, on a phone it forced one chip per line.
  */
-function Chip({ value, caption, children }: { value: number | null; caption: string; children: React.ReactNode }) {
+function Chip({ value, caption, className, children }: { value: number | null; caption: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className="flex w-min min-w-0 flex-col gap-1.5">
+    <div className={cn('flex w-min min-w-0 flex-col gap-1.5', className)}>
       <span
         className={cn(
           'inline-flex w-fit max-w-full items-center gap-1.5 whitespace-nowrap rounded-[9px] px-[11px] py-[6px] font-mono text-[12px] font-semibold leading-none tracking-[-0.01em] tabular-nums',
@@ -122,7 +141,15 @@ const yearOfTick = (date: string) => `20${date.slice(3)}`;
 
 // ─── Tile ─────────────────────────────────────────────────────────────────────
 
-export function EvoluzioneTile({ aside, reading, growth, pace, points, noteCount, onAddNote, disabled = false, className }: EvoluzioneTileProps) {
+export function EvoluzioneTile({ aside, reading, growth, pace, points, noteCount, onAddNote, disabled = false, id, liftedFigures = [], className }: EvoluzioneTileProps) {
+  const lifted = (block: EvoluzioneLiftedBlock) => liftedFigures.includes(block);
+  // The twelve months' chip keeps its percentage when its euro is lifted; without a percentage (no
+  // positive base a year back) the lifted euro was all it held, and it hides whole — an empty
+  // coloured pill otherwise (2026-10-15, `__tests__/evoluzioneTileChips.test.ts`).
+  const trailingChipLifted = lifted('trailing') && pace.trailingPct === null;
+  // The chips' row hides whole when every chip in it is lifted, or it would leave its gap behind
+  // (PatrimonioTile's rule).
+  const chipsRowLifted = (growth.snapshotCount <= 1 || lifted('growth')) && (growth.cagr === null || lifted('cagr')) && (pace.trailingDelta === null || trailingChipLifted);
   const prefersReducedMotion = useReducedMotion();
   const gradientId = `evo-${useId().replace(/:/g, '')}`;
 
@@ -138,7 +165,7 @@ export function EvoluzioneTile({ aside, reading, growth, pace, points, noteCount
   const formatTick = (value: number) => (isNarrowRange ? cachedFormatCurrencyEUR(value, true) : formatCurrencyCompact(value));
 
   return (
-    <Tile eyebrow="Evoluzione" aside={aside} reading={reading} className={className} ariaLabel="Evoluzione del patrimonio">
+    <Tile id={id} eyebrow="Evoluzione" aside={aside} reading={reading} className={className} ariaLabel="Evoluzione del patrimonio">
       <OverviewAnimatedCurrency
         value={growth.latest.value}
         animateOnMount={true}
@@ -147,24 +174,32 @@ export function EvoluzioneTile({ aside, reading, growth, pace, points, noteCount
 
       {/* The three chips, one grouped row that wraps (The Grouped Chip Rule) — on a phone too: stacked one
           per line they held the curve under the fold. */}
-      <div className="mt-4 flex flex-row flex-wrap items-start gap-x-2.5 gap-y-2.5">
+      <div className={cn('mt-4 flex flex-row flex-wrap items-start gap-x-2.5 gap-y-2.5', chipsRowLifted && LIFTED_FIGURE_CLASS)}>
         {growth.snapshotCount > 1 && (
-          <Chip value={growth.delta} caption="dal primo snapshot">
+          <Chip value={growth.delta} caption="dal primo snapshot" className={lifted('growth') ? LIFTED_FIGURE_CLASS : undefined}>
             <GrowthIcon className="h-[13px] w-[13px] shrink-0" aria-hidden="true" />
             {signed(growth.delta)}
             {growth.growthPct !== null && ` (${signedPct(growth.growthPct)})`}
           </Chip>
         )}
         {growth.cagr !== null && (
-          <Chip value={growth.cagr} caption="versamenti inclusi, non un rendimento">
+          <Chip value={growth.cagr} caption="versamenti inclusi, non un rendimento" className={lifted('cagr') ? LIFTED_FIGURE_CLASS : undefined}>
             {/* One string: a flex container drops the leading space of a separate text node. */}
             {`${signedPct(growth.cagr)} l'anno`}
           </Chip>
         )}
         {pace.trailingDelta !== null && (
-          <Chip value={pace.trailingDelta} caption="ultimi 12 mesi">
-            {signed(pace.trailingDelta)}
-            {pace.trailingPct !== null && ` (${signedPct(pace.trailingPct)})`}
+          // The euro is the strip's «Ultimi 12 mesi» cell: ONE formatter with it, a printed zero
+          // unsigned and uncoloured (the printed-zero rule, AGENTS.md § Layout and Color Tokens; at
+          // every width since 2026-10-14, the percentage beside it since 2026-10-15 — it read
+          // «0 € (+0,0%)»); lifted on a phone, where the percentage stays alone.
+          <Chip value={printedSign(pace.trailingDelta, 0) === 0 ? null : pace.trailingDelta} caption="ultimi 12 mesi" className={trailingChipLifted ? LIFTED_FIGURE_CLASS : undefined}>
+            <span className={lifted('trailing') ? LIFTED_FIGURE_CLASS : undefined}>
+              {formatSignedEuro(pace.trailingDelta, true)}
+              {pace.trailingPct !== null && ' ('}
+            </span>
+            {pace.trailingPct !== null && formatSignedPercentIt(pace.trailingPct, 1)}
+            {pace.trailingPct !== null && <span className={lifted('trailing') ? LIFTED_FIGURE_CLASS : undefined}>)</span>}
           </Chip>
         )}
       </div>
@@ -184,7 +219,8 @@ export function EvoluzioneTile({ aside, reading, growth, pace, points, noteCount
           </div>
           {/* The chart is the element that stretches: the container is absolute inside a flex-1 box,
               so the SVG's 100% height resolves against the row and never against its own ratio. */}
-          <div className="relative mt-2 min-h-[220px] flex-1">
+          {/* Below `desktop:` the curve yields to 120px — the curve shortens, never the reading (The First-Screen Rule). */}
+          <div className="relative mt-2 flex-1 max-desktop:min-h-[120px] desktop:min-h-[220px]">
             <div className="absolute inset-0">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart

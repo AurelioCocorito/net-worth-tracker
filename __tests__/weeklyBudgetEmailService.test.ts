@@ -4,7 +4,7 @@
  * the budget maths is the real pure layer (budgetUtils).
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock state, filled per test (mock-prefixed so it can be referenced in factories).
 let mockBudgetDoc: { exists: boolean; data?: () => unknown } = { exists: false };
@@ -30,12 +30,26 @@ vi.mock('@/lib/firebase/admin', () => ({
   },
 }));
 
+// The SDK is imported lazily inside the comment generator: one fake client answers on both
+// `messages.create` and `beta.messages.create`, so the test reads the response handling, not
+// which door the request went through.
+const { anthropicCreateMock } = vi.hoisted(() => ({ anthropicCreateMock: vi.fn() }));
+vi.mock('@anthropic-ai/sdk', () => ({
+  default: class {
+    messages = { create: anthropicCreateMock };
+    beta = { messages: { create: anthropicCreateMock } };
+  },
+}));
+
 import {
   isWeeklyBudgetDayItaly,
   buildWeeklyBudgetData,
   buildWeeklyBudgetEmailHtml,
   buildCommentContext,
+  generateWeeklyBudgetComment,
+  type WeeklyBudgetData,
 } from '@/lib/server/weeklyBudgetEmailService';
+import { EMAIL_ANALYSIS_MODEL, SERVER_SIDE_FALLBACK_BETA } from '@/lib/constants/aiModels';
 
 function expenseDoc(
   amount: number,
@@ -253,5 +267,80 @@ describe('buildCommentContext', () => {
 
     expect(context).toContain('Vacanze (budget di spesa ANNUALE): 500€ da inizio anno a oggi');
     expect(context).toContain('Tecnologia (budget di spesa MENSILE): 150€ dal 1° giugno a oggi');
+  });
+});
+
+describe('generateWeeklyBudgetComment', () => {
+  const data: WeeklyBudgetData = {
+    rows: [],
+    overall: null,
+    yearElapsedPct: 50,
+    onTrackCount: 0,
+    atRiskCount: 0,
+    generatedAt: new Date(2026, 5, 14, 12),
+  };
+  const previousKey = process.env.ANTHROPIC_API_KEY;
+
+  /** A non-streamed response: a thinking block, then the text, then why it stopped. */
+  function answer(text: string, stopReason: string) {
+    return {
+      model: 'claude-sonnet-5-5',
+      content: [
+        { type: 'thinking', thinking: '', signature: 'sig' },
+        { type: 'text', text },
+      ],
+      stop_reason: stopReason,
+    };
+  }
+
+  beforeEach(() => {
+    process.env.ANTHROPIC_API_KEY = 'test-key';
+    anthropicCreateMock.mockReset();
+  });
+
+  afterEach(() => {
+    if (previousKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = previousKey;
+  });
+
+  it('keeps a comment that ends on end_turn', async () => {
+    anthropicCreateMock.mockResolvedValue(answer('Spesa al 50% del tetto. Rimanda un acquisto.', 'end_turn'));
+
+    expect(await generateWeeklyBudgetComment(data)).toBe('Spesa al 50% del tetto. Rimanda un acquisto.');
+  });
+
+  it('asks for the default server-side fallback', async () => {
+    anthropicCreateMock.mockResolvedValue(answer('Spesa al 50% del tetto.', 'end_turn'));
+
+    await generateWeeklyBudgetComment(data);
+
+    expect(anthropicCreateMock.mock.calls[0][0]).toMatchObject({
+      model: EMAIL_ANALYSIS_MODEL,
+      betas: [SERVER_SIDE_FALLBACK_BETA],
+      fallbacks: 'default',
+    });
+  });
+
+  it('keeps a comment the fallback model wrote after a decline', async () => {
+    anthropicCreateMock.mockResolvedValue({
+      ...answer('Spesa al 50% del tetto.', 'end_turn'),
+      model: 'claude-sonnet-5',
+    });
+
+    expect(await generateWeeklyBudgetComment(data)).toBe('Spesa al 50% del tetto.');
+  });
+
+  it('drops a comment the model declined half-way (stop_reason refusal)', async () => {
+    // Sonnet 5.5 declines with HTTP 200: the half sentence written before the refusal must
+    // not reach the inbox as if it were the comment.
+    anthropicCreateMock.mockResolvedValue(answer('Spesa al 50% del', 'refusal'));
+
+    expect(await generateWeeklyBudgetComment(data)).toBeNull();
+  });
+
+  it('drops a comment cut at max_tokens', async () => {
+    anthropicCreateMock.mockResolvedValue(answer('Spesa al 50% del tetto. Rimanda', 'max_tokens'));
+
+    expect(await generateWeeklyBudgetComment(data)).toBeNull();
   });
 });

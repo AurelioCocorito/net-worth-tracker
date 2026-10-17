@@ -5,7 +5,7 @@ import type { CoverageMonth, DividendReliability } from '@/lib/utils/dividendAna
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { describeReliabilityWindow } from '@/lib/utils/dividendiNarrative';
@@ -19,6 +19,10 @@ interface AffidabilitaTileProps {
   footer: Narrative | null;
   /** The absence in one sentence when nothing was measured — never «Copertura 0%». */
   emptyCopy: string;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («9 mesi · in portafoglio»). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -34,7 +38,7 @@ const KPI_VALUE_CLASS = 'font-mono text-[22px] font-bold leading-none tracking-[
  * draw, and then the KPIs answer alone: a slice of the window under a KPI measured on all of
  * it would put two windows in one tile.
  */
-export function AffidabilitaTile({ reliability, reading, months, footer, emptyCopy, className }: AffidabilitaTileProps) {
+export function AffidabilitaTile({ reliability, reading, months, footer, emptyCopy, collapse, asideWhenClosed, className }: AffidabilitaTileProps) {
   const coverage = reliability.coveragePct * 100;
   const topShare = reliability.topPayerSharePct * 100;
   const measured = reliability.payerCount > 0;
@@ -44,7 +48,7 @@ export function AffidabilitaTile({ reliability, reading, months, footer, emptyCo
 
   if (!measured) {
     return (
-      <Tile eyebrow="Affidabilità" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} className={className}>
+      <Tile eyebrow="Affidabilità" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} collapse={collapse} asideWhenClosed={asideWhenClosed} className={className}>
         <EmptyState className="mt-3" message={emptyCopy} />
       </Tile>
     );
@@ -55,6 +59,8 @@ export function AffidabilitaTile({ reliability, reading, months, footer, emptyCo
       eyebrow="Affidabilità"
       aside={<NarrativeText segments={aside} figureClassName="font-medium" />}
       reading={reading}
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       className={className}
     >
       <div className="mt-4 flex gap-6">

@@ -24,7 +24,7 @@ import { NO_HONEST } from '@/lib/utils/fireSummary';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface BaseDiCalcoloTileProps {
@@ -42,6 +42,9 @@ interface BaseDiCalcoloTileProps {
   footer: Narrative;
   /** The calendar year, for «già in corso» on a pension that has started. */
   currentYear: number;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -60,7 +63,7 @@ function Row({ label, caption, value }: { label: string; caption?: string; value
   );
 }
 
-export function BaseDiCalcoloTile({ reading, aside, base, lock, lockCaption, onLockChange, lockDisabled, lockDisabledReason, footer, currentYear, className }: BaseDiCalcoloTileProps) {
+export function BaseDiCalcoloTile({ reading, aside, base, lock, lockCaption, onLockChange, lockDisabled, lockDisabledReason, footer, currentYear, collapse, asideWhenClosed, className }: BaseDiCalcoloTileProps) {
   const honest = base.honest ?? NO_HONEST;
   const pensionRow = describePensionRow(honest, currentYear);
   const taxRow = describeTaxRow(honest);
@@ -72,12 +75,16 @@ export function BaseDiCalcoloTile({ reading, aside, base, lock, lockCaption, onL
     .join(' · ');
 
   return (
-    <Tile eyebrow="Base di calcolo" aside={aside ?? undefined} reading={reading} ariaLabel="Base di calcolo del FIRE" className={cn('@container', className)}>
+    <Tile eyebrow="Base di calcolo" aside={aside ?? undefined} asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Base di calcolo del FIRE" className={className} collapse={collapse}>
       {/* On a wide cell (the 7-column slot from desktop:) the lock block sits BESIDE the rows, in a
           second column, so the tile is as tall as its four rows and not as tall as their sum: it
           shares a row with nothing, and it must not stretch past its own content. Below that width
           the block follows the rows, under a rule. A container query, because the same tile is a
-          full-width card on a phone and a half on a tablet (AGENTS → Tailwind Breakpoints). */}
+          full-width card on a phone and a half on a tablet (AGENTS → Tailwind Breakpoints). The container
+          is this inner box, never the tile's own `section`: a container on the row's shell would answer
+          the page's queries too, and the landscape index's answer is one (2026-10-16: «cashflow 2025»
+          stayed hidden beside its scope). */}
+      <div className="@container">
       <div className="grid grid-cols-1 gap-x-6 @[560px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="mt-2.5 flex flex-col divide-y divide-border">
           <Row label="Patrimonio FIRE" caption={netWorthCaption} value={cachedFormatCurrencyEUR(base.netWorth, true)} />
@@ -105,6 +112,7 @@ export function BaseDiCalcoloTile({ reading, aside, base, lock, lockCaption, onL
             className="mt-0.5 shrink-0"
           />
         </div>
+      </div>
       </div>
 
       <NarrativeText segments={footer} className="mt-auto border-t border-border pt-3.5 text-[11px] leading-[1.45] text-muted-foreground" />

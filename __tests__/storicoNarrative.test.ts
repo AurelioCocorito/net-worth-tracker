@@ -20,10 +20,13 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import type { DoublingMilestone, DoublingTimeSummary } from '@/types/assets';
-import type { CompositionSeries } from '@/lib/utils/historyComposition';
-import type { GrowthPace, GrowthSummary, MonthlyMoves } from '@/lib/utils/storicoSummary';
+import { resolveCompositionSeries, type CompositionSeries } from '@/lib/utils/historyComposition';
+import type { AssetClassHistoryPoint } from '@/lib/services/chartService';
+import type { MonthAssetBreakdown } from '@/lib/utils/snapshotAssetBreakdown';
+import { STORICO_SECTION_IDS, type DriverYear, type GrowthPace, type GrowthSummary, type MonthlyMoves } from '@/lib/utils/storicoSummary';
 import {
   buildStoricoVerdict,
+  describeStoricoClosedAnswers,
   describeComposition,
   describeDoublings,
   buildDriverLedger,
@@ -46,9 +49,10 @@ import {
   formatDurationLong,
   formatDurationShort,
   formatPeriodMonth,
+  STORICO_REST_LABEL,
   type StoricoVerdictInput,
 } from '@/lib/utils/storicoNarrative';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
 
 // Intl 'it-IT' puts a no-break space before "€"; expectations are written as the screen prints them.
 const plain = (narrative: Narrative | null) => (narrative ? narrativeToText(narrative).replace(/ /g, ' ') : null);
@@ -591,5 +595,150 @@ describe('buildStoricoVerdict without a snapshot', () => {
     const verdict = buildStoricoVerdict({ growth: null, moves: { best: null, worst: null, risingMonths: 0, measuredMonths: 0 }, pace: { verdict: null, trailingDelta: null, trailingPct: null, trailingMonthly: null, lifetimeMonthly: null }, lastDoubling: null });
     expect(plain(verdict.sentence)).toContain('ne viene salvato uno da solo ogni sera');
     expect(plain(verdict.sentence)).not.toMatch(/cron/i);
+  });
+});
+
+/**
+ * The phone's cut of the verdict (2026-10-14; The Binding-Clause Rule). Seen red: the cut moved before
+ * the parenthesis with `binding` dropped from «versamenti inclusi» (the base of the rate went behind
+ * «Il perché»).
+ */
+describe('buildStoricoVerdict — the phone composition', () => {
+  it('should close the lead on the growth and its best month, the last year behind «Il perché»', () => {
+    const verdict = buildStoricoVerdict(FULL);
+    const split = splitVerdict(verdict);
+    expect(plain(split.lead)).toBe(
+      "Dal primo snapshot (settembre 2019) il patrimonio è cresciuto di 174.900 € (+236,4%, il 19,4% l'anno, versamenti inclusi): il mese migliore è stato marzo 2024 (+9840 €), l'ultimo raddoppio ad ottobre 2022.",
+    );
+    expect(plain(split.rest)).toBe(" Nell'ultimo anno è salito di 34.000 €, sopra la media di 25.600 € l'anno.");
+    expect(split.restLabel).toBe(STORICO_REST_LABEL);
+  });
+
+  it('should mark «versamenti inclusi» binding, so no cut can leave it behind', () => {
+    const verdict = buildStoricoVerdict(FULL);
+    expect(verdict.sentence.find((segment) => segment.text.includes('versamenti inclusi'))?.binding).toBe(true);
+    // A cut placed before it is cancelled: the whole paragraph stays.
+    const early = splitVerdict({ ...verdict, leadLength: 1 });
+    expect(early.rest).toEqual([]);
+  });
+
+  it('should not cut a verdict without the last year', () => {
+    const verdict = buildStoricoVerdict({ ...FULL, pace: { trailingDelta: null, trailingPct: null, trailingMonthly: null, lifetimeMonthly: 2000, verdict: null } });
+    expect(verdict.leadLength).toBeUndefined();
+  });
+});
+
+// ─── The closed rows' answers (landscape index, 2026-10-16) ──────────────────
+
+/**
+ * Each closed row's answer: one figure the strip, THE tile and the verdict's first sentence do not
+ * print, or null where the row keeps its scope. Read as the index lays it out (segments trimmed,
+ * one gap between them). Composizione is read through `resolveCompositionSeries`, the function the
+ * tile draws from. Falsified on 2026-10-16, one at a time: the «all'11%» case went red with the
+ * elided article left in the words («raddoppio all' 11%»); the zero-progress null with the
+ * `pct <= 0` branch dropped; the first-month null of Valore with the `change` check dropped; the
+ * Driver's bare zero with the `isPrintedZero` branch dropped (a «0 €» coloured as a gain).
+ */
+describe('describeStoricoClosedAnswers', () => {
+  // Joined as the index draws it: a gap between segments, none after an elided article.
+  const answerText = (answer: Narrative | null | undefined) => (answer ? answer.map((segment) => segment.text.trim()).join(' ').replace(/' /g, "'").replace(/[  ]/g, ' ') : null);
+  const point = (year: number, month: number, realestate: number, equity: number) => ({
+    date: `${String(month).padStart(2, '0')}/${String(year).slice(2)}`,
+    month,
+    year,
+    totalNetWorth: realestate + equity,
+    byClass: { equity, bonds: 0, crypto: 0, realestate, cash: 0, commodity: 0, trendFollowing: 0, carry: 0 } as AssetClassHistoryPoint['byClass'],
+    pension: 0,
+    pensionSource: 'none',
+  }) as AssetClassHistoryPoint;
+  const assetClassHistory = [point(2026, 8, 250000, 40000), point(2026, 9, 250000, 50000)];
+  const liquidityHistory = assetClassHistory.map((p) => ({ date: p.date, month: p.month, year: p.year, totalNetWorth: p.totalNetWorth, liquidNetWorth: p.byClass.equity, illiquidNetWorth: p.byClass.realestate }));
+  const inProgress = (pct: number): DoublingMilestone => ({
+    milestoneNumber: 2,
+    startValue: 150000,
+    endValue: 300000,
+    startDate: { year: 2022, month: 10 },
+    endDate: { year: 2026, month: 9 },
+    durationMonths: 47,
+    periodLabel: '10/22 - 09/26 - In corso',
+    isComplete: false,
+    progressPercentage: pct,
+    milestoneType: 'geometric',
+  });
+  const doublings = (pct: number | null, mode: 'geometric' | 'threshold' = 'geometric') => ({
+    summary: { milestones: [], fastestDoubling: null, averageMonths: null, totalDoublings: 0, currentDoublingInProgress: pct === null ? null : inProgress(pct) } as DoublingTimeSummary,
+    mode,
+  });
+  const driverRow = (market: number) =>
+    ({ year: '2026', netSavings: 12000, market, taxes: 0, debtRepaid: 0, pensionContributions: 0, other: 0, isMarketMeasured: true, netWorthGrowth: 12000 + market, growthPct: null, latest: { year: 2026, month: 9 } }) as DriverYear;
+  const breakdown = {
+    month: { key: '2026-9', year: 2026, month: 9, label: 'Settembre 2026' },
+    previous: { key: '2026-8', year: 2026, month: 8, label: 'Agosto 2026' },
+    total: 300000,
+    instrumentCount: 6,
+    rows: [],
+    change: { delta: 660, priceEffect: 700, quantityEffect: -40 },
+    departed: [],
+  } as MonthAssetBreakdown;
+  const input = {
+    composition: resolveCompositionSeries('assetClass', { assetClassHistory, liquidityHistory }),
+    doublings: doublings(66),
+    featuredDriverYear: { row: driverRow(3600), isRunning: true },
+    breakdown,
+  };
+  const answers = describeStoricoClosedAnswers(input);
+
+  it('answers every row with its one figure', () => {
+    expect(answerText(answers[STORICO_SECTION_IDS.composizione])).toBe('Immobili 83,3%');
+    expect(answerText(answers[STORICO_SECTION_IDS.raddoppi])).toBe('raddoppio al 66%');
+    expect(answerText(answers[STORICO_SECTION_IDS.driver])).toBe('mercato +3600 €');
+    expect(answerText(answers[STORICO_SECTION_IDS.valore])).toBe('su ago +660 €');
+  });
+
+  it('fits every answer in 22 characters and sets exactly one figure in mono', () => {
+    for (const answer of Object.values(answers)) {
+      expect(answerText(answer)!.length).toBeLessThanOrEqual(22);
+      expect(answer!.filter((segment) => segment.mono)).toHaveLength(1);
+    }
+    // The worst case of Valore: a previous month in another year and a six-figure change.
+    const worst = describeStoricoClosedAnswers({
+      ...input,
+      breakdown: { ...breakdown, month: { key: '2026-1', year: 2026, month: 1, label: 'Gennaio 2026' }, previous: { key: '2025-12', year: 2025, month: 12, label: 'Dicembre 2025' }, change: { delta: -123456, priceEffect: -123456, quantityEffect: 0 } },
+    });
+    expect(answerText(worst[STORICO_SECTION_IDS.valore])).toBe('su dic 2025 −123.456 €');
+    expect(answerText(worst[STORICO_SECTION_IDS.valore])!.length).toBeLessThanOrEqual(22);
+  });
+
+  it('Composizione: the asset-class cut, from the same series the tile draws; null with no history', () => {
+    // The tile's other cut, through the same function: what its list shows under «Liquidità».
+    expect(resolveCompositionSeries('liquidity', { assetClassHistory, liquidityHistory }).breakdown[0].label).toBe('Illiquido');
+    const empty = describeStoricoClosedAnswers({ ...input, composition: resolveCompositionSeries('assetClass', { assetClassHistory: [], liquidityHistory: [] }) });
+    expect(empty[STORICO_SECTION_IDS.composizione]).toBeNull();
+  });
+
+  it('Raddoppi: the elided article stays with the figure, the mode names the noun, null without progress', () => {
+    const elided = describeStoricoClosedAnswers({ ...input, doublings: doublings(11) })[STORICO_SECTION_IDS.raddoppi]!;
+    expect(answerText(elided)).toBe("raddoppio all'11%");
+    expect(elided.slice(1)).toMatchObject([{ text: "all'" }, { text: "11%", mono: true }]);
+    expect(answerText(describeStoricoClosedAnswers({ ...input, doublings: doublings(13, 'threshold') })[STORICO_SECTION_IDS.raddoppi])).toBe('traguardo al 13%');
+    expect(describeStoricoClosedAnswers({ ...input, doublings: doublings(0.4) })[STORICO_SECTION_IDS.raddoppi]).toBeNull();
+    expect(describeStoricoClosedAnswers({ ...input, doublings: doublings(-5) })[STORICO_SECTION_IDS.raddoppi]).toBeNull();
+    expect(describeStoricoClosedAnswers({ ...input, doublings: doublings(null) })[STORICO_SECTION_IDS.raddoppi]).toBeNull();
+  });
+
+  it('Driver: the market coloured by its sign, a printed zero bare, null without a featured year', () => {
+    expect(answers[STORICO_SECTION_IDS.driver]![1].sign).toBe('positive');
+    const loss = describeStoricoClosedAnswers({ ...input, featuredDriverYear: { row: driverRow(-2400), isRunning: true } })[STORICO_SECTION_IDS.driver]!;
+    expect(answerText(loss)).toBe('mercato −2400 €');
+    expect(loss[1].sign).toBe('negative');
+    const zero = describeStoricoClosedAnswers({ ...input, featuredDriverYear: { row: driverRow(0.3), isRunning: true } })[STORICO_SECTION_IDS.driver]!;
+    expect(answerText(zero)).toBe('mercato 0 €');
+    expect(zero[1].sign).toBeUndefined();
+    expect(describeStoricoClosedAnswers({ ...input, featuredDriverYear: null })[STORICO_SECTION_IDS.driver]).toBeNull();
+  });
+
+  it('Valore per strumento: null on the first month with the breakdown and without one', () => {
+    expect(describeStoricoClosedAnswers({ ...input, breakdown: { ...breakdown, change: null } })[STORICO_SECTION_IDS.valore]).toBeNull();
+    expect(describeStoricoClosedAnswers({ ...input, breakdown: null })[STORICO_SECTION_IDS.valore]).toBeNull();
   });
 });

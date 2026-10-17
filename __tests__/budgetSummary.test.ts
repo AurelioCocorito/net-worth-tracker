@@ -8,7 +8,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Expense, ExpenseCategory } from '@/types/expenses';
 import type { BudgetAlert, BudgetItem } from '@/types/budget';
+import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { narrativeToText } from '@/lib/utils/narrative';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { formatStripFigure, liftedBlocks, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
 import {
+  BUDGET_REST_ID,
+  BUDGET_SECTION_IDS,
+  selectBudgetStrip,
   buildCategoryRows,
   buildSpendingHistory,
   trailingMonthKeys,
@@ -314,5 +321,84 @@ describe('summarizeAlerts', () => {
     ]);
     expect(s.rows.map((r) => r.key)).toEqual(['a', 'b']);
     expect(s.forecastOnlyCount).toBe(1);
+  });
+});
+
+/**
+ * The phone's strip (since 2026-10-12): two KPIs of the Tetto lifted whole, The Risk-vs-Fact Rule
+ * in the second cell («Supererai» opens the verdict, which names the day). The identity below
+ * is `TettoTile`'s: «~» + the compact euro on the projection, the compact euro on the rest. Seen red
+ * on 2026-10-12 with `opens` of «Oltre» and «Supererai» swapped (Avvisi for a crossing still in the
+ * calendar), and with the identity on a projection formatted without the tilde.
+ */
+describe('selectBudgetStrip', () => {
+  const plain = (text: string) => text.replace(/[  ]/g, ' ');
+  const cellText = (figure: StripFigure) => plain(narrativeToText([formatStripFigure(figure)!]));
+  const euro = (value: number) => plain(cachedFormatCurrencyEUR(value, true));
+  const KNOWN = [...Object.values(BUDGET_SECTION_IDS), BUDGET_REST_ID, VERDICT_REST_SECTION];
+  const august: Expense[] = [
+    expense({ amount: -1150, categoryId: 'c-home', type: 'fixed', date: new Date(2026, 7, 1, 12) }),
+    expense({ amount: -1760, date: new Date(2026, 7, 10, 12) }),
+  ];
+
+  it('is empty without a ceiling', () => {
+    expect(selectBudgetStrip(null)).toEqual([]);
+  });
+
+  it('under the ceiling: «Fine mese» opens Categorie a rischio, «Restano» Per categoria, both lifted from the Tetto', () => {
+    const s = summarizeCeiling(4000, august, NOW)!;
+    const strip = selectBudgetStrip(s);
+    expect(strip.map((f) => [f.label, f.opens])).toEqual([
+      ['Fine mese', BUDGET_SECTION_IDS.rischio],
+      ['Restano', BUDGET_SECTION_IDS.categorie],
+    ]);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    expect(liftedBlocks(strip, BUDGET_SECTION_IDS.tetto)).toEqual(['fine-mese', 'restano']);
+    // What the tile prints: «~4100 €» (the pace, a tilde) and «1090 €».
+    expect(cellText(strip[0])).toBe(`~${euro(s.projection!)}`);
+    expect(formatStripFigure(strip[0])!.sign).toBe('negative'); // 4100 > 4000: the projection lands over
+    expect(cellText(strip[1])).toBe(euro(1090));
+    expect(formatStripFigure(strip[1])!.sign).toBeUndefined();
+  });
+
+  it('keeps «Fine mese» uncoloured while the pace lands under the ceiling', () => {
+    const strip = selectBudgetStrip(summarizeCeiling(4200, august, NOW)!);
+    expect(formatStripFigure(strip[0])!.sign).toBeUndefined();
+  });
+
+  it('says «dal quarto giorno» instead of a projection in the first days of the month', () => {
+    const day2 = new Date(2026, 7, 2, 12);
+    const strip = selectBudgetStrip(summarizeCeiling(4000, august.slice(0, 1), day2)!);
+    expect(strip[0]).toMatchObject({ label: 'Fine mese', value: null, reason: 'dal quarto giorno', opens: BUDGET_SECTION_IDS.rischio });
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    // No figure, nothing lifted: the tile keeps its «—» KPI (The Lifted-Figure Rule).
+    expect(liftedBlocks(strip, BUDGET_SECTION_IDS.tetto)).toEqual(['restano']);
+  });
+
+  it('crossed by the booked rows: «Oltre» opens Avvisi, red, the Tetto\'s «Oltre» KPI lifted', () => {
+    const over = [...august, expense({ amount: -400, date: new Date(2026, 7, 15, 12) })];
+    const s = summarizeCeiling(3000, over, NOW)!;
+    expect(s.crossedOn).toBe(15);
+    const strip = selectBudgetStrip(s);
+    expect(strip.map((f) => [f.label, f.opens])).toEqual([
+      ['Fine mese', BUDGET_SECTION_IDS.rischio],
+      ['Oltre', BUDGET_SECTION_IDS.avvisi],
+    ]);
+    expect(cellText(strip[1])).toBe(euro(s.overBy));
+    expect(formatStripFigure(strip[1])!.sign).toBe('negative');
+    expect(liftedBlocks(strip, BUDGET_SECTION_IDS.tetto)).toEqual(['fine-mese', 'oltre']);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+  });
+
+  it('crossed only by the calendar: «Supererai» puts the focus on the verdict, which names the day (2026-10-12)', () => {
+    const ahead = [...august, expense({ amount: -400, date: new Date(2026, 7, 28, 12) })];
+    const s = summarizeCeiling(3000, ahead, NOW)!;
+    expect(s.exceeded).toBe(true);
+    expect(s.crossedOn).toBe(28);
+    const strip = selectBudgetStrip(s);
+    expect(strip[1]).toMatchObject({ label: 'Supererai', value: s.overBy, tone: 'negative', opens: VERDICT_REST_SECTION, lifts: { section: BUDGET_SECTION_IDS.tetto, block: 'oltre' } });
+    // «Fine mese» keeps its own row — no two cells on one section.
+    expect(strip[0].opens).toBe(BUDGET_SECTION_IDS.rischio);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
   });
 });

@@ -24,11 +24,11 @@
  *
  *   |          | quota del periodo | quota contabilizzata | personali | resta (periodo) | resta (contab.) |
  *   | Ghiandaia| 900               | 0                    | 200       | 1300            | 2200            |
- *   | Tarsio   | 600               | 0                    | 1100      | −100            | +500            |
+ *   | Nibbio   | 600               | 0                    | 1100      | −100            | +500            |
  *
- * Tarsio is the case the page exists to get right: **+500 € today, −100 € once the calendar is
+ * Nibbio is the case the page exists to get right: **+500 € today, −100 € once the calendar is
  * paid**. Before 2026-09-21 the tile printed the −100 in the destructive token and the verdict
- * said «lo stipendio di Tarsio non basta» — over money still in the account.
+ * said «lo stipendio di Nibbio non basta» — over money still in the account.
  *
  * The third income row of 1000 € is left «in comune» on purpose, and it is two facts at once:
  * income nobody is named on cannot earn a share, and the page must SAY so rather than quietly
@@ -38,7 +38,7 @@
  * in it. Every income row here is a salary, but since 2026-09-27 the category no longer matters
  * to the split: `laborIncomeCategoryIds` is written for the other features that read it.
  *
- * Every proper noun is a DECOY — Ghiandaia, Tarsio, Lemure, Okapi, Narvalo, Axolotl, Bradipo —
+ * Every proper noun is a DECOY — Ghiandaia, Nibbio, Lemure, Okapi, Narvalo, Axolotl, Bradipo —
  * words that appear in no other fixture, so a locator that finds one has found this data.
  *
  * Idempotent: deterministic `split-*` ids rewritten on every run, and rows an earlier run left
@@ -74,7 +74,7 @@ const NEW_YEARS_EVE = new Date(Date.UTC(YEAR, 11, 31));
 
 const MEMBERS = [
   { id: 'split-m-ghiandaia', name: 'Ghiandaia' },
-  { id: 'split-m-tarsio', name: 'Tarsio' },
+  { id: 'split-m-nibbio', name: 'Nibbio' },
 ];
 /** An id `familyMembers` does not contain: its row lands in «Senza intestatario». */
 const GHOST_MEMBER_ID = 'split-m-fantasma';
@@ -100,18 +100,18 @@ interface SeedRow {
 
 const ROWS: SeedRow[] = [
   { id: 'split-inc-ghiandaia', categoryId: 'split-cat-stipendio', date: JANUARY, amount: 2400, personalMemberId: 'split-m-ghiandaia' },
-  { id: 'split-inc-tarsio', categoryId: 'split-cat-stipendio', date: JANUARY, amount: 1600, personalMemberId: 'split-m-tarsio' },
+  { id: 'split-inc-nibbio', categoryId: 'split-cat-stipendio', date: JANUARY, amount: 1600, personalMemberId: 'split-m-nibbio' },
   // Income left «in comune»: it buys nobody a share (the page must declare it), and it pays the
   // common spending first (the tile must show it).
   { id: 'split-inc-orphan', categoryId: 'split-cat-stipendio', date: JANUARY, amount: 1000 },
 
   { id: 'split-com-booked', categoryId: 'split-cat-affitto', date: JANUARY, amount: -1000 },
   // The row that has NOT happened: inside the pool, outside every booked residual. 1500, not 500,
-  // so that the period's pool survives the 1000 € of common income and Tarsio still ends short.
+  // so that the period's pool survives the 1000 € of common income and Nibbio still ends short.
   { id: 'split-com-scheduled', categoryId: 'split-cat-bollette', date: NEW_YEARS_EVE, amount: -1500 },
 
   { id: 'split-per-ghiandaia', categoryId: 'split-cat-svago', date: JANUARY, amount: -200, personalMemberId: 'split-m-ghiandaia' },
-  { id: 'split-per-tarsio', categoryId: 'split-cat-auto', date: JANUARY, amount: -1100, personalMemberId: 'split-m-tarsio' },
+  { id: 'split-per-nibbio', categoryId: 'split-cat-auto', date: JANUARY, amount: -1100, personalMemberId: 'split-m-nibbio' },
 
   { id: 'split-ghost', categoryId: 'split-cat-spesa', date: JANUARY, amount: -120, personalMemberId: GHOST_MEMBER_ID },
 ];

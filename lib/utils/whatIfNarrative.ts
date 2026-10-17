@@ -21,8 +21,10 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent } from '@/lib/utils/patrimonioNarrative';
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 import type { WhatIfEventType } from '@/types/whatIf';
-import type { MetricPair, SensitivityReading, WhatIfDivergence, WhatIfEvent, WhatIfSummary, WhatIfTimeline } from '@/lib/utils/whatIfSummary';
+import { isWhatIfChange, WHAT_IF_SECTION_IDS, type MetricPair, type SensitivityReading, type WhatIfDivergence, type WhatIfEvent, type WhatIfSummary, type WhatIfTimeline } from '@/lib/utils/whatIfSummary';
+import { cutAtFirstSentence, fireRestLabel } from '@/lib/utils/fireNarrative';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -63,8 +65,8 @@ function years(value: number): string {
   return `${value} ${value === 1 ? 'anno' : 'anni'}`;
 }
 
-/** A change smaller than half a unit is no change: it would print as «0 €». */
-const changed = (delta: number, unit = 0.5): boolean => Math.abs(delta) >= unit;
+/** A change smaller than half a unit is no change (`isWhatIfChange`, ONE threshold for the sentence, the rows and the strip). */
+const changed = isWhatIfChange;
 
 /** «a, b e c» — the Italian list. */
 function listOf(items: string[]): string {
@@ -225,11 +227,9 @@ export function buildWhatIfVerdict(input: WhatIfVerdictInput): PageVerdictModel 
   }
   const { event, summary } = input;
   if (event.isEmpty) {
-    return {
-      headline: 'Nessun evento da simulare.',
-      tone: 'neutral',
-      sentence: [prose('Il piano resta quello di oggi: '), ...planTodayClause(summary.timeline), prose('. Scegli un evento e inserisci un importo.')],
-    };
+    // Two sentences on purpose: the plan of today under the title, the instruction behind «Il perché».
+    const sentence: Narrative = [prose('Il piano resta quello di oggi: '), ...planTodayClause(summary.timeline), prose('.'), prose(' Scegli un evento e inserisci un importo.')];
+    return { headline: 'Nessun evento da simulare.', tone: 'neutral', sentence, ...cutAtFirstSentence(sentence, 'come simulare') };
   }
 
   const clauses: Narrative[] = [];
@@ -271,11 +271,25 @@ export function buildWhatIfVerdict(input: WhatIfVerdictInput): PageVerdictModel 
     ]);
   }
 
+  // The event and its clauses are the first sentence; the Coast and the bridge note follow it —
+  // behind «Il perché» on a phone, the bridge kept in sight by the scope line (The Binding-Clause Rule).
+  const coast = coastSentence(summary);
+  const sentence: Narrative = [prose('Con '), ...eventClause(event), prose(' '), ...joinClauses(clauses), prose('.'), ...coast, ...(summary.isBridge ? BRIDGE_NOTE : [])];
   return {
     ...headlineOf(summary),
-    sentence: [prose('Con '), ...eventClause(event), prose(' '), ...joinClauses(clauses), prose('.'), ...coastSentence(summary), ...(summary.isBridge ? BRIDGE_NOTE : [])],
+    sentence,
+    ...cutAtFirstSentence(sentence, fireRestLabel(coast.length > 0 ? 'il Coast FIRE' : null, summary.isBridge)),
   };
 }
+
+// ─── The rows below `desktop:` ─────────────────────────────────────────────────
+
+/** What each closed row says beside its eyebrow — words, never a figure (The Closed-Row Rule). */
+export const WHAT_IF_CLOSED_ASIDES = {
+  [WHAT_IF_SECTION_IDS.primaDopo]: 'le due traiettorie',
+  [WHAT_IF_SECTION_IDS.delta]: 'prima → dopo',
+  [WHAT_IF_SECTION_IDS.sensibilita]: 'spese e risparmio',
+} as const;
 
 // ─── Prima e dopo ─────────────────────────────────────────────────────────────
 
@@ -561,4 +575,46 @@ export function describeSensitivity(reading: SensitivityReading, horizonYears = 
   clauses.forEach((clause, index) => out.push(prose(index === 0 ? '; ' : ', '), ...clause));
   out.push(prose('.'));
   return out;
+}
+
+/**
+ * «26 anni» / «1 anno» / «50+ anni» — one cell of the matrix as the tile prints it. Here and not in
+ * the tile since 2026-10-16, so the closed row's answer prints the cell the matrix shows.
+ */
+export function formatSensitivityYears(yearsToFIRE: number | null): string {
+  if (yearsToFIRE === null) return '50+ anni';
+  return `${yearsToFIRE} ${yearsToFIRE === 1 ? 'anno' : 'anni'}`;
+}
+
+// ─── The closed rows' answers ─────────────────────────────────────────────────
+
+export interface WhatIfClosedAnswersInput {
+  event: WhatIfEvent | null;
+  summary: WhatIfSummary | null;
+  /** `summarizeSensitivity` of the matrix the tile prints; null without one. */
+  sensitivity: SensitivityReading | null;
+}
+
+/**
+ * What What If's closed rows answer in the landscape index (components/ui/row-answers.tsx;
+ * 2026-10-16). Prima e dopo never answers: its two years are the verdict's first sentence and the
+ * distance then the strip's, and the capitals left are too long to stand alone. Delta answers with
+ * the one row neither the verdict nor the strip prints, the progress towards FI, as its row prints it
+ * (an event that changes nothing keeps the scope: the verdict already says so). Sensibilità answers
+ * with the −10% cell at the baseline savings, read from the SAME matrix the tile draws — «−10%» is the
+ * matrix's fixed step, the figure is the cell.
+ */
+export function describeWhatIfClosedAnswers({ event, summary, sensitivity }: WhatIfClosedAnswersInput): RowAnswerMap {
+  const progress = event && !event.isEmpty && summary ? buildDeltaRows(summary).fire.find((row) => row.key === 'progress') : undefined;
+  const delta: Narrative | null = !progress
+    ? null
+    : progress.sign === null
+      ? [prose('progresso invariato')]
+      : [prose('progresso'), { text: progress.change, mono: true, sign: progress.sign }];
+  const lessSpending = sensitivity?.lessSpending ?? null;
+  return {
+    [WHAT_IF_SECTION_IDS.primaDopo]: null,
+    [WHAT_IF_SECTION_IDS.delta]: delta,
+    [WHAT_IF_SECTION_IDS.sensibilita]: lessSpending ? [prose('spese −10%:'), figure(formatSensitivityYears(lessSpending.years))] : null,
+  };
 }

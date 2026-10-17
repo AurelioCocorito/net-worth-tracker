@@ -24,7 +24,11 @@ import type { AnalisiPeriod, CategoryMover, FlowSummary, MonthRef, SpendingPoint
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, monthWithPrepositionA, ofThePercent } from '@/lib/utils/patrimonioNarrative';
-import { printedDelta, scheduledSentence } from '@/lib/utils/cashflowNarrative';
+import { describeCategoryShareAnswer, printedDelta, scheduledScope, scheduledSentence } from '@/lib/utils/cashflowNarrative';
+import type { CategoryRanking } from '@/lib/utils/tracciamentoSummary';
+import { ANALISI_SECTION_IDS } from '@/lib/utils/analisiSummary';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
+import { formatStripFigure, type StripFigure } from '@/lib/utils/verdictStrip';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
 
@@ -295,11 +299,11 @@ export function buildAnalisiVerdict(input: AnalisiVerdictInput): PageVerdictMode
       totals.transferCount > 0
         ? [prose(`Solo ${totals.transferCount} ${pluralize(totals.transferCount, 'trasferimento', 'trasferimenti')} tra i tuoi conti.`)]
         : [prose('Nessun movimento registrato.')];
-    return { headline, tone, sentence: [...sentence, ...(scheduledSentence(input.scheduled, describeAnalisiScheduledHorizon(input.period, input.today)) ?? [])] };
+    return { headline, tone, sentence };
   }
   if (totals.expenses <= 0) {
     const noSpending: Narrative = [prose(`${subject.subject} nessuna spesa: entrate `), figure(euro(totals.income)), prose('.')];
-    return { headline, tone, sentence: [...noSpending, ...(scheduledSentence(input.scheduled, describeAnalisiScheduledHorizon(input.period, input.today)) ?? [])] };
+    return { headline, tone, sentence: noSpending };
   }
 
   // Opening: «Nel 2026 hai speso 31.200 €». A period now always covers its whole calendar
@@ -313,8 +317,13 @@ export function buildAnalisiVerdict(input: AnalisiVerdictInput): PageVerdictMode
     else sentence.push(prose(', '), signed(signedPercent(pacing.delta), spendingSign(pacing.delta)), prose(` su ${input.baseline}`));
   }
 
+  // The first sentence ends here: the total and its pacing — what a phone keeps under the title
+  // (The Binding-Clause Rule; the cut needs a full stop, at 1440 too: «; Casa pesa» became «. Casa pesa»).
+  sentence.push(prose('.'));
+  const leadLength = sentence.length;
+
   if (input.topCategory) {
-    sentence.push(prose(`; ${input.topCategory.label} pesa `), ...shareInWords(input.topCategory.percentage));
+    sentence.push(prose(` ${input.topCategory.label} pesa `), ...shareInWords(input.topCategory.percentage));
     // A mover is a delta against the baseline: without a spending baseline there is none to name.
     const mover = pacing && input.baseline ? (input.grown ?? input.shrunk) : null;
     if (mover) {
@@ -329,10 +338,63 @@ export function buildAnalisiVerdict(input: AnalisiVerdictInput): PageVerdictMode
   }
 
   const anomalies = anomaliesClause(input);
-  if (anomalies.length > 0) sentence.push(prose('; '), ...anomalies);
+  if (anomalies.length > 0) {
+    // After the category the anomalies close its sentence; alone they open one of their own.
+    if (input.topCategory) sentence.push(prose('; '), ...anomalies);
+    else sentence.push(prose(' '), ...capitaliseClause(anomalies));
+  }
+  if (sentence.length === leadLength) return { headline, tone, sentence };
   sentence.push(prose('.'));
-  sentence.push(...(scheduledSentence(input.scheduled, describeAnalisiScheduledHorizon(input.period, input.today)) ?? []));
-  return { headline, tone, sentence };
+  const restLabel = anomalies.length === 0 ? 'le categorie' : input.topCategory ? 'categorie e fuori scala' : 'il fuori scala';
+  return { headline, tone, sentence, leadLength, restLabel };
+}
+
+/** The first prose of a clause with a capital, when the clause opens a sentence and no figure comes before it. */
+function capitaliseClause(clause: Narrative): Narrative {
+  const index = clause.findIndex((segment) => segment.mono || segment.text.trim() !== '');
+  if (index === -1 || clause[index].mono) return clause;
+  return clause.map((segment, i) => (i === index ? { ...segment, text: capitalise(segment.text) } : segment));
+}
+
+/**
+ * The verdict's `scope` (since 2026-10-14; DESIGN.md → The Binding-Clause Rule): the rows still
+ * in the calendar inside the period's totals, «Nel totale ci sono ancora 1850 € di spese già in
+ * calendario da qui a fine anno.» — a caption of its own under the strip on a phone and under the
+ * paragraph at 1440, no longer the sentence's last clause. The same form as Tracciamento's
+ * `describeTrackingScope`, on Analisi's own horizon; `null` with nothing in the calendar.
+ */
+export function describeAnalisiScope(input: Pick<AnalisiVerdictInput, 'scheduled' | 'period' | 'today'>): Narrative | null {
+  return scheduledScope(input.scheduled, describeAnalisiScheduledHorizon(input.period, input.today));
+}
+
+/**
+ * What a closed row of Analisi says beside its eyebrow (The Closed-Row Rule): words, never an
+ * amount. Fuori scala names its month and the Scheda its entity at the call site; the Flusso
+ * says its view («per ruolo» / «per tipo»), which `FlussoTile` knows.
+ */
+export const ANALISI_CLOSED_ASIDES = {
+  maggiori: 'per importo',
+  spese: 'per categoria',
+  entrate: 'per categoria',
+  flussoRoles: 'per ruolo',
+  flussoTypes: 'per tipo',
+} as const;
+
+/**
+ * The figures the first screen already prints, as the texts of their magnitudes («30.000 €»): the
+ * verdict's first sentence and the strip's cells. A Flusso caption drawn as a bar (a cell narrower
+ * than 608px since 2026-10-16) drops an amount whose text is among them (2026-10-14) — a figure
+ * repeated a hand's width lower is one more figure to read and no more to know.
+ */
+export function collectPrintedFigures(lead: Narrative, strip: readonly StripFigure[]): ReadonlySet<string> {
+  const unsigned = (text: string) => text.replace(/^[~+−-]+/, '');
+  const texts = new Set<string>();
+  for (const segment of lead) if (segment.mono) texts.add(unsigned(segment.text));
+  for (const figure of strip) {
+    const segment = formatStripFigure(figure);
+    if (segment) texts.add(unsigned(segment.text));
+  }
+  return texts;
 }
 
 // ─── Tile readings ────────────────────────────────────────────────────────────
@@ -548,15 +610,32 @@ export function describeSpendingRolesFlow(summary: SpendingRolesSummary): Narrat
 
 // ─── Flusso on a phone ────────────────────────────────────────────────────────
 //
-// Below 640px the Flusso is a share bar and rows, not a Sankey (FlowShareMobile). Its caption, its
-// surplus note and its empty line are sentences, so they live here like every other Analisi word.
+// In a cell narrower than 608px (`FLUSSO_SANKEY_MIN_CELL`, since 2026-10-16) the Flusso is a share
+// bar and rows, not a Sankey (FlowShareMobile). Its caption, its surplus note and its empty line are
+// sentences, so they live here like every other Analisi word.
 
 /** « Nessuna entrata: tutto è coperto dal patrimonio.» — the no-income tail of both captions. */
 const NO_INCOME_TAIL: Narrative = [prose(' Nessuna entrata: tutto è coperto dal patrimonio.')];
 
-/** « Oltre la linea delle entrate: 400 € dal patrimonio.» — the deficit tail, beside the red line. */
-function deficitTail(deficit: number): Narrative {
+/**
+ * « Oltre la linea delle entrate: 400 € dal patrimonio.» — the deficit tail, beside the red line;
+ * without its amount when the first screen prints it already (the strip's «Risparmio» is the same
+ * deficit).
+ */
+function deficitTail(deficit: number, printed: ReadonlySet<string>): Narrative {
+  if (printed.has(euro(deficit))) return [prose(' Oltre la linea delle entrate, il resto viene dal patrimonio.')];
   return [prose(' Oltre la linea delle entrate: '), figure(euro(deficit)), prose(' dal patrimonio.')];
+}
+
+const NOTHING_PRINTED: ReadonlySet<string> = new Set();
+
+/**
+ * A group's total on the Flusso drawn as a bar, in a cell narrower than 608px (`FlowShareMobile`'s
+ * header, «Risparmio» included): whole euros, like every aggregate of the page — the strip's
+ * «Risparmio» cell prints the same text (`__tests__/analisiSummary.test.ts` holds the identity).
+ */
+export function formatFlowAmount(value: number): string {
+  return cachedFormatCurrencyEUR(value, true);
 }
 
 /**
@@ -564,15 +643,13 @@ function deficitTail(deficit: number): Narrative {
  * where the money beyond the income came from. Null when there is no flow (the caller prints
  * `describeFlowAbsence` instead).
  */
-export function describeSpendingRolesBar(roleShares: SpendingRoleShares): Narrative | null {
+export function describeSpendingRolesBar(roleShares: SpendingRoleShares, printed: ReadonlySet<string> = NOTHING_PRINTED): Narrative | null {
   if (roleShares.absence !== null) return null;
-  const narrative: Narrative = [
-    prose('Quote di quanto è uscito ('),
-    figure(euro(roleShares.base)),
-    prose('); tacche a 50 e 80, il riferimento 50/30/20.'),
-  ];
+  const narrative: Narrative = printed.has(euro(roleShares.base))
+    ? [prose('Quote di quanto è uscito; tacche a 50 e 80, il riferimento 50/30/20.')]
+    : [prose('Quote di quanto è uscito ('), figure(euro(roleShares.base)), prose('); tacche a 50 e 80, il riferimento 50/30/20.')];
   if (roleShares.noIncome) return [...narrative, ...NO_INCOME_TAIL];
-  if (roleShares.deficit > 0) return [...narrative, ...deficitTail(roleShares.deficit)];
+  if (roleShares.deficit > 0) return [...narrative, ...deficitTail(roleShares.deficit, printed)];
   return narrative;
 }
 
@@ -581,12 +658,14 @@ export function describeSpendingRolesBar(roleShares: SpendingRoleShares): Narrat
  * shares), then the deficit or the absence of income. «Nessuna spesa nel periodo.» when only
  * income moved — the surplus note says the rest. Null when there is no flow.
  */
-export function describeTypeFlowBar(breakdown: TypeFlowBreakdown): Narrative | null {
+export function describeTypeFlowBar(breakdown: TypeFlowBreakdown, printed: ReadonlySet<string> = NOTHING_PRINTED): Narrative | null {
   if (breakdown.absence !== null) return null;
   if (breakdown.spending <= 0) return [prose('Nessuna spesa nel periodo.')];
-  const narrative: Narrative = [prose('Quote delle spese ('), figure(euro(breakdown.spending)), prose(').')];
+  const narrative: Narrative = printed.has(euro(breakdown.spending))
+    ? [prose('Quote delle spese.')]
+    : [prose('Quote delle spese ('), figure(euro(breakdown.spending)), prose(').')];
   if (breakdown.noIncome) return [...narrative, ...NO_INCOME_TAIL];
-  if (breakdown.deficit > 0) return [...narrative, ...deficitTail(breakdown.deficit)];
+  if (breakdown.deficit > 0) return [...narrative, ...deficitTail(breakdown.deficit, printed)];
   return narrative;
 }
 
@@ -769,4 +848,69 @@ export function describeComparison(input: ComparisonInput): Narrative | null {
 /** The disclosure row of the Confronto: «2026 vs 2025 (stessi mesi, gen–ago) · +1257 €». */
 export function describeComparisonSummary(year: number, pacing: TotalsPacing): Narrative {
   return [figure(String(year)), prose(` ${pacing.baselineLabel} · `), signed(signedEuro(pacing.expenses.delta), spendingSign(pacing.expenses.delta))];
+}
+
+// ─── The closed rows' answers (2026-10-16) ────────────────────────────────────
+
+export interface AnalisiClosedAnswersInput {
+  /** `detectSpendingAnomalies` of the month, highest share first — as Fuori scala lists them. */
+  anomalies: SpendingAnomaly[];
+  topExpenses: TopExpenses;
+  /** The two category tiles' rankings, as the page hands them to `describeCategoryShare`. */
+  expenseRanking: CategoryRanking;
+  incomeRanking: CategoryRanking;
+  flow: FlowSummary;
+  /** The 50/30/20 totals; null with the setting off (the Flusso has its type view only). */
+  spendingRoles: SpendingRolesSummary | null;
+}
+
+/**
+ * What Analisi's closed rows answer in the landscape index (components/ui/row-answers.tsx), none of
+ * them the strip's Entrate and Risparmio nor THE tile's trio and rate:
+ * - Fuori scala: the furthest category over its average, «Ristoranti +80%» in red as its row
+ *   prints it; «nessuna fuori scala» without one (the row exists only on a month);
+ * - Spese maggiori: «la più grande 2505 €»;
+ * - the two category rows: the first category and its share (`describeCategoryShareAnswer`);
+ * - Flusso: the LARGEST printed share of the view the tile opens on — by 50/30/20 role when the
+ *   setting is on (the tile's default at every mount), else by type, «Variabili 91%» — never the
+ *   savings rate, which THE tile prints. The view is the tile's own state: switched by hand while
+ *   open, the closed row still answers for the default view.
+ * The Scheda keeps its scope: the entity's name IS the answer to «quale?», and it opens by itself.
+ */
+export function describeAnalisiClosedAnswers(input: AnalisiClosedAnswersInput): RowAnswerMap {
+  return {
+    [ANALISI_SECTION_IDS.fuoriScala]: describeAnomaliesAnswer(input.anomalies),
+    [ANALISI_SECTION_IDS.maggiori]: input.topExpenses.rows[0] ? [prose('la più grande'), figure(euro(input.topExpenses.rows[0].amount))] : null,
+    [ANALISI_SECTION_IDS.spese]: describeCategoryShareAnswer(input.expenseRanking, 'expenses'),
+    [ANALISI_SECTION_IDS.entrate]: describeCategoryShareAnswer(input.incomeRanking, 'income'),
+    [ANALISI_SECTION_IDS.scheda]: null,
+    [ANALISI_SECTION_IDS.flusso]: input.spendingRoles ? describeRolesFlowAnswer(input.spendingRoles) : describeTypesFlowAnswer(input.flow),
+  };
+}
+
+function describeAnomaliesAnswer(anomalies: SpendingAnomaly[]): Narrative {
+  const first = anomalies[0];
+  if (!first) return [prose('nessuna fuori scala')];
+  return [prose(first.categoryLabel), signed(`+${formatPercentage(first.deltaPercent, 0)}`, 'negative')];
+}
+
+/** The largest of the printed shares — the first that reaches the maximum, so a tie keeps the view's order. */
+function largestPrinted<T>(items: T[], printed: (item: T) => number): T | null {
+  return items.reduce<T | null>((best, item) => (best === null || printed(item) > printed(best) ? item : best), null);
+}
+
+function describeTypesFlowAnswer(flow: FlowSummary): Narrative | null {
+  if (flow.typeShares.length === 0) return null;
+  // One type is the whole spending: the reading's words, no 100%.
+  if (flow.typeShares.length === 1) return [prose(`tutte ${SPENDING_TYPE_ADJECTIVES[flow.typeShares[0].type]}`)];
+  const largest = largestPrinted(flow.typeShares, (share) => share.printedPercentage)!;
+  return [prose(largest.label), figure(formatPercentage(largest.printedPercentage, 0))];
+}
+
+function describeRolesFlowAnswer(summary: SpendingRolesSummary): Narrative | null {
+  const roleShares = summarizeSpendingRoleShares(summary);
+  if (roleShares.absence !== null) return null;
+  const largest = largestPrinted(roleShares.shares, (share) => share.percentage);
+  if (!largest) return null;
+  return [prose(largest.label), figure(formatPercentage(largest.percentage, 0))];
 }

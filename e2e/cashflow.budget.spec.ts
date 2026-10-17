@@ -14,6 +14,10 @@
  * own row on «Alimentari» with a decoy amount and removes it THROUGH THE APP at the end
  * (looping first, in case an earlier failed run left one behind). The verdict's figures
  * depend on the run month, so nothing here asserts an amount but the decoy.
+ *
+ * Since 2026-10-12 the save status («Salvato») is ONE `sr-only` live node beside the
+ * tile in its grid cell — stable whether the row is open or closed on a phone — and the aside
+ * shows an `aria-hidden` copy: the spec reads the live node by its exact text, not inside the region.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -35,6 +39,9 @@ async function openBudget(page: Page) {
   await expect(page.getByRole('region', { name: 'Per categoria' })).toBeVisible();
 }
 
+/** The tab's save status: the one live node of Per categoria's cell, «Salvato» and nothing else (a toast says more). */
+const savedStatus = (page: Page) => page.getByRole('status').filter({ hasText: /^Salvato$/ });
+
 /** Removes every «Alimentari» budget through the app's own two-click delete. */
 async function removeDecoyRows(page: Page) {
   const perCategoria = page.getByRole('region', { name: 'Per categoria' });
@@ -44,7 +51,7 @@ async function removeDecoyRows(page: Page) {
     await del.first().click();
     await expect(perCategoria.getByRole('button', { name: /^Conferma eliminazione budget Alimentari/ })).toBeVisible();
     await perCategoria.getByRole('button', { name: /^Conferma eliminazione budget Alimentari/ }).click();
-    await expect(perCategoria.getByRole('status').filter({ hasText: 'Salvato' })).toBeVisible({ timeout: 10_000 });
+    await expect(savedStatus(page)).toBeVisible({ timeout: 10_000 });
   }
 }
 
@@ -107,8 +114,8 @@ test('the budget dialog refuses in the reading line, keeps its submit alive and 
   const perCategoria = page.getByRole('region', { name: 'Per categoria' });
   const row = perCategoria.getByRole('row', { name: /Alimentari/ });
   await expect(row).toBeVisible();
-  await expect(row).toContainText(`${DECOY_AMOUNT} €`);
-  await expect(perCategoria.getByRole('status').filter({ hasText: 'Salvato' })).toBeVisible({ timeout: 10_000 });
+  await expect(row).toContainText(new RegExp(`${DECOY_AMOUNT}[\\s\\u00a0]*€`));
+  await expect(savedStatus(page)).toBeVisible({ timeout: 10_000 });
   await expect.poll(savedBudgetAmounts).toContain(DECOY_AMOUNT);
 
   // Delete: armed in the row, in words, with the consequence and the announcement; Escape disarms.
@@ -130,7 +137,7 @@ test('the budget dialog refuses in the reading line, keeps its submit alive and 
   await perCategoria.getByRole('button', { name: 'Elimina budget Alimentari' }).click();
   await perCategoria.getByRole('button', { name: /^Conferma eliminazione budget Alimentari/ }).click();
   await expect(row).toHaveCount(0);
-  await expect(perCategoria.getByRole('status').filter({ hasText: 'Salvato' })).toBeVisible({ timeout: 10_000 });
+  await expect(savedStatus(page)).toBeVisible({ timeout: 10_000 });
   await expect.poll(savedBudgetAmounts).not.toContain(DECOY_AMOUNT);
 });
 

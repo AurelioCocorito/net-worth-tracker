@@ -29,7 +29,9 @@ test.describe('Cashflow › Divisione (phone)', () => {
     const picker = page.getByRole('combobox', { name: /Periodo selezionato/ });
     const box = await picker.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.height).toBeGreaterThanOrEqual(TOUCH_FLOOR);
+    // Rounded: `h-11` laid out inside the verdict's axis slot measured 43,99998 once (2026-10-12),
+    // a subpixel of the layout, not a shorter control.
+    expect(Math.round(box!.height)).toBeGreaterThanOrEqual(TOUCH_FLOOR);
   });
 
   test('the month arrows inside the picker are thumb-sized too', async ({ page }) => {
@@ -64,10 +66,10 @@ test.describe('Cashflow › Divisione (phone)', () => {
 
   test('the people stack, one above the other, full width', async ({ page }) => {
     const ghiandaia = await page.getByRole('region', { name: 'Quanto resta a Ghiandaia' }).boundingBox();
-    const tarsio = await page.getByRole('region', { name: 'Quanto resta a Tarsio' }).boundingBox();
+    const nibbio = await page.getByRole('region', { name: 'Quanto resta a Nibbio' }).boundingBox();
 
-    expect(tarsio!.y).toBeGreaterThan(ghiandaia!.y + ghiandaia!.height - 2);
-    expect(Math.abs(ghiandaia!.width - tarsio!.width)).toBeLessThan(2);
+    expect(nibbio!.y).toBeGreaterThan(ghiandaia!.y + ghiandaia!.height - 2);
+    expect(Math.abs(ghiandaia!.width - nibbio!.width)).toBeLessThan(2);
   });
 });
 

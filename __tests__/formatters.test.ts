@@ -1,12 +1,78 @@
 import { describe, it, expect } from 'vitest'
 import {
   formatCurrency,
+  formatEuroMinus,
   formatPercentage,
   formatDate,
   formatDateTime,
   formatNumber,
+  formatSignedPercentIt,
+  formatSignedPoints,
   formatTimePeriodLabel,
+  isPrintedZero,
+  printedSign,
+  withTypographicMinus,
 } from '@/lib/utils/formatters'
+
+/**
+ * The sign and the tone of a figure follow its PRINTED value, on the Rendimenti tile too (the
+ * printed-zero rule reaching the tile a strip cell repeats; owner, 2026-10-14): for +0,03 the hero
+ * printed «+0,0%» in green and the gap chip «+0 pt» while the cell under the title said «0,0%» and
+ * «0 pt». Seen red on 2026-10-14 with the sign taken from the raw value in the three helpers
+ * («+0,0%», «+0 pt», 1).
+ */
+describe('printedSign / formatSignedPercentIt / formatSignedPoints', () => {
+  it('a figure that rounds to zero has no sign; the others keep theirs', () => {
+    expect(printedSign(0.03, 1)).toBe(0)
+    expect(printedSign(-0.04, 1)).toBe(0)
+    expect(printedSign(0.06, 1)).toBe(1)
+    expect(printedSign(-0.06, 1)).toBe(-1)
+    expect(printedSign(0, 1)).toBe(0)
+  })
+
+  it('prints the it-IT percent signed on the printed value, «−» typographic', () => {
+    expect(formatSignedPercentIt(7.3)).toBe('+7,3%')
+    expect(formatSignedPercentIt(-4.12)).toBe('−4,1%')
+    expect(formatSignedPercentIt(0.03)).toBe('0,0%')
+    expect(formatSignedPercentIt(-0.04)).toBe('0,0%')
+  })
+
+  it('prints a gap in points to one decimal, whole when it prints whole, unsigned when it prints zero', () => {
+    expect(formatSignedPoints(0.4)).toBe('+0,4 pt')
+    expect(formatSignedPoints(-9.26)).toBe('−9,3 pt')
+    expect(formatSignedPoints(1)).toBe('+1 pt')
+    expect(formatSignedPoints(0.03)).toBe('0 pt')
+    expect(formatSignedPoints(-0.04)).toBe('0 pt')
+  })
+})
+
+/**
+ * The typographic minus on a printed MAGNITUDE (The Comma Rule), and none when the magnitude
+ * prints as zero (the printed-zero rule, AGENTS.md § Layout and Color Tokens). Seen red on
+ * 2026-10-12 with the zero clause removed from `withTypographicMinus` («−0 €» for −0,3, «−0%» for −0,4).
+ */
+describe('withTypographicMinus / formatEuroMinus / isPrintedZero', () => {
+  /** Node's Intl writes a narrow no-break space before «€»: read it as a plain one. */
+  const plain = (text: string) => text.replace(/[  ]/g, ' ')
+
+  it('puts the U+2212 in front of a negative magnitude, nothing in front of a positive one', () => {
+    expect(withTypographicMinus(-83, '83 €')).toBe('−83 €')
+    expect(withTypographicMinus(1300, '1300 €')).toBe('1300 €')
+    expect(plain(formatEuroMinus(-354))).toBe('−354 €')
+    expect(plain(formatEuroMinus(1940))).toBe('1940 €')
+  })
+
+  it('leaves a magnitude that prints as zero unsigned, whatever the sign of the value', () => {
+    expect(withTypographicMinus(-0.3, '0 €')).toBe('0 €')
+    expect(withTypographicMinus(-0.4, '0%')).toBe('0%')
+    expect(withTypographicMinus(0, '0 €')).toBe('0 €')
+    expect(plain(formatEuroMinus(-0.3))).toBe('0 €')
+    expect(plain(formatEuroMinus(0))).toBe('0 €')
+    expect(isPrintedZero('0,00 €')).toBe(true)
+    expect(isPrintedZero('−0,00%')).toBe(true)
+    expect(isPrintedZero('0,01 €')).toBe(false)
+  })
+})
 
 describe('formatCurrency', () => {
   it('should format EUR with default decimals', () => {

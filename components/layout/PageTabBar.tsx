@@ -69,11 +69,11 @@ export function PageTabBar({ tabs, value, onValueChange, layoutId, ariaLabel, re
     !renderedPanels || renderedPanels.has(tabValue) ? pageTabPanelId(layoutId, tabValue) : undefined;
   return (
     <>
-      {/* Mobile / tablet (< 1440px): Segmented Pill — active tab shows label, inactive shows icon only */}
+      {/* Phone and tablet in portrait: Segmented Pill — active tab shows label, inactive shows icon only */}
       <div
         role="tablist"
         aria-label={ariaLabel}
-        className="desktop:hidden flex w-fit max-w-full mx-auto overflow-x-auto scrollbar-none bg-muted rounded-lg p-1 my-2"
+        className="desktop:hidden tablet-landscape:hidden flex w-fit max-w-full mx-auto overflow-x-auto scrollbar-none bg-muted rounded-lg p-1 my-2"
       >
         {tabs.map(({ value: tv, label, icon: Icon, unsaved }) => {
           const isActive = value === tv;
@@ -90,8 +90,10 @@ export function PageTabBar({ tabs, value, onValueChange, layoutId, ariaLabel, re
               aria-label={tabName(label, unsaved)}
               onClick={() => onValueChange(tv)}
               transition={SPRING}
+              // `min-h-11 min-w-11`: a thumb's target (the pill measured 38×32 until 2026-10-10,
+              // DESIGN.md → Navigation); the icon-only tabs centre in the square.
               className={cn(
-                'relative flex shrink-0 items-center gap-1.5 rounded-[6px] px-3 py-1.5 text-sm font-medium whitespace-nowrap z-10',
+                'relative flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-[6px] px-3 py-1.5 text-sm font-medium whitespace-nowrap z-10',
                 isActive ? 'text-foreground' : 'text-muted-foreground',
               )}
             >
@@ -110,12 +112,14 @@ export function PageTabBar({ tabs, value, onValueChange, layoutId, ariaLabel, re
         })}
       </div>
 
-      {/* Desktop (≥ 1440px): underline bar, 13px labels, flush under the compact header */}
+      {/* Desktop (≥ 1440px) and a tablet in landscape (since 2026-10-16: the width is there, and the
+          centred icon pill read as a phone's on a left-aligned page): underline bar, 13px labels, flush
+          under the compact header — 44px tall on the tablet, a thumb's target. */}
       <div
         role="tablist"
         aria-label={ariaLabel}
         className={cn(
-          'hidden desktop:flex border-b border-border overflow-x-auto scrollbar-none',
+          'hidden desktop:flex tablet-landscape:flex border-b border-border overflow-x-auto scrollbar-none',
           className,
         )}
       >
@@ -131,7 +135,7 @@ export function PageTabBar({ tabs, value, onValueChange, layoutId, ariaLabel, re
               aria-label={tabName(label, unsaved)}
               onClick={() => onValueChange(tv)}
               className={cn(
-                'relative flex shrink-0 items-center gap-1.5 px-3.5 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap',
+                'relative flex shrink-0 items-center gap-1.5 px-3.5 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap tablet-landscape:min-h-11',
                 isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >

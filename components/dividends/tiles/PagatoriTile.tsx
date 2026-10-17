@@ -3,7 +3,7 @@
 import type { Narrative } from '@/lib/utils/narrative';
 import type { PayerRanking } from '@/lib/utils/dividendAnalytics';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 import { RankedRows } from '@/components/ui/ranked-rows';
 
@@ -12,6 +12,10 @@ interface PagatoriTileProps {
   reading: Narrative | null;
   footer: Narrative | null;
   emptyCopy: string;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow («in portafoglio»: the open aside is an amount, the rule forbids it closed). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -24,12 +28,14 @@ interface PagatoriTileProps {
  * Only RECEIVED payments are ranked. The announced ones are named in the footer instead of
  * being folded in: a leaderboard is a record of what happened, not of what is promised.
  */
-export function PagatoriTile({ ranking, reading, footer, emptyCopy, className }: PagatoriTileProps) {
+export function PagatoriTile({ ranking, reading, footer, emptyCopy, collapse, asideWhenClosed, className }: PagatoriTileProps) {
   return (
     <Tile
       eyebrow="Chi paga di più"
       aside={ranking.total > 0 ? <span className="font-mono tabular-nums">{cachedFormatCurrencyEUR(ranking.total, true)}</span> : undefined}
       reading={reading}
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       className={className}
     >
       {ranking.rows.length === 0 ? (

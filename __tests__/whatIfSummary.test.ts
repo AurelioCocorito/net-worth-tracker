@@ -15,12 +15,20 @@ import { applyScenarioToBaseline, calculateWhatIfImpact } from '@/lib/services/w
 import {
   buildWhatIfComparisonSeries,
   decomposeJobLossHit,
+  isWhatIfChange,
+  selectWhatIfStrip,
+  WHAT_IF_SECTION_IDS,
+  type WhatIfDivergence,
+  type WhatIfEvent,
+  type WhatIfSummary,
   summarizeDivergence,
   summarizeSensitivity,
   summarizeWhatIf,
   summarizeWhatIfEvent,
 } from '@/lib/utils/whatIfSummary';
 import type { WhatIfBaseline, WhatIfScenario } from '@/types/whatIf';
+import { formatStripFigure, validateStrip } from '@/lib/utils/verdictStrip';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 
 function makeBaseline(overrides: Partial<WhatIfBaseline> = {}): WhatIfBaseline {
   return {
@@ -358,5 +366,62 @@ describe('summarizeSensitivity', () => {
 
     expect(reading.baselineSavings).toBe(0);
     expect(reading.moreSaving).toEqual({ annualSavings: 5_000, label: '€5k', years: matrix.rows[2].cells[1].yearsToFIRE });
+  });
+});
+
+// ─── The phone's strip (2026-10-15) ───────────────────────────────────────────
+// Seen red one at a time: a delta of 0,3 printed as «0 €» (the threshold dropped); the tone fixed
+// to `negative` (a windfall coloured as a loss); the strip rendered for an empty event. On
+// 2026-10-16: the direction word kept on a cell under the threshold («Patrimonio FIRE sale» over «invariato»).
+
+describe('isWhatIfChange', () => {
+  it('should treat a change under half a unit as no change, and the unit as a parameter', () => {
+    expect(isWhatIfChange(0.49)).toBe(false);
+    expect(isWhatIfChange(-0.5)).toBe(true);
+    expect(isWhatIfChange(0.04, 0.05)).toBe(false);
+  });
+});
+
+describe('selectWhatIfStrip', () => {
+  const KNOWN = [...Object.values(WHAT_IF_SECTION_IDS), VERDICT_REST_SECTION];
+  const pair = (before: number, after: number) => ({ before, after, delta: after - before });
+  const event: WhatIfEvent = { kind: 'jobLoss', isEmpty: false, months: 12, lostAnnualIncome: 31_800, lostShareOfIncomePct: 63.9, lumpSum: 0, savingsDelta: 0, expensesDelta: 0, netWorthDelta: -31_800, netWorthAfter: 380_700, savingsAfter: 22_200, expensesAfter: 27_600 };
+  const summary: WhatIfSummary = {
+    timeline: { yearsBefore: 7, yearsAfter: 8, calendarBefore: 2033, calendarAfter: 2034, deltaYears: 1, reachedBefore: false, reachedAfter: false, horizonYears: 50, horizonCalendarYear: 2076 },
+    netWorth: pair(412_500, 380_700),
+    fireNumber: pair(690_000, 690_000),
+    progressPct: pair(59.78, 55.17),
+    monthlyIncome: pair(1_375, 1_269),
+    coast: null,
+    isBridge: false,
+  };
+  const divergence: WhatIfDivergence = { calendarYear: 2033, before: 854_600, after: 803_400, gapThen: -51_200 };
+  const text = (figure: ReturnType<typeof selectWhatIfStrip>[number]) => formatStripFigure(figure)!.text.replace(/[\u00a0\u202f]/g, ' ');
+
+  it('should name the direction in the label, colour by it and open the Delta and Prima e dopo', () => {
+    const strip = selectWhatIfStrip({ event, summary, divergence });
+    expect(strip.map((figure) => figure.label)).toEqual(['Patrimonio FIRE scende', 'Distanza nel 2033']);
+    expect(strip.map((figure) => figure.opens)).toEqual([WHAT_IF_SECTION_IDS.delta, WHAT_IF_SECTION_IDS.primaDopo]);
+    expect(strip.map((figure) => figure.tone)).toEqual(['negative', 'negative']);
+    expect(strip.map(text)).toEqual(['31.800 €', '51.200 €']);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+
+    const gain = selectWhatIfStrip({ event: { ...event, kind: 'windfall', netWorthDelta: 50_000 }, summary: { ...summary, netWorth: pair(412_500, 462_500) }, divergence: { ...divergence, after: 935_000, gapThen: 80_400 } });
+    expect(gain.map((figure) => figure.label)).toEqual(['Patrimonio FIRE sale', 'Vantaggio nel 2033']);
+    expect(gain.map((figure) => figure.tone)).toEqual(['positive', 'positive']);
+  });
+
+  it('should say «invariato» under the threshold or without a divergence, and nothing for an empty event', () => {
+    const still = selectWhatIfStrip({ event, summary: { ...summary, netWorth: pair(412_500, 412_500.3) }, divergence: null });
+    expect(still.map((figure) => figure.value)).toEqual([null, null]);
+    expect(still.map((figure) => figure.reason)).toEqual(['invariato', 'invariato']);
+    // Neither cell names a direction the sentences do not print: «sale» over «invariato» was the
+    // first cell's label until 2026-10-16 (owner: «Patrimonio FIRE oggi», neutral).
+    expect(still[0].label).toBe('Patrimonio FIRE oggi');
+    expect(still[0].tone).toBe('neutral');
+    expect(still[1].label).toBe('Al FIRE di oggi');
+    expect(still[1].tone).toBe('neutral');
+    expect(validateStrip(still, KNOWN)).toEqual([]);
+    expect(selectWhatIfStrip({ event: { ...event, isEmpty: true }, summary, divergence })).toEqual([]);
   });
 });

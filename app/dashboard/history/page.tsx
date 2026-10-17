@@ -13,7 +13,12 @@
  *   Desktop (12 col): Evoluzione(8, 2 rows) | Raddoppi(4, 2 rows)
  *                     Composizione(8)       | Driver(4)
  *                     Valore per strumento(12)
- *   Mobile (1 col):   Evoluzione → Raddoppi → Composizione → Driver → Valore per strumento
+ *   Below desktop:    ONE sequence, the DOM above (The First-Screen Rule; since 2026-10-14 —
+ *                     the `order-*` are gone, the two column wrappers are `contents`): title → the
+ *                     first sentence → the last twelve months and the featured year's savings as a
+ *                     strip → «Il perché» → Evoluzione, open, its chips lifted and its curve at 120px
+ *                     → «Il resto della pagina» → Composizione, Raddoppi, Driver, Valore per strumento
+ *                     as closed rows (`useMobileSections`; doc/guide/storico.md § Composizione mobile).
  *
  * DATA: snapshots, assets, settings, expenses, the ledger and the pension contributions come
  * from React Query keys (2026-09-29: one read per session, no `Promise.all`) — five of them the
@@ -65,8 +70,11 @@ import {
   projectNextDoubling,
   resolveFeaturedDriverYear,
   selectDriverYears,
+  selectStoricoStrip,
   selectTrailingMonths,
   sortSnapshots,
+  STORICO_EVOLUZIONE_ID,
+  STORICO_SECTION_IDS,
   summarizeAllTimeHigh,
   summarizeGrowth,
   summarizeGrowthPace,
@@ -76,14 +84,19 @@ import {
   type LaborMetrics,
 } from '@/lib/utils/storicoSummary';
 import {
+  buildDriverLedger,
   buildStoricoVerdict,
+  describeRunningWindowShort,
+  STORICO_CLOSED_ASIDES,
   describeDoublings,
   describeDrivers,
   describeEvolution,
   describeEvolutionAside,
   describeMonthBreakdown,
+  describeStoricoClosedAnswers,
   describeStoricoHeader,
 } from '@/lib/utils/storicoNarrative';
+import { resolveCompositionSeries } from '@/lib/utils/historyComposition';
 import { buildMonthAssetBreakdown, buildSelectedAssetTrend, getAvailableSnapshotMonths, summarizeSelection } from '@/lib/utils/snapshotAssetBreakdown';
 import { getAssetDisplayTicker } from '@/lib/utils/assetDisplay';
 import { cn } from '@/lib/utils';
@@ -99,7 +112,27 @@ import type { TileSkeletonCell } from '@/lib/utils/tileGridSkeleton';
 import { ExportPDFButton } from '@/components/dashboard/ExportPDFButton';
 import { CreateManualSnapshotModal } from '@/components/CreateManualSnapshotModal';
 import { SnapshotSearchDialog } from '@/components/history/SnapshotSearchDialog';
-import { EvoluzioneTile } from '@/components/history/tiles/EvoluzioneTile';
+import { EvoluzioneTile, isEvoluzioneLiftedBlock, type EvoluzioneLiftedBlock } from '@/components/history/tiles/EvoluzioneTile';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  INDEX_GROUP_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import { splitVerdict } from '@/lib/utils/narrative';
+import { liftedBlocks } from '@/lib/utils/verdictStrip';
+import { TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { RaddoppiTile } from '@/components/history/tiles/RaddoppiTile';
 import { ComposizioneTile } from '@/components/history/tiles/ComposizioneTile';
 import { DriverTile } from '@/components/history/tiles/DriverTile';
@@ -124,6 +157,24 @@ const EMPTY_ASSETS: Asset[] = [];
 const EMPTY_EXPENSES: Expense[] = [];
 const EMPTY_TRANSACTIONS: AssetTransaction[] = [];
 const EMPTY_CONTRIBUTIONS: PensionContribution[] = [];
+
+/**
+ * Every row of the phone composition, in the DOM's order (The Closed-Row Rule;
+ * 2026-10-14): every tile but Evoluzione, which is THE tile and never closes (The First-Screen Rule). The
+ * page composes its six reads into ONE state (`composeReadState`), so no row is ever `failed`.
+ */
+const STORICO_SECTIONS: readonly SectionSpec[] = [
+  { id: STORICO_SECTION_IDS.composizione, eyebrow: 'Composizione' },
+  { id: STORICO_SECTION_IDS.raddoppi, eyebrow: 'Raddoppi' },
+  { id: STORICO_SECTION_IDS.driver, eyebrow: 'Driver della crescita' },
+  { id: STORICO_SECTION_IDS.valore, eyebrow: 'Valore per strumento' },
+];
+/** The four rows are always on the page: their DOM order is the tablet's (lib/utils/tabletComposition.ts). */
+const STORICO_ORDER = STORICO_SECTIONS.map((section) => section.id);
+
+/** What the «Ultimi 12 mesi» cell announces it opens: neither the verdict's rest nor THE tile is a row of the controller. */
+const STRIP_EYEBROW_REST = 'il perché';
+const STRIP_EYEBROW_EVOLUZIONE = "l'andamento";
 
 export default function HistoryPage() {
   const { user } = useAuth();
@@ -305,6 +356,20 @@ export default function HistoryPage() {
   const selection = useMemo(() => (breakdown ? summarizeSelection(breakdown, selectedAssetIds) : null), [breakdown, selectedAssetIds]);
   const selectionTrend = useMemo(() => buildSelectedAssetTrend(ordered, selectedAssetIds), [ordered, selectedAssetIds]);
 
+  // What each closed row answers in the landscape index (2026-10-16): figures the page already has;
+  // Composizione on the asset-class cut, the scope its closed row names («per classe»). Memoized: a
+  // new map on every render would re-render every row.
+  const rowAnswers = useMemo(
+    () =>
+      describeStoricoClosedAnswers({
+        composition: resolveCompositionSeries('assetClass', { assetClassHistory, liquidityHistory: netWorthHistory }),
+        doublings: { summary: doublingSummary, mode: doublingMode },
+        featuredDriverYear,
+        breakdown,
+      }),
+    [assetClassHistory, netWorthHistory, doublingSummary, doublingMode, featuredDriverYear, breakdown],
+  );
+
   const toggleAsset = (assetId: string) => {
     setSelectedAssetIds((previous) => {
       const next = new Set(previous);
@@ -323,6 +388,48 @@ export default function HistoryPage() {
       ids.forEach((id) => (allSelected ? next.delete(id) : next.add(id)));
       return next;
     });
+  };
+
+  // ─── The phone composition (2026-10-14) ──────────────────────────────────────
+  // Before the early returns: hooks run on every render.
+  const sections = useMobileSections({ route: 'history', sections: STORICO_SECTIONS });
+  // At 768 the same rows on two columns; on a tablet in landscape the index beside the verdict and
+  // THE tile (lib/utils/tabletComposition.ts).
+  const stageRef = useTabletStage();
+  const tablet = useTabletComposition({ sections, order: STORICO_ORDER });
+  const restCollapse = sections.collapse(VERDICT_REST_SECTION);
+  // The strip: the last twelve months (Evoluzione's third chip, its euro lifted) and ONE cell of the
+  // Driver — the featured year's savings as its ledger prints them (2026-10-10; doc/guide/storico.md
+  // § Composizione mobile). With fewer than two snapshots there is nothing to measure: no strip.
+  const strip =
+    growth && growth.snapshotCount >= 2
+      ? selectStoricoStrip({
+          pace,
+          featured: featuredDriverYear,
+          ledger: featuredDriverYear ? buildDriverLedger(featuredDriverYear.row) : [],
+          window: featuredDriverYear?.isRunning ? describeRunningWindowShort(featuredDriverYear.row) : null,
+        })
+      : [];
+  // THE tile hides the chips the first sentence restates (growth, percentage and CAGR) and the euro
+  // of the twelve months the strip prints; its percentage stays (The Lifted-Figure Rule).
+  const evoluzioneLifted: EvoluzioneLiftedBlock[] = [...liftedBlocks(strip, STORICO_EVOLUZIONE_ID).filter(isEvoluzioneLiftedBlock), 'growth', 'cagr'];
+  const stripEyebrows = { ...sections.eyebrows, [VERDICT_REST_SECTION]: STRIP_EYEBROW_REST, [STORICO_EVOLUZIONE_ID]: STRIP_EYEBROW_EVOLUZIONE };
+  const hasRest = splitVerdict(verdict).rest.length > 0;
+  /**
+   * «Ultimi 12 mesi» opens «Il perché», which names the pace — or, with less than a year of
+   * history, THE tile's curve; the Driver's cell its row.
+   */
+  const handleStripOpen = (section: string) => {
+    if (section === VERDICT_REST_SECTION) {
+      if (restCollapse && hasRest) restCollapse.onOpenChange(true);
+      return;
+    }
+    if (section === STORICO_EVOLUZIONE_ID) {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      document.getElementById(STORICO_EVOLUZIONE_ID)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      return;
+    }
+    sections.reveal(section);
   };
 
   // ─── Header ─────────────────────────────────────────────────────────────────
@@ -421,20 +528,37 @@ export default function HistoryPage() {
     <PageContainer>
       {header}
 
-      <div className="pt-1">
-        <PageVerdict verdict={verdict} ariaLabel="Verdetto sullo storico" />
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <RowAnswers value={rowAnswers}>
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
+      <div data-stage="verdict" className={cn('pt-1', VERDICT_CELL_CLASS)}>
+        <PageVerdict
+          verdict={verdict}
+          ariaLabel="Verdetto sullo storico"
+          strip={<VerdictStrip figures={strip} onOpen={handleStripOpen} eyebrows={stripEyebrows} />}
+          restCollapse={restCollapse}
+        />
       </div>
 
-      {/* Tablet (768-1439): Evoluzione full, Raddoppi beside Driver, then Composizione and Valore full — the
-          two 4-column tiles are the only ones narrow enough to share a row there.
-          Desktop: two COLUMNS, not two rows. Raddoppi keeps its natural height and the Driver takes the rest
-          of the right column (its ledger and bars want it); on the left the Evoluzione chart is the element
-          that stretches. Below desktop the two wrappers are `contents`, so the four tiles are direct items of
-          the grid and their `order` still applies. */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className="contents desktop:col-span-8 desktop:flex desktop:min-w-0 desktop:flex-col desktop:gap-3">
-          <div className={cn(TILE_CELL_CLASS, 'order-1 tablet:col-span-2 desktop:order-none desktop:flex-1')}>
+      {/* Below desktop the DOM order is the order (the `order-*` went on 2026-10-14): Evoluzione,
+          then Composizione, Raddoppi, Driver and Valore as rows — at 768 Raddoppi beside the Driver, the two
+          4-column tiles. Desktop: two COLUMNS, not two rows. Raddoppi keeps its natural height and the Driver
+          takes the rest of the right column (its ledger and bars want it); on the left the Evoluzione chart is
+          the element that stretches. Below desktop the two wrappers are `contents`, so the tiles and «Il resto
+          della pagina» are direct items of the grid. */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      {/* At 1440 the left column is placed on the grid, not wrapped (since 2026-10-16, so that «Il resto»
+          and the rows fit ONE index on a tablet in landscape): Evoluzione on row 1, Composizione under it
+          on row 2, the right column across both; the `1fr` first row takes the right column's extra
+          height, so the Evoluzione chart stretches as the old `flex-1` made it. */}
+      <div className={cn(COMPACT_GRID_CLASS, 'desktop:grid-rows-[1fr_auto]')}>
+          <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-8 desktop:row-start-1')}>
             <EvoluzioneTile
+              id={STORICO_EVOLUZIONE_ID}
+              className="scroll-mt-24"
+              liftedFigures={evoluzioneLifted}
               aside={describeEvolutionAside(growth)}
               reading={describeEvolution({ ath, moves })}
               growth={growth}
@@ -445,14 +569,22 @@ export default function HistoryPage() {
               disabled={isDemo}
             />
           </div>
-          <div className={cn(TILE_CELL_CLASS, 'order-3 tablet:order-4 tablet:col-span-2 desktop:order-none')}>
-            <ComposizioneTile assetClassHistory={assetClassHistory} liquidityHistory={netWorthHistory} hasPensionFunds={pensionAssets.length > 0} />
+          <div className={INDEX_CLASS}>
+          <PageRest sections={sections} className={REST_CELL_CLASS} />
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(STORICO_SECTION_IDS.composizione), 'desktop:col-span-8 desktop:col-start-1 desktop:row-start-2')}>
+            <ComposizioneTile
+              assetClassHistory={assetClassHistory}
+              liquidityHistory={netWorthHistory}
+              hasPensionFunds={pensionAssets.length > 0}
+              collapse={sections.collapse(STORICO_SECTION_IDS.composizione)}
+              asideWhenClosed={STORICO_CLOSED_ASIDES.composizione}
+            />
           </div>
-        </div>
 
-        <div className="contents desktop:col-span-4 desktop:flex desktop:min-w-0 desktop:flex-col desktop:gap-3">
-          <div className={cn(TILE_CELL_CLASS, 'order-2 desktop:order-none')}>
+        <div className={cn('contents desktop:col-span-4 desktop:col-start-9 desktop:row-span-2 desktop:row-start-1 desktop:flex desktop:min-w-0 desktop:flex-col desktop:gap-3', INDEX_GROUP_CLASS)}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(STORICO_SECTION_IDS.raddoppi))}>
             <RaddoppiTile
+              collapse={sections.collapse(STORICO_SECTION_IDS.raddoppi)}
               reading={describeDoublings({ summary: doublingSummary, mode: doublingMode, projection })}
               summary={doublingSummary}
               mode={doublingMode}
@@ -462,8 +594,9 @@ export default function HistoryPage() {
               latestValue={growth.latest.value}
             />
           </div>
-          <div className={cn(TILE_CELL_CLASS, 'order-4 tablet:order-3 desktop:order-none desktop:flex-1')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(STORICO_SECTION_IDS.driver), 'desktop:flex-1')}>
             <DriverTile
+              collapse={sections.collapse(STORICO_SECTION_IDS.driver)}
               reading={describeDrivers(featuredDriverYear)}
               years={driverYears}
               featured={featuredDriverYear}
@@ -476,8 +609,10 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'order-5 tablet:col-span-2 desktop:order-none desktop:col-span-12')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(STORICO_SECTION_IDS.valore), 'desktop:col-span-12')}>
           <ValoreStrumentoTile
+            collapse={sections.collapse(STORICO_SECTION_IDS.valore)}
+            asideWhenClosed={STORICO_CLOSED_ASIDES.valore}
             reading={describeMonthBreakdown(breakdown)}
             months={breakdownMonths}
             activeMonthKey={activeMonthKey}
@@ -491,7 +626,12 @@ export default function HistoryPage() {
             trend={selectionTrend}
           />
         </div>
+          </div>
       </div>
+      </div>
+      </div>
+      </div>
+      </RowAnswers>
 
       <StoricoDettaglio
         currentYear={currentYear}

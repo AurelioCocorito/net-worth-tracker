@@ -13,6 +13,7 @@ import { it } from 'date-fns/locale';
 import { cachedFormatCurrencyEUR, formatTimePeriodLabel } from '@/lib/utils/formatters';
 import {
   describeAnalysisBase,
+  describeReportAuthor,
   describeReturnMetrics,
   describeRisk,
   describeYields,
@@ -81,6 +82,9 @@ export function AIAnalysisDialog({
   const [status, setStatus] = useState<ModalStatus>({ phase: 'idle' });
   const [copied, setCopied] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
+  // The model the stream says wrote the report: with the server-side fallback it can differ from
+  // PERFORMANCE_ANALYSIS_MODEL (the route's `{ model }` chunks, 2026-10-12).
+  const [servedModel, setServedModel] = useState<string | null>(null);
   // The request in flight, if any. Closing the dialog aborts it (2026-09-20): until then the
   // stream ran to its end behind a closed modal — 8–14 s of paid generation nobody would read.
   // Only touched in handlers and effects, never during render.
@@ -98,6 +102,7 @@ export function AIAnalysisDialog({
 
     setLoading(true);
     setAnalysis('');
+    setServedModel(null);
     setStatus({ phase: 'submitting' });
 
     // The stream is read in a nested function so the try below wraps ONE await: the React Compiler
@@ -150,6 +155,9 @@ export function AIAnalysisDialog({
               setStatus({ phase: 'error', message: parsed.error });
               setLoading(false);
               return;
+            }
+            if (parsed.model) {
+              setServedModel(parsed.model);
             }
             if (parsed.text) {
               setAnalysis((prev) => prev + parsed.text);
@@ -221,35 +229,40 @@ export function AIAnalysisDialog({
   };
 
   // The reading says where the report comes from and when — and, on failure, why there is none.
+  const author = describeReportAuthor(servedModel, PERFORMANCE_ANALYSIS_MODEL);
   const reading = describeModalStatus(status, {
     idle: [{ text: 'Sto per leggere i numeri del periodo.' }],
     submitting: 'Sto leggendo i numeri del periodo e scrivendo il report.',
     success: generatedAt
-      ? `Report del ${format(generatedAt, 'd MMMM yyyy', { locale: it })} alle ${format(generatedAt, 'HH:mm', { locale: it })}, scritto da ${PERFORMANCE_ANALYSIS_MODEL}. Non è consulenza finanziaria.`
-      : `Report scritto da ${PERFORMANCE_ANALYSIS_MODEL}. Non è consulenza finanziaria.`,
+      ? `Report del ${format(generatedAt, 'd MMMM yyyy', { locale: it })} alle ${format(generatedAt, 'HH:mm', { locale: it })}, scritto da ${author}. Non è consulenza finanziaria.`
+      : `Report scritto da ${author}. Non è consulenza finanziaria.`,
   });
+
+  // «Rigenera» also stands beside a failure with no text (2026-10-12): the refusal and the
+  // overload readings name it, and until then an empty report had no way to retry but closing.
+  const canRegenerate = !loading && (Boolean(analysis) || status.phase === 'error');
 
   const footer = (
     <>
       {analysis && !loading && (
-        <>
-          <Button variant="outline" onClick={handleCopyAnalysis} className="gap-2">
-            {copied ? (
-              <>
-                <Check className="h-4 w-4" aria-hidden="true" />
-                Copiato
-              </>
-            ) : (
-              <>
-                <Copy className="h-4 w-4" aria-hidden="true" />
-                Copia il report
-              </>
-            )}
-          </Button>
-          <Button variant="outline" onClick={fetchAnalysis}>
-            Rigenera
-          </Button>
-        </>
+        <Button variant="outline" onClick={handleCopyAnalysis} className="gap-2">
+          {copied ? (
+            <>
+              <Check className="h-4 w-4" aria-hidden="true" />
+              Copiato
+            </>
+          ) : (
+            <>
+              <Copy className="h-4 w-4" aria-hidden="true" />
+              Copia il report
+            </>
+          )}
+        </Button>
+      )}
+      {canRegenerate && (
+        <Button variant="outline" onClick={fetchAnalysis}>
+          Rigenera
+        </Button>
       )}
       <Button onClick={() => onOpenChange(false)}>Chiudi</Button>
     </>

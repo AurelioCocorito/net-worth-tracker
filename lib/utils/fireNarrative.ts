@@ -23,8 +23,9 @@ import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent } from '@/lib/utils/patrimonioNarrative';
 import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
 import type { FIREProjectionScenarios } from '@/types/assets';
-import type { FanVerdict, FireLock, FireTarget, FireTargetHonest, FireTimeline, PassiveIncome, ScenarioRow } from '@/lib/utils/fireSummary';
+import { FIRE_SECTION_IDS, type FanVerdict, type FireLock, type FireTarget, type FireTargetHonest, type FireTimeline, type PassiveIncome, type ScenarioRow } from '@/lib/utils/fireSummary';
 import type { FireYearDistribution, RetirementSurvival, TailLever } from '@/lib/utils/fireDistribution';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -104,9 +105,51 @@ function targetClause(target: FireTarget): Narrative {
   return [prose(' al numero FIRE di '), amount(target.fireNumber), ...(target.isBridge ? [prose(' (modello ponte)')] : [])];
 }
 
+/**
+ * The lock changes the meaning of every figure of the FIRE page — the net worth, the number, the
+ * year are all net of the fund — so a phone keeps it in sight whatever the cut hides (The
+ * Binding-Clause Rule): this is the verdict's `scope` line below `desktop:` (doc/guide/fire.md
+ * § Composizione mobile), «Modello ponte: fondo pensione escluso fino al 2050». Non-null exactly when
+ * `lockSentence` has something to say, so the sentence in the sequel and the line never disagree;
+ * at 1440 the page does not pass it (the whole paragraph already says it).
+ */
+export function describeFireLockScope(lock: FireLock): string | null {
+  if (!isLockStated(lock)) return null;
+  return `Modello ponte: ${lock.lockedFundCount > 1 ? 'fondi pensione esclusi' : 'fondo pensione escluso'} fino al ${lock.unlockCalendarYear}`;
+}
+
+/** The ONE condition under which the lock is stated — by the four verdicts, the scope line and the Coast tab. */
+export function isLockStated(lock: FireLock): lock is FireLock & { unlockCalendarYear: number } {
+  return lock.active && lock.lockedValue > 0 && lock.unlockCalendarYear !== null;
+}
+
+/**
+ * The label of «Il perché» on a FIRE tab: what the sequel holds — the tab's own clause, the lock
+ * sentence, or both («il ritmo e il fondo pensione»); `null` with nothing behind the cut. Shared by
+ * the four builders so the lock is named the same way on every tab.
+ */
+export function fireRestLabel(content: string | null, lockStated: boolean): string | null {
+  // «orso, toro e il fondo pensione», never «orso e toro e il fondo pensione»: the Italian list.
+  if (content && lockStated) return `${content.replace(' e ', ', ')} e il fondo pensione`;
+  if (content) return content;
+  return lockStated ? 'il fondo pensione' : null;
+}
+
+/**
+ * The builders' cut: the first sentence under the title on a phone, the rest behind «Il perché»
+ * (The Binding-Clause Rule, `splitVerdict`). `leadLength` only when something follows; the lead
+ * is every segment up to and including the first full stop.
+ */
+export function cutAtFirstSentence(sentence: Narrative, restLabel: string | null): Pick<PageVerdictModel, 'leadLength' | 'restLabel'> {
+  if (restLabel === null) return {};
+  const leadLength = sentence.findIndex((segment) => segment.text.endsWith('.')) + 1;
+  if (leadLength <= 0 || leadLength >= sentence.length) return {};
+  return { leadLength, restLabel };
+}
+
 /** « Il fondo pensione, 48.000 €, resta bloccato fino al 2050 e non conta nel patrimonio di oggi.» */
 function lockSentence(lock: FireLock): Narrative {
-  if (!lock.active || lock.lockedValue <= 0 || lock.unlockCalendarYear === null) return [];
+  if (!isLockStated(lock)) return [];
   const plural = lock.lockedFundCount > 1;
   return [
     prose(plural ? ' I fondi pensione, ' : ' Il fondo pensione, '),
@@ -124,17 +167,19 @@ function paceClause(monthlySavings: number, growthRate: number): Narrative {
 }
 
 /**
- * «, e da allora il 4% del patrimonio copre le tue spese: 2.300 € al mese di oggi, 2.667 € del 2032
+ * « Da allora il 4% del patrimonio copre le tue spese: 2.300 € al mese di oggi, 2.667 € del 2032
  * con l'inflazione al 2,5%». Under the bridge model, when the FIRE year comes BEFORE the unlock,
  * it is the free assets that cover the expenses until the fund re-enters — the 4% of a net worth
- * that does not yet include the fund would not — and the clause says so.
+ * that does not yet include the fund would not — and the clause says so. A sentence of its own
+ * since 2026-10-15 («, e da allora» until then), at 1440 too: it is what a phone keeps behind
+ * «Il perché» (the cut needs a full stop, at 1440 too — 2026-09-27).
  */
 function passiveIncomeClause(timeline: FireTimeline, swr: number, bridgeUntil: number | null, honest?: FireTargetHonest): Narrative {
   const { tax, pension } = honestClauses(honest);
   const head: Narrative =
     bridgeUntil !== null
-      ? [prose(', e da allora gli asset liberi coprono le tue spese fino al '), year(bridgeUntil), ...tax, prose(', poi rientra il fondo pensione')]
-      : [prose(', e da allora il '), rate(swr), prose(' del patrimonio copre le tue spese'), ...tax];
+      ? [prose(' Da allora gli asset liberi coprono le tue spese fino al '), year(bridgeUntil), ...tax, prose(', poi rientra il fondo pensione')]
+      : [prose(' Da allora il '), rate(swr), prose(' del patrimonio copre le tue spese'), ...tax];
   const atFire = timeline.monthlyExpensesAtFire;
   const sameMoney = atFire === null || Math.abs(atFire - timeline.monthlyExpensesToday) < 0.5;
   if (sameMoney) return [...head, prose(', '), amount(timeline.monthlyExpensesToday), prose(' al mese'), ...pension];
@@ -167,58 +212,54 @@ export function buildFireVerdict(input: FireVerdictInput): PageVerdictModel {
     };
   }
 
+  // Every branch below cuts at its first full stop on a phone: the lock sentence, when stated,
+  // is always in the sequel («Il perché · il fondo pensione»), the scope line keeps it in sight.
+  const lockStated = isLockStated(input.lock);
+  const lockOnly = fireRestLabel(null, lockStated);
+
   if (target.reached) {
     const monthlyExpenses = input.timeline?.monthlyExpensesToday ?? null;
-    return {
-      headline: 'Sei già FIRE.',
-      tone: 'positive',
-      sentence: [
-        prose('Il patrimonio FIRE di '),
-        amount(target.netWorth),
-        prose(' supera il numero FIRE di '),
-        amount(target.fireNumber),
-        prose(': al '),
-        rate(input.swr),
-        prose(' rende '),
-        amount(input.monthlyAllowance),
-        prose(' al mese'),
-        ...(monthlyExpenses !== null ? [prose(', contro spese di '), amount(monthlyExpenses)] : []),
-        prose('.'),
-        ...lockSentence(input.lock),
-      ],
-    };
+    const sentence: Narrative = [
+      prose('Il patrimonio FIRE di '),
+      amount(target.netWorth),
+      prose(' supera il numero FIRE di '),
+      amount(target.fireNumber),
+      prose(': al '),
+      rate(input.swr),
+      prose(' rende '),
+      amount(input.monthlyAllowance),
+      prose(' al mese'),
+      ...(monthlyExpenses !== null ? [prose(', contro spese di '), amount(monthlyExpenses)] : []),
+      prose('.'),
+      ...lockSentence(input.lock),
+    ];
+    return { headline: 'Sei già FIRE.', tone: 'positive', sentence, ...cutAtFirstSentence(sentence, lockOnly) };
   }
 
   const opening: Narrative = [prose('Ti mancano '), amount(target.gap), ...targetClause(target), prose('; ')];
   const { timeline } = input;
 
   if (!timeline) {
-    return {
-      headline: 'Proiezione non disponibile.',
-      tone: 'neutral',
-      sentence: [...opening, prose('senza il cashflow di un anno non posso stimare quando ci arrivi.'), ...lockSentence(input.lock)],
-    };
+    const sentence: Narrative = [...opening, prose('senza il cashflow di un anno non posso stimare quando ci arrivi.'), ...lockSentence(input.lock)];
+    return { headline: 'Proiezione non disponibile.', tone: 'neutral', sentence, ...cutAtFirstSentence(sentence, lockOnly) };
   }
 
   if (timeline.yearsToFire === null || timeline.calendarYear === null) {
     const pace: Narrative =
       input.monthlySavings > 0 ? [prose('al ritmo di '), amount(input.monthlySavings), prose(' al mese, ')] : [prose('senza nuovi risparmi, ')];
-    return {
-      headline: `FIRE oltre i ${timeline.horizonYears} anni.`,
-      tone: 'warning',
-      sentence: [
-        ...opening,
-        ...pace,
-        prose('con crescita del '),
-        rate(timeline.growthRate),
-        prose(' e inflazione al '),
-        rate(timeline.inflationRate),
-        prose(', il traguardo non arriva entro il '),
-        year(timeline.horizonCalendarYear),
-        prose('.'),
-        ...lockSentence(input.lock),
-      ],
-    };
+    const sentence: Narrative = [
+      ...opening,
+      ...pace,
+      prose('con crescita del '),
+      rate(timeline.growthRate),
+      prose(' e inflazione al '),
+      rate(timeline.inflationRate),
+      prose(', il traguardo non arriva entro il '),
+      year(timeline.horizonCalendarYear),
+      prose('.'),
+      ...lockSentence(input.lock),
+    ];
+    return { headline: `FIRE oltre i ${timeline.horizonYears} anni.`, tone: 'warning', sentence, ...cutAtFirstSentence(sentence, lockOnly) };
   }
 
   const ageClause: Narrative = timeline.ageAtFire !== null ? [prose(', a '), figure(`${timeline.ageAtFire} anni`)] : [];
@@ -226,18 +267,94 @@ export function buildFireVerdict(input: FireVerdictInput): PageVerdictModel {
     target.isBridge && input.lock.unlockCalendarYear !== null && timeline.calendarYear < input.lock.unlockCalendarYear
       ? input.lock.unlockCalendarYear
       : null;
+  // The year closes the first sentence; «Da allora…» — what the plan lives on — is the sequel.
+  const sentence: Narrative = [
+    ...opening,
+    ...paceClause(input.monthlySavings, timeline.growthRate),
+    year(timeline.calendarYear),
+    ...ageClause,
+    prose('.'),
+    ...passiveIncomeClause(timeline, input.swr, bridgeUntil, input.honest),
+    prose('.'),
+    ...lockSentence(input.lock),
+  ];
   return {
     headline: `FIRE nel ${timeline.calendarYear}${timeline.ageAtFire !== null ? `, a ${timeline.ageAtFire} anni` : ''}.`,
     tone: 'neutral',
-    sentence: [
-      ...opening,
-      ...paceClause(input.monthlySavings, timeline.growthRate),
-      year(timeline.calendarYear),
-      ...ageClause,
-      ...passiveIncomeClause(timeline, input.swr, bridgeUntil, input.honest),
-      prose('.'),
-      ...lockSentence(input.lock),
-    ],
+    sentence,
+    ...cutAtFirstSentence(sentence, fireRestLabel('le spese da allora', lockStated)),
+  };
+}
+
+// ─── The rows below `desktop:` ─────────────────────────────────────────────────
+
+/** What each closed row of the Calcolatore says beside its eyebrow — words, never a figure (The Closed-Row Rule). */
+export const FIRE_CLOSED_ASIDES = {
+  [FIRE_SECTION_IDS.base]: 'spese, risparmio e SWR',
+  [FIRE_SECTION_IDS.reddito]: 'al tasso di prelievo',
+  [FIRE_SECTION_IDS.scenari]: 'orso, base e toro',
+} as const;
+
+/** What a closed row says while the tab has nothing to compute from («Nulla registrato»). */
+export const FIRE_ROW_NOT_COMPUTABLE = 'non ancora calcolabile';
+
+/** The «prelievo attuale 48,8%» answer fits the index's 22 characters; past it the label shortens. */
+const CLOSED_ANSWER_MAX_CHARS = 22;
+
+export interface FireClosedAnswersInput {
+  base: Pick<FireBase, 'referenceYear' | 'isAnnualized'>;
+  passiveIncome: PassiveIncome;
+  /** Empty without a projection: the Scenari row then keeps its aside. */
+  scenarioRows: ScenarioRow[];
+  horizonYears: number;
+}
+
+/**
+ * «cashflow 2025» / «2026 annualizzato» — the window the expenses and the savings come from. Every
+ * figure of its own the tile prints is already above it (the net worth and the SWR in the
+ * Traguardo, the savings in the verdict), and the annualised window is the weightiest caveat the
+ * landscape would otherwise not show. The comma of the open aside is dropped: the index sets each
+ * segment apart, and a comma after the mono year would float.
+ */
+function fireBaseAnswer(base: FireClosedAnswersInput['base']): Narrative | null {
+  if (base.referenceYear === null) return null;
+  return base.isAnnualized ? [year(base.referenceYear), prose('annualizzato')] : [prose('cashflow'), year(base.referenceYear)];
+}
+
+/**
+ * «prelievo attuale 48,8%» — expenses ÷ net worth as the tile's «Prelievo attuale» row prints it, in
+ * the loss colour when it passes the SWR (the tile's `text-destructive`). The monthly allowance is
+ * the strip's «Rendita oggi», and the annual one only its ×12. Null when the tile prints «—».
+ */
+function fireRedditoAnswer(income: PassiveIncome): Narrative | null {
+  if (income.currentWR <= 0) return null;
+  const text = formatPercentage(income.currentWR, 1);
+  const value: NarrativeSegment = income.overSwr ? { text, mono: true, sign: 'negative' } : figure(text);
+  const label = `prelievo attuale ${text}`.length > CLOSED_ANSWER_MAX_CHARS ? 'prelievo' : 'prelievo attuale';
+  return [prose(label), value];
+}
+
+/**
+ * «Orso nel 2066» — the cautious scenario, which nothing on the first screen prints (the base year is
+ * the verdict's). «oltre 50 anni» past the horizon, «già raggiunto» on year 0, as the tile's cells.
+ */
+function fireScenariAnswer(rows: ScenarioRow[], horizonYears: number): Narrative | null {
+  const bear = rows.find((row) => row.key === 'bear');
+  if (!bear) return null;
+  if (bear.yearsToFire === 0) return [prose('Orso già raggiunto')];
+  if (bear.calendarYear === null) return [prose('Orso oltre'), figure(`${horizonYears} anni`)];
+  return [prose('Orso nel'), year(bear.calendarYear)];
+}
+
+/**
+ * What the Calcolatore's closed rows answer in the landscape index (components/ui/row-answers.tsx;
+ * 2026-10-16), only on the computed tab: with nothing recorded every row says «non ancora calcolabile».
+ */
+export function describeFireClosedAnswers({ base, passiveIncome, scenarioRows, horizonYears }: FireClosedAnswersInput): RowAnswerMap {
+  return {
+    [FIRE_SECTION_IDS.base]: fireBaseAnswer(base),
+    [FIRE_SECTION_IDS.reddito]: fireRedditoAnswer(passiveIncome),
+    [FIRE_SECTION_IDS.scenari]: fireScenariAnswer(scenarioRows, horizonYears),
   };
 }
 

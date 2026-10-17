@@ -6,9 +6,15 @@
  * picker, and under it a 12-column bento of tiles, each answering ONE question with a reading
  * line over its figures. The inventory (TransactionFeed / ExpenseTable) is the last tile.
  *
- *   Mobile (1 col):   Verdict → [periodo] → Cashflow del periodo → Spese per categoria →
- *                     Entrate per categoria → Risparmio nel tempo → Movimenti, whose own bar
- *                     repeats the period next to [Filtri · ordina]
+ *   Below desktop:    ONE sequence, the desktop DOM (DESIGN.md → The First-Screen Rule;
+ *                     composed since 2026-10-12): title → [periodo · Aggiungi] in the
+ *                     verdict's axis slot → the first sentence (or the title alone) → the strip of
+ *                     three — Entrate, Spese, Risparmio, the trio of THE tile lifted whole — → the
+ *                     calendar's scope line → «Il perché» → Cashflow del periodo, open, its trio's
+ *                     values hidden and its chart at 120px → «Il resto della pagina» → Spese,
+ *                     Entrate, Risparmio nel tempo, Movimenti as closed rows (`useMobileSections`,
+ *                     doc/guide/cashflow-tracciamento.md § Composizione mobile). The «+» saves and
+ *                     opens Movimenti on the row it wrote, the focus on it.
  *   Desktop (12 col): Cashflow del periodo (5, 2 rows) | Spese (4) | Entrate (3)
  *                                                      | Risparmio nel tempo (7)
  *                     Movimenti (12)
@@ -30,7 +36,7 @@
  */
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
@@ -63,7 +69,7 @@ import {
 import { X, Search, Download, Plus, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
-import { ExpenseDialog } from '@/components/expenses/ExpenseDialog';
+import { ExpenseDialog, type SavedExpense } from '@/components/expenses/ExpenseDialog';
 import { ExpenseTable } from '@/components/expenses/ExpenseTable';
 import { SeriesDeleteDialog, resolveSeriesDeleteMode, type SeriesDeleteRequest } from '@/components/expenses/SeriesDeleteDialog';
 import { LinkSeriesDialog, type LinkSeriesRequest } from '@/components/expenses/LinkSeriesDialog';
@@ -71,13 +77,30 @@ import { useAssets } from '@/lib/hooks/useAssets';
 import { TransactionFeed } from '@/components/cashflow/TransactionFeed';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { MobileFiltersDrawer } from '@/components/cashflow/MobileFiltersDrawer';
-import { PageVerdict } from '@/components/ui/page-verdict';
-import { TILE_CELL_CLASS, TILE_FOOTER_ACTION_CLASS } from '@/components/ui/tile';
-import { TileGridSkeleton, VerdictSkeleton } from '@/components/ui/tile-grid-skeleton';
+import { PageVerdict, type PendingVerdict } from '@/components/ui/page-verdict';
+import { TILE_CELL_CLASS, TILE_FOOTER_ACTION_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
+import { VerdictStrip } from '@/components/ui/verdict-strip';
+import { PageRest } from '@/components/ui/page-rest';
+import { NarrativeText } from '@/components/ui/narrative-text';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  LEAD_CELL_CLASS,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
+import { liftedBlocks } from '@/lib/utils/verdictStrip';
+import { narrativeToText } from '@/lib/utils/narrative';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
 import { CategoryTile } from '@/components/dashboard/overview/CategoryTile';
-import { CashflowPeriodoTile, type SpendingProjection } from '@/components/cashflow/tiles/CashflowPeriodoTile';
+import { CashflowPeriodoTile, isCashflowPeriodoLiftedBlock, type SpendingProjection } from '@/components/cashflow/tiles/CashflowPeriodoTile';
 import { RisparmioTile } from '@/components/cashflow/tiles/RisparmioTile';
 import { MovimentiTile } from '@/components/cashflow/tiles/MovimentiTile';
 
@@ -90,6 +113,8 @@ import { getExpenseDate } from '@/lib/utils/expenseHelpers';
 import { cn } from '@/lib/utils';
 import { projectMonthEndSpending } from '@/lib/utils/overviewNarrative';
 import {
+  TRACKING_REST_ID,
+  TRACKING_SECTION_IDS,
   buildTrailingMonthFlows,
   computePeriodDelta,
   currentComparisonWindow,
@@ -100,6 +125,9 @@ import {
   resolveAnchorMonth,
   resolveFlowWindow,
   resolvePeriodCalendar,
+  FEED_PAGE_SIZE,
+  growFeedWindow,
+  selectTracciamentoStrip,
   splitSpendingAtDate,
   summarizeMovements,
   summarizePeriodCashflow,
@@ -107,6 +135,7 @@ import {
   summarizeSavingsHistory,
 } from '@/lib/utils/tracciamentoSummary';
 import {
+  TRACKING_CLOSED_ASIDES,
   buildCashflowVerdict,
   describeCategoryShare,
   describeComparisonPhrase,
@@ -119,10 +148,25 @@ import {
   describePreviousPeriodLabel,
   describeProjectionReference,
   describeSavingsHistory,
+  describeTrackingClosedAnswers,
+  describeTrackingScope,
 } from '@/lib/utils/cashflowNarrative';
+import { RowAnswers } from '@/components/ui/row-answers';
 
-/** Rows the feed reveals per «Carica altri». */
-const FEED_PAGE_SIZE = 20;
+/**
+ * The rows of the phone composition, in the DOM's order (The Closed-Row Rule): every tile but
+ * Cashflow del periodo, THE tile that never closes (The First-Screen Rule). Module-level, as the controller
+ * asks (a literal array would rebuild every handler on every render). No row ever carries
+ * `failed`: the tab reads two keys, and a failed read is the whole tab's `ErrorNotice`.
+ */
+const TRACKING_SECTIONS: readonly SectionSpec[] = [
+  { id: TRACKING_SECTION_IDS.spese, eyebrow: 'Spese per categoria' },
+  { id: TRACKING_SECTION_IDS.entrate, eyebrow: 'Entrate per categoria' },
+  { id: TRACKING_SECTION_IDS.risparmio, eyebrow: 'Risparmio nel tempo' },
+  { id: TRACKING_SECTION_IDS.movimenti, eyebrow: 'Movimenti' },
+];
+/** The four rows are always on the composed tab: their DOM order is the tablet's (since 2026-10-16). */
+const TRACKING_ORDER = TRACKING_SECTIONS.map((section) => section.id);
 /** Months of the income-vs-spending chart behind a month or a custom range. */
 const FLOW_MONTHS = 6;
 /** Months of the savings-rate history. */
@@ -169,6 +213,12 @@ interface ExpenseTrackingTabProps {
    * the filter where the reader left it.
    */
   initialOwnerId?: string | null;
+  /**
+   * The tab is the one on screen. Every Cashflow tab stays mounted (`forceMount`), and a
+   * `role="alert"` under `display: none` is never heard: `PageRest` remounts on activation
+   * (`key`), so the failed-reads announcement — were there one — speaks for the tab that shows.
+   */
+  active: boolean;
 }
 
 interface ListFilters {
@@ -276,6 +326,7 @@ export function ExpenseTrackingTab({
   splitEnabled,
   familyMembers,
   initialOwnerId = null,
+  active,
 }: ExpenseTrackingTabProps) {
   const { user } = useAuth();
   const { ownerId } = useActiveAccount();
@@ -284,15 +335,34 @@ export function ExpenseTrackingTab({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
-  // Opens the add-expense dialog when the bottom-nav "+" button fires the custom event.
+  // The rows of the phone composition and the verdict's «Il perché» (The Closed-Row Rule, since
+  // 2026-10-12): at 1440 every `collapse()` is `undefined` and the tab is the tab of every width.
+  // The memory is per tab (`mobile-sections:cashflow:tracking`), the rest id prefixed — five
+  // verdicts share one DOM.
+  const sections = useMobileSections({ route: 'cashflow', tab: 'tracking', sections: TRACKING_SECTIONS, restId: TRACKING_REST_ID });
+  // At 768 the same rows on two columns, in landscape in the index (2026-10-16, lib/utils/tabletComposition.ts).
+  const stageRef = useTabletStage();
+  const tablet = useTabletComposition({ sections, order: TRACKING_ORDER });
+
+  // The row the «+» just saved, on a phone: Movimenti opens on it and the focus lands on its
+  // button (`TransactionFeed.focusRowId`, the modal's `returnFocusTo`). Forgotten by the next
+  // gesture — a period, a filter, «Carica altri», another save — never by an effect (2026-10-12).
+  const [savedRowId, setSavedRowId] = useState<string | null>(null);
+  const savedRowRef = useRef<HTMLButtonElement | null>(null);
+  const forgetSavedRow = () => setSavedRowId(null);
+
+  // Opens the add-expense dialog when the bottom-nav "+" button fires the custom event — never
+  // in demo (2026-10-12): the FAB is not drawn there (`isAddExpenseFabShown`), and a stray event
+  // must not open a form that writes to the shared account (`useDemoMode` gates every mutation).
   useEffect(() => {
     const handler = () => {
+      if (isDemo) return;
       setEditingExpense(null);
       setDialogOpen(true);
     };
     window.addEventListener('cashflow:add-expense', handler);
     return () => window.removeEventListener('cashflow:add-expense', handler);
-  }, []);
+  }, [isDemo]);
   // The one question a series adds to a delete from the feed: «solo questa o tutte?»
   const [seriesRequest, setSeriesRequest] = useState<SeriesDeleteRequest | null>(null);
   // «Collega la serie…» from a series row's detail (LinkSeriesDialog).
@@ -353,6 +423,7 @@ export function ExpenseTrackingTab({
   // Receives individual category IDs from MultiSelect; promotes to type-level when
   // ALL categories of a type are selected (covers deleted-category edge case).
   const handleSelectCategories = (values: string[]) => {
+    forgetSavedRow();
     const ORDER: ExpenseType[] = ['income', 'fixed', 'variable', 'debt'];
     const newTypes: ExpenseType[] = [];
     const newCatIds: string[] = [];
@@ -372,6 +443,7 @@ export function ExpenseTrackingTab({
 
   // Resets what the toolbar owns — never the period, which is the page's axis (the picker's).
   const handleResetFilters = () => {
+    forgetSavedRow();
     setSelectedTypes([]);
     setSelectedCatIds([]);
     setSelectedSubCategoryId('all');
@@ -379,6 +451,32 @@ export function ExpenseTrackingTab({
     setSelectedAccountId('all');
     setSelectedOwnerId(OWNER_FILTER_ALL);
     setMobileSortKey('date-desc');
+  };
+
+  // Every gesture that moves the list forgets the saved row: the same setters, one line each.
+  const handlePeriodChange = (next: Period) => {
+    forgetSavedRow();
+    onPeriodChange(next);
+  };
+  const handleSearchChange = (query: string) => {
+    forgetSavedRow();
+    setSearchQuery(query);
+  };
+  const handleSubCategoryChange = (id: string) => {
+    forgetSavedRow();
+    setSelectedSubCategoryId(id);
+  };
+  const handleAccountChange = (id: string) => {
+    forgetSavedRow();
+    setSelectedAccountId(id);
+  };
+  const handleOwnerChange = (id: string) => {
+    forgetSavedRow();
+    setSelectedOwnerId(id);
+  };
+  const handleSortChange = (key: typeof mobileSortKey) => {
+    forgetSavedRow();
+    setMobileSortKey(key);
   };
 
   // One clock per mount, like the Panoramica: the verdict's tense, the projection's day, the
@@ -454,7 +552,23 @@ export function ExpenseTrackingTab({
     setEditingExpense(null);
   };
 
-  const handleSuccess = async () => {
+  /**
+   * A save on a phone opens Movimenti on the row it wrote (since 2026-10-12): only when the row is in
+   * the period and passes the list's filters — read off the ROW, since the list in this closure
+   * precedes the refetch — otherwise nothing opens, period and filters stay, the toast says it
+   * saved. `reveal` opens the row, scrolls to it and focuses its trigger; the feed then moves the
+   * focus to the row's button when it lands (or the modal does, closing on `returnFocusTo`).
+   */
+  const handleSuccess = async (saved: SavedExpense | null) => {
+    forgetSavedRow();
+    if (saved && sections.compact) {
+      const inPeriod = filterExpensesByPeriod([saved.row], period).length === 1;
+      const passesFilters = applyListFilters([saved.row], listFilters).length === 1;
+      if (inPeriod && passesFilters) {
+        setSavedRowId(saved.id);
+        sections.reveal(TRACKING_SECTION_IDS.movimenti);
+      }
+    }
     // Trigger parent refresh (re-fetch all data)
     await onRefresh();
   };
@@ -643,9 +757,9 @@ export function ExpenseTrackingTab({
     return count;
   }, [searchQuery, selectedTypes, selectedCatIds, selectedSubCategoryId, effectiveAccountId, effectiveOwnerId]);
 
-  // Left to the React Compiler: a manual useMemo here could not be preserved (its inputs are
-  // themselves derived) and the skip would have un-memoized the whole component.
-  const filteredExpenses = applyListFilters(expenses, {
+  // The list's filters, as one object: the Movimenti list reads them, and so does a save on a
+  // phone, to know whether the row it wrote would be listed.
+  const listFilters: ListFilters = {
     selectedTypes,
     selectedCatIds,
     subCategoryId: soloSelectedCategory ? selectedSubCategoryId : 'all',
@@ -653,13 +767,22 @@ export function ExpenseTrackingTab({
     accountId: effectiveAccountId,
     ownerId: effectiveOwnerId,
     knownMemberIds,
-  });
+  };
+
+  // Left to the React Compiler: a manual useMemo here could not be preserved (its inputs are
+  // themselves derived) and the skip would have un-memoized the whole component.
+  const filteredExpenses = applyListFilters(expenses, listFilters);
 
   // The feed shows the first page again whenever the filters change (the stored window
   // belongs to the filters it was opened under).
   const filterKey = JSON.stringify([period, selectedTypes, selectedCatIds, selectedSubCategoryId, searchQuery, effectiveAccountId, effectiveOwnerId]);
   const mobileShowCount = feedWindow?.filterKey === filterKey ? feedWindow.count : FEED_PAGE_SIZE;
-  const showMore = () => setFeedWindow({ filterKey, count: mobileShowCount + FEED_PAGE_SIZE });
+  // `shown` is what the feed draws, which may exceed the stored window after a save from the «+»
+  // (the feed widens to the saved row): the next page starts from there, or rows went away.
+  const showMore = (shown: number) => {
+    forgetSavedRow();
+    setFeedWindow({ filterKey, count: growFeedWindow({ stored: mobileShowCount, shown }) });
+  };
 
   // categoryId → { icon, color } lookup for mobile row icon badges.
   const categoryMetaMap = useMemo(
@@ -748,70 +871,98 @@ export function ExpenseTrackingTab({
 
   const expenseRanking = useMemo(() => rankCategories(expenses, 'expenses'), [expenses]);
   const incomeRanking = useMemo(() => rankCategories(expenses, 'income'), [expenses]);
+  // What the closed rows answer in the landscape index, from the figures the tiles already hold.
+  const rowAnswers = useMemo(
+    () => describeTrackingClosedAnswers({ expenseRanking, incomeRanking, savingsHistory }),
+    [expenseRanking, incomeRanking, savingsHistory],
+  );
 
   // The inventory describes what is LISTED: with a filter on, the reading counts the filtered
   // rows. `now` splits them into happened and scheduled — the clause the tiles above need.
   const movementsSummary = useMemo(() => summarizeMovements(filteredExpenses, now), [filteredExpenses, now]);
 
+  // ─── The phone composition (2026-10-12) ───────────────────────────────────────────
+  // The strip is the trio of THE tile, lifted whole (doc/guide/cashflow-tracciamento.md § Composizione
+  // mobile): the PERIOD's totals, so the scope line under it says how much of them is still in the
+  // calendar (The Binding-Clause Rule, at every width). The cells open the two category rows and the
+  // savings history.
+  const strip = selectTracciamentoStrip({ totals });
+  const scope = describeTrackingScope(period, now, scheduled);
+  const liftedFigures = liftedBlocks(strip, TRACKING_SECTION_IDS.periodo).filter(isCashflowPeriodoLiftedBlock);
+
   // A wait is a skeleton, a failed read a notice — and in both the pickers stay: the read that is
   // waited for, or that failed, is the read of ONE period, and the way out of it is another period.
+  // The picker under the title is the verdict's `axis` slot in every state (`PageVerdict.pending`,
+  // DESIGN.md → Page Verdict): the same element, so the one that asked for the new period keeps its focus.
   const surface = resolveSurfaceState({ loading: loading, failed: loadFailed });
-  const verdictSlot =
-    surface === 'failed' ? (
-      <ErrorNotice
-        className="max-w-[920px] min-w-0 flex-1"
-        notice={describeReadFailure({
-          consequence: 'I movimenti non sono stati letti: il mese non è misurabile, e uno zero qui sarebbe falso.',
-          untouched: 'I movimenti registrati non sono stati toccati.',
-        })}
-      />
-    ) : surface === 'loading' ? (
-      <VerdictSkeleton className="flex-1" />
-    ) : (
-      <PageVerdict verdict={verdict} ariaLabel="Verdetto del periodo" />
-    );
+  const pending: PendingVerdict | undefined =
+    surface === 'failed'
+      ? {
+          kind: 'failed',
+          notice: (
+            <ErrorNotice
+              notice={describeReadFailure({
+                consequence: 'I movimenti non sono stati letti: il mese non è misurabile, e uno zero qui sarebbe falso.',
+                untouched: 'I movimenti registrati non sono stati toccati.',
+              })}
+            />
+          ),
+        }
+      : surface === 'loading'
+        ? { kind: 'loading' }
+        : undefined;
+
+  // The axis below `desktop:`: the period (the page's axis) and the landscape add button (the
+  // portrait FAB in the bottom nav is the only «add» there), 44px tall — the one add affordance of
+  // a tablet in landscape, a touch target (2026-10-16).
+  const axis = (
+    <div className="flex flex-wrap items-center gap-2">
+      <PeriodPicker value={period} onChange={handlePeriodChange} availableYears={availableYears} className="shrink-0 max-w-[190px]" />
+      <Button
+        size="sm"
+        onClick={handleAddExpense}
+        disabled={isDemo}
+        aria-label={isDemo ? 'Aggiungi — non disponibile in modalità demo' : 'Aggiungi voce'}
+        title={isDemo ? 'Non disponibile in modalità demo' : undefined}
+        className="max-desktop:portrait:hidden h-11 shrink-0"
+      >
+        <Plus className="mr-1.5 h-4 w-4" />
+        Aggiungi
+      </Button>
+    </div>
+  );
 
   const periodRows = (
-    <>
-      {/* ── Verdict, with the one period axis beside it on desktop. While a window is being read
-          (or when its read failed) the pickers stay where they are — the same elements, so the
-          one that asked for the new period keeps its focus — and only the verdict and the tiles
-          give way ──────────────── */}
-      <div className="flex items-start justify-between gap-6 pt-1">
-        {verdictSlot}
-        <div className="desktop:block hidden">
-          <PeriodPicker value={period} onChange={onPeriodChange} availableYears={availableYears} className="shrink-0" />
-        </div>
+    // ── Verdict, with the one period axis beside it on desktop (a second instance of the same
+    // control, `hidden desktop:block`, DESIGN.md → Page Verdict) ─────────────────────────────────
+    <div data-stage="verdict" className={cn('flex items-start justify-between gap-6 pt-1', VERDICT_CELL_CLASS)}>
+      <div className="min-w-0 flex-1">
+        <PageVerdict
+          verdict={verdict}
+          ariaLabel="Verdetto del periodo"
+          axis={axis}
+          pending={pending}
+          strip={pending ? undefined : <VerdictStrip figures={strip} onOpen={sections.reveal} eyebrows={sections.eyebrows} />}
+          scope={pending || !scope ? undefined : <NarrativeText segments={scope} className="text-[13px] leading-[1.45] text-muted-foreground" figureClassName="font-medium" />}
+          restCollapse={sections.collapse(TRACKING_REST_ID)}
+        />
       </div>
-
-      {/* ── Below desktop: the period (the page's axis) under the verdict, plus the landscape
-          add button (the portrait FAB in the bottom nav is the only «add» there) ────── */}
-      <div className="desktop:hidden flex flex-wrap items-center justify-center gap-2">
-        <PeriodPicker value={period} onChange={onPeriodChange} availableYears={availableYears} className="shrink-0 max-w-[190px]" />
-        <Button
-          size="sm"
-          onClick={handleAddExpense}
-          disabled={isDemo}
-          aria-label={isDemo ? 'Aggiungi — non disponibile in modalità demo' : 'Aggiungi voce'}
-          title={isDemo ? 'Non disponibile in modalità demo' : undefined}
-          className="max-desktop:portrait:hidden h-9 shrink-0"
-        >
-          <Plus className="mr-1.5 h-4 w-4" />
-          Aggiungi
-        </Button>
+      <div className="desktop:block hidden">
+        <PeriodPicker value={period} onChange={handlePeriodChange} availableYears={availableYears} className="shrink-0" />
       </div>
-    </>
+    </div>
   );
 
   // The dialogs sit in the same place of both returns below, so an open one survives a reread.
   const dialogs = (
     <>
-      {/* Expense Dialog */}
+      {/* Expense Dialog: on a phone the focus goes back to the row it saved, not to the FAB. */}
       <ExpenseDialog
         open={dialogOpen}
         onClose={handleDialogClose}
         expense={editingExpense}
         onSuccess={handleSuccess}
+        returnFocusTo={savedRowRef}
       />
 
       {/* «Solo questa o tutte?» — for a row of an instalment plan or a recurring series deleted from the feed */}
@@ -878,6 +1029,8 @@ export function ExpenseTrackingTab({
       categoryMetaMap={categoryMetaMap}
       memberNames={memberNames}
       emptyHint="Nessun movimento registrato nel periodo: aggiungi la prima voce per iniziare a tracciare."
+      focusRowId={savedRowId}
+      focusRowRef={savedRowRef}
       surface="flat"
     />
   );
@@ -899,29 +1052,29 @@ export function ExpenseTrackingTab({
   const mobileToolbar = (
     <MobileFiltersDrawer
       period={period}
-      onPeriodChange={onPeriodChange}
+      onPeriodChange={handlePeriodChange}
       availableYears={availableYears}
       searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
+      onSearchChange={handleSearchChange}
       categoryMultiSelectOptions={categoryMultiSelectOptions}
       multiSelectValue={multiSelectValue}
       onCategoryChange={handleSelectCategories}
       soloSelectedCategory={soloSelectedCategory}
       subCategoryOptions={subCategoryOptions}
       selectedSubCategoryId={selectedSubCategoryId}
-      onSubCategoryChange={setSelectedSubCategoryId}
+      onSubCategoryChange={handleSubCategoryChange}
       accountOptions={accountOptions}
       selectedAccountId={effectiveAccountId}
-      onAccountChange={setSelectedAccountId}
+      onAccountChange={handleAccountChange}
       ownerOptions={ownerOptions}
       selectedOwnerId={effectiveOwnerId}
-      onOwnerChange={setSelectedOwnerId}
+      onOwnerChange={handleOwnerChange}
       activeFilterCount={mobileActiveFilterCount}
       shownCount={filteredExpenses.length}
       totalCount={expenses.length}
       onReset={handleResetFilters}
       mobileSortKey={mobileSortKey}
-      onSortChange={(v) => setMobileSortKey(v as typeof mobileSortKey)}
+      onSortChange={(v) => handleSortChange(v as typeof mobileSortKey)}
       sortOptions={[
         { value: 'date-desc', label: 'Più recente', shortLabel: 'Recente' },
         { value: 'date-asc', label: 'Meno recente', shortLabel: 'Meno rec.' },
@@ -941,14 +1094,14 @@ export function ExpenseTrackingTab({
         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
         <Input
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Cerca note, categorie, importo..."
           className="h-9 pr-8 pl-8 text-sm"
           aria-label="Cerca nelle note, categoria, sottocategoria o importo"
         />
         {searchQuery && (
           <button
-            onClick={() => setSearchQuery('')}
+            onClick={() => handleSearchChange('')}
             className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2.5 -translate-y-1/2 transition-colors"
             aria-label="Cancella ricerca"
           >
@@ -977,7 +1130,7 @@ export function ExpenseTrackingTab({
       {/* Sottocategoria — only when a single category is selected */}
       {soloSelectedCategory && subCategoryOptions.length > 0 && (
         <div className="w-[160px] shrink-0">
-          <Select value={selectedSubCategoryId} onValueChange={setSelectedSubCategoryId}>
+          <Select value={selectedSubCategoryId} onValueChange={handleSubCategoryChange}>
             <SelectTrigger id="filter-subcategory" aria-label="Filtra per sottocategoria" className="w-full">
               <SelectValue placeholder="Tutte" />
             </SelectTrigger>
@@ -996,7 +1149,7 @@ export function ExpenseTrackingTab({
       {/* Conto corrente — only shown when 2+ accounts appear in the period */}
       {accountOptions.length >= 2 && (
         <div className="w-[160px] shrink-0">
-          <Select value={effectiveAccountId} onValueChange={setSelectedAccountId}>
+          <Select value={effectiveAccountId} onValueChange={handleAccountChange}>
             <SelectTrigger id="filter-account" aria-label="Filtra per conto corrente" className="w-full">
               <SelectValue placeholder="Tutti i conti" />
             </SelectTrigger>
@@ -1015,7 +1168,7 @@ export function ExpenseTrackingTab({
       {/* Intestatario — only with Divisione on (the options are empty otherwise) */}
       {ownerOptions.length > 0 && (
         <div className="w-[160px] shrink-0">
-          <Select value={effectiveOwnerId} onValueChange={setSelectedOwnerId}>
+          <Select value={effectiveOwnerId} onValueChange={handleOwnerChange}>
             <SelectTrigger id="filter-owner" aria-label="Filtra per intestatario" className="w-full">
               <SelectValue placeholder="Tutti" />
             </SelectTrigger>
@@ -1033,7 +1186,7 @@ export function ExpenseTrackingTab({
       {/* Ordina — feed only; the table sorts via its own column headers. */}
       {desktopListView === 'feed' && (
         <div className="w-[150px] shrink-0">
-          <Select value={mobileSortKey} onValueChange={(v) => setMobileSortKey(v as typeof mobileSortKey)}>
+          <Select value={mobileSortKey} onValueChange={(v) => handleSortChange(v as typeof mobileSortKey)}>
             <SelectTrigger aria-label="Ordina movimenti" className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -1090,12 +1243,19 @@ export function ExpenseTrackingTab({
 
   return (
     <div className="space-y-4">
+      {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
+          (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
+      <div className={STAGE_WRAPPER_CLASS}>
+      <div ref={stageRef} className={STAGE_CLASS}>
       {periodRows}
 
-      {/* ── Tile grid ───────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-5 desktop:row-span-2')}>
+      {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width
+          (The First-Screen Rule) — THE tile, «Il resto della pagina», then the rows (inside the index) ── */}
+      <div className={COMPACT_GRID_WRAPPER_CLASS}>
+      <div className={COMPACT_GRID_CLASS}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
           <CashflowPeriodoTile
+            id={TRACKING_SECTION_IDS.periodo}
             eyebrow={`Cashflow · ${periodLabel(period)}`}
             aside={
               calendar ? (
@@ -1112,10 +1272,15 @@ export function ExpenseTrackingTab({
             highlightKey={highlightKey}
             windowLabel={describeFlowWindow(flows, period.kind === 'year' || period.kind === 'ytd', now)}
             projection={projection}
+            liftedFigures={liftedFigures}
           />
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'desktop:col-span-4')}>
+        <RowAnswers value={rowAnswers}>
+        <div className={INDEX_CLASS}>
+        <PageRest key={active ? 'attiva' : 'inattiva'} sections={sections} className={REST_CELL_CLASS} />
+
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(TRACKING_SECTION_IDS.spese), 'desktop:col-span-4')}>
           <CategoryTile
             eyebrow="Spese per categoria"
             total={expenseRanking.total}
@@ -1124,10 +1289,12 @@ export function ExpenseTrackingTab({
             color="var(--chart-1)"
             emptyCopy="Nessuna spesa registrata nel periodo."
             footer={analisiLink}
+            collapse={sections.collapse(TRACKING_SECTION_IDS.spese)}
+            asideWhenClosed={TRACKING_CLOSED_ASIDES.spese}
           />
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'desktop:col-span-3')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(TRACKING_SECTION_IDS.entrate), 'desktop:col-span-3')}>
           <CategoryTile
             eyebrow="Entrate per categoria"
             total={incomeRanking.total}
@@ -1137,25 +1304,31 @@ export function ExpenseTrackingTab({
             emptyCopy="Nessuna entrata registrata nel periodo."
             labelClassName="min-w-[72px]"
             footer={analisiLink}
+            collapse={sections.collapse(TRACKING_SECTION_IDS.entrate)}
+            asideWhenClosed={TRACKING_CLOSED_ASIDES.entrate}
           />
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-7')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(TRACKING_SECTION_IDS.risparmio), 'desktop:col-span-7')}>
           <RisparmioTile
             history={savingsHistory}
             aside={describeMonthWindow(savingsHistory.months, now)}
             reading={describeSavingsHistory(savingsHistory)}
             footer={describeDeficitMonths(savingsHistory, now)}
             highlightKey={highlightKey}
+            collapse={sections.collapse(TRACKING_SECTION_IDS.risparmio)}
+            asideWhenClosed={TRACKING_CLOSED_ASIDES.risparmio}
           />
         </div>
 
-        <div className={cn(TILE_CELL_CLASS, 'tablet:col-span-2 desktop:col-span-12')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(TRACKING_SECTION_IDS.movimenti), 'desktop:col-span-12')}>
           <MovimentiTile
             aside={describeMovementsCount(filteredExpenses.length, expenses.length)}
             reading={describeMovements(movementsSummary)}
             toolbar={movimentiToolbar}
             mobileToolbar={mobileToolbar}
+            collapse={sections.collapse(TRACKING_SECTION_IDS.movimenti)}
+            asideWhenClosed={narrativeToText(describeMovementsCount(filteredExpenses.length, expenses.length))}
           >
             {desktopListView === 'feed' ? (
               feed
@@ -1179,6 +1352,11 @@ export function ExpenseTrackingTab({
             )}
           </MovimentiTile>
         </div>
+        </div>
+        </RowAnswers>
+      </div>
+      </div>
+      </div>
       </div>
 
       {dialogs}

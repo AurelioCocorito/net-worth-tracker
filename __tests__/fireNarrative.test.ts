@@ -19,11 +19,16 @@ vi.mock('firebase/firestore', () => ({
 
 import {
   buildFireVerdict,
+  cutAtFirstSentence,
   describeBase,
+  describeFireLockScope,
+  fireRestLabel,
+  isLockStated,
   describeBaseAside,
   describeBaseFooter,
   describeDettaglio,
   describeEmptyTiles,
+  describeFireClosedAnswers,
   describeImpostazioni,
   describeLock,
   describeParametri,
@@ -43,10 +48,14 @@ import {
   describeRetirementSurvival,
   describeTaxRow,
   type FireVerdictInput,
+  FIRE_CLOSED_ASIDES,
+  FIRE_ROW_NOT_COMPUTABLE,
 } from '@/lib/utils/fireNarrative';
-import { NO_HONEST, type FanVerdict, type FireLock, type FireTarget, type FireTargetHonest, type FireTimeline, type PassiveIncome, type ScenarioRow } from '@/lib/utils/fireSummary';
+import { NO_HONEST, FIRE_SECTION_IDS, selectFireStrip, type FanVerdict, type FireLock, type FireTarget, type FireTargetHonest, type FireTimeline, type PassiveIncome, type ScenarioRow } from '@/lib/utils/fireSummary';
 import type { FireYearDistribution, RetirementSurvival, TailLever } from '@/lib/utils/fireDistribution';
-import { narrativeToText, type Narrative } from '@/lib/utils/narrative';
+import { narrativeToText, splitVerdict, type Narrative } from '@/lib/utils/narrative';
+import { formatStripFigure, validateStrip, type StripFigure } from '@/lib/utils/verdictStrip';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 
 /** The screen prints a no-break space before €; the tests read it as a normal one. */
 const flat = (text: string | undefined | null) => text?.replace(/[  ]/g, ' ');
@@ -130,7 +139,7 @@ describe('buildFireVerdict', () => {
     expect(verdict.headline).toBe('FIRE nel 2032, a 44 anni.');
     expect(verdict.tone).toBe('neutral');
     expect(plain(verdict.sentence)).toBe(
-      'Ti mancano 191.500 € al numero FIRE di 604.000 € (modello ponte); al ritmo di 1850 € al mese ci arrivi nel 2032, a 44 anni, e da allora il 4% del patrimonio copre le tue spese: 2300 € al mese di oggi, 2667 € del 2032 con l\'inflazione al 2,5%. Il fondo pensione, 48.000 €, resta bloccato fino al 2030 e non conta nel patrimonio di oggi.',
+      'Ti mancano 191.500 € al numero FIRE di 604.000 € (modello ponte); al ritmo di 1850 € al mese ci arrivi nel 2032, a 44 anni. Da allora il 4% del patrimonio copre le tue spese: 2300 € al mese di oggi, 2667 € del 2032 con l\'inflazione al 2,5%. Il fondo pensione, 48.000 €, resta bloccato fino al 2030 e non conta nel patrimonio di oggi.',
     );
   });
 
@@ -143,10 +152,10 @@ describe('buildFireVerdict', () => {
 
   it('under the bridge, a FIRE year before the unlock says the free assets cover the expenses until then', () => {
     const verdict = buildFireVerdict(verdictInput({ lock: lockOn({ unlockCalendarYear: 2050 }) }));
-    expect(plain(verdict.sentence)).toContain(', e da allora gli asset liberi coprono le tue spese fino al 2050, poi rientra il fondo pensione: 2300 € al mese di oggi, 2667 € del 2032');
+    expect(plain(verdict.sentence)).toContain('. Da allora gli asset liberi coprono le tue spese fino al 2050, poi rientra il fondo pensione: 2300 € al mese di oggi, 2667 € del 2032');
     // Unlock BEFORE the FIRE year: the fund is already in, the 4% clause is the true one.
     const after = buildFireVerdict(verdictInput({ lock: lockOn({ unlockCalendarYear: 2030 }) }));
-    expect(plain(after.sentence)).toContain(', e da allora il 4% del patrimonio copre le tue spese: ');
+    expect(plain(after.sentence)).toContain('. Da allora il 4% del patrimonio copre le tue spese: ');
   });
 
   it('drops the age without a user age, the lock clause when the lock is off, and says «standard» without the bridge', () => {
@@ -154,14 +163,14 @@ describe('buildFireVerdict', () => {
     expect(verdict.headline).toBe('FIRE nel 2032.');
     expect(verdict.headline).toBe('FIRE nel 2032.');
     expect(plain(verdict.sentence)).toBe(
-      'Ti mancano 277.500 € al numero FIRE di 690.000 €; al ritmo di 1850 € al mese ci arrivi nel 2032, e da allora il 4% del patrimonio copre le tue spese: 2300 € al mese di oggi, 2667 € del 2032 con l\'inflazione al 2,5%.',
+      'Ti mancano 277.500 € al numero FIRE di 690.000 €; al ritmo di 1850 € al mese ci arrivi nel 2032. Da allora il 4% del patrimonio copre le tue spese: 2300 € al mese di oggi, 2667 € del 2032 con l\'inflazione al 2,5%.',
     );
   });
 
   it('reads «senza nuovi risparmi» when nothing is saved, and one figure when inflation is zero', () => {
     const verdict = buildFireVerdict(verdictInput({ monthlySavings: 0, timeline: timeline({ inflationRate: 0, monthlyExpensesAtFire: 2_300 }), lock: lockOff }));
     expect(plain(verdict.sentence)).toBe(
-      'Ti mancano 191.500 € al numero FIRE di 604.000 € (modello ponte); senza nuovi risparmi, con la sola crescita del 7%, ci arrivi nel 2032, a 44 anni, e da allora il 4% del patrimonio copre le tue spese, 2300 € al mese.',
+      'Ti mancano 191.500 € al numero FIRE di 604.000 € (modello ponte); senza nuovi risparmi, con la sola crescita del 7%, ci arrivi nel 2032, a 44 anni. Da allora il 4% del patrimonio copre le tue spese, 2300 € al mese.',
     );
   });
 
@@ -603,5 +612,143 @@ describe('the disclosures', () => {
     expect(plain(describeRunway({ years: null, liquidYears: null, delta: null, targetYears: 25, monthLabel: null, pointCount: 0 }))).toBe('Servono almeno 12 snapshot mensili per la runway storica.');
     // Points exist but the trailing twelve months had no expenses: a different absence, said as such.
     expect(plain(describeRunway({ years: null, liquidYears: null, delta: null, targetYears: 25, monthLabel: 'luglio 2026', pointCount: 14 }))).toBe('Nessuna spesa negli ultimi 12 mesi: la runway non è misurabile.');
+  });
+});
+
+// ─── The phone's cut, the scope line and the strip (2026-10-15) ───────────────
+// Seen red one at a time: the sequel left on «, e da allora» (no segment ends the first sentence:
+// no cut); `describeFireLockScope` answering with `lockedValue` 0 (scope without a sentence);
+// `fireRestLabel` joining «orso e toro» with a second «e»; the gap cell on `fireNumber` (the
+// verdict does not print it). The caption with taxes and pensions is pinned by the 2026-09-24 test
+// above (`captionHonestClauses`), which predates the composition; no red was recorded for it on
+// 2026-10-15, and the retirement of 2026-10-16 says so instead of claiming one.
+
+describe('buildFireVerdict — the cut (a full stop at 1440 too, the lock as the scope line)', () => {
+  it('closes the first sentence on the year and keeps «Da allora…» and the lock behind «Il perché»', () => {
+    const verdict = buildFireVerdict(verdictInput());
+    const { lead, rest, restLabel } = splitVerdict(verdict);
+    expect(plain(lead)).toBe('Ti mancano 191.500 € al numero FIRE di 604.000 € (modello ponte); al ritmo di 1850 € al mese ci arrivi nel 2032, a 44 anni.');
+    expect(plain(rest)).toMatch(/^ Da allora gli asset liberi .* Il fondo pensione, 48\.000 €, resta bloccato fino al 2050 e non conta nel patrimonio di oggi\.$/);
+    expect(restLabel).toBe('le spese da allora e il fondo pensione');
+    expect(buildFireVerdict(verdictInput({ lock: lockOff, target: target({ isBridge: false }) })).restLabel).toBe('le spese da allora');
+  });
+
+  it('cuts every branch at its first full stop, the lock alone labelled «il fondo pensione»', () => {
+    const reached = buildFireVerdict(verdictInput({ target: target({ netWorth: 720_000, gap: 0, reached: true }), monthlyAllowance: 2_400 }));
+    expect(plain(splitVerdict(reached).lead)).toMatch(/contro spese di 2300 €\.$/);
+    expect(plain(splitVerdict(reached).rest)).toMatch(/^ Il fondo pensione, 48\.000 €/);
+    expect(reached.restLabel).toBe('il fondo pensione');
+
+    const noProjection = buildFireVerdict(verdictInput({ timeline: null }));
+    expect(plain(splitVerdict(noProjection).lead)).toMatch(/quando ci arrivi\.$/);
+    expect(noProjection.restLabel).toBe('il fondo pensione');
+
+    const beyond = buildFireVerdict(verdictInput({ timeline: timeline({ yearsToFire: null, calendarYear: null, ageAtFire: null, monthlyExpensesAtFire: null }) }));
+    expect(plain(splitVerdict(beyond).lead)).toMatch(/entro il 2076\.$/);
+    expect(beyond.restLabel).toBe('il fondo pensione');
+  });
+
+  it('does not cut a branch with nothing after its sentence', () => {
+    for (const verdict of [
+      buildFireVerdict(verdictInput({ target: target({ netWorth: 720_000, gap: 0, reached: true }), lock: lockOff })),
+      buildFireVerdict(verdictInput({ timeline: null, lock: lockOff })),
+      buildFireVerdict(verdictInput({ hasNetWorth: false, target: null, timeline: null })),
+    ]) {
+      expect(verdict.leadLength).toBeUndefined();
+      expect(splitVerdict(verdict).rest).toEqual([]);
+    }
+  });
+
+  it('states the lock as the scope line exactly when the sentence states it', () => {
+    expect(describeFireLockScope(lockOn())).toBe('Modello ponte: fondo pensione escluso fino al 2050');
+    expect(describeFireLockScope(lockOn({ lockedFundCount: 2, source: 'mixed', unlockAge: null }))).toBe('Modello ponte: fondi pensione esclusi fino al 2050');
+    for (const lock of [lockOff, lockOn({ lockedValue: 0 }), lockOn({ unlockCalendarYear: null }), lockOn({ active: false })]) {
+      expect(describeFireLockScope(lock)).toBeNull();
+      expect(isLockStated(lock)).toBe(false);
+      expect(plain(buildFireVerdict(verdictInput({ lock })).sentence)).not.toContain('bloccat');
+    }
+    expect(isLockStated(lockOn())).toBe(true);
+  });
+
+  it('labels the rest as a list, the lock last', () => {
+    expect(fireRestLabel('orso e toro', true)).toBe('orso, toro e il fondo pensione');
+    expect(fireRestLabel('il ritmo', true)).toBe('il ritmo e il fondo pensione');
+    expect(fireRestLabel('il ritmo', false)).toBe('il ritmo');
+    expect(fireRestLabel(null, true)).toBe('il fondo pensione');
+    expect(fireRestLabel(null, false)).toBeNull();
+    expect(cutAtFirstSentence([{ text: 'Una frase.' }], 'il seguito')).toEqual({});
+    expect(cutAtFirstSentence([{ text: 'Una frase.' }, { text: ' Seconda.' }], 'il seguito')).toEqual({ leadLength: 1, restLabel: 'il seguito' });
+  });
+});
+
+describe('selectFireStrip — the two cells of the Calcolatore', () => {
+  const cellText = (figure: StripFigure) => narrativeToText([formatStripFigure(figure)!]).replace(/[\u00a0\u202f]/g, ' ');
+  const KNOWN = [...Object.values(FIRE_SECTION_IDS), VERDICT_REST_SECTION];
+
+  it('prints the gap the verdict prints and the monthly allowance the Reddito reading prints', () => {
+    const strip = selectFireStrip({ target: target(), passiveIncome: income() });
+    expect(strip.map((figure) => figure.label)).toEqual(['Ti mancano', 'Rendita oggi']);
+    expect(strip.map((figure) => figure.opens)).toEqual([FIRE_SECTION_IDS.base, FIRE_SECTION_IDS.reddito]);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    expect(plain(buildFireVerdict(verdictInput()).sentence)).toContain(`Ti mancano ${cellText(strip[0])} al numero FIRE`);
+    expect(plain(describePassiveIncome(income()))).toContain(`renderebbe ${cellText(strip[1])} al mese`);
+  });
+
+  it('says «già FIRE» instead of a gap of zero', () => {
+    const [gap] = selectFireStrip({ target: target({ gap: 0, reached: true }), passiveIncome: income() });
+    expect(gap.value).toBeNull();
+    expect(gap.reason).toBe('già FIRE');
+  });
+});
+
+// ─── The closed rows' words (2026-10-16, in the retirement of the composition) ───────────────────
+// The owner chose them in session on 2026-10-15; nothing pinned them until now.
+
+describe('the closed rows\' asides — words, never a figure', () => {
+  it('names each row of the Calcolatore and the empty branch without a digit', () => {
+    expect(FIRE_CLOSED_ASIDES).toEqual({ [FIRE_SECTION_IDS.base]: 'spese, risparmio e SWR', [FIRE_SECTION_IDS.reddito]: 'al tasso di prelievo', [FIRE_SECTION_IDS.scenari]: 'orso, base e toro' });
+    expect(FIRE_ROW_NOT_COMPUTABLE).toBe('non ancora calcolabile');
+    for (const aside of [...Object.values(FIRE_CLOSED_ASIDES), FIRE_ROW_NOT_COMPUTABLE]) expect(aside).not.toMatch(/\d/);
+  });
+});
+
+// ─── The closed rows' answers in the landscape index (2026-10-16) ─────────────
+// Falsified on 2026-10-16, each in its own test: «past the SWR, red» went red with the `overSwr`
+// colour dropped; «the label shortens past 22» went red with the fallback removed («prelievo attuale
+// 123,4%», 23 characters); «the bear past the horizon» went red with the `calendarYear === null`
+// branch removed («Orso nel null»).
+
+describe('describeFireClosedAnswers', () => {
+  /** What the index shows: each segment trimmed, joined by the gap the row draws between them. */
+  const visible = (answer: Narrative | null | undefined) => (answer ? answer.map((segment) => segment.text.trim()).join(' ') : answer);
+  const answers = (over: Partial<Parameters<typeof describeFireClosedAnswers>[0]> = {}) =>
+    describeFireClosedAnswers({ base: { referenceYear: 2025, isAnnualized: false }, passiveIncome: income(), scenarioRows: scenarios(), horizonYears: 50, ...over });
+
+  it('answers the base with its cashflow window, the allowance with the withdrawal rate, the scenarios with the bear', () => {
+    const all = answers();
+    expect(visible(all[FIRE_SECTION_IDS.base])).toBe('cashflow 2025');
+    expect(visible(all[FIRE_SECTION_IDS.reddito])).toBe('prelievo attuale 6,7%');
+    expect(visible(all[FIRE_SECTION_IDS.scenari])).toBe('Orso nel 2036');
+    for (const answer of Object.values(all)) expect([...(visible(answer) ?? '')].length).toBeLessThanOrEqual(22);
+    expect(visible(answers({ base: { referenceYear: 2026, isAnnualized: true } })[FIRE_SECTION_IDS.base])).toBe('2026 annualizzato');
+  });
+
+  it('colours the withdrawal rate red only past the SWR, as the tile does', () => {
+    expect(answers()[FIRE_SECTION_IDS.reddito]?.find((segment) => segment.mono)?.sign).toBe('negative');
+    expect(answers({ passiveIncome: income({ currentWR: 3, overSwr: false }) })[FIRE_SECTION_IDS.reddito]?.find((segment) => segment.mono)?.sign).toBeUndefined();
+  });
+
+  it('shortens the label past 22 characters, never the figure', () => {
+    expect(visible(answers({ passiveIncome: income({ currentWR: 123.4 }) })[FIRE_SECTION_IDS.reddito])).toBe('prelievo 123,4%');
+  });
+
+  it('says the bear past the horizon and reached today in the tile\'s words', () => {
+    expect(visible(answers({ scenarioRows: scenarios({ bear: { yearsToFire: null, calendarYear: null } }) })[FIRE_SECTION_IDS.scenari])).toBe('Orso oltre 50 anni');
+    expect(visible(answers({ scenarioRows: scenarios({ bear: { yearsToFire: 0, calendarYear: 2026 } }) })[FIRE_SECTION_IDS.scenari])).toBe('Orso già raggiunto');
+  });
+
+  it('keeps the scope without a cashflow year, a withdrawal rate or a projection', () => {
+    const none = answers({ base: { referenceYear: null, isAnnualized: false }, passiveIncome: income({ currentWR: 0, overSwr: false }), scenarioRows: [] });
+    expect(none).toEqual({ [FIRE_SECTION_IDS.base]: null, [FIRE_SECTION_IDS.reddito]: null, [FIRE_SECTION_IDS.scenari]: null });
   });
 });

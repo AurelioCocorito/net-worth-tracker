@@ -33,6 +33,9 @@ import {
   type MonteCarloRunInputs,
 } from '@/lib/utils/monteCarloSummary';
 import { getDefaultMonteCarloScenarios } from '@/lib/services/monteCarloService';
+import { MONTE_CARLO_SECTION_IDS, rateDecimals, selectMonteCarloStrip } from '@/lib/utils/monteCarloSummary';
+import { formatStripFigure, validateStrip } from '@/lib/utils/verdictStrip';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 
 const CTX = { startCalendarYear: 2026, currentAge: 46 };
 
@@ -344,5 +347,37 @@ describe('parseItalianNumber / formatInputAmount', () => {
   it('prints a committed amount grouped, without cents', () => {
     expect(formatInputAmount(488600.4)).toBe('488.600');
     expect(formatInputAmount(9500)).toBe('9500');
+  });
+});
+
+// ─── The phone's strip (2026-10-15) ───────────────────────────────────────────
+// Seen red one at a time: a median at zero printed «0 €» (the guard removed); the bear cell on the
+// base row; `decimals` fixed to 1 («95,0%» against the verdict's «95%»).
+
+describe('selectMonteCarloStrip', () => {
+  const KNOWN = [...Object.values(MONTE_CARLO_SECTION_IDS), VERDICT_REST_SECTION];
+  const results = makeResults();
+  const params = makeParams();
+  const run = summarizeMonteCarloRun(results, params, CTX);
+  const comparison = summarizeScenarios({ bear: results, base: results, bull: results }, params, CTX);
+  const text = (figure: ReturnType<typeof selectMonteCarloStrip>[number]) => formatStripFigure(figure)!.text.replace(/[\u00a0\u202f]/g, ' ');
+
+  it('opens the Distribuzione with the median and Scenari with the bear probability', () => {
+    const strip = selectMonteCarloStrip({ run, comparison });
+    expect(strip.map((figure) => figure.label)).toEqual(['Mediana', 'Orso']);
+    expect(strip.map((figure) => figure.opens)).toEqual([MONTE_CARLO_SECTION_IDS.distribuzione, MONTE_CARLO_SECTION_IDS.scenari]);
+    expect(validateStrip(strip, KNOWN)).toEqual([]);
+    expect(strip[1].decimals).toBe(rateDecimals(comparison.rows[0].successRate));
+    expect(selectMonteCarloStrip({ run, comparison: null })).toHaveLength(1);
+  });
+
+  it('says the money runs out instead of «0 €», and prints a whole rate without decimals', () => {
+    const [median] = selectMonteCarloStrip({ run: { ...run, medianFinal: 0 }, comparison });
+    expect(median.value).toBeNull();
+    expect(median.reason).toBe('i soldi finiscono');
+    expect(rateDecimals(95.04)).toBe(0);
+    expect(rateDecimals(84.21)).toBe(1);
+    const [, bear] = selectMonteCarloStrip({ run, comparison: { ...comparison, rows: comparison.rows.map((row) => (row.key === 'bear' ? { ...row, successRate: 95.04 } : row)) } });
+    expect(text(bear)).toBe('95%');
   });
 });

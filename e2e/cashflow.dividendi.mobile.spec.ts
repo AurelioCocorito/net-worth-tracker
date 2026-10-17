@@ -14,6 +14,10 @@
  * delete for a payment (the record drawer edits, the table's armed delete is desktop-only), so
  * the fixture is removed through the emulator's REST API — the one place this file does not
  * go through the app — before and after the test.
+ *
+ * Since 2026-10-12 Pagamenti is a closed row below `desktop:` and the «+» sits in the
+ * verdict's axis slot: the test opens the row before reading it. The composition itself is
+ * `mobile-composition.cashflow.mobile.spec.ts`.
  */
 
 import { test, expect, type Locator } from '@playwright/test';
@@ -88,6 +92,11 @@ test('an announced coupon is chipped «Attesa» in the row, the totals and the c
   await page.getByRole('radio', { name: 'Storico' }).click();
   await expect(page.getByRole('region', { name: 'Verdetto sui dividendi' })).toContainText('qualcosa è in arrivo');
 
+  // Pagamenti is a closed row on a phone: open it before reading the list (its aside counts the rows).
+  const pagamentiTrigger = page.locator('#dvd-pagamenti-trigger');
+  await expect(pagamentiTrigger).toContainText('1 voce');
+  await pagamentiTrigger.click();
+  await expect(pagamentiTrigger).toHaveAttribute('aria-expanded', 'true');
   const pagamenti = page.getByRole('region', { name: 'Pagamenti' });
   const row = pagamenti.getByRole('button', { name: /^Dettagli: la cedola di BTP del .*, attesa$/ });
   await row.scrollIntoViewIfNeeded();

@@ -23,14 +23,13 @@ import { ChevronDown } from 'lucide-react';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { GrowthDrivers } from '@/lib/utils/growthDrivers';
 import { resolveDriverShares, type DriverYear, type PeriodMonth } from '@/lib/utils/storicoSummary';
-import { buildDriverLedger, describeRunningWindowShort, formatPeriodMonth, type DriverLedgerRow, type MonthlyDriverRow } from '@/lib/utils/storicoNarrative';
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { buildDriverLedger, describeRunningWindowShort, formatDriverEuro, formatPeriodMonth, type DriverLedgerRow, type MonthlyDriverRow } from '@/lib/utils/storicoNarrative';
 import { formatPercentage } from '@/lib/services/chartService';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
 import { signTextClass } from '@/lib/utils/metricColors';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 import { SeriesLegend, type SeriesLegendItem } from '@/components/ui/series-legend';
 import { ChartHoverTip, useChartHover } from '@/components/ui/chart-hover';
@@ -49,6 +48,10 @@ interface DriverTileProps {
   /** The rows inside the last `windowMonths` calendar months, chronological (a missing month stays a gap). */
   months: MonthlyDriverRow[];
   windowMonths: number;
+  /** The row below `desktop:` (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (The Closed-Row Rule). */
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -64,7 +67,8 @@ const BAR_LEGEND: readonly SeriesLegendItem[] = [
 ];
 
 const isPrintedZero = (value: number) => Math.abs(Math.round(value)) < 1;
-const signed = (value: number) => (isPrintedZero(value) ? cachedFormatCurrencyEUR(0, true) : `${value >= 0 ? '+' : '−'}${cachedFormatCurrencyEUR(Math.abs(value), true)}`);
+/** The one Driver formatter (storicoNarrative): the strip's «Risparmio {anno}» cell prints a ledger row with it. */
+const signed = formatDriverEuro;
 const signedPct = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatPercentage(Math.abs(value), 1)}`;
 
 /**
@@ -291,7 +295,7 @@ function DriverBars({ months, className }: { months: MonthlyDriverRow[]; classNa
 
 // ─── Tile ─────────────────────────────────────────────────────────────────────
 
-export function DriverTile({ reading, years, featured, total, startYear, measuredSince, months, windowMonths, className }: DriverTileProps) {
+export function DriverTile({ reading, years, featured, total, startYear, measuredSince, months, windowMonths, collapse, asideWhenClosed, className }: DriverTileProps) {
   const hasYears = years.length > 0;
   // The featured year opens on its ledger; every row toggles on its own, so two years can be compared.
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(() => new Set(featured ? [featured.row.year] : []));
@@ -314,7 +318,15 @@ export function DriverTile({ reading, years, featured, total, startYear, measure
   if (total && years.length > 1) rows.push({ id: 'total', title: `Dal ${startYear}`, growthPct: null, parts: total });
 
   return (
-    <Tile eyebrow="Driver della crescita" aside={hasYears ? `dal ${startYear} · cashflow` : undefined} reading={reading} className={className} ariaLabel="Driver della crescita">
+    <Tile
+      eyebrow="Driver della crescita"
+      aside={hasYears ? `dal ${startYear} · cashflow` : undefined}
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
+      reading={reading}
+      className={className}
+      ariaLabel="Driver della crescita"
+    >
       {!hasYears ? (
         <p className="mt-3 text-[13px] leading-[1.45] text-muted-foreground">
           La scomposizione parte dal {startYear}, l&apos;anno da cui il cashflow è completo: senza entrate e spese registrate non si può dire quanto è risparmio e quanto è mercato.{' '}

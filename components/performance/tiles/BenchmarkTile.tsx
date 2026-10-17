@@ -7,10 +7,14 @@ import { formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { getMetricValueColor } from '@/lib/utils/metricColors';
 import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
 import { cn } from '@/lib/utils';
-import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Tile, TILE_SUB_EYEBROW_CLASS, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 
 interface BenchmarkTileProps {
+  /** The row of the phone composition (`useMobileSections().collapse(id)`); `undefined` at 1440. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (`PERFORMANCE_CLOSED_ASIDES`). */
+  asideWhenClosed?: string;
   /** Null while no model has a return yet (the series are loading). */
   reading: Narrative | null;
   ranking: BenchmarkRanking;
@@ -71,13 +75,15 @@ const CELL_CLASS = 'py-[7px] text-[13px]';
  * every series aligned it printed the same month on seven rows, so the column is mounted only when
  * at least one model differs.
  */
-export function BenchmarkTile({ reading, ranking, portfolioTWR, numberOfMonths, portfolioLastMonth, isLoading, currency, className }: BenchmarkTileProps) {
+export function BenchmarkTile({ collapse, asideWhenClosed, reading, ranking, portfolioTWR, numberOfMonths, portfolioLastMonth, isLoading, currency, className }: BenchmarkTileProps) {
   const showLastMonth =
     portfolioLastMonth !== null && ranking.rows.some((row) => row.lastMonth !== null && !sameMonth(row.lastMonth, portfolioLastMonth));
 
   return (
     <Tile
       eyebrow="Benchmark"
+      collapse={collapse}
+      asideWhenClosed={asideWhenClosed}
       aside={
         <span>
           <span className="font-mono tabular-nums">{numberOfMonths}</span> mesi · annualizzato · {currency}

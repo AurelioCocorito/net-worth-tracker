@@ -17,7 +17,7 @@ import type { ScenarioRow } from '@/lib/utils/fireSummary';
 import { formatRate } from '@/lib/utils/fireNarrative';
 import { useChartColors } from '@/lib/hooks/useChartColors';
 import { cn } from '@/lib/utils';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { NarrativeText } from '@/components/ui/narrative-text';
 
 interface ScenariTileProps {
@@ -26,6 +26,9 @@ interface ScenariTileProps {
   /** The projection's horizon, for the «oltre N anni» caption. */
   horizonYears: number;
   footer: Narrative;
+  /** The row of the phone composition (The Closed-Row Rule); absent at 1440. */
+  collapse?: TileCollapse;
+  asideWhenClosed?: string;
   className?: string;
 }
 
@@ -39,11 +42,11 @@ function distance(years: number | null, horizonYears: number): string {
   return years === 1 ? 'tra 1 anno' : `tra ${years} anni`;
 }
 
-export function ScenariTile({ reading, rows, horizonYears, footer, className }: ScenariTileProps) {
+export function ScenariTile({ reading, rows, horizonYears, footer, collapse, asideWhenClosed, className }: ScenariTileProps) {
   const chartColors = useChartColors();
 
   return (
-    <Tile eyebrow="Scenari" aside="crescita · inflazione" reading={reading} ariaLabel="Scenari di mercato" className={className}>
+    <Tile eyebrow="Scenari" aside="crescita · inflazione" asideWhenClosed={asideWhenClosed} reading={reading} ariaLabel="Scenari di mercato" className={className} collapse={collapse}>
       <ul className="mt-2.5 flex flex-col divide-y divide-border" aria-label="Anno del FIRE per scenario">
         {rows.map((row) => {
           const isBase = row.key === 'base';

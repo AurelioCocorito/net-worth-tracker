@@ -20,7 +20,9 @@ import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, startsWithVowel } from '@/lib/utils/patrimonioNarrative';
 import type { FireLock } from '@/lib/utils/fireSummary';
 import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
-import { resolveSuccessTone, type MonteCarloPlan, type MonteCarloRun, type PlanInflow, type PlanStatePension, type PlanWithdrawalTax, type ScenarioComparison, type ScenarioRunSummary } from '@/lib/utils/monteCarloSummary';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
+import { MONTE_CARLO_SECTION_IDS, rateDecimals, resolveSuccessTone, type MonteCarloPlan, type MonteCarloRun, type PlanInflow, type PlanStatePension, type PlanWithdrawalTax, type ScenarioComparison, type ScenarioRunSummary } from '@/lib/utils/monteCarloSummary';
+import { cutAtFirstSentence, fireRestLabel, isLockStated } from '@/lib/utils/fireNarrative';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -38,7 +40,7 @@ const year = (value: number): NarrativeSegment => figure(String(value));
 /** «84,2%», one decimal, or «95%» when the decimal is zero — the way the hero prints it. */
 function ratePct(value: number): string {
   const rounded = Math.round(value * 10) / 10;
-  return formatPercentage(rounded, Number.isInteger(rounded) ? 0 : 1);
+  return formatPercentage(rounded, rateDecimals(value));
 }
 
 /** «nel 57,3%» / «nell'84,2%» / «nello 0,5%» — the elision follows the printed figure. */
@@ -68,7 +70,12 @@ const SCENARIO_NAMES: Record<ScenarioRunSummary['key'], string> = { bear: 'orso'
 // ─── Verdict ──────────────────────────────────────────────────────────────────
 
 export interface MonteCarloVerdictInput {
-  /** A positive starting portfolio and a positive withdrawal exist. */
+  /**
+   * A positive starting portfolio and a positive withdrawal exist in the TYPED plan. With a run on
+   * screen the verdict reads THAT run, whatever the form says (2026-10-16): the strip and the tiles
+   * are the shown run's until «Esegui» (The Stale-Run Rule), so the headline cannot deny what the
+   * cells under it print — the typed form moves the Parametri aside and footer alone.
+   */
   runnable: boolean;
   run: MonteCarloRun | null;
   scenarios: ScenarioComparison | null;
@@ -111,12 +118,12 @@ function scenariosSentence(scenarios: ScenarioComparison | null): Narrative {
 
 /** « Numeri con il modello ponte: i 31.400 € del fondo pensione entrano nel 2045 al valore di oggi.» */
 function bridgeSentence(lock: FireLock): Narrative {
-  if (!lock.active || lock.lockedValue <= 0 || lock.unlockCalendarYear === null) return [];
+  if (!isLockStated(lock)) return [];
   return [prose(' Numeri con il modello ponte: i '), amount(lock.lockedValue), prose(' del fondo pensione entrano nel '), year(lock.unlockCalendarYear), prose(' al valore di oggi.')];
 }
 
 export function buildMonteCarloVerdict(input: MonteCarloVerdictInput): PageVerdictModel {
-  if (!input.runnable) {
+  if (!input.runnable && !input.run) {
     return {
       headline: 'Monte Carlo non calcolabile.',
       tone: 'neutral',
@@ -138,11 +145,32 @@ export function buildMonteCarloVerdict(input: MonteCarloVerdictInput): PageVerdi
     ? [prose('In tutte le '), count(run.simulations), prose(' simulazioni il capitale regge ')]
     : [prose(inThePercent(run.successRate).replace(/^n/, 'N')), figure(ratePct(run.successRate)), prose(' delle '), count(run.simulations), prose(' simulazioni il capitale regge ')];
 
+  // The base run is the first sentence; the bear and the bull, then the bridge, follow it —
+  // behind «Il perché» on a phone, the lock kept in sight by the scope line (The Binding-Clause Rule).
+  const scenarios = scenariosSentence(input.scenarios);
+  const sentence: Narrative = [...opening, ...horizonClause(run), prose('; '), ...outcomesClause(run), prose('.'), ...scenarios, ...bridgeSentence(input.lock)];
   return {
     headline,
     tone: resolveSuccessTone(run.successRate),
-    sentence: [...opening, ...horizonClause(run), prose('; '), ...outcomesClause(run), prose('.'), ...scenariosSentence(input.scenarios), ...bridgeSentence(input.lock)],
+    sentence,
+    ...cutAtFirstSentence(sentence, fireRestLabel(scenarios.length > 0 ? 'orso e toro' : null, isLockStated(input.lock))),
   };
+}
+
+// ─── The rows below `desktop:` ─────────────────────────────────────────────────
+
+/** What each closed row says beside its eyebrow — words, never a figure (The Closed-Row Rule); Parametri's is `describeParametriClosedAside`. */
+export const MONTE_CARLO_CLOSED_ASIDES = {
+  [MONTE_CARLO_SECTION_IDS.distribuzione]: 'valori finali',
+  [MONTE_CARLO_SECTION_IDS.scenari]: 'orso, base e toro',
+} as const;
+
+/**
+ * The Parametri row's aside while closed: the plan the figures above run on, or the warning that
+ * the typed plan differs from it (The Stale-Run Rule holds from a closed row too).
+ */
+export function describeParametriClosedAside(stale: boolean): string {
+  return stale ? 'modificati: premi Esegui' : 'il piano di oggi';
 }
 
 // ─── Probabilità ──────────────────────────────────────────────────────────────
@@ -388,3 +416,34 @@ export const EXPLAINER: { title: string; body: string }[] = [
     body: 'Rendimenti indipendenti anno per anno, nessuna sequenza di crisi forzata, fondo pensione al valore di oggi: la simulazione misura la dispersione, non predice il futuro. Con la stessa allocazione il Ventaglio del Calcolatore mostra la fase di accumulo.',
   },
 ];
+
+// ─── The closed rows' answers ─────────────────────────────────────────────────
+
+export interface MonteCarloClosedAnswersInput {
+  /** The run shown; null before the first one (the rows do not exist). */
+  run: MonteCarloRun | null;
+  comparison: ScenarioComparison | null;
+  /** The plan the Parametri tile reads. */
+  plan: MonteCarloPlan | null;
+  stale: boolean;
+}
+
+/**
+ * What Monte Carlo's closed rows answer in the landscape index (components/ui/row-answers.tsx;
+ * 2026-10-16). Distribuzione: the 90th percentile, the one KPI the strip (the median) and the
+ * verdict (the 10% worst) do not print — «esaurito» as the tile says a depleted percentile, read on
+ * the «Valori finali» view whichever view the reader left open. Scenari: the bull's rate, the mirror
+ * of the strip's «Orso» cell, with the decimals the row prints. Parametri: the yearly withdrawal, the
+ * plan's one figure not printed above — but a stale form keeps «modificati: premi Esegui» (The
+ * Stale-Run Rule: a warning is never covered by an answer).
+ */
+export function describeMonteCarloClosedAnswers({ run, comparison, plan, stale }: MonteCarloClosedAnswersInput): RowAnswerMap {
+  const bull = comparison?.rows.find((row) => row.key === 'bull') ?? null;
+  const p90 = run?.finalPercentiles.p90 ?? null;
+  return {
+    [MONTE_CARLO_SECTION_IDS.distribuzione]:
+      p90 === null ? null : p90 <= 0 ? [prose('90° %ile esaurito')] : [prose('90° %ile'), figure(cachedFormatCurrencyEUR(p90, true))],
+    [MONTE_CARLO_SECTION_IDS.scenari]: bull ? [prose('Toro'), figure(formatPercentage(bull.successRate, rateDecimals(bull.successRate)))] : null,
+    [MONTE_CARLO_SECTION_IDS.parametri]: run && plan && !stale ? [prose('prelievo'), amount(plan.annualWithdrawal)] : null,
+  };
+}

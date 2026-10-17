@@ -16,7 +16,8 @@
  *
  * REGRESSION GUARD, tutti visti rossi rompendo una cosa alla volta (roving focus tolto da
  * `AsideToggle` e da `RankedRows`; `tabIndex` esplicito tolto; `aria-label` rimesso sulla riga; il
- * sotto-occhiello tolto; la discesa tolta dal `PlanView`).
+ * sotto-occhiello tolto; la discesa tolta dal `PlanView`). Il 2026-10-16: `useCompactLayout` forzato a
+ * vero (le righe chiuse e la striscia a 1440) per il test della pagina di oggi.
  *
  * Account base (`test@example.com`): target 60/30/10 su azioni, obbligazioni e criptovalute, due
  * sotto-target su equity (World 80 / Single Stock 20, aggiunti al seed il 2026-09-21 perché senza
@@ -250,4 +251,20 @@ test('la pagina non scorre di lato, misurato sugli elementi e non sul contenitor
 
   expect(overflow.scrollWidth).toBe(overflow.clientWidth);
   expect(overflow.offenders).toEqual([]);
+});
+
+test('a 1440 la pagina è quella di oggi: nessuna riga chiusa, nessuna striscia, il verdetto in due frasi', async ({ page }) => {
+  await openAllocazione(page);
+  // Nessun `-trigger`: Parametri e Dettaglio hanno il loro `aria-expanded`, le tessere no.
+  await expect(page.locator('main [id$="-trigger"]')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Le cifre del verdetto' })).toBeHidden();
+  await expect(page.getByRole('heading', { level: 2, name: 'Il resto della pagina' })).toBeHidden();
+  // Dal 2026-10-15 la deriva è una frase e i prossimi soldi la seguono con un punto, anche a 1440
+  // (il taglio del telefono vuole un punto fermo, 2026-09-27): «…meno. Con 1000 € in più compreresti…».
+  const verdict = page.getByRole('region', { name: "Verdetto sull'allocazione" });
+  await expect(verdict).toContainText(/\. Con 1000[\s ]*€ in più compreresti/);
+  await expect(verdict).not.toContainText(/; con 1000/);
+  // Il valore del KPI «Fuori posizione» è intero a 1440: nulla è sollevato.
+  const bilanciamento = page.getByRole('region', { name: "Bilanciamento dell'allocazione" });
+  await expect(bilanciamento.getByText('Fuori posizione', { exact: true }).locator('xpath=following-sibling::p[1]')).toBeVisible();
 });

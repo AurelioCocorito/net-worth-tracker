@@ -18,7 +18,8 @@
  * `cachedFormatCurrencyEUR` (no-break space before €) — AGENTS.md → Italian Localization.
  */
 
-import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatSignedEuro } from '@/lib/utils/formatters';
+import type { RowAnswerMap } from '@/components/ui/row-answers';
 import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, atThePercent } from '@/lib/utils/patrimonioNarrative';
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
@@ -26,16 +27,19 @@ import type { ExposureBucket, ExposureCoverage, ExposureNotApplicable } from '@/
 import { ASSET_CLASS_LABELS } from '@/lib/utils/allocationUtils';
 import type { OrphanedTarget, RebalanceBand, RebalanceMove } from '@/lib/utils/allocationUtils';
 import type { InstrumentTrade } from '@/lib/utils/leverageAwareAllocationUtils';
-import type {
-  ClassGap,
-  ClassSlice,
-  ExposureHighlights,
-  ExposureViewKey,
-  HoldingsGroup,
-  NextMoney,
-  PlanMode,
-  PlanView,
-  SaleTaxEstimate,
+import {
+  ALLOCAZIONE_SECTION_IDS,
+  isNothingOutOfPosition,
+  largestGapByValue,
+  type ClassGap,
+  type ClassSlice,
+  type ExposureHighlights,
+  type ExposureViewKey,
+  type HoldingsGroup,
+  type NextMoney,
+  type PlanMode,
+  type PlanView,
+  type SaleTaxEstimate,
 } from '@/lib/utils/allocazioneSummary';
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
@@ -199,22 +203,43 @@ export function buildAllocazioneVerdict(input: AllocazioneVerdictInput): PageVer
   const score = Math.round(input.score);
   const headline = `Allineato ${atThePercent(score, 0)}${score}%.`;
 
-  const clauses: Narrative[] = [];
-  if (input.isBalanced || input.offTarget.length === 0) {
-    clauses.push([prose(input.band.type === 'rule525' ? 'Tutte le classi rispettano la regola 5/25' : `Tutte le classi sono ${bandClause(input.band)}`)]);
-  } else {
-    clauses.push(driftClause(input.offTarget));
-  }
-  const leverage = leverageClause(input.leverage);
-  if (leverage.length > 0) clauses.push(leverage);
-  const next = nextMoneyClause(input.nextMoney);
-  if (next.length > 0) clauses.push(next);
+  // The first sentence is the drift — what a phone shows under the title; the leverage and the
+  // next money follow as sentences of their own («. La leva è…», «. Con 1000 € in più…»), at
+  // 1440 too: the cut needs a full stop, not a «;».
+  const lead: Narrative =
+    input.isBalanced || input.offTarget.length === 0
+      ? [prose(input.band.type === 'rule525' ? 'Tutte le classi rispettano la regola 5/25' : `Tutte le classi sono ${bandClause(input.band)}`)]
+      : driftClause(input.offTarget);
+  lead.push(prose('.'));
 
-  const sentence: Narrative = clauses.flatMap((clause, i) => (i === 0 ? clause : [prose('; '), ...clause]));
-  sentence.push(prose('.'));
-  sentence.push(...orphanSentence(input.orphans));
-  return { headline, tone, sentence };
+  const leverage = leverageClause(input.leverage);
+  const next = nextMoneyClause(input.nextMoney);
+  const rest: Narrative = [...asSentence(leverage), ...asSentence(next)];
+  const restLabel = leverage.length > 0 && next.length > 0 ? 'la leva e i prossimi soldi' : leverage.length > 0 ? 'la leva' : next.length > 0 ? 'dove vanno i prossimi soldi' : null;
+
+  // An unreachable target changes the meaning of every figure above: it stays on the first
+  // screen (`binding`, The Binding-Clause Rule), so the cut is cancelled by `splitVerdict`.
+  const orphans = orphanSentence(input.orphans).map((segment) => ({ ...segment, binding: true }));
+  const sentence: Narrative = [...lead, ...rest, ...orphans];
+  return restLabel ? { headline, tone, sentence, leadLength: lead.length, restLabel } : { headline, tone, sentence };
 }
+
+/** A clause as a sentence of its own: a leading space, a capital, a full stop; nothing from nothing. */
+function asSentence(clause: Narrative): Narrative {
+  if (clause.length === 0) return [];
+  const [first, ...others] = clause;
+  return [prose(` ${capitalize(first.text)}`), ...others, prose('.')];
+}
+
+// ─── The rows below `desktop:` ─────────────────────────────────────────────────
+
+/** What each closed row says beside its eyebrow — words, never a figure (The Closed-Row Rule). */
+export const ALLOCAZIONE_CLOSED_ASIDES = {
+  [ALLOCAZIONE_SECTION_IDS.perClasse]: 'corrente, target e gap',
+  [ALLOCAZIONE_SECTION_IDS.piano]: 'Ribilancia, Versa o Preleva',
+  [ALLOCAZIONE_SECTION_IDS.esposizione]: 'titoli, settori, emittenti',
+  [ALLOCAZIONE_SECTION_IDS.previdenza]: 'il fondo nel mix',
+} as const;
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
@@ -251,7 +276,8 @@ export function describeBalance(input: BalanceInput): Narrative {
   const head: Narrative = [prose('Su '), amount(input.marketValue), prose(' allocati ')];
   const hasLeverageGap = Math.abs(input.leverageGapPp) >= 0.5;
   const untargeted = input.untargeted && input.untargeted.pct >= 0.5 ? input.untargeted : null;
-  if (input.misallocationPct < 0.05 && !hasLeverageGap && !untargeted) {
+  // The strip's «Fuori posizione» cell says «nulla» on this same predicate (`isNothingOutOfPosition`).
+  if (isNothingOutOfPosition(input)) {
     return [...head, prose('nulla è fuori posizione: ogni classe è sul suo target.')];
   }
   head.push(prose(articleForPercent(input.misallocationPct, 1)), percent(input.misallocationPct, 1), prose(' è fuori posizione'));
@@ -306,12 +332,25 @@ function operationsCount(n: number, balanced: boolean): Narrative {
   return [prose(`, ${label}${balanced ? ' a saldo zero' : ''}`)];
 }
 
+/**
+ * A move the reader carries out: every buy, and every sell not blocked whole by non-tradable
+ * holdings. The reading's «quattro operazioni» and the closed row's answer count the same moves.
+ */
+function isPlanOperation(move: RebalanceMove): boolean {
+  if (move.action === 'COMPRA') return true;
+  return move.action === 'VENDI' && !(move.limitedByFrozen && move.amount < MIN_MOVE);
+}
+
+function countPlanOperations(moves: RebalanceMove[]): number {
+  return moves.filter(isPlanOperation).length;
+}
+
 function describeMoves(moves: RebalanceMove[], band: RebalanceBand): Narrative {
   if (moves.length === 0) return [prose(`Tutto in linea: nessuna operazione necessaria ${bandClause(band)}.`)];
 
   const sells = moves.filter((move) => move.action === 'VENDI');
   const buys = moves.filter((move) => move.action === 'COMPRA');
-  let operations = 0;
+  const operations = countPlanOperations(moves);
   let sold = 0;
   let bought = 0;
 
@@ -320,7 +359,6 @@ function describeMoves(moves: RebalanceMove[], band: RebalanceBand): Narrative {
     if (move.limitedByFrozen && move.amount < MIN_MOVE) {
       return [prose(`${subject.subject} ${subject.plural ? 'sono' : 'è'} sopra target ma ${subject.plural ? 'tutte' : 'tutta'} non negoziabil${subject.plural ? 'i' : 'e'}`)];
     }
-    operations += 1;
     sold += move.amount;
     const verb = i === 0 ? 'vendi ' : '';
     if (move.limitedByFrozen) {
@@ -329,7 +367,6 @@ function describeMoves(moves: RebalanceMove[], band: RebalanceBand): Narrative {
     return [prose(verb), amount(move.amount), prose(` di ${subject.object}`)];
   });
   const buyItems: Narrative[] = buys.map((move) => {
-    operations += 1;
     bought += move.amount;
     return [amount(move.amount), prose(` di ${classSubject(move.assetClass, move.label).object}`)];
   });
@@ -828,4 +865,78 @@ export function describeFrozen(group: HoldingsGroup): Narrative {
 /** «2 asset, 200.000 €: nel patrimonio, fuori da ogni calcolo di questa pagina; per questo il totale allocato è più basso del patrimonio netto.» */
 export function describeExcluded(group: HoldingsGroup): Narrative {
   return [prose(`${group.count} asset, `), amount(group.total), prose(': nel patrimonio, fuori da ogni calcolo di questa pagina; per questo il totale allocato è più basso del patrimonio netto.')];
+}
+
+// ─── The closed rows' answers (landscape index) ───────────────────────────────
+
+/**
+ * The longest answer the landscape index holds whole (2026-10-16): past it the class name would
+ * be cut beside its figure — «Trend Following +12.345 €» keeps its scope instead.
+ */
+const ANSWER_MAX_CHARS = 22;
+
+/** The answer as the index lays it out: each segment trimmed, one gap between them. */
+function answerLength(answer: Narrative): number {
+  return answer.map((segment) => segment.text.trim()).join(' ').length;
+}
+
+export interface AllocazioneClosedAnswersInput {
+  /** The active classes (`activeClassGaps`), as the Per classe reading gets them. */
+  gaps: ClassGap[];
+  planView: PlanView | null;
+  pension: PensionInput | null;
+}
+
+/**
+ * «Immobili +250.000 €» — the class farthest from its target in EURO, signed as its row prints it
+ * (+ too much, − missing) and uncoloured like the reading: Bilanciamento's legend prints every
+ * class's share, and the verdict the drifts in points, so the euro is the one figure left. Null
+ * when every class is in line (the reading then speaks in points) and past `ANSWER_MAX_CHARS`.
+ */
+function perClasseAnswer(gaps: ClassGap[]): Narrative | null {
+  if (gaps.every((gap) => gap.action === 'OK')) return null;
+  const largest = largestGapByValue(gaps);
+  if (!largest) return null;
+  const answer: Narrative = [prose(largest.label), figure(formatSignedEuro(largest.differenceValue, true))];
+  return answerLength(answer) <= ANSWER_MAX_CHARS ? answer : null;
+}
+
+/**
+ * «quattro operazioni» / «una sola operazione» / «nessuna operazione» — the moves of Ribilancia,
+ * counted as the reading counts them, in words: no figure. Null in Versa and Preleva (their
+ * sentences restate the verdict's «con 1000 € in più» and never fit), on the leverage engine (its
+ * reading names trades, not a count) and when every move is blocked by non-tradable holdings.
+ */
+function pianoAnswer(view: PlanView | null): Narrative | null {
+  if (!view || view.mode !== 'rebalance' || view.trades) return null;
+  if (view.moves.length === 0) return [prose('nessuna operazione')];
+  const operations = countPlanOperations(view.moves);
+  if (operations === 0) return null;
+  return [prose(operations === 1 ? 'una sola operazione' : `${numberWord(operations)} operazioni`)];
+}
+
+/**
+ * «Azioni 100%» — the funds' own mix, its largest slice, to the unit like the reading. Not the
+ * funds' value (Bilanciamento's footer prints it) nor the whole net worth's mix (its legend).
+ */
+function previdenzaAnswer(pension: PensionInput | null): Narrative | null {
+  const top = pension?.fundSlices[0];
+  if (!top) return null;
+  return [prose(top.label), percent(top.percentage, 0)];
+}
+
+/**
+ * What each closed row of Allocazione answers in the landscape index (2026-10-16): one figure per
+ * row that the strip, THE tile and the verdict's first sentence do not print, read from what the
+ * page already computed; null where the row keeps its scope. Esposizione is always null: below
+ * `desktop:` its profiles are read only once its row is opened, and an answer that appears only
+ * after a first opening would make the index differ between two visits.
+ */
+export function describeAllocazioneClosedAnswers(input: AllocazioneClosedAnswersInput): RowAnswerMap {
+  return {
+    [ALLOCAZIONE_SECTION_IDS.perClasse]: perClasseAnswer(input.gaps),
+    [ALLOCAZIONE_SECTION_IDS.piano]: pianoAnswer(input.planView),
+    [ALLOCAZIONE_SECTION_IDS.esposizione]: null,
+    [ALLOCAZIONE_SECTION_IDS.previdenza]: previdenzaAnswer(input.pension),
+  };
 }

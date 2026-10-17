@@ -9,6 +9,8 @@ import { NarrativeText } from '@/components/ui/narrative-text';
 import { CenterStackBars } from './CenterStackBars';
 
 interface TotaleTileProps {
+  /** THE tile's anchor (`cdc-totale`): open at every width, never a row (The First-Screen Rule). */
+  id?: string;
   summary: CostCentersSummary;
   stack: CenterMonthStack;
   /** The caption beside the bars' sub-eyebrow («per centro · agosto in corso»). */
@@ -42,9 +44,9 @@ function Kpi({ label, value, caption }: { label: string; value: string; caption:
  * element that stretches when the tile spans two rows), and the archived centers the total
  * leaves out as the footer. Every figure is the `CostCentersSummary`'s; the tile computes nothing.
  */
-export function TotaleTile({ summary, stack, stackCaption, aside, reading, lastYearCaption, footer, palette, className }: TotaleTileProps) {
+export function TotaleTile({ id, summary, stack, stackCaption, aside, reading, lastYearCaption, footer, palette, className }: TotaleTileProps) {
   return (
-    <Tile eyebrow="Totale" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className} ariaLabel="Totale dei centri di costo">
+    <Tile id={id} eyebrow="Totale" aside={<NarrativeText segments={aside} figureClassName="font-medium" />} reading={reading} className={className} ariaLabel="Totale dei centri di costo">
       <div className="mt-4 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
         <p className={resolveHeroValueClass(summary.total)}>{cachedFormatCurrencyEUR(summary.total, true)}</p>
         <p className="text-[13px] text-muted-foreground">

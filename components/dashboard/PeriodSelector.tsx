@@ -16,8 +16,8 @@ interface PeriodSelectorProps {
  * The period of the hero sparkline — the ONE control on the Panoramica, so it is the shared
  * `SegmentedPill` and not a hand-rolled pill: `radio` semantics (it picks a VALUE the chart
  * reads, there is no tabpanel — AGENTS.md → Accessibility), roving tabindex, the 14px label of
- * every other pill instead of a 10,5px one nowhere on the ramp, 44px of height under `desktop:`
- * for the thumb. The spring (400/35) is the primitive's, the same as every other tab picker.
+ * every other pill instead of a 10,5px one nowhere on the ramp, 44×44px under `desktop:` for the
+ * thumb (the width since 2026-10-16: «1A» measured 39px on a tablet, where the pill is `w-fit`). The spring (400/35) is the primitive's, the same as every other tab picker.
  */
 export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
   return (
@@ -28,7 +28,7 @@ export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
       layoutId="period-pill"
       ariaLabel="Periodo del grafico"
       semantics="radio"
-      optionClassName="min-h-11 flex-1 desktop:min-h-0 desktop:flex-none"
+      optionClassName="min-h-11 min-w-11 flex-1 desktop:min-h-0 desktop:min-w-0 desktop:flex-none"
       className="w-full tablet:w-fit"
     />
   );

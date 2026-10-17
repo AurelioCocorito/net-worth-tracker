@@ -23,6 +23,8 @@ import {
   type FlowAbsence,
   type SpendingExpenseType,
 } from '@/lib/utils/spendingRoles';
+import type { PeriodCashflowTotals } from '@/lib/utils/tracciamentoSummary';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
 
 // ─── The period ───────────────────────────────────────────────────────────────
 
@@ -435,4 +437,62 @@ export function resolveCategoryMovers(rows: CategoryDeltaRow[]): { grown: Catego
     if (row.delta < 0 && (!shrunk || row.delta < shrunk.delta)) shrunk = row;
   }
   return { grown: grown ? toMover(grown) : null, shrunk: shrunk ? toMover(shrunk) : null };
+}
+
+// ─── The phone composition (2026-10-14) ───────────────────────────────────────
+
+/** THE tile of the page (Periodo): open at every width, never a row (The First-Screen Rule). */
+export const ANALISI_PERIODO_ID = 'analisi-periodo';
+
+/**
+ * The rows below `desktop:`, in the DOM's order (The First-Screen Rule — the `order-1…7` that reordered them
+ * on a phone are gone). Fuori scala exists only on a month, the Scheda only with a focus, the
+ * Flusso only when something flowed: the page hands the controller the rows PRESENT.
+ */
+export const ANALISI_SECTION_IDS = {
+  fuoriScala: 'analisi-fuori-scala',
+  maggiori: 'analisi-maggiori',
+  spese: 'analisi-spese',
+  entrate: 'analisi-entrate',
+  scheda: 'analisi-scheda',
+  flusso: 'analisi-flusso',
+} as const;
+
+/** The block of `PeriodoTile` the strip lifts: the trio's values (and the caption of their deltas). */
+export const ANALISI_TRIO_BLOCK = 'trio';
+
+/** The block of `FlussoTile` the strip lifts: what was put aside, printed by the «Risparmio» cell. */
+export const ANALISI_SAVINGS_BLOCK = 'risparmio';
+
+/**
+ * The two figures under the verdict on a phone (The First-Screen Rule): the period's income and
+ * what was left of it, exactly as the Periodo trio prints them (`currency`: the «−» U+2212 only on
+ * a negative net, a printed zero unsigned — `formatEuroMinus`). The spending is in the verdict's
+ * first sentence. «Entrate» lifts the trio — whose three values the strip and the first sentence
+ * all print, so the rate and the coverage stay (The Lifted-Figure Rule) — «Risparmio» the Flusso's own
+ * «Risparmio» figure, which prints the same surplus.
+ *
+ * `[]` when nothing flowed (income and spending both zero: a period of transfers only, and the
+ * Flusso is not drawn) and when the period has not started (The Absence-Has-Three-Names Rule: what
+ * is in it is calendar, not a figure of the period).
+ */
+export function selectAnalisiStrip(totals: Pick<PeriodCashflowTotals, 'income' | 'expenses' | 'net'>, { notStarted = false }: { notStarted?: boolean } = {}): StripFigure[] {
+  if (notStarted || (totals.income <= 0 && totals.expenses <= 0)) return [];
+  return [
+    {
+      label: 'Entrate',
+      value: totals.income,
+      format: 'currency',
+      ...(totals.income > 0 ? { tone: 'positive' as const } : {}),
+      opens: ANALISI_SECTION_IDS.entrate,
+      lifts: { section: ANALISI_PERIODO_ID, block: ANALISI_TRIO_BLOCK },
+    },
+    {
+      label: 'Risparmio',
+      value: totals.net,
+      format: 'currency',
+      opens: ANALISI_SECTION_IDS.flusso,
+      lifts: { section: ANALISI_SECTION_IDS.flusso, block: ANALISI_SAVINGS_BLOCK },
+    },
+  ];
 }

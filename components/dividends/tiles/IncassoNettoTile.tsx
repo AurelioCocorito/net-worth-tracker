@@ -15,6 +15,8 @@ import { NetIncomeBars, type NetIncomeBarPoint } from './NetIncomeBars';
 import { MONTH_NAMES } from '@/lib/constants/months';
 
 interface IncassoNettoTileProps {
+  /** THE tile's anchor (`dvd-incasso`): open at every width, never a row (The First-Screen Rule). */
+  id?: string;
   eyebrow: string;
   reading: Narrative | null;
   net: number;
@@ -45,6 +47,7 @@ interface IncassoNettoTileProps {
  * they do not (DESIGN.md → The Narrative Honesty Rule).
  */
 export function IncassoNettoTile({
+  id,
   eyebrow,
   reading,
   net,
@@ -74,6 +77,7 @@ export function IncassoNettoTile({
 
   return (
     <Tile
+      id={id}
       eyebrow={eyebrow}
       aside={
         count > 0 ? (

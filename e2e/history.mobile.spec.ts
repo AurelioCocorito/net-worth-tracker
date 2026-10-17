@@ -12,6 +12,9 @@
  * `main` è il contenitore di scroll orizzontale, non il documento (AGENTS → Tailwind Breakpoints).
  * La tabella `sr-only` delle barre del Driver è esclusa dalla misura: è ritagliata a 1px, ma i
  * rettangoli delle sue celle sporgono geometricamente e non dipingono nulla.
+ *
+ * Dal 2026-10-14 le tessere sotto Evoluzione sono righe chiuse a 390: la misura apre
+ * tutte le righe («Apri tutte») oltre al Dettaglio, e «Seleziona tutti» si legge dentro Valore aperta.
  */
 
 import { test, expect } from '@playwright/test';
@@ -20,6 +23,8 @@ test('Storico non scorre in orizzontale a 390px, Dettaglio aperto', async ({ pag
   await page.goto('/dashboard/history', { waitUntil: 'load' });
   await expect(page.getByRole('region', { name: 'Verdetto sullo storico' })).toBeVisible({ timeout: 60_000 });
 
+  await page.getByRole('button', { name: 'Apri tutte' }).click();
+  await expect(page.locator('#storico-valore-trigger')).toHaveAttribute('aria-expanded', 'true');
   const trigger = page.getByRole('button', { name: /^Dettaglio/ });
   await trigger.scrollIntoViewIfNeeded();
   await trigger.click();
@@ -45,6 +50,7 @@ test('a 390px «Seleziona tutti» ha 44px di area e le esportazioni vengono DOPO
   await page.goto('/dashboard/history', { waitUntil: 'load' });
   await expect(page.getByRole('region', { name: 'Verdetto sullo storico' })).toBeVisible({ timeout: 60_000 });
 
+  await page.locator('#storico-valore-trigger').click();
   const selectAll = page.getByRole('checkbox', { name: 'Seleziona tutti gli strumenti del mese' }).filter({ visible: true });
   await selectAll.scrollIntoViewIfNeeded();
   // The label is the target: what a finger hits is the box of the element that forwards the tap.

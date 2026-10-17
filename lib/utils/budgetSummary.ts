@@ -31,6 +31,69 @@ import { getItalyDate, getItalyMonth, getItalyYear } from '@/lib/utils/dateHelpe
 import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
 import { resolveMonthCeilings, type MonthCeiling } from '@/lib/utils/budgetHistory';
 import { BUDGET_HISTORY_MONTHS } from '@/lib/utils/expenseWindows';
+import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
+import type { StripFigure } from '@/lib/utils/verdictStrip';
+
+// ─── The phone composition: the ids and the strip (since 2026-10-12) ──────────
+
+/**
+ * The tiles of Budget below `desktop:`, in the DOM's order; `bud-` keeps them unique among the
+ * five `forceMount` tabs. Which one is THE tile depends on the account: Tetto with a ceiling,
+ * Categorie a rischio without one, Per categoria with no budget at all (`BudgetTab`).
+ */
+export const BUDGET_SECTION_IDS = {
+  tetto: 'bud-tetto',
+  rischio: 'bud-rischio',
+  avvisi: 'bud-avvisi',
+  annuali: 'bud-annuali',
+  categorie: 'bud-categorie',
+} as const;
+
+export type BudgetSectionId = (typeof BUDGET_SECTION_IDS)[keyof typeof BUDGET_SECTION_IDS];
+
+/** The verdict's «Il perché» of this tab (never shown: a Budget verdict is one sentence, never cut). */
+export const BUDGET_REST_ID = 'bud-perche';
+
+/** The three KPI blocks of `TettoTile` a strip cell can lift; «Al giorno» is never lifted. */
+export type TettoLiftedBlock = 'fine-mese' | 'restano' | 'oltre';
+
+/**
+ * The two cells under the title on a phone, both KPIs of the Tetto lifted whole (label, value and
+ * caption: the caption «tolte le spese in calendario» qualified a figure the verdict already
+ * qualifies). «Fine mese» is the projection (`~`, red once it lands over the ceiling,
+ * «dal quarto giorno» while there is no pace) and opens Categorie a rischio; beside it, under the
+ * ceiling, «Restano» opens Per categoria. Over the ceiling the second cell is The Risk-vs-Fact Rule
+ * in the strip: «Oltre» when the booked rows crossed it (`crossedOn` today or
+ * before) opens Avvisi, where the fact is listed; «Supererai» when only the calendar crosses it
+ * (`crossedOn` after today) puts the focus on the verdict, whose first words say the day («Lo
+ * superi il 28 con le spese già in calendario») — the owner's call of 2026-10-12: a first draft sent it to
+ * Categorie a rischio, where «Fine mese» already goes, and `validateStrip` refuses two cells on
+ * one row. `[]` without a ceiling: the strip has nothing to lift.
+ */
+export function selectBudgetStrip(ceiling: CeilingSummary | null): StripFigure[] {
+  if (!ceiling) return [];
+  const lift = (block: TettoLiftedBlock) => ({ section: BUDGET_SECTION_IDS.tetto, block });
+  const projectionOver = ceiling.projection !== null && Math.round(ceiling.projection) > ceiling.ceiling;
+  const fineMese: StripFigure = {
+    label: 'Fine mese',
+    value: ceiling.projection,
+    format: 'approx-currency',
+    ...(projectionOver ? { tone: 'negative' as const } : {}),
+    opens: BUDGET_SECTION_IDS.rischio,
+    lifts: lift('fine-mese'),
+    ...(ceiling.projection === null ? { reason: 'dal quarto giorno' } : {}),
+  };
+  if (!ceiling.exceeded) {
+    return [fineMese, { label: 'Restano', value: ceiling.remaining, format: 'currency', opens: BUDGET_SECTION_IDS.categorie, lifts: lift('restano') }];
+  }
+  const crossedByCalendar = ceiling.crossedOn !== null && ceiling.crossedOn > ceiling.calendar.dayOfMonth;
+  return [
+    fineMese,
+    crossedByCalendar
+      ? { label: 'Supererai', value: ceiling.overBy, format: 'currency', tone: 'negative', opens: VERDICT_REST_SECTION, lifts: lift('oltre') }
+      : { label: 'Oltre', value: ceiling.overBy, format: 'currency', tone: 'negative', opens: BUDGET_SECTION_IDS.avvisi, lifts: lift('oltre') },
+  ];
+}
 
 // ─── The ceiling ──────────────────────────────────────────────────────────────
 

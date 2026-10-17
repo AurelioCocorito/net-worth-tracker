@@ -11,7 +11,13 @@
  *   Desktop (12 col): Obiettivi(5, 2 rows) | Traiettoria(7)
  *                                          | Milestone(4) | Allocazione derivata(3)
  *                     Assegnazioni(12)
- *   Mobile (1 col):   Obiettivi → Traiettoria → Milestone → Allocazione derivata → Assegnazioni
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule,
+ *                     since 2026-10-15): the verdict (whole: no strip) → Obiettivi
+ *                     open → «Il resto della pagina» → Traiettoria, Milestone, Allocazione
+ *                     derivata, Assegnazioni as closed rows (`useMobileSections` with `tab:
+ *                     'goals'`, doc/guide/fire-obiettivi.md § Composizione mobile) → Dettaglio.
+ *                     Choosing a goal opens the Traiettoria row where it is, without moving the
+ *                     focus. Off, or without a goal: one tile, no rows.
  *
  * Without goal-driven allocation the Allocazione derivata tile is absent and Milestone takes its
  * columns. A «Dettaglio» disclosure below the grid holds the next contribution's split and the
@@ -43,10 +49,24 @@ import { calculateGoalProgress, cleanOrphanedAssignments } from '@/lib/services/
 import type { GoalAssetAssignment, InvestmentGoal } from '@/types/goals';
 import type { Asset } from '@/types/assets';
 import { computeGoalTrajectory, type GoalRow } from '@/lib/utils/goalTrajectory';
-import { buildMilestones, summarizeAssignments, summarizeDerivedAllocation, summarizeGoals, summarizeTrajectory, sumAssetValues } from '@/lib/utils/goalsSummary';
+import { buildMilestones, GOALS_SECTION_IDS, summarizeAssignments, summarizeDerivedAllocation, summarizeGoals, summarizeTrajectory, sumAssetValues } from '@/lib/utils/goalsSummary';
+import { useMobileSections, type SectionSpec } from '@/lib/hooks/useMobileSections';
+import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
+import {
+  COMPACT_GRID_CLASS,
+  COMPACT_GRID_WRAPPER_CLASS,
+  INDEX_CLASS,
+  PLAIN_GRID_CLASS,
+  leadCellClass,
+  REST_CELL_CLASS,
+  STAGE_CLASS,
+  STAGE_WRAPPER_CLASS,
+  VERDICT_CELL_CLASS,
+} from '@/lib/utils/tabletComposition';
 import {
   ALLOCAZIONE_DERIVATA_ASIDE,
   ALLOCAZIONE_DERIVATA_FOOTER,
+  GOALS_CLOSED_ASIDES,
   buildGoalsVerdict,
   buildTraiettoriaChips,
   describeAllocazioneDerivata,
@@ -55,6 +75,7 @@ import {
   describeAssegnazioniFooter,
   describeGoalCaption,
   describeGoalStatus,
+  describeGoalsClosedAnswers,
   describeMilestone,
   describeMilestoneNote,
   describeObiettivi,
@@ -69,7 +90,9 @@ import {
 import { GOALS_TAB_SKELETON_CELLS } from './tabSkeletons';
 import { cn } from '@/lib/utils';
 import { PageVerdict } from '@/components/ui/page-verdict';
-import { Tile, TILE_CELL_CLASS } from '@/components/ui/tile';
+import { PageRest } from '@/components/ui/page-rest';
+import { Tile, TILE_CELL_CLASS, TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
+import { RowAnswers } from '@/components/ui/row-answers';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { ErrorNotice } from '@/components/ui/error-notice';
 import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarrative';
@@ -87,6 +110,24 @@ import { AssetAssignmentDialog } from '@/components/goals/AssetAssignmentDialog'
 const SKELETON_CELLS = GOALS_TAB_SKELETON_CELLS;
 
 const EMPTY_ASSETS: Asset[] = [];
+
+/**
+ * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but Obiettivi,
+ * THE tile (The First-Screen Rule). Module-level; the tab hands the controller the rows PRESENT through
+ * `resolveGoalsSections` (none without goals, Allocazione derivata only with goal-driven targets).
+ */
+const GOALS_SECTIONS: readonly SectionSpec[] = [
+  { id: GOALS_SECTION_IDS.traiettoria, eyebrow: 'Traiettoria' },
+  { id: GOALS_SECTION_IDS.milestone, eyebrow: 'Milestone' },
+  { id: GOALS_SECTION_IDS.allocazione, eyebrow: 'Allocazione derivata' },
+  { id: GOALS_SECTION_IDS.assegnazioni, eyebrow: 'Assegnazioni' },
+];
+const NO_SECTIONS: readonly SectionSpec[] = [];
+
+function resolveGoalsSections(input: { hasGoals: boolean; hasDerived: boolean }): readonly SectionSpec[] {
+  if (!input.hasGoals) return NO_SECTIONS;
+  return GOALS_SECTIONS.filter((section) => section.id !== GOALS_SECTION_IDS.allocazione || input.hasDerived);
+}
 
 const ASIDE_BUTTON_CLASS =
   'inline-flex h-9 items-center gap-1 rounded-md border border-border px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 desktop:h-7';
@@ -156,8 +197,34 @@ export function GoalBasedInvestingTab() {
 
   // ─── The words ───────────────────────────────────────────────────────────────
   const verdict = useMemo(() => buildGoalsVerdict({ enabled: isEnabled, overview: isEnabled ? overview : null }), [isEnabled, overview]);
+
+  // ─── The phone composition (2026-10-15) ──────────────────────────────────────
+  // No strip: the verdict is whole. Choosing a goal opens the Traiettoria row where
+  // it stands — no scroll, no focus move: the list is where the reader is (`reveal` is the cells').
+  const hasGoalRows = isEnabled && overview.counts.total > 0;
+  const hasDerived = derivedAllocation !== null;
+  const sectionSpecs = useMemo(() => resolveGoalsSections({ hasGoals: hasGoalRows, hasDerived }), [hasGoalRows, hasDerived]);
+  const sections = useMobileSections({ route: 'fire-simulations', tab: 'goals', sections: sectionSpecs });
+  // At 768 the rows on two columns, on a tablet in landscape the index beside the verdict and THE
+  // tile (lib/utils/tabletComposition.ts): those the tab renders, in DOM order — the Traiettoria
+  // only with a goal selected and its trajectory read.
+  const stageRef = useTabletStage();
+  const tablet = useTabletComposition({
+    sections,
+    order: sectionSpecs.filter((section) => (trajectory && selectedRow) || section.id !== GOALS_SECTION_IDS.traiettoria).map((section) => section.id),
+  });
+  const traiettoriaCollapse = sections.collapse(GOALS_SECTION_IDS.traiettoria);
+  const handleSelectGoal = (goalId: string) => {
+    setSelectedGoalId(goalId);
+    traiettoriaCollapse?.onOpenChange(true);
+  };
   const obiettiviRows = useMemo(() => overview.goals.map((line) => ({ line, caption: describeGoalCaption(line), status: describeGoalStatus(line) })), [overview.goals]);
   const milestoneRows = useMemo(() => milestones.map((entry) => ({ entry, note: describeMilestoneNote(entry) })), [milestones]);
+  // What each closed row answers in the landscape index (2026-10-16): the same views the tiles print.
+  const rowAnswers = useMemo(
+    () => describeGoalsClosedAnswers({ trajectory, goalCount: overview.counts.total, milestones, derivedAllocation, assignments: assignmentsView }),
+    [trajectory, overview.counts.total, milestones, derivedAllocation, assignmentsView],
+  );
 
   // ─── Goal CRUD ───────────────────────────────────────────────────────────────
   const handleCreateGoal = () => {
@@ -256,29 +323,41 @@ export function GoalBasedInvestingTab() {
   );
 
   // ─── Render ──────────────────────────────────────────────────────────────────
-  return (
-    <div className="space-y-4">
-      <div className="pt-1">
+  // The verdict and the grid: the stage's children, in both of its forms below.
+  const stageContent = (
+    <>
+      <div data-stage="verdict" className={cn('pt-1', hasGoals && VERDICT_CELL_CLASS)}>
         <PageVerdict verdict={verdict} ariaLabel="Verdetto sugli obiettivi" />
       </div>
 
-      {/* Tablet (768-1439): every tile full width, in the phone's order. */}
-      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12">
-        <div className={cn(TILE_CELL_CLASS, 'order-1 tablet:col-span-2 desktop:order-none', hasGoals ? 'desktop:col-span-5 desktop:row-span-2' : 'desktop:col-span-12')}>
+      {/* ONE sequence, no `order-*` (The First-Screen Rule). Tablet: Obiettivi on two columns, the closed
+          rows two by two at 768, an open row on the whole grid row; in landscape the rows in the
+          index beside the verdict and Obiettivi. Without a goal, Obiettivi alone on the grid of
+          before, on both columns at 768 (not THE tile's cell: there is no stage). */}
+      <div className={hasGoals ? COMPACT_GRID_WRAPPER_CLASS : undefined}>
+      <div className={hasGoals ? COMPACT_GRID_CLASS : PLAIN_GRID_CLASS}>
+        <div data-stage="lead" className={cn(TILE_CELL_CLASS, leadCellClass(hasGoals), hasGoals ? 'desktop:col-span-5 desktop:row-span-2' : 'desktop:col-span-12')}>
           <ObiettiviTile
             reading={hasGoals ? describeObiettivi(overview) : null}
             aside={newGoalButton}
             rows={obiettiviRows}
             selectedId={effectiveSelectedId}
-            onSelect={setSelectedGoalId}
+            onSelect={handleSelectGoal}
             footer={hasGoals ? describeObiettiviFooter(overview) : null}
             emptyCopy="Nessun obiettivo ancora: crea il primo con «Nuovo obiettivo», poi assegnagli una quota di uno o più strumenti."
           />
         </div>
 
+        {/* The index: «Il resto» and every row; without a goal a plain `contents` box. */}
+        <RowAnswers value={rowAnswers}>
+        <div className={hasGoals ? INDEX_CLASS : 'contents'}>
+        {hasGoals && <PageRest sections={sections} className={REST_CELL_CLASS} />}
+
         {trajectory && selectedRow && (
-          <div className={cn(TILE_CELL_CLASS, 'order-2 tablet:col-span-2 desktop:order-none desktop:col-span-7')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.traiettoria), 'desktop:col-span-7')}>
             <TraiettoriaTile
+              collapse={traiettoriaCollapse}
+              asideWhenClosed={trajectory.name}
               reading={describeTraiettoria(trajectory)}
               name={trajectory.name}
               hero={resolveTraiettoriaHero(trajectory)}
@@ -304,20 +383,38 @@ export function GoalBasedInvestingTab() {
         )}
 
         {hasGoals && (
-          <div className={cn(TILE_CELL_CLASS, 'order-3 tablet:col-span-2 desktop:order-none', derivedAllocation ? 'desktop:col-span-4' : 'desktop:col-span-7')}>
-            <MilestoneTile reading={describeMilestone(milestones)} aside={MILESTONE_ASIDE} rows={milestoneRows} footer={MILESTONE_FOOTER} />
+          <div
+            className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.milestone), derivedAllocation ? 'desktop:col-span-4' : 'desktop:col-span-7')}
+          >
+            <MilestoneTile
+              collapse={sections.collapse(GOALS_SECTION_IDS.milestone)}
+              asideWhenClosed={GOALS_CLOSED_ASIDES[GOALS_SECTION_IDS.milestone]}
+              reading={describeMilestone(milestones)}
+              aside={MILESTONE_ASIDE}
+              rows={milestoneRows}
+              footer={MILESTONE_FOOTER}
+            />
           </div>
         )}
 
         {hasGoals && derivedAllocation && (
-          <div className={cn(TILE_CELL_CLASS, 'order-4 tablet:col-span-2 desktop:order-none desktop:col-span-3')}>
-            <AllocazioneDerivataTile reading={describeAllocazioneDerivata(derivedAllocation)} aside={ALLOCAZIONE_DERIVATA_ASIDE} rows={derivedAllocation.rows} footer={ALLOCAZIONE_DERIVATA_FOOTER} />
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.allocazione), 'desktop:col-span-3')}>
+            <AllocazioneDerivataTile
+              collapse={sections.collapse(GOALS_SECTION_IDS.allocazione)}
+              asideWhenClosed={GOALS_CLOSED_ASIDES[GOALS_SECTION_IDS.allocazione]}
+              reading={describeAllocazioneDerivata(derivedAllocation)}
+              aside={ALLOCAZIONE_DERIVATA_ASIDE}
+              rows={derivedAllocation.rows}
+              footer={ALLOCAZIONE_DERIVATA_FOOTER}
+            />
           </div>
         )}
 
         {hasGoals && (
-          <div className={cn(TILE_CELL_CLASS, 'order-5 tablet:col-span-2 desktop:order-none desktop:col-span-12')}>
+          <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(GOALS_SECTION_IDS.assegnazioni), 'desktop:col-span-12')}>
             <AssegnazioniTile
+              collapse={sections.collapse(GOALS_SECTION_IDS.assegnazioni)}
+              asideWhenClosed={describeAssegnazioniAside(assignmentsView)}
               reading={describeAssegnazioni(assignmentsView)}
               aside={describeAssegnazioniAside(assignmentsView)}
               view={assignmentsView}
@@ -327,6 +424,26 @@ export function GoalBasedInvestingTab() {
               isDemo={isDemo}
             />
           </div>
+        )}
+        </div>
+        </RowAnswers>
+      </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* The stage: the verdict over the grid; on a tablet in landscape, with goals, the answer on
+          the left (verdict and Obiettivi) and the index on the right (lib/utils/tabletComposition.ts).
+          Without a goal no rows: a plain box, unmeasured. The two forms are the same `div` in the
+          same place, so React keeps the node and its subtree when the first goal is created, and
+          the measuring ref attaches then. */}
+      <div className={STAGE_WRAPPER_CLASS}>
+        {hasGoals ? (
+          <div ref={stageRef} className={STAGE_CLASS}>{stageContent}</div>
+        ) : (
+          <div className="space-y-4">{stageContent}</div>
         )}
       </div>
 

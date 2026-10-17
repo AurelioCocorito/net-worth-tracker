@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PRINT_COLORS } from '@/lib/constants/printTokens';
 
@@ -61,6 +61,28 @@ vi.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifyIdToken: vi.fn() },
 }));
 
+// The AI comment reads the memory and builds the bundle before calling the model: both are
+// the real functions unless a test answers them itself.
+vi.mock('@/lib/server/assistant/store', async (importActual) => {
+  const actual = await importActual<typeof import('@/lib/server/assistant/store')>();
+  return { ...actual, getAssistantMemoryDocument: vi.fn(actual.getAssistantMemoryDocument) };
+});
+vi.mock('@/lib/services/assistantMonthContextService', async (importActual) => {
+  const actual = await importActual<typeof import('@/lib/services/assistantMonthContextService')>();
+  return { ...actual, buildAssistantPeriodRangeContext: vi.fn(actual.buildAssistantPeriodRangeContext) };
+});
+
+// The SDK is imported lazily inside the comment generator: one fake client answers on both
+// `messages.create` and `beta.messages.create`, so the test reads the response handling, not
+// which door the request went through.
+const { anthropicCreateMock } = vi.hoisted(() => ({ anthropicCreateMock: vi.fn() }));
+vi.mock('@anthropic-ai/sdk', () => ({
+  default: class {
+    messages = { create: anthropicCreateMock };
+    beta = { messages: { create: anthropicCreateMock } };
+  },
+}));
+
 vi.mock('@/lib/utils/dateHelpers', async () => {
   const actual = await vi.importActual<typeof import('@/lib/utils/dateHelpers')>(
     '@/lib/utils/dateHelpers'
@@ -91,8 +113,12 @@ import {
   generateEmailHtml,
   sendMonthlyEmail,
   buildExpenseSplitTile,
+  generateEmailAiComment,
   type MonthlyEmailData,
 } from '@/lib/server/monthlyEmailService';
+import { getAssistantMemoryDocument } from '@/lib/server/assistant/store';
+import { EMAIL_ANALYSIS_MODEL, SERVER_SIDE_FALLBACK_BETA } from '@/lib/constants/aiModels';
+import { buildAssistantPeriodRangeContext } from '@/lib/services/assistantMonthContextService';
 import { MAX_CATEGORY_DELTAS, type PeriodComparison } from '@/lib/server/emailPeriodComparison';
 import type { AssistantMemoryItem, AssistantMonthContextBundle, AssistantPreferences } from '@/types/assistant';
 import type { MonthlySnapshot } from '@/types/assets';
@@ -237,6 +263,74 @@ const BUDGET_ALERT: BudgetAlert = {
   thresholdCrossed: true,
   crossedOn: null,
 };
+
+// ─── generateEmailAiComment ───────────────────────────────────────────────────
+
+describe('generateEmailAiComment', () => {
+  const previousKey = process.env.ANTHROPIC_API_KEY;
+
+  /** A non-streamed response: a thinking block, then the text, then why it stopped. */
+  function answer(text: string, stopReason: string) {
+    return {
+      model: 'claude-sonnet-5-5',
+      content: [
+        { type: 'thinking', thinking: '', signature: 'sig' },
+        { type: 'text', text },
+      ],
+      stop_reason: stopReason,
+    };
+  }
+
+  beforeEach(() => {
+    process.env.ANTHROPIC_API_KEY = 'test-key';
+    anthropicCreateMock.mockReset();
+    vi.mocked(getAssistantMemoryDocument).mockRejectedValueOnce(new Error('no memory'));
+    vi.mocked(buildAssistantPeriodRangeContext).mockResolvedValueOnce(makeBundle());
+  });
+
+  afterEach(() => {
+    if (previousKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = previousKey;
+  });
+
+  it('keeps a comment that ends on end_turn', async () => {
+    anthropicCreateMock.mockResolvedValue(answer('Il patrimonio è cresciuto di 5000 €.', 'end_turn'));
+
+    const comment = await generateEmailAiComment('user-1', makeMonthlyData(), makeComparison());
+
+    expect(comment).toBe('Il patrimonio è cresciuto di 5000 €.');
+  });
+
+  it('asks for the default server-side fallback', async () => {
+    anthropicCreateMock.mockResolvedValue(answer('Il patrimonio è cresciuto di 5000 €.', 'end_turn'));
+
+    await generateEmailAiComment('user-1', makeMonthlyData(), makeComparison());
+
+    expect(anthropicCreateMock.mock.calls[0][0]).toMatchObject({
+      model: EMAIL_ANALYSIS_MODEL,
+      betas: [SERVER_SIDE_FALLBACK_BETA],
+      fallbacks: 'default',
+    });
+  });
+
+  it('drops a comment the model declined half-way (stop_reason refusal)', async () => {
+    // Sonnet 5.5 declines with HTTP 200: the half paragraph written before the refusal must
+    // not reach the inbox as if it were the comment — the email goes out without it.
+    anthropicCreateMock.mockResolvedValue(answer('Il patrimonio è cresciuto di', 'refusal'));
+
+    const comment = await generateEmailAiComment('user-1', makeMonthlyData(), makeComparison());
+
+    expect(comment).toBeNull();
+  });
+
+  it('drops a comment cut at max_tokens', async () => {
+    anthropicCreateMock.mockResolvedValue(answer('Il patrimonio è cresciuto di 5000 €. Il merc', 'max_tokens'));
+
+    const comment = await generateEmailAiComment('user-1', makeMonthlyData(), makeComparison());
+
+    expect(comment).toBeNull();
+  });
+});
 
 // ─── buildEmailAiPrompt ───────────────────────────────────────────────────────
 
@@ -911,6 +1005,18 @@ describe('generateEmailHtml', () => {
     expect(html).toContain('tasse sulle vendite circa');
   });
 
+  it('takes the pension contributions and the debts repaid out of the «mercato» residual and names them', () => {
+    // Δ 5000 € with 1500 € saved: the residual was 3500 € of «mercato»; 1500 € paid into the fund
+    // and 500 € of principal repaid are the user's money, so the market is 1500 € (owner, 2026-10-14).
+    const html = generateEmailHtml(
+      makeMonthlyData({ periodFlows: { pensionPaidIn: 1500, debts: [{ name: 'Mutuo', repaid: 500 }] } }),
+    );
+    expect(html).toMatch(/\+1500[\s ]*€<\/span> viene dal mercato/);
+    expect(html).toContain('dal debito rimborsato (Mutuo)');
+    expect(html).toContain('da quanto hai versato nel fondo pensione');
+    expect(html).toMatch(/Mercato <span[^>]*>\+1500[\s ]*€/);
+  });
+
   it('carries no arrow glyphs: the sign is the colour and the sign of the figure', () => {
     const html = generateEmailHtml(makeMonthlyData());
     expect(html).not.toContain('▲');
@@ -1481,9 +1587,9 @@ describe('buildExpenseSplitTile', () => {
       .filter((text) => /[+−]/.test(text));
 
   it('leads with the booked residual and carries the calendar in the caption', () => {
-    const html = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1200, 1400), member('Tarsio', -100, 100)]));
+    const html = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1200, 1400), member('Nibbio', -100, 100)]));
 
-    // Both amounts are the BOOKED ones: Tarsio is +100 today, not the −100 the month ends on.
+    // Both amounts are the BOOKED ones: Nibbio is +100 today, not the −100 the month ends on.
     expect(amountCells(html)).toEqual(['+1400 €', '+100 €']);
     // Where the month takes them is said, not printed as a second figure.
     expect(html).toContain('Con le spese ancora in calendario');
@@ -1495,18 +1601,18 @@ describe('buildExpenseSplitTile', () => {
    * person who came up short printed the same ink as one who did not.
    */
   it('colours the amount by the sign of the booked residual', () => {
-    const short = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1400, 1400), member('Tarsio', -400, -200)]));
+    const short = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1400, 1400), member('Nibbio', -400, -200)]));
     expect(short).toContain(PRINT_COLORS.negative);
     expect(short).toContain(PRINT_COLORS.positive);
 
     // And a row that is short only on the CALENDAR keeps the positive ink: the colour follows what
     // has happened, exactly as the tile on the page does.
-    const calendarOnly = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1400, 1400), member('Tarsio', -100, 100)]));
+    const calendarOnly = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1400, 1400), member('Nibbio', -100, 100)]));
     expect(calendarOnly).not.toContain(PRINT_COLORS.negative);
   });
 
   it('adds no calendar sentence when nothing is scheduled', () => {
-    const html = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1400, 1400), member('Tarsio', 100, 100)]));
+    const html = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1400, 1400), member('Nibbio', 100, 100)]));
     expect(html).not.toContain('Con le spese ancora in calendario');
   });
 
@@ -1515,10 +1621,10 @@ describe('buildExpenseSplitTile', () => {
   it('says how the common income reduced the pool, in the reading', () => {
     // The figures sit in their own mono `<span>`s: read the text, not the markup.
     const plain = (html: string) => html.replace(/<[^>]+>/g, '').replace(/ /g, ' ');
-    const netted = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1400, 1400), member('Tarsio', 100, 100)], 300));
+    const netted = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1400, 1400), member('Nibbio', 100, 100)], 300));
     expect(plain(netted)).toContain('Spese in comune 1000 €, meno 300 € di entrate in comune: 700 € da dividere.');
 
-    const gross = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1400, 1400), member('Tarsio', 100, 100)]));
+    const gross = buildExpenseSplitTile(dataWith([member('Ghiandaia', 1400, 1400), member('Nibbio', 100, 100)]));
     expect(plain(gross)).not.toContain('da dividere');
   });
 });

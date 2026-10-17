@@ -3,12 +3,16 @@
 import type { Narrative } from '@/lib/utils/narrative';
 import type { FlowSource, PerformanceChartData } from '@/types/performance';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
-import { Tile } from '@/components/ui/tile';
+import { Tile, type TileCollapse } from '@/components/ui/tile';
 import { TileMethodNote } from '@/components/ui/tile-method-note';
 import { SeriesLegend, type SeriesLegendItem } from '@/components/ui/series-legend';
 import { CapitalMarketChart, CAPITAL_BASE_COLOR, CAPITAL_NET_WORTH_COLOR } from '@/components/performance/CapitalMarketChart';
 
 interface CapitaleMercatoTileProps {
+  /** The row of the phone composition (`useMobileSections().collapse(id)`); `undefined` at 1440. The chart mounts on the first opening. */
+  collapse?: TileCollapse;
+  /** What the closed row says beside its eyebrow, in words (`PERFORMANCE_CLOSED_ASIDES`). */
+  asideWhenClosed?: string;
   aside: string;
   reading: Narrative | null;
   data: PerformanceChartData[];
@@ -44,10 +48,10 @@ const FLOW_METHOD: Record<FlowSource, string> = {
  * return. Not the ledger's «capitale investito»: that is buys minus sells alone, this starts from
  * the period's opening valuation and adds what crossed into the measured base since.
  */
-export function CapitaleMercatoTile({ aside, reading, data, pensionFlow, flowSource, className }: CapitaleMercatoTileProps) {
+export function CapitaleMercatoTile({ collapse, asideWhenClosed, aside, reading, data, pensionFlow, flowSource, className }: CapitaleMercatoTileProps) {
   const hasPensionFlow = Math.round(pensionFlow) !== 0;
   return (
-    <Tile eyebrow="Capitale e mercato" aside={aside} reading={reading} className={className}>
+    <Tile eyebrow="Capitale e mercato" aside={aside} collapse={collapse} asideWhenClosed={asideWhenClosed} reading={reading} className={className}>
       {data.length >= 2 && (
         <>
           <SeriesLegend items={LEGEND} className="mt-3 justify-end" />

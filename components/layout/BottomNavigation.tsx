@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils';
 import { Suspense, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { SecondaryMenuDrawer } from './SecondaryMenuDrawer';
-import { isNavItemActive } from '@/lib/utils/navUtils';
+import { isAddExpenseFabShown, isNavItemActive } from '@/lib/utils/navUtils';
+import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { primaryNav, secondaryHrefs } from '@/lib/constants/navigation';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
 
@@ -36,20 +37,20 @@ const PILL_STYLE = {
 };
 
 /**
- * The «+» that adds an expense. It belongs to Cashflow › Tracciamento and nowhere else: on
- * Dividendi and Budget the tab's own add button sits under the verdict, and a FAB that still
- * added an EXPENSE there read as the tab's add affordance. The tab is the URL's `?tab=`
- * (the Cashflow page canonicalises it on mount), absent = Tracciamento.
+ * The «+» that adds an expense. It belongs to Cashflow › Tracciamento and nowhere else, and
+ * not to the demo (`isAddExpenseFabShown`, the ONE rule — since 2026-10-12 the demo clause: the
+ * shell renders before Firebase Auth resolves, so the FAB can appear for a frame and leave once
+ * the demo uid is known). The tab is the URL's `?tab=` (the Cashflow page canonicalises it on
+ * mount), absent = Tracciamento.
  */
 function AddExpenseFab({ pathname }: { pathname: string }) {
   const searchParams = useSearchParams();
-  const isOnCashflow = pathname === '/dashboard/cashflow' || pathname.startsWith('/dashboard/cashflow/');
-  const tab = searchParams.get('tab');
-  const isOnTracciamento = isOnCashflow && (tab === null || tab === 'tracking');
+  const isDemo = useDemoMode();
+  const shown = isAddExpenseFabShown({ pathname, tab: searchParams.get('tab'), isDemo });
 
   return (
     <AnimatePresence mode="popLayout">
-      {isOnTracciamento && (
+      {shown && (
         <motion.button
           type="button"
           aria-label="Aggiungi nuova voce"
@@ -107,6 +108,9 @@ export function BottomNavigation() {
             key={isPillVisible ? 'pill-animated' : 'pill-static'}
             layout={isPillVisible}
             aria-label="Navigazione principale"
+            // The landscape icon rail is the same landmark (`TabletRail`, 2026-10-16, never visible with
+            // the pill): the census and the specs that mean THE PILL select this attribute.
+            data-nav="pill"
             className="flex rounded-full"
             style={PILL_STYLE}
             transition={pillTransition}

@@ -6,7 +6,7 @@
 
 web
 
-Responsive web only. There is no PWA and no native shell: `public/sw.js` is an explicit no-op stub, and there is no manifest. Mobile-first at 390px with desktop as an elevated variant — custom breakpoints `--breakpoint-desktop: 1440px` and `--breakpoint-tablet: 768px`; `lg:` is forbidden for wide-screen switches because iPad Mini in landscape is 1024px and is treated as mobile by design.
+Responsive web only. There is no PWA and no native shell: `public/sw.js` is an explicit no-op stub, and there is no manifest. Mobile-first at 390px, composed below `desktop:` — the same tiles and narratives, a first screen of verdict, at most four figures and one open tile (DESIGN.md → The First-Screen Rule); one composition for phone and tablet — custom breakpoints `--breakpoint-desktop: 1440px` and `--breakpoint-tablet: 768px`; `lg:` is forbidden for wide-screen switches because iPad Mini in landscape is 1024px and is treated as mobile by design.
 
 ## Users
 

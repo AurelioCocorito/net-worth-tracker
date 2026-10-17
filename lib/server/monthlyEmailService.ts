@@ -11,7 +11,8 @@
  * Never import it from client components.
  */
 
-import { EMAIL_ANALYSIS_MODEL } from '@/lib/constants/aiModels';
+import { EMAIL_ANALYSIS_MODEL, SERVER_SIDE_FALLBACK_BETA } from '@/lib/constants/aiModels';
+import { readCompleteEmailComment } from '@/lib/server/emailAiComment';
 import { adminDb } from '@/lib/firebase/admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { Resend } from 'resend';
@@ -56,7 +57,7 @@ import {
 import { printChartHexForAssetClass, PRINT_COLORS } from '@/lib/constants/printTokens';
 import { cachedFormatCurrencyEUR, formatPercentageIt } from '@/lib/utils/formatters';
 import { getItalyDate } from '@/lib/utils/dateHelpers';
-import { AssetAllocationSettings } from '@/types/assets';
+import { AssetAllocationSettings, isLoanAsset } from '@/types/assets';
 import { ASSET_CLASS_LABELS } from '@/lib/utils/allocationUtils';
 import { getDefaultAssistantPreferences } from '@/lib/server/assistant/webSearchPolicy';
 import { getAssistantMemoryDocument } from '@/lib/server/assistant/store';
@@ -85,7 +86,10 @@ import type { BudgetAlert, BudgetItem } from '@/types/budget';
 import { type Expense, type ExpenseType, EXPENSE_TYPE_LABELS } from '@/types/expenses';
 import { summarizeExpenseSplit, type ExpenseSplitSummary } from '@/lib/utils/expenseSplitSummary';
 import { summarizePeriodSales, type PeriodSalesSummary } from '@/lib/utils/periodSales';
-import { getAssetTransactionsAdmin, getUserAssetsAdmin } from '@/lib/server/assetAdminRepository';
+import { getAssetTransactionsAdmin, getPensionContributionsAdmin, getUserAssetsAdmin } from '@/lib/server/assetAdminRepository';
+import { debtRepaymentsBetween, pensionPaidInAcross, type DebtPositionRow, type MonthFlows } from '@/lib/utils/marketEffect';
+import { resolvePensionReturnStart } from '@/lib/utils/pensionReturn';
+import { debtRepaidTotal } from '@/lib/utils/salesNarrative';
 import {
   describeCommonIncome,
   describeMemberBalance,
@@ -162,6 +166,11 @@ export interface MonthlyEmailData {
   // verdict can name a taxed sale instead of calling it a market loss (lib/utils/periodSales.ts).
   // null = nothing sold; undefined on data built before the field existed.
   periodSales?: PeriodSalesSummary | null;
+  // The pension contributions and the principal repaid per debt between the two snapshots — the
+  // user's money that moved outside the cashflow, taken OUT of the «mercato» residual and named
+  // beside it (lib/utils/marketEffect.ts). null when either snapshot has no `byAsset` or a read
+  // failed: the residual then keeps them, as before.
+  periodFlows?: MonthFlows | null;
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -759,9 +768,10 @@ const EMAIL_AI_MAX_TOKENS: Record<EmailPeriodType, number> = {
  * Every failure (bundle build, Anthropic error, missing key) is caught and logged: the
  * email is always sent, with or without the comment.
  *
- * @returns The AI-generated markdown text, or null on failure.
+ * @returns The AI-generated markdown text, or null on failure or on a reply that did not end
+ *   on `end_turn` (a refusal, a cut — `readCompleteEmailComment`). Exported for testing.
  */
-async function generateEmailAiComment(
+export async function generateEmailAiComment(
   userId: string,
   emailData: MonthlyEmailData,
   comparison: PeriodComparison
@@ -800,35 +810,34 @@ async function generateEmailAiComment(
     const Anthropic = (await import('@anthropic-ai/sdk')).default;
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
-    const message = await anthropic.messages.create({
+    const message = await anthropic.beta.messages.create({
       model: EMAIL_ANALYSIS_MODEL,
+      // A policy decline is re-run on the fallback model inside this call (aiModels.ts).
+      betas: [SERVER_SIDE_FALLBACK_BETA],
+      fallbacks: 'default',
       max_tokens: EMAIL_AI_MAX_TOKENS[emailData.periodType],
       system: system,
       thinking: { type: 'adaptive' },
       output_config: { effort: 'high' },
       // Macro context is the only thing the search is for (the system core scopes it to
-      // market movements), so the preference that governs it governs the tool.
+      // market movements), so the preference that governs it governs the tool. The version
+      // with dynamic filtering, as on the assistant and Rendimenti's analysis (2026-10-12).
       ...(preferences.includeMacroContext
         ? {
             tools: [
               {
-                type: 'web_search_20250305',
+                type: 'web_search_20260209',
                 name: 'web_search',
                 max_uses: 3,
-              } satisfies Anthropic.WebSearchTool20250305,
+              } satisfies Anthropic.Beta.BetaWebSearchTool20260209,
             ],
           }
         : {}),
       messages: [{ role: 'user', content: userContent }],
     });
 
-    // Concatenate the text blocks of the (non-streamed) response (skips thinking/tool blocks).
-    const text = message.content
-      .map((block) => (block.type === 'text' ? block.text : ''))
-      .join('')
-      .trim();
-
-    return text || null;
+    // A refusal or a cut leaves a fragment: the email goes out without the comment.
+    return readCompleteEmailComment(message, EMAIL_ANALYSIS_MODEL, 'emailAiComment');
   } catch (error) {
     // AI failure must never block email sending
     console.error(`[emailAiComment] Generation failed for user ${userId}:`, error);
@@ -861,6 +870,8 @@ export async function getSettingsAdmin(
     expenseSplitEnabled: data.expenseSplitEnabled,
     familyMembers: data.familyMembers ?? [],
     laborIncomeCategoryIds: data.laborIncomeCategoryIds ?? [],
+    // Read by `buildPeriodFlows`: the pension contributions are named only from this month on.
+    pensionReturnStartMonth: data.pensionReturnStartMonth,
     targets: data.targets,
   } as AssetAllocationSettings;
 }
@@ -1260,6 +1271,7 @@ export async function buildPeriodEmailData(
 
   const expenseSplit = await buildExpenseSplitForPeriod(userId, expensesSnap.docs, new Date());
   const periodSales = await buildPeriodSales(userId, windowStart, windowEnd);
+  const periodFlows = await buildPeriodFlows(userId, previous, current, monthKeyOf(prevYear, prevMonth), monthKeyOf(year, month));
 
   return {
     periodType,
@@ -1288,7 +1300,47 @@ export async function buildPeriodEmailData(
     budgetAlerts,
     expenseSplit,
     periodSales,
+    periodFlows,
   };
+}
+
+const monthKeyOf = (year: number, month: number) => `${year}-${String(month).padStart(2, '0')}`;
+
+/**
+ * The user's money that moved the net worth between the two snapshots without a cashflow row —
+ * the pension contributions and the principal repaid per debt — measured with Storico's rules
+ * (`pensionPaidInAcross`, `debtRepaymentsBetween`), so the email's «mercato» stops holding the
+ * month's TFR (owner, 2026-10-14). Never blocks the email: a failed read leaves them in the
+ * residual, as before this field existed.
+ */
+async function buildPeriodFlows(
+  userId: string,
+  previous: FirebaseFirestore.DocumentData | null,
+  current: FirebaseFirestore.DocumentData,
+  previousKey: string,
+  currentKey: string
+): Promise<MonthFlows | null> {
+  const previousRows: DebtPositionRow[] = previous?.byAsset ?? [];
+  const currentRows: DebtPositionRow[] = current.byAsset ?? [];
+  if (previousRows.length === 0 || currentRows.length === 0) return null;
+  try {
+    const [assets, contributions, settings] = await Promise.all([
+      getUserAssetsAdmin(userId),
+      getPensionContributionsAdmin(userId),
+      getSettingsAdmin(userId),
+    ]);
+    const fundIds = assets.filter((asset) => asset.type === 'pensionFund').map((asset) => asset.id);
+    const startMonth = resolvePensionReturnStart(contributions, settings?.pensionReturnStartMonth);
+    const realEstateIds = new Set(assets.filter((asset) => asset.type === 'realestate').map((asset) => asset.id));
+    const loans = assets.filter(isLoanAsset).map((loan) => ({ id: loan.id, name: loan.name, financedAssetId: loan.financedAssetId }));
+    return {
+      pensionPaidIn: pensionPaidInAcross(contributions, fundIds, startMonth, previousKey, currentKey),
+      debts: debtRepaymentsBetween(previousRows, currentRows, loans, realEstateIds),
+    };
+  } catch (error) {
+    console.error(`[periodFlows] Read failed for user ${userId}:`, error);
+    return null;
+  }
 }
 
 /**
@@ -1375,7 +1427,10 @@ const RANKED_ROWS_SHOWN = 6;
  */
 function marketEffectOf(data: MonthlyEmailData): number | null {
   if (data.previousNetWorth <= 0) return null;
-  return data.netWorthDelta - (data.totalIncome - data.totalExpenses) + (data.periodSales?.estimatedTax ?? 0);
+  // The pension contributions and the debts repaid are the user's money, named beside the market
+  // (`periodFlows`); left in, the month's TFR read as «mercato» (owner, 2026-10-14).
+  const flows = (data.periodFlows?.pensionPaidIn ?? 0) + debtRepaidTotal(data.periodFlows?.debts ?? []);
+  return data.netWorthDelta - (data.totalIncome - data.totalExpenses) + (data.periodSales?.estimatedTax ?? 0) - flows;
 }
 
 /** The Hall of Fame standing, in the shape the verdict expects. */
@@ -1634,6 +1689,7 @@ export function generateEmailHtml(data: MonthlyEmailData, comparisonData?: Perio
     totalExpenses: data.totalExpenses,
     marketEffect,
     sales: data.periodSales ?? null,
+    flows: data.periodFlows ?? null,
     rank: verdictRank(data),
   });
 
@@ -1679,7 +1735,7 @@ export function generateEmailHtml(data: MonthlyEmailData, comparisonData?: Perio
         netWorthDeltaPct: data.netWorthDeltaPct,
       }),
       body: emailHero(formatEur(data.currentNetWorth)) + emailKeyFigures(netWorthFigures),
-      footer: describeMarketSplit(marketEffect, savings, data.periodSales?.estimatedTax ?? null),
+      footer: describeMarketSplit(marketEffect, savings, data.periodSales?.estimatedTax ?? null, data.periodFlows ?? null),
     }),
   );
 
