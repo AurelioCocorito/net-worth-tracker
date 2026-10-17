@@ -210,6 +210,9 @@ combacia), in un passo finale della stessa sessione. Nuove per Panoramica, Tracc
 altre dodici cancellate nello stesso commit (WORKFLOW: la critica di una superficie «since rebuilt» si cancella), rifatte da
 `polish` in sessioni successive (README § 9, 53). Committate APERTE: si chiudono solo con `polish` (`critique-storage close
 <target> <snapshot-file>`, due argomenti; fa fede `closed: true` nel file, non l'exit code), in una sessione successiva.
+**[Superato il 2026-10-17, nella sessione di MOB-09, su decisione del proprietario:** le quattro critiche scritte sul fixture
+(non sul mirror: WORKFLOW, 2026-10-15) sono state cancellate con tutte le altre, e Impeccable gira da allora sulla macchina
+Windows (WORKFLOW § Where things are recorded): «dal Mac» non vale più; il backlog delle quattro sta in README § 6.**]**
 
 ### 4.7 README e Draft
 
@@ -237,7 +240,7 @@ modello di WORKFLOW § Where things are recorded; cifre tonde inventate e nomi g
 
 Tutte le domande di questa spec sono chiuse: il testo lo applica Claude verbatim dopo l'OK (52); quattro critiche nuove e
 dodici cancellate (53); `tile-closed-row` nel frontmatter (54); una voce per pagina nel Draft (55); l'ordine del DOM è
-deciso dal 2026-09-27 (1, 11) e la regola lo scrive; il giro F con DevTools (56); le critiche dal Mac (57); il budget
+deciso dal 2026-09-27 (1, 11) e la regola lo scrive; il giro F con DevTools (56); le critiche dalla macchina che le chiude (57; Windows dal 2026-10-17, § 4.6); il budget
 senza eccezioni oltre `raisedBy` (16, 19, 22).
 
 ## 5. File da toccare
@@ -252,7 +255,7 @@ senza eccezioni oltre `raisedBy` (16, 19, 22).
 1. Branch; `git log` di MOB-02..08. 2. `mobile:census`/`mobile:budget` sul fixture `census@example.com` (`perf:build` +
 `perf:serve`, :3200); sul mirror solo il census che dà i numeri aggregati della tabella «dopo» di README § 3 e il giro F.
 3. Lo script di § 7 sul sidecar di oggi. 4. DESIGN.md dopo l'OK sul testo; il sidecar; lo script.
-5. Guide, AGENTS.md, CLAUDE.md, PRODUCT.md, README.md. 6. Playwright intero. 7. README, Draft. 8. Le critiche (Mac); commit proposto.
+5. Guide, AGENTS.md, CLAUDE.md, PRODUCT.md, README.md. 6. Playwright intero. 7. README, Draft. 8. Le critiche (§ 4.6); commit proposto.
 
 ## 7. Test e falsificazione
 
@@ -282,7 +285,7 @@ senza eccezioni oltre `raisedBy` (16, 19, 22).
 ## 9. Rischi e rollback
 
 - DESIGN.md toccato senza OK: l'edit inverso. Sidecar e prosa divergenti: si riallinea il sidecar, mai la prosa.
-- CLAUDE.md oltre 20.000: fatti spostati nelle guide. Critiche scritte da Windows: si riscrivono dal Mac.
+- CLAUDE.md oltre 20.000: fatti spostati nelle guide.
 
 ## 10. Documentazione da aggiornare
 
