@@ -102,7 +102,7 @@ quelle metriche a quelle viewport è solo stampato; **la lista è vuota dal 2026
 metrica; fino ad allora `figuresOutsideVerdict` e `firstClosedRowAbovePill` a 768 e 1024). Un budget misurato e non registrato, o registrato e non misurato,
 è rosso: una corsa parziale (`--surfaces`, `--viewports`) non è mai verde.
 
-**La colonna «obiettivo»** (The First-Screen Rule, proposta in MOB-09): a 390 «sì» con ≤ 5 cifre fuori dal verdetto E
+**La colonna «obiettivo»** (DESIGN.md → The First-Screen Rule, dal 2026-10-17): a 390 «sì» con ≤ 5 cifre fuori dal verdetto E
 la prima riga chiusa sopra la pill; a 768/1024 l'obiettivo è il misurato (decisione 16; a 1024 lo stage in orizzontale dal 2026-10-16, decisione 105), quindi «sì» quando la
 corsa sta dentro la sua voce di budget, metrica per metrica, la riga chiusa compresa — un `false` con il suo `raisedBy` È
 l'obiettivo misurato — e «non ancora» con le metriche oltre (`firstScreenTarget`, `__tests__/mobileBudget.test.ts`, dal
