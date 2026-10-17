@@ -94,14 +94,14 @@
   "budget": {
     "panoramica": {
       "390": {
-        "screens": 1.75,
+        "screens": 1.83,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 1,
         "figuresAboveFold": 5,
         "figuresOutsideVerdict": 5,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "2026-10-16: screens 1.74 → 1.75 — la testata più alta di 8 px: l'icona Impostazioni di Cashflow e «Crea snapshot» passano da 36 a 44 px, bersagli per il pollice; 2026-10-15: la macchina di riferimento è cambiata (il budget ne ha una sola): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; 2026-10-11: la prima riga chiusa (Sintesi) finisce a 879 contro la pill a 767 — la striscia prende due righe («+3000,00 €» supera i 9 caratteri, una cella larga) e LA tessera tiene la pill del periodo a 44 px e la curva già a 120 px; la riga sotto la pill registrata false con raisedBy, estesa alla Panoramica"
+        "raisedBy": "2026-10-17: screens 1,75 → 1,83 — la riga chiusa «Intestatari» (52 px) in coda alle righe, perché il fixture nomina un membro della famiglia tramite il fondo pensione (proprietario: la tessera su Panoramica e Patrimonio, a riga intera in coda); il primo schermo non si muove; 2026-10-16: screens 1.74 → 1.75 — la testata più alta di 8 px: l'icona Impostazioni di Cashflow e «Crea snapshot» passano da 36 a 44 px, bersagli per il pollice; 2026-10-15: la macchina di riferimento è cambiata (il budget ne ha una sola): il budget era stato stretto sull'altra, che misura qualche centesimo in meno; 2026-10-11: la prima riga chiusa (Sintesi) finisce a 879 contro la pill a 767 — la striscia prende due righe («+3000,00 €» supera i 9 caratteri, una cella larga) e LA tessera tiene la pill del periodo a 44 px e la curva già a 120 px; la riga sotto la pill registrata false con raisedBy, estesa alla Panoramica"
       },
       "768": {
         "screens": 1.17,
@@ -125,14 +125,14 @@
     },
     "patrimonio": {
       "390": {
-        "screens": 1.67,
+        "screens": 1.75,
         "tilesAboveFold": 1,
         "tilesFullyAboveFold": 0,
         "figuresAboveFold": 7,
         "figuresOutsideVerdict": 4,
         "firstClosedRowAbovePill": false,
         "overflowX": false,
-        "raisedBy": "2026-10-14: la prima riga chiusa (Movimenti) finisce a 976 contro la pill a 767 — il verdetto è alto 243 (titolo, primo enunciato su due righe, la striscia G/P su una riga sua perché «+9183,42 €» supera i 9 caratteri e Liquidità sotto, «Il perché»), LA tessera 494 con la curva già a 120 px e il conteggio, «Il resto» 44; la riga sotto la pill registrata false con raisedBy, estesa a Patrimonio"
+        "raisedBy": "2026-10-17: screens 1,67 → 1,75 — la riga chiusa «Intestatari» (52 px) in coda alle righe, perché il fixture nomina un membro della famiglia tramite il fondo pensione (proprietario: la tessera su Panoramica e Patrimonio, a riga intera in coda); il primo schermo non si muove; 2026-10-14: la prima riga chiusa (Movimenti) finisce a 976 contro la pill a 767 — il verdetto è alto 243 (titolo, primo enunciato su due righe, la striscia G/P su una riga sua perché «+9183,42 €» supera i 9 caratteri e Liquidità sotto, «Il perché»), LA tessera 494 con la curva già a 120 px e il conteggio, «Il resto» 44; la riga sotto la pill registrata false con raisedBy, estesa a Patrimonio"
       },
       "768": {
         "screens": 1.15,

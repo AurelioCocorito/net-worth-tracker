@@ -1009,13 +1009,20 @@ export interface PensionLookThrough {
   allFrozen: boolean;
 }
 
+/**
+ * Every asset by class, a loan INCLUDED with its negative value (owner, 2026-10-17): «tutto il
+ * patrimonio» is the net worth, so Immobili is the house minus its mortgage and Liquidità the
+ * accounts minus a personal loan — the rule Composizione and Storico already follow. Until that
+ * day a non-positive value was skipped and the tile printed the house GROSS beside a net total
+ * elsewhere. A class below zero stays declared (a negative slice), never clamped.
+ */
 function toClassSlices(assets: Asset[], valueOf: (asset: Asset) => number, labels: Record<string, string>): ClassSlice[] {
   const byClass = new Map<string, number>();
   for (const asset of assets) {
     const value = valueOf(asset);
-    if (value <= 0) continue;
+    if (value === 0) continue;
     for (const leg of assetClassLegs(asset, value)) {
-      if (leg.weight <= 0) continue;
+      if (leg.weight === 0) continue;
       byClass.set(leg.assetClass, (byClass.get(leg.assetClass) ?? 0) + leg.weight);
     }
   }

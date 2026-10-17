@@ -57,7 +57,7 @@ import { cn } from '@/lib/utils';
 import { getExpenseDate } from '@/lib/utils/expenseHelpers';
 import { isScheduledRow } from '@/lib/utils/tracciamentoSummary';
 import { resolveOwnerLabel } from '@/lib/utils/movementsOwnerFilter';
-import { describeExpenseDeleteConsequence } from '@/lib/utils/dialogNarrative';
+import { describeExpenseDeleteConsequence, EXPENSE_BUDGET_EXCLUSION_CHIP } from '@/lib/utils/dialogNarrative';
 import { useArmedDelete } from '@/lib/hooks/useArmedDelete';
 import { EXPENSE_TYPE_BADGE_CLASS } from '@/lib/constants/expenseTypeColors';
 import { SeriesDeleteDialog, resolveSeriesDeleteMode, type SeriesDeleteRequest } from '@/components/expenses/SeriesDeleteDialog';
@@ -177,6 +177,11 @@ function ExpenseTableRow({ expense, scheduled, ownerLabel, singleType, categoryM
           {ownerLabel && (
             <Badge variant="outline" className="flex-shrink-0 text-[10px] font-normal text-muted-foreground">
               {ownerLabel}
+            </Badge>
+          )}
+          {expense.excludeFromBudget && (
+            <Badge variant="outline" className="flex-shrink-0 text-[10px] font-normal text-muted-foreground">
+              {EXPENSE_BUDGET_EXCLUSION_CHIP}
             </Badge>
           )}
         </div>

@@ -48,7 +48,16 @@ export function formatDeltaPercent(delta: number | null): string {
  * TAN (`financedAssetName` resolved by the caller, who holds the assets); a hand-valued holding
  * when its value was last typed. Null for a quoted instrument, whose ticker is enough.
  */
-export function describeAssetRowSubLine(asset: Asset, now: Date, financedAssetName: string | null = null): string | null {
+export function describeAssetRowSubLine(asset: Asset, now: Date, financedAssetName: string | null = null, ownerLabel: string | null = null): string | null {
+  const facts = describeAssetRowFacts(asset, now, financedAssetName);
+  // «di Marco» closes the line (owner, 2026-10-17): the Intestatario under the name, no column added;
+  // a shared asset prints nothing — the default stays silent, the exception is named.
+  const owner = ownerLabel ? `di ${ownerLabel}` : null;
+  return [facts, owner].filter((part): part is string => part !== null).join(' · ') || null;
+}
+
+/** The storage facts of the row (a bond's dates, a loan's property and TAN, a hand-valued holding's date), without the owner. */
+function describeAssetRowFacts(asset: Asset, now: Date, financedAssetName: string | null): string | null {
   const bond = resolveBondRowFacts(asset);
   if (bond) return describeBondRow(bond, bond.nextCoupon, now);
   if (isLoanAsset(asset)) return describeLoanRow(financedAssetName, asset.debtInterestRate);
@@ -215,6 +224,8 @@ interface AssetRowProps {
   mortgage?: { debt: number } | null;
   /** The property a loan finances, for its sub-line; null for a personal loan. */
   financedAssetName?: string | null;
+  /** The owner's name for the sub-line («di Marco», `resolveAssetOwnerLabel`); null for a shared asset. */
+  ownerLabel?: string | null;
 }
 
 /**
@@ -243,6 +254,7 @@ export function AssetRow({
   onMovements,
   mortgage = null,
   financedAssetName = null,
+  ownerLabel = null,
 }: AssetRowProps) {
   const [open, setOpen] = useState(false);
   // The sparkline is born at the first opening and stays: unmounting it on close would empty the
@@ -272,7 +284,7 @@ export function AssetRow({
   const gainLossPercent = gain?.gainPercent ?? 0;
   const weight = totalValue > 0 ? (value / totalValue) * 100 : null;
   const panelId = `asset-row-${asset.id}`;
-  const subLine = describeAssetRowSubLine(asset, now, financedAssetName);
+  const subLine = describeAssetRowSubLine(asset, now, financedAssetName, ownerLabel);
   const showTicker = !!asset.ticker && asset.type !== 'pensionFund';
   // The actions sit in a two-column grid; with an odd count the last one (Elimina) would be
   // alone in its row, so it takes the whole row instead of leaving a hole beside it.

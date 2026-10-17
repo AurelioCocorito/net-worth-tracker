@@ -229,16 +229,21 @@ export default function AllocationPage() {
       // carries its own `tradable` flag: the frozen ones count in every total and percentage but
       // are never offered as a source or destination, so the plans reach the target by moving the others.
       holdings: buildHoldings(inAllocation, calculateAssetValue),
+      // The same rows WITH the debts (a mortgage on a property in the allocation, a personal
+      // loan): what the frozen group reports. Never handed to a planner (2026-10-17).
+      reportedHoldings: buildHoldings(inAllocation, calculateAssetValue, { includeDebts: true }),
       // The `tradable` assets themselves: the trade CANDIDATES for the leverage-aware planner.
       tradableAssets: tradable,
-      // The wealth this page deliberately ignores — the home you live in. Reported only.
-      excludedHoldings: buildHoldings(excluded, calculateAssetValue),
+      // The wealth this page deliberately ignores — the home you live in, and the mortgage that
+      // follows it (owner, 2026-10-17: the excluded figure is NET of its debts). Reported only.
+      excludedHoldings: buildHoldings(excluded, calculateAssetValue, { includeDebts: true }),
     };
   }, [assetsData, settings, goalData]);
   const targets = composed?.targets ?? null;
   const allocation = composed?.allocation ?? null;
   const usingGoalTargets = composed?.usingGoalTargets ?? false;
   const holdings = composed?.holdings ?? EMPTY_HOLDINGS;
+  const reportedHoldings = composed?.reportedHoldings ?? EMPTY_HOLDINGS;
   const tradableAssets = composed?.tradableAssets ?? EMPTY_ASSETS;
   const excludedHoldings = composed?.excludedHoldings ?? EMPTY_HOLDINGS;
 
@@ -266,7 +271,7 @@ export default function AllocationPage() {
     [bandedAllocation],
   );
   const tradableByClass = useMemo(() => sumTradableByClass(holdings), [holdings]);
-  const frozenGroup = useMemo(() => summarizeHoldings(holdings.filter((h) => !h.tradable)), [holdings]);
+  const frozenGroup = useMemo(() => summarizeHoldings(reportedHoldings.filter((h) => !h.tradable)), [reportedHoldings]);
   const excludedGroup = useMemo(() => summarizeHoldings(excludedHoldings), [excludedHoldings]);
   const targetLeverageRatio = useMemo(() => deriveTargetLeverageRatio(targets), [targets]);
 
@@ -533,12 +538,14 @@ export default function AllocationPage() {
         </p>
       </div>
 
-      {/* Two columns at NATURAL height from `desktop:`, because the Piano is no longer a tile of
-          Bilanciamento's size: naming the instruments of a rebalance makes it ~1060px beside a
-          ~380px neighbour, and a tile inflated to fill that is an empty card, not a layout
-          (AGENTS.md → a tile stretched beside a taller neighbour is cured in the GRID). Per classe
-          rises under Bilanciamento, which closes the void to ~110px, and Esposizione takes the full
-          width below. Below `desktop:` the tiles are items of the grid in the DOM's order — ONE
+      {/* Two columns from `desktop:`: Bilanciamento at its own height, Per classe under it
+          stretched to the Piano's bottom edge when the Piano is the taller (owner, 2026-10-17 — the
+          `1fr` second row takes the Piano's extra height and the cell no longer `self-start`s, so
+          Per classe's rows stay at the top and its footer sits on the Piano's last line; with a
+          shorter Piano everything is at natural height). Until that day both columns sat at
+          natural height, by the 2026-09-21 reading of AGENTS.md → a tile stretched beside a taller
+          neighbour is cured in the GRID: the owner preferred the aligned edges to the void under
+          Per classe. Esposizione takes the full width below. Below `desktop:` the tiles are items of the grid in the DOM's order — ONE
           sequence, no `order-*` (The First-Screen Rule): Bilanciamento, «Il resto della pagina», Per classe,
           Piano, Esposizione, Previdenza.
           At 768 Bilanciamento on two columns, the closed rows two by two, an open row on the whole
@@ -546,8 +553,8 @@ export default function AllocationPage() {
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
       {/* At 1440 the left column is placed on the grid, not wrapped (since 2026-10-16, so that «Il resto»
           and the rows fit ONE index on a tablet in landscape): Bilanciamento on row 1, Per classe under it
-          on row 2, Piano across both; the `1fr` second row takes Piano's extra height, so Per classe sits
-          right under Bilanciamento as the old column made it. */}
+          on row 2, Piano across both; the `1fr` second row takes Piano's extra height, and Per classe
+          fills it (no `desktop:self-start` on its cell, 2026-10-17). */}
       <div className={cn(COMPACT_GRID_CLASS, 'desktop:grid-rows-[auto_1fr]')}>
         <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-start-1 desktop:self-start')}>
           <BilanciamentoTile
@@ -582,7 +589,7 @@ export default function AllocationPage() {
         <div className={INDEX_CLASS}>
         <PageRest sections={sections} className={REST_CELL_CLASS} />
 
-        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.perClasse), 'desktop:col-span-5 desktop:col-start-1 desktop:row-start-2 desktop:self-start')}>
+        <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(ALLOCAZIONE_SECTION_IDS.perClasse), 'desktop:col-span-5 desktop:col-start-1 desktop:row-start-2')}>
           <PerClasseTile
             collapse={sections.collapse(ALLOCAZIONE_SECTION_IDS.perClasse)}
             asideWhenClosed={ALLOCAZIONE_CLOSED_ASIDES[ALLOCAZIONE_SECTION_IDS.perClasse]}

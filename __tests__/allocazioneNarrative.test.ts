@@ -34,6 +34,7 @@ import {
   describeExposureFooter,
   describeExposureMethod,
   describeFrozen,
+  describeNegativeClassNote,
   describePension,
   describePensionAside,
   describePlan,
@@ -746,6 +747,17 @@ describe('describePensionAside', () => {
     expect(flat(describePensionAside({ fundNames: ['Cometa'], fundValue: 42000, allFrozen: true }))).toBe('Cometa · 42.000 € · non negoziabile');
     expect(flat(describePensionAside({ fundNames: ['Cometa', 'Fonte'], fundValue: 60000, allFrozen: false }))).toBe('Cometa, Fonte · 60.000 €');
     expect(flat(describePensionAside({ fundNames: [], fundValue: 100, allFrozen: true }))).toBe('Fondo pensione · 100 € · non negoziabile');
+  });
+});
+
+// A class below zero (2026-10-17): its debts outweigh its assets, and the row says so.
+describe('describeNegativeClassNote', () => {
+  it('names the figure and the cause by class', () => {
+    // Four-digit amounts print ungrouped in it-IT (AGENTS.md § Italian Localization); Intl's no-break space read as a space.
+    const spaced = (note: string) => note.replace(/[  ]/g, ' ');
+    expect(spaced(describeNegativeClassNote('cash', -3000))).toBe('−3000 €: i prestiti superano i conti');
+    expect(spaced(describeNegativeClassNote('realestate', -12500.4))).toBe('−12.500 €: i mutui superano gli immobili');
+    expect(spaced(describeNegativeClassNote('equity', -10))).toBe('−10 €: i debiti superano gli asset della classe');
   });
 });
 

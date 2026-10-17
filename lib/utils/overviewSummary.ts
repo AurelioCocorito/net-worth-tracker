@@ -22,6 +22,7 @@ import {
 } from '@/lib/utils/overviewNarrative';
 import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { cachedFormatCurrencyEUR, formatPercentageIt, withTypographicMinus } from '@/lib/utils/formatters';
+import { describeOwnershipAnswer } from '@/lib/utils/patrimonioNarrative';
 import type { Narrative } from '@/lib/utils/narrative';
 import type { StripFigure } from '@/lib/utils/verdictStrip';
 import type { DashboardOverviewCategoryAmount, DashboardOverviewExpenseStats, DashboardOverviewPayload } from '@/types/dashboardOverview';
@@ -39,6 +40,8 @@ export const OVERVIEW_SECTION_IDS = {
   spese: 'panoramica-spese',
   entrate: 'panoramica-entrate',
   asset: 'panoramica-asset',
+  // «Intestatari» (2026-10-17): present only when a held asset names a person (`overview.ownership`).
+  intestatari: 'panoramica-intestatari',
 } as const;
 
 export type OverviewSectionId = (typeof OVERVIEW_SECTION_IDS)[keyof typeof OVERVIEW_SECTION_IDS];
@@ -148,6 +151,7 @@ export function describeOverviewAsides(overview: DashboardOverviewPayload): Reco
     [OVERVIEW_SECTION_IDS.spese]: stats && stats.topExpenseCategories.length > 0 ? 'le prime del mese' : 'nessuna spesa questo mese',
     [OVERVIEW_SECTION_IDS.entrate]: stats && stats.topIncomeCategories.length > 0 ? 'le prime del mese' : 'nessuna entrata questo mese',
     [OVERVIEW_SECTION_IDS.asset]: (overview.topAssets ?? []).length > 0 ? 'valore, peso, rendimento' : 'nessun asset in portafoglio',
+    [OVERVIEW_SECTION_IDS.intestatari]: 'quote per persona',
   };
 }
 
@@ -227,5 +231,7 @@ export function describeOverviewClosedAnswers(
     [OVERVIEW_SECTION_IDS.spese]: stats ? describeLeadingCategory(stats.topExpenseCategories, 'expenses') : null,
     [OVERVIEW_SECTION_IDS.entrate]: stats ? describeLeadingCategory(stats.topIncomeCategories, 'income') : null,
     [OVERVIEW_SECTION_IDS.asset]: asset,
+    // The largest owner and its share — a figure no other row, cell or sentence prints.
+    [OVERVIEW_SECTION_IDS.intestatari]: overview.ownership ? describeOwnershipAnswer(overview.ownership) : null,
   };
 }

@@ -66,6 +66,7 @@ import { CostiTile } from '@/components/dashboard/overview/CostiTile';
 import { ObiettivoTile } from '@/components/dashboard/overview/ObiettivoTile';
 import { CategoryTile } from '@/components/dashboard/overview/CategoryTile';
 import { AssetPrincipaliTile } from '@/components/dashboard/overview/AssetPrincipaliTile';
+import { IntestatariTile } from '@/components/dashboard/overview/IntestatariTile';
 import { OverviewTile, TILE_CELL_CLASS } from '@/components/dashboard/overview/OverviewTile';
 import { TILE_ROW_CELL_CLASS } from '@/components/ui/tile';
 import { VerdictStrip } from '@/components/ui/verdict-strip';
@@ -135,14 +136,16 @@ const OVERVIEW_SECTIONS: readonly SectionSpec[] = [
   { id: OVERVIEW_SECTION_IDS.spese, eyebrow: 'Spese per categoria' },
   { id: OVERVIEW_SECTION_IDS.entrate, eyebrow: 'Entrate per categoria' },
   { id: OVERVIEW_SECTION_IDS.asset, eyebrow: 'Asset principali' },
+  { id: OVERVIEW_SECTION_IDS.intestatari, eyebrow: 'Intestatari' },
 ];
 
 /** The rows the payload renders — one `SectionSpec` per tile present, the DOM's order kept. */
-function resolveOverviewSections(present: { costs: boolean; goals: boolean; expenseStats: boolean }): readonly SectionSpec[] {
+function resolveOverviewSections(present: { costs: boolean; goals: boolean; expenseStats: boolean; ownership: boolean }): readonly SectionSpec[] {
   return OVERVIEW_SECTIONS.filter((section) => {
     if (section.id === OVERVIEW_SECTION_IDS.costi) return present.costs;
     if (section.id === OVERVIEW_SECTION_IDS.obiettivo) return present.goals;
     if (section.id === OVERVIEW_SECTION_IDS.spese || section.id === OVERVIEW_SECTION_IDS.entrate) return present.expenseStats;
+    if (section.id === OVERVIEW_SECTION_IDS.intestatari) return present.ownership;
     return true;
   });
 }
@@ -253,9 +256,11 @@ export default function DashboardPage() {
   );
   const hasExpenseStats = Boolean(overview?.expenseStats);
   const hasGoals = goals.length > 0;
+  // The Intestatari tile exists only when a held asset names a person (2026-10-17).
+  const hasOwnership = Boolean(overview?.ownership);
   const overviewSections = useMemo(
-    () => resolveOverviewSections({ costs: costsVisible, goals: hasGoals, expenseStats: hasExpenseStats }),
-    [costsVisible, hasGoals, hasExpenseStats],
+    () => resolveOverviewSections({ costs: costsVisible, goals: hasGoals, expenseStats: hasExpenseStats, ownership: hasOwnership }),
+    [costsVisible, hasGoals, hasExpenseStats, hasOwnership],
   );
   const sections = useMobileSections({ route: 'panoramica', sections: overviewSections });
   // At 768 the same rows on two columns, in landscape in the index (since 2026-10-16): the rows present ARE the order.
@@ -700,6 +705,21 @@ export default function DashboardPage() {
               asideWhenClosed={asides[OVERVIEW_SECTION_IDS.asset]}
             />
           </motion.div>
+
+          {/* «Di chi è?» — the net worth by Intestatario, a full row in the tail (owner, 2026-10-17);
+              absent when no held asset names a person. */}
+          {overview.ownership && (
+            <motion.div
+              variants={cardItem}
+              className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(OVERVIEW_SECTION_IDS.intestatari), 'desktop:col-span-12')}
+            >
+              <IntestatariTile
+                summary={overview.ownership}
+                collapse={sections.collapse(OVERVIEW_SECTION_IDS.intestatari)}
+                asideWhenClosed={asides[OVERVIEW_SECTION_IDS.intestatari]}
+              />
+            </motion.div>
+          )}
           </div>
         </motion.div>
         </div>

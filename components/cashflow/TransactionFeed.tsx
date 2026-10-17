@@ -33,7 +33,7 @@ import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { getItalyDate } from '@/lib/utils/dateHelpers';
 import { getExpenseDate } from '@/lib/utils/expenseHelpers';
 import { describeRecurrence } from '@/lib/utils/recurrenceDates';
-import { describeMovementDetailReading } from '@/lib/utils/dialogNarrative';
+import { describeMovementDetailReading, EXPENSE_BUDGET_EXCLUSION_LABEL } from '@/lib/utils/dialogNarrative';
 import { useArmedDelete } from '@/lib/hooks/useArmedDelete';
 import { resolveSeriesDeleteMode } from '@/components/expenses/SeriesDeleteDialog';
 import { isScheduledRow } from '@/lib/utils/tracciamentoSummary';
@@ -203,6 +203,9 @@ function TransactionDetailModal({
   const ownerLabel = memberNames ? resolveOwnerLabel(expense, memberNames) : null;
   if (ownerLabel) {
     details.push({ label: 'Intestatario', value: ownerLabel });
+  }
+  if (expense.excludeFromBudget) {
+    details.push({ label: 'Budget', value: EXPENSE_BUDGET_EXCLUSION_LABEL });
   }
   if (expense.isInstallment && expense.installmentNumber && expense.installmentTotal) {
     details.push({

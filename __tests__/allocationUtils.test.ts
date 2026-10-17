@@ -47,6 +47,7 @@ import {
   splitTowardTarget,
   buildContributionPlan,
   resolveAllocationRole,
+  resolveAllocationRoleWithin,
   partitionByAllocationRole,
   buildHoldings,
   sumHoldingsByClass,
@@ -683,6 +684,25 @@ describe('partitionByAllocationRole', () => {
   it('should return empty sets for an empty portfolio', () => {
     expect(partitionByAllocationRole([])).toEqual({ tradable: [], frozen: [], excluded: [] });
   });
+
+  // A loan follows what it finances (owner, 2026-10-17): its own `allocationRole` is inert.
+  it('should put a loan in the group of the asset it finances, and a personal loan in the base', () => {
+    const home = makeAsset({ id: 'home', type: 'realestate', assetClass: 'realestate', allocationRole: 'excluded' });
+    const rental = makeAsset({ id: 'rental', type: 'realestate', assetClass: 'realestate', allocationRole: 'frozen' });
+    const mortgage = makeAsset({ id: 'mortgage', type: 'loan', assetClass: 'realestate', financedAssetId: 'home', allocationRole: 'excluded' });
+    const rentalLoan = makeAsset({ id: 'rental-loan', type: 'loan', assetClass: 'realestate', financedAssetId: 'rental', allocationRole: 'excluded' });
+    const carLoan = makeAsset({ id: 'car', type: 'loan', assetClass: 'cash', allocationRole: 'excluded' });
+    const orphanLoan = makeAsset({ id: 'orphan', type: 'loan', assetClass: 'realestate', financedAssetId: 'sold-house' });
+
+    const { tradable, frozen, excluded } = partitionByAllocationRole([home, rental, mortgage, rentalLoan, carLoan, orphanLoan]);
+    expect(excluded.map((a) => a.id)).toEqual(['home', 'mortgage']);
+    expect(frozen.map((a) => a.id)).toEqual(['rental', 'rental-loan']);
+    expect(tradable.map((a) => a.id)).toEqual(['car', 'orphan']);
+
+    expect(resolveAllocationRoleWithin(mortgage, [home, mortgage])).toBe('excluded');
+    expect(resolveAllocationRoleWithin(carLoan, [carLoan])).toBe('tradable');
+    expect(resolveAllocationRoleWithin(home, [home])).toBe('excluded');
+  });
 });
 
 describe('buildHoldings', () => {
@@ -717,6 +737,20 @@ describe('buildHoldings', () => {
     // A foreign position the ledger has not projected: its native PMC is dollars against euros.
     const asset = makeAsset({ id: 'a1', currency: 'USD', averageCost: 120, taxRate: 26 });
     expect(buildHoldings([asset], valueOf)[0].costBasisEur).toBeUndefined();
+  });
+
+  // A debt is a row of the REPORTING lists only (2026-10-17): the planners never see it.
+  it('should skip a debt by default and report it, negative and untaxable, when asked', () => {
+    const debtValueOf = (asset: Asset) => (asset.type === 'loan' ? -asset.quantity : asset.quantity * asset.currentPrice);
+    const rental = makeAsset({ id: 'rental', type: 'realestate', assetClass: 'realestate', quantity: 1, currentPrice: 3000, allocationRole: 'frozen' });
+    const loan = makeAsset({ id: 'loan', type: 'loan', assetClass: 'realestate', quantity: 2000, currentPrice: 1, financedAssetId: 'rental', taxRate: 26 });
+
+    expect(buildHoldings([rental, loan], debtValueOf).map((h) => h.id)).toEqual(['rental']);
+    const reported = buildHoldings([rental, loan], debtValueOf, { includeDebts: true });
+    expect(reported.map((h) => h.id)).toEqual(['rental', 'loan']);
+    expect(reported[1]).toMatchObject({ value: -2000, tradable: false, taxableOnSale: false, assetClass: 'realestate' });
+    // A repaid loan is worth 0: not a debt, not a holding.
+    expect(buildHoldings([{ ...loan, quantity: 0 }], debtValueOf, { includeDebts: true })).toEqual([]);
   });
 
   it('should mark cash and a pension fund as untaxable on sale, not merely untaxed', () => {

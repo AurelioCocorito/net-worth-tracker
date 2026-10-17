@@ -42,6 +42,7 @@ import {
   groupSubCategoriesByAssetClass,
   hasSpecificAssetTracking,
 } from '@/lib/utils/allocationUtils';
+import { describeNegativeClassNote } from '@/lib/utils/allocazioneNarrative';
 import type { AllocationResult, AssetAllocationTarget } from '@/types/assets';
 import { AllocationRow } from './AllocationRow';
 
@@ -147,7 +148,9 @@ export function AllocationBreakdown({ allocation, targets, excludedByClass, clas
               expanded={isClassOpen}
               onToggle={hasSubs ? () => setExpandedClasses((s) => toggleKey(s, assetClass)) : undefined}
               dormant={dormant}
-              note={dormant ? dormantNote(excludedByClass?.[assetClass]) : undefined}
+              // A class below zero — its debts outweigh its assets (2026-10-17) — says why under
+              // its figures; declared, never clamped.
+              note={dormant ? dormantNote(excludedByClass?.[assetClass]) : data.currentValue < 0 ? describeNegativeClassNote(assetClass, data.currentValue) : undefined}
               rovingProps={rovingIndex === undefined ? undefined : roving.itemProps(rovingIndex)}
             />
 
