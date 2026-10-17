@@ -7,6 +7,7 @@
 Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
 - **Temi**: `app/globals.css` (twelve theme blocks, plus the five `--role-*` aliases in `:root`), `contexts/ColorThemeContext.tsx`, `contexts/ChartColorsContext.tsx` (`ChartColorsProvider`, mounted by `app/dashboard/layout.tsx`), `lib/hooks/{useThemePaletteReader,useChartColors,useActionColors,useCssColorTokens}.ts`, pure `lib/utils/themePalette.ts` (`readThemePalette`: the slots through the luminance filter, the action colours, the `--role-*` hexes), `lib/utils/colorParse.ts` (the ONE colour parser: `oklch()`, `lab()`, `#hex`, `rgb()` → OKLCH, and OKLCH → hex), `lib/utils/cssColorToHex.ts` (a served colour → `#rrggbb` for Nivo), `lib/utils/actionColor.ts` (the COMPRA/VENDI/OK clamp), `lib/utils/costCenterColors.ts` — doc/guide/temi.md; tests `__tests__/{chartPaletteDistinctness,cssColorToHex,actionColorContrast,chartColorsContext}.test.ts`, `e2e/motion.layout.spec.ts` (a client navigation reads no palette token)
+- **The browser's chrome** (2026-10-17): `lib/utils/themeColor.ts` (`DEFAULT_THEME_COLORS`, `resolveThemeColor`), `components/providers/ThemeColorSync.tsx`, the `viewport.themeColor` export in `app/layout.tsx`, the `html`/`html.dark` rules in `app/globals.css`; tests `__tests__/themeColor.test.ts`, `e2e/shell.boot{,.mobile}.spec.ts` → `expectBrowserChromeFollowsTheme` (`e2e/shellBoot.ts`)
 
 ## Color Theme System
 - **Parallel theming**: next-themes owns `.dark`, the custom system owns `data-theme` — fully independent. CSS:
@@ -143,6 +144,26 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   without the provider, where the hook's own read runs only while enabled — `FlussoTile` passes it only while the roles
   Sankey is on screen (the setting on, «Per ruolo», from 640px), so a tile that draws nothing with them never calls
   `getComputedStyle`.
+
+## The browser's chrome follows the page (2026-10-17)
+
+- **`<html>` carries the background and the `color-scheme`, `<meta name="theme-color">` the resolved colour**
+  (owner, 2026-10-17: with dark mode following the system, Chrome for Android painted the bar under the app white at
+  times). Three pieces, one rule: `app/globals.css` gives `html` `bg-background` and `color-scheme: light`, `html.dark`
+  `color-scheme: dark` — the overscroll canvas, the area under a collapsed toolbar, scrollbars and native controls
+  follow the mode next-themes puts on `<html>`; `app/layout.tsx` ships the default theme's two backgrounds as a
+  `prefers-color-scheme` pair (`viewport.themeColor`, `DEFAULT_THEME_COLORS` in `lib/utils/themeColor.ts`, held equal to
+  `oklch(1 0 0)` / `oklch(0.145 0 0)` by `__tests__/themeColor.test.ts`), right before any script runs for the default
+  theme in system mode; `ThemeColorSync` (`components/providers`, mounted under `ColorThemeProvider` in the root layout)
+  rewrites every meta from the RESOLVED `--background` on each change of the colour theme or of `resolvedTheme`, with
+  this guide's timing (`useEffect` + `requestAnimationFrame`, never a read during render) and through `colorToHex`,
+  the one route from a served token to `#rrggbb`. A retuned default theme fails the test; a new theme needs nothing —
+  its background is read live. `e2e/shellBoot.ts` → `expectBrowserChromeFollowsTheme` holds the metas equal to
+  `<html>`'s painted background and the `color-scheme` to the mode, at 1440 and 390 (seen red the same day with
+  `bg-background` taken off `html`: the root painted `#000000` under a white body); the probe reads the colour as a
+  PIXEL painted on a canvas, because `getComputedStyle` serves `lab(100 0 0)` and the canvas `fillStyle` getter keeps
+  that form. The bars themselves are outside the page — the owner looks at them on the phone; the dark branch runs
+  only on a stored dark mode, which no fixture holds.
 
 ## Per-page blind spots
 

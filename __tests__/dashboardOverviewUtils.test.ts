@@ -38,6 +38,7 @@ import {
   computeTopMovers,
   pickFeaturedGoalProgress,
   rankCostDrivers,
+  rankTopAssets,
   rankGoalProgress,
 } from '@/lib/utils/dashboardOverviewUtils';
 import type { AssetTransaction } from '@/types/assetTransactions';
@@ -540,6 +541,40 @@ describe('computeTopInstrumentMovers', () => {
 // ---------------------------------------------------------------------------
 // rankCostDrivers — which instruments the annual cost comes from
 // ---------------------------------------------------------------------------
+
+// «Asset principali» lists a property NET of its mortgage (owner, 2026-10-17). Seen red with the
+// mortgage left as a row (the debt counted twice) and with the house gross.
+describe('rankTopAssets', () => {
+  const house = makeAsset({ id: 'house', name: 'Casa', ticker: '', type: 'realestate', assetClass: 'realestate', quantity: 1, currentPrice: 130000 });
+  const mortgage = makeAsset({ id: 'mortgage', name: 'Mutuo Casa', ticker: '', type: 'loan', assetClass: 'realestate', quantity: 95000, currentPrice: 1, financedAssetId: 'house' });
+  const etf = makeAsset({ id: 'etf', name: 'World', ticker: 'VWCE', quantity: 100, currentPrice: 500, averageCostEur: 400 });
+  const carLoan = makeAsset({ id: 'car', name: 'Prestito auto', ticker: '', type: 'loan', assetClass: 'cash', quantity: 8000, currentPrice: 1 });
+  // The page's net worth: 130000 − 95000 + 50000 − 8000.
+  const total = 77000;
+
+  it('nets the mortgage into its property, declares it, and lists no mortgage row', () => {
+    const rows = rankTopAssets([house, mortgage, etf, carLoan], total);
+    expect(rows.map((r) => r.id)).toEqual(['etf', 'house', 'car']);
+    const casa = rows.find((r) => r.id === 'house')!;
+    expect(casa.totalValue).toBe(35000);
+    expect(casa.debtNetted).toBe(95000);
+    expect(casa.portfolioPercent).toBeCloseTo((35000 / total) * 100, 6);
+    expect(casa.returnPercent).toBeNull();
+    // A personal loan has nothing to net against: a negative row, last, undeclared.
+    expect(rows.find((r) => r.id === 'car')).toMatchObject({ totalValue: -8000 });
+    expect(rows.find((r) => r.id === 'car')).not.toHaveProperty('debtNetted');
+  });
+
+  it('measures the return on the gross value and carries no debtNetted without a loan', () => {
+    const [world] = rankTopAssets([etf], 50000);
+    expect(world).toEqual({ id: 'etf', name: 'VWCE', assetType: 'etf', assetClass: 'equity', totalValue: 50000, portfolioPercent: 100, returnPercent: 25 });
+  });
+
+  it('keeps a mortgage whose property is not in the list as its own negative row', () => {
+    const rows = rankTopAssets([mortgage, etf], 50000 - 95000);
+    expect(rows.map((r) => [r.id, r.totalValue])).toEqual([['etf', 50000], ['mortgage', -95000]]);
+  });
+});
 
 describe('rankCostDrivers', () => {
   it('should rank held assets with a TER by annual cost (value × TER), largest first', () => {

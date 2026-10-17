@@ -229,6 +229,11 @@ qui, la più recente in cima. Le eccezioni ammesse sono queste e nessun'altra: L
 prima riga chiusa resta sotto la pill (DESIGN.md → The First-Screen Rule), la pill di `PageTabBar` portata a 44 px
 (2026-10-10), la deriva del giorno o della macchina provata sul codice di develop dello stesso giorno.
 
+- **`2026-10-17: …`** (la tessera «Intestatari»; proprietario: la tessera su Panoramica e Patrimonio, a riga intera in coda), due voci a 390
+  contro HEAD: `screens` sale su Panoramica 1,75 → 1,83 e su Patrimonio 1,67 → 1,75 — una riga chiusa in più (52 px) in coda alle righe,
+  perché il fixture nomina un membro della famiglia tramite il fondo pensione (il suo intestatario È il membro di Previdenza,
+  doc/guide/patrimonio.md); il primo schermo non si muove (cifre, tessere e prima riga chiusa come prima), e a 768 e 1024 nessuna voce
+  cambia. Corsa: `yahooCalled` false, 2,1 min, le altre 55 voci verdi.
 - **`2026-10-16: …`** (lo stage in orizzontale; proprietario: «Allargo con raisedBy»), diciotto voci a 1024 contro HEAD: `figuresAboveFold`
   e `figuresOutsideVerdict` crescono su tutte le superfici con righe — ogni riga chiusa dell'indice stampa la sua risposta (DESIGN.md →
   The Closed-Row Rule) e il censimento la conta come cifra sopra la piega (Panoramica 5 → 10 e 5 → 10, Hall of Fame 17 → 22 e 15 → 20, Previdenza

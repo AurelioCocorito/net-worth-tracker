@@ -180,6 +180,18 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* The ROOT carries the page colour too, and tells the browser which scheme it is (owner,
+     2026-10-17): with the background on <body> alone, the overscroll canvas, the area under a
+     collapsed toolbar and the browser's own bars stayed white in dark mode. `color-scheme` keys
+     the browser's chrome, scrollbars and native controls on the mode next-themes puts on <html>;
+     the meta `theme-color` half is lib/utils/themeColor.ts. */
+  html {
+    @apply bg-background;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
   body {
     @apply bg-background text-foreground;
   }

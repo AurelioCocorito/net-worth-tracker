@@ -54,6 +54,7 @@ import { useSettings } from '@/lib/hooks/useSettings';
 import { queryKeys } from '@/lib/query/queryKeys';
 import { formatCurrency, formatNumberIt, formatPercentageIt } from '@/lib/utils/formatters';
 import { resolveAllocationRole } from '@/lib/utils/allocationUtils';
+import { hasOwnOwnerField } from '@/lib/utils/assetOwnership';
 import { suggestIsLiquid } from '@/lib/utils/assetLiquidity';
 import { hasMarketPrice } from '@/lib/utils/assetPricing';
 import {
@@ -265,7 +266,17 @@ function buildAssetFormDataFromValues(
         : undefined,
     financedAssetId: data.type === 'loan' && data.financedAssetId && data.financedAssetId !== '__none__' ? data.financedAssetId : undefined,
     isPrimaryResidence: data.isPrimaryResidence || false,
-    allocationRole: data.allocationRole ?? 'tradable',
+    // A loan's role is derived from what it finances (lib/utils/allocationUtils.ts), so none is
+    // written; a value an older document carries is inert.
+    allocationRole: data.type === 'loan' ? undefined : (data.allocationRole ?? 'tradable'),
+    // «In comune» is the ABSENCE of the field (`updateAsset` turns the undefined into a
+    // deleteField); a pension fund and a linked mortgage derive their owner and carry none.
+    ownerMemberId:
+      hasOwnOwnerField({ type: data.type, financedAssetId: data.type === 'loan' && data.financedAssetId !== '__none__' ? data.financedAssetId : undefined }) &&
+      data.ownerMemberId &&
+      data.ownerMemberId !== '__none__'
+        ? data.ownerMemberId
+        : undefined,
     pensionFundDetails: buildPensionFundDetailsFromForm(data),
   };
 }
@@ -429,6 +440,9 @@ const assetSchema = z.object({
   pensionProvider: z.string().optional(),
   pensionUnlockDate: z.string().optional(),
   pensionFamilyMemberId: z.string().optional(),
+  // «Intestatario» (lib/utils/assetOwnership.ts): a FamilyMember id, '__none__' = in comune. Not
+  // for a pension fund (its member is `pensionFamilyMemberId`) nor a mortgage (it follows its property).
+  ownerMemberId: z.string().optional(),
 }).superRefine((data, ctx) => {
   const tickerRequired = data.type !== 'cash' && data.type !== 'realestate' && data.type !== 'pensionFund' && data.type !== 'loan';
   if (tickerRequired && (!data.ticker || data.ticker.trim().length === 0)) {
@@ -791,6 +805,7 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
   const watchBondInflationIndexation = useWatch({ control, name: 'bondInflationIndexation' });
   const watchIsPrimaryResidence = useWatch({ control, name: 'isPrimaryResidence' });
   const watchAllocationRole = useWatch({ control, name: 'allocationRole' });
+  const watchOwnerMemberId = useWatch({ control, name: 'ownerMemberId' });
   // A loan's property: one change per click, and it decides the class and the liquidity default.
   const watchFinancedAssetId = useWatch({ control, name: 'financedAssetId' });
   const watchStampDutyExempt = useWatch({ control, name: 'stampDutyExempt' });
@@ -855,10 +870,10 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
   // select before saving and one click from changed — never a read-time fallback: no existing
   // asset's role changes without the user asking. Once they pick a role, we stop steering.
   useEffect(() => {
-    if (isEdit || allocationRoleTouched) return;
-    // A loan is a debt, not an investment: out of the allocation whatever it finances.
+    // A loan has no role of its own: it follows what it finances (`resolveAllocationRoleWithin`).
+    if (isEdit || allocationRoleTouched || selectedType === 'loan') return;
     const suggested: AllocationRole =
-      selectedAssetClass === 'realestate' || selectedType === 'loan'
+      selectedAssetClass === 'realestate'
         ? 'excluded'
         : selectedSubCategory === 'Private Equity' || selectedType === 'pensionFund'
           ? 'frozen'
@@ -1037,6 +1052,7 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
         pensionProvider: asset.pensionFundDetails?.provider || undefined,
         pensionUnlockDate: asset.pensionFundDetails?.unlockDate || undefined,
         pensionFamilyMemberId: asset.pensionFundDetails?.familyMemberId || '__none__',
+        ownerMemberId: asset.ownerMemberId || '__none__',
       });
 
       // Pre-fill the bond detail fields (the toggles were set during render, above)
@@ -1097,6 +1113,7 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
         pensionProvider: undefined,
         pensionUnlockDate: undefined,
         pensionFamilyMemberId: '__none__',
+        ownerMemberId: '__none__',
       });
       replaceTiers([]);
     }
@@ -2136,7 +2153,16 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
 
           {/* Ruolo nell'allocazione — tre stati, non due switch sovrapposti. Le due domande
               ("fa parte del portafoglio investito?" e "lo posso muovere?") sono distinte, e
-              confonderle era ciò che rendeva la vecchia coppia di flag indistinguibile. */}
+              confonderle era ciò che rendeva la vecchia coppia di flag indistinguibile.
+              Not for a loan (2026-10-17): its role is DERIVED — it follows what it finances
+              (`resolveAllocationRoleWithin`) — and the sentence below the loan's fields says so. */}
+          {selectedType === 'loan' ? (
+            <p className="rounded-lg border p-4 text-xs text-muted-foreground">
+              In Allocazione il prestito segue ciò che finanzia: un mutuo sta con il suo immobile (dentro o
+              fuori dall&apos;allocazione, e ne riduce il valore), un prestito personale riduce la Liquidità. Non
+              compare mai in Ribilancia, Versa e Preleva.
+            </p>
+          ) : (
           <div className="space-y-3 rounded-lg border p-4">
             <div className="space-y-0.5">
               <Label htmlFor="allocationRole">Ruolo nell&apos;allocazione</Label>
@@ -2178,6 +2204,48 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
                 ?.description}
             </p>
           </div>
+          )}
+
+          {/* Intestatario (owner, 2026-10-17; lib/utils/assetOwnership.ts): whose this asset is,
+              among the members of Impostazioni › Famiglia — the Panoramica's and Patrimonio's
+              «Intestatari» tile and the Strumenti filter read it. «In comune» is the default and the
+              absence of the field. Not shown for a pension fund (its «Membro famiglia» IS its
+              owner) nor for a loan that finances a property (it follows the property). */}
+          {selectedType !== 'pensionFund' && (settings?.familyMembers ?? []).length > 0 && (
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="ownerMemberId">Intestatario</Label>
+                <p className="text-xs text-muted-foreground">
+                  A chi appartiene: le quote per persona in Panoramica e Patrimonio sommano gli asset per intestatario,
+                  quelli in comune a parte.
+                </p>
+              </div>
+              {selectedType === 'loan' && watchFinancedAssetId && watchFinancedAssetId !== '__none__' ? (
+                <p className="text-xs text-muted-foreground">Un mutuo segue l&apos;intestatario dell&apos;immobile che finanzia.</p>
+              ) : (
+                <Select
+                  value={watchOwnerMemberId ?? '__none__'}
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    setValue('ownerMemberId', value);
+                  }}
+                >
+                  <SelectTrigger id="ownerMemberId">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">In comune</SelectItem>
+                    <SelectSeparator />
+                    {(settings?.familyMembers ?? []).map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
 
           {/* autoUpdatePrice — hidden for cash/realestate (they don't use market prices) */}
           {newAsset_showAutoUpdate && (

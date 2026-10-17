@@ -24,6 +24,10 @@ describe('the base', () => {
     expect(isExposureBaseAsset(asset({ id: 'a', excludeFromAllocation: true }))).toBe(false);
     expect(isExposureBaseAsset(asset({ id: 'a', quantity: 0 }))).toBe(false);
   });
+
+  it('never holds a loan: a debt has no exposure, whatever role it would follow (2026-10-17)', () => {
+    expect(isExposureBaseAsset(asset({ id: 'loan', type: 'loan', assetClass: 'cash', quantity: 8000 }))).toBe(false);
+  });
 });
 
 describe('a quoted instrument', () => {

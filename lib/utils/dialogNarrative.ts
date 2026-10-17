@@ -1085,6 +1085,18 @@ export const EXPENSE_FEE_READING = 'Sto leggendo la commissione di questa voce�
  */
 export const EXPENSE_FEE_UNREAD = 'La commissione di questa voce non è stata letta: chiudi e riapri la voce per salvarla.';
 
+/**
+ * «Fuori dal budget» (owner, 2026-10-17): the checkbox of a spending row Budget must not count
+ * (`Expense.excludeFromBudget`, read through `countsTowardBudget`) — a purchase made for someone
+ * else, refunded later. The label, the hint under it, and the chip the feed and the table print.
+ */
+export const EXPENSE_BUDGET_EXCLUSION_LABEL = 'Fuori dal budget';
+export const EXPENSE_BUDGET_EXCLUSION_HINT =
+  'La spesa resta nel cashflow (Tracciamento, Analisi, Panoramica); non pesa sul tetto del mese né sui budget per categoria.';
+export const EXPENSE_BUDGET_EXCLUSION_SERIES_HINT =
+  'Vale per ogni voce della serie: tutte fuori dal budget, o nessuna.';
+export const EXPENSE_BUDGET_EXCLUSION_CHIP = 'fuori budget';
+
 export interface DebtRepaymentFieldFacts {
   /** The loan chosen under «Riduce il debito di»; null when none is. */
   loanName: string | null;

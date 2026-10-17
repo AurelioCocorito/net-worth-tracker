@@ -8,6 +8,7 @@
 
 import { test } from '@playwright/test';
 import {
+  expectBrowserChromeFollowsTheme,
   expectCleanHydration,
   expectRedirectWithoutSession,
   expectShellInHtml,
@@ -24,6 +25,10 @@ test('la shell idrata a 1440 senza avvisi in console', async ({ page }) => {
 
 test('un tema salvato è già su <html> al primo frame', async ({ page }) => {
   await expectThemeOnFirstFrame(page);
+});
+
+test('theme-color, color-scheme e lo sfondo di <html> seguono il tema risolto', async ({ page }) => {
+  await expectBrowserChromeFollowsTheme(page);
 });
 
 test.describe('senza sessione', () => {

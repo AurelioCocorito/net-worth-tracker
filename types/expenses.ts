@@ -173,6 +173,13 @@ export interface Expense {
   // and renaming a person costs no bulk update. An id whose member no longer exists is treated as
   // unassigned rather than folded into anyone else's figures — see lib/utils/expenseSplitSummary.ts.
   personalMemberId?: string;
+  // «Fuori dal budget» (owner, 2026-10-17): a spending row Cashflow › Budget does not count — a
+  // purchase made for someone else and refunded later. The row stays in every OTHER total
+  // (Tracciamento, Analisi, Panoramica, Storico, FIRE: the refund income compensates it there);
+  // only the ceiling, the per-category budgets, their projections, alerts and the budget emails
+  // skip it, through ONE predicate, `countsTowardBudget` (lib/utils/budgetUtils.ts). Absent = counted,
+  // so no migration; meaningful on spending types only (the form offers it there alone).
+  excludeFromBudget?: boolean;
   // Set only on expenses written by the historical CSV importer (lib/services/expenseImportService.ts).
   // Groups every row of one import together so the whole batch can be undone in one call.
   importBatchId?: string;
@@ -276,5 +283,6 @@ export interface ExpenseFormData {
   costCenterId?: string;    // Optional cost center assignment
   costCenterName?: string;  // Denormalized name, must be kept in sync via costCenterService
   personalMemberId?: string; // FamilyMember this row belongs to; absent = in comune (see Expense)
+  excludeFromBudget?: boolean; // «Fuori dal budget»: Budget skips the row, every other total keeps it (see Expense)
 }
 

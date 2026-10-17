@@ -18,7 +18,7 @@
  * `cachedFormatCurrencyEUR` (no-break space before €) — AGENTS.md → Italian Localization.
  */
 
-import { cachedFormatCurrencyEUR, formatSignedEuro } from '@/lib/utils/formatters';
+import { cachedFormatCurrencyEUR, formatEuroMinus, formatSignedEuro } from '@/lib/utils/formatters';
 import type { RowAnswerMap } from '@/components/ui/row-answers';
 import { formatPercentage } from '@/lib/services/chartService';
 import { articleForPercent, atThePercent } from '@/lib/utils/patrimonioNarrative';
@@ -860,6 +860,24 @@ export function describePensionAside(input: { fundNames: string[]; fundValue: nu
 /** «1 asset, 42.000 €: contano nel totale e nelle percentuali, ma nessun piano li muove; il ruolo si cambia in Patrimonio.» */
 export function describeFrozen(group: HoldingsGroup): Narrative {
   return [prose(`${group.count} asset, `), amount(group.total), prose(': contano nel totale e nelle percentuali, ma nessun piano li muove; il ruolo si cambia in Patrimonio.')];
+}
+
+/**
+ * The line under a class row whose value is NEGATIVE — the debts that follow their assets into
+ * the allocation (`resolveAllocationRoleWithin`, 2026-10-17) outweigh what the class holds. Declared,
+ * never clamped (the owner's call): the percentages stay on the net total, and the row says why
+ * its figure is below zero. The class decides the words: a personal loan nets Liquidità, a
+ * mortgage Immobili; any other class reads the generic form.
+ */
+export function describeNegativeClassNote(assetClass: string, value: number): string {
+  const figure = formatEuroMinus(value);
+  const cause =
+    assetClass === 'cash'
+      ? 'i prestiti superano i conti'
+      : assetClass === 'realestate'
+        ? 'i mutui superano gli immobili'
+        : 'i debiti superano gli asset della classe';
+  return `${figure}: ${cause}`;
 }
 
 /** «2 asset, 200.000 €: nel patrimonio, fuori da ogni calcolo di questa pagina; per questo il totale allocato è più basso del patrimonio netto.» */

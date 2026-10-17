@@ -20,8 +20,9 @@ import { narrativeToText, type Narrative, type PageVerdictModel } from '@/lib/ut
 import { formatStripFigure, type StripFigure } from '@/lib/utils/verdictStrip';
 import { cachedFormatCurrencyEUR, formatPercentageIt, formatSignedEuro, formatSignedPercentIt, printedSign, withTypographicMinus } from '@/lib/utils/formatters';
 import { describeLeadingClass } from '@/lib/utils/overviewNarrative';
-import { pluralArticleFor, shortMonthYear } from '@/lib/utils/patrimonioNarrative';
+import { describeOwnershipAnswer, pluralArticleFor, shortMonthYear } from '@/lib/utils/patrimonioNarrative';
 import type { MortgageSummary } from '@/lib/utils/mortgageSummary';
+import type { OwnershipSummary } from '@/lib/utils/assetOwnership';
 
 // ─── Bond row facts ───────────────────────────────────────────────────────────
 
@@ -316,6 +317,8 @@ export const PATRIMONIO_SECTION_IDS = {
   classi: 'patrimonio-classi',
   rendimento: 'patrimonio-rendimento',
   mutuo: 'patrimonio-mutuo',
+  // «Intestatari» (2026-10-17): present only when a held asset names a person.
+  intestatari: 'patrimonio-intestatari',
   strumenti: 'patrimonio-strumenti',
 } as const;
 
@@ -390,6 +393,8 @@ export interface PatrimonioClosedAnswersInput {
   /** The Strumenti table's positions and the gross total they weigh on (`computeTopWeightShare`). */
   instruments: Asset[];
   totalValue: number;
+  /** The net worth by Intestatario; null when the tile is absent (no held asset names a person). */
+  ownership?: OwnershipSummary | null;
 }
 
 /**
@@ -443,6 +448,9 @@ export function describePatrimonioClosedAnswers(input: PatrimonioClosedAnswersIn
   answers[PATRIMONIO_SECTION_IDS.strumenti] = topShare
     ? [{ text: `${pluralArticleFor(topShare.count)} ${topShare.count} maggiori ` }, { text: formatPercentageIt(topShare.percent, 1), mono: true }]
     : null;
+
+  // The largest owner and its share (2026-10-17) — printed by no cell, no hero and no other row.
+  answers[PATRIMONIO_SECTION_IDS.intestatari] = input.ownership ? describeOwnershipAnswer(input.ownership) : null;
 
   return answers;
 }

@@ -50,7 +50,10 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { isLoanAsset, type Asset } from '@/types/assets';
+import { isLoanAsset, type Asset, type FamilyMember } from '@/types/assets';
+import { listAssetOwnerFilterOptions, matchesAssetOwnerFilter, resolveAssetOwnerLabel } from '@/lib/utils/assetOwnership';
+import { OWNER_FILTER_ALL } from '@/lib/utils/movementsOwnerFilter';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isLedgerAssetType } from '@/types/assetTransactions';
 import { calculateAssetValue } from '@/lib/services/assetService';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/services/chartService';
@@ -114,6 +117,8 @@ const STICKY_ACTIONS_CLASS = 'sticky right-0 z-[1] bg-card';
 
 /** The two toggles are remembered per browser: a monthly reader keeps the Δ windows on. */
 const STORAGE_KEYS = { showDeltas: 'patrimonio.strumenti.andamento', groupByClass: 'patrimonio.strumenti.raggruppa' } as const;
+/** A stable empty list for an account without household members (a literal would be a new identity every render). */
+const EMPTY_MEMBERS: readonly FamilyMember[] = [];
 
 function readStoredToggle(key: string): boolean {
   try {
@@ -242,6 +247,13 @@ interface StrumentiTileProps {
   collapse?: TileCollapse;
   /** What the closed row says beside its eyebrow: the count of the hero («12 strumenti e 1 prestito»). */
   asideWhenClosed?: string;
+  /**
+   * The household's members (Impostazioni › Famiglia): with at least one, the «Intestatario» filter
+   * and the owner's name under a row appear (lib/utils/assetOwnership.ts, 2026-10-17).
+   */
+  members?: readonly FamilyMember[];
+  /** Every asset of the account — a mortgage resolves its owner through the property it finances. */
+  allAssets?: readonly Asset[];
   className?: string;
 }
 
@@ -264,9 +276,26 @@ export function StrumentiTile({
   onCalculateTaxes,
   collapse,
   asideWhenClosed,
+  members = EMPTY_MEMBERS,
+  allAssets,
   className,
 }: StrumentiTileProps) {
   const deleteAssetMutation = useDeleteAsset(ownerId || '');
+  // The «Intestatario» filter (session-only: a lens, not a view the reader keeps): the options are
+  // the Movimenti filter's — «Tutti · In comune · {members}», «Senza intestatario» when such an
+  // asset exists. A mortgage resolves through the property it finances, so the lookup list is the
+  // whole account's, not the instruments alone.
+  const [ownerFilter, setOwnerFilter] = useState<string>(OWNER_FILTER_ALL);
+  const ownerLookup = allAssets ?? assets;
+  const memberNames = useMemo(() => new Map(members.map((member) => [member.id, member.name])), [members]);
+  const knownMemberIds = useMemo(() => new Set(members.map((member) => member.id)), [members]);
+  const ownerOptions = useMemo(() => listAssetOwnerFilterOptions(ownerLookup, members), [ownerLookup, members]);
+  const showOwnerFilter = members.length > 0 && assets.length > 0;
+  const ownerLabelOf = (asset: Asset): string | null => (members.length > 0 ? resolveAssetOwnerLabel(asset, ownerLookup, memberNames) : null);
+  const visibleAssets = useMemo(
+    () => (ownerFilter === OWNER_FILTER_ALL ? assets : assets.filter((asset) => matchesAssetOwnerFilter(asset, ownerLookup, ownerFilter, knownMemberIds))),
+    [assets, ownerFilter, ownerLookup, knownMemberIds],
+  );
   // The table OR the rows, never both, on the composition's ONE query (`useCompactLayout`, the
   // `max-desktop:` of the CSS, since 2026-10-14): the server snapshot is `false` — not compact — so
   // a first frame would be the TABLE; the page is behind `ProtectedRoute` and mounts this tile
@@ -349,10 +378,12 @@ export function StrumentiTile({
     });
   };
 
+  // The rows the list draws: the owner filter narrows ONLY the list (the reading counts every
+  // position, as Tracciamento's filters narrow Movimenti and never a tile).
   const sortedAssets = useMemo(() => {
-    if (!sortState) return assets;
+    if (!sortState) return visibleAssets;
     const gainPct = (a: Asset) => computeUnrealizedGain(a)?.gainPercent ?? 0;
-    return [...assets].sort((a, b) => {
+    return [...visibleAssets].sort((a, b) => {
       // A Δ column: a row without the window (a pension fund, a hand-valued row) goes last in
       // both directions — «no measure» is not the smallest measure.
       if (DELTA_KEYS.has(sortState.column)) {
@@ -383,7 +414,7 @@ export function StrumentiTile({
       }
       return sortState.dir === 'asc' ? cmp : -cmp;
     });
-  }, [assets, sortState, performance]);
+  }, [visibleAssets, sortState, performance]);
 
   // Grouped mode: an ordered map keyed by display class, in first-occurrence order of the sort.
   const groupedAssets = useMemo(() => {
@@ -430,7 +461,7 @@ export function StrumentiTile({
     // keeps its native PMC under it, alone when the ledger has not projected the EUR one yet.
     const pmcEur = isHandValued ? undefined : costBasisPerUnitEur(asset);
     const nativePmc = !isHandValued && !isEurNative(asset) && asset.averageCost ? asset.averageCost : undefined;
-    const subLine = describeAssetRowSubLine(asset, now, financedNameOf(asset));
+    const subLine = describeAssetRowSubLine(asset, now, financedNameOf(asset), ownerLabelOf(asset));
     const dash = <span className="text-muted-foreground">—</span>;
 
     return (
@@ -608,31 +639,50 @@ export function StrumentiTile({
       eyebrow="Strumenti"
       ariaLabel="Strumenti"
       aside={
-        // The two toggles exist at 1440 only (their columns are the table's).
-        assets.length > 0 && !collapse ? (
-          <div className="hidden items-center gap-1.5 desktop:flex">
-            <Button
-              type="button"
-              variant={showDeltas ? 'default' : 'outline'}
-              size="sm"
-              className="h-8 px-2.5 text-[11px]"
-              onClick={toggleShowDeltas}
-              aria-pressed={showDeltas}
-            >
-              <TrendingUp className="h-3 w-3" aria-hidden="true" />
-              Andamento
-            </Button>
-            <Button
-              type="button"
-              variant={groupByClass ? 'default' : 'outline'}
-              size="sm"
-              className="h-8 px-2.5 text-[11px]"
-              onClick={toggleGroupByClass}
-              aria-pressed={groupByClass}
-            >
-              <LayoutGrid className="h-3 w-3" aria-hidden="true" />
-              Raggruppa per classe
-            </Button>
+        // The «Intestatario» filter at every width (as a row it is a control of the panel); the two
+        // toggles exist at 1440 only (their columns are the table's).
+        showOwnerFilter || (assets.length > 0 && !collapse) ? (
+          <div className="flex items-center gap-1.5">
+            {showOwnerFilter && (
+              <Select value={ownerFilter} onValueChange={(value) => value && setOwnerFilter(value)}>
+                <SelectTrigger aria-label="Intestatario" className="h-8 w-[150px] text-[11px] desktop:h-8 max-desktop:h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ownerOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {assets.length > 0 && !collapse && (
+              <div className="hidden items-center gap-1.5 desktop:flex">
+                <Button
+                  type="button"
+                  variant={showDeltas ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8 px-2.5 text-[11px]"
+                  onClick={toggleShowDeltas}
+                  aria-pressed={showDeltas}
+                >
+                  <TrendingUp className="h-3 w-3" aria-hidden="true" />
+                  Andamento
+                </Button>
+                <Button
+                  type="button"
+                  variant={groupByClass ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8 px-2.5 text-[11px]"
+                  onClick={toggleGroupByClass}
+                  aria-pressed={groupByClass}
+                >
+                  <LayoutGrid className="h-3 w-3" aria-hidden="true" />
+                  Raggruppa per classe
+                </Button>
+              </div>
+            )}
           </div>
         ) : undefined
       }
@@ -673,6 +723,7 @@ export function StrumentiTile({
                   chartColors={chartColors}
                   mortgage={resolveMortgageOf(asset, assets)}
                   financedAssetName={financedNameOf(asset)}
+                  ownerLabel={ownerLabelOf(asset)}
                   performance={performance[asset.id]}
                   showLedgerActions={showLedgerActions(asset)}
                   onRegisterTrade={onRegisterTrade}

@@ -412,6 +412,8 @@ function buildSingleExpenseDoc(
     costCenterId: expenseData.costCenterId,
     costCenterName: expenseData.costCenterName,
     personalMemberId: expenseData.personalMemberId,
+    // «Fuori dal budget» is stored only when set: absent means counted (types/expenses.ts).
+    excludeFromBudget: expenseData.excludeFromBudget ? true : undefined,
     transferFeeExpenseId: expenseData.transferFeeExpenseId,
     feeOfTransferId: expenseData.feeOfTransferId,
     createdAt: now,
@@ -560,6 +562,8 @@ async function createRecurringExpenses(
         // Every occurrence of a series belongs to the same person: ownership is a property
         // of the expense, like the account each occurrence settles on its own date.
         personalMemberId: expenseData.personalMemberId,
+        // And so is «Fuori dal budget»: every occurrence is out, or none is.
+        excludeFromBudget: expenseData.excludeFromBudget ? true : undefined,
         transferFeeExpenseId: feeDoc?.ref.id,
         createdAt: now,
         updatedAt: now,
@@ -696,6 +700,8 @@ async function createInstallmentExpenses(
         // Every occurrence of a series belongs to the same person: ownership is a property
         // of the expense, like the account each occurrence settles on its own date.
         personalMemberId: expenseData.personalMemberId,
+        // And so is «Fuori dal budget»: every instalment is out, or none is.
+        excludeFromBudget: expenseData.excludeFromBudget ? true : undefined,
         transferFeeExpenseId: feeDoc?.ref.id,
 
         createdAt: now,
