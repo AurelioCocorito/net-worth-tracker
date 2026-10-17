@@ -47,6 +47,7 @@ import { useActiveAccount } from '@/contexts/ActiveAccountContext';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { calculateGoalProgress, cleanOrphanedAssignments } from '@/lib/services/goalService';
 import type { GoalAssetAssignment, InvestmentGoal } from '@/types/goals';
+import type { AssetSlice } from '@/lib/utils/assetSlice';
 import type { Asset } from '@/types/assets';
 import { computeGoalTrajectory, type GoalRow } from '@/lib/utils/goalTrajectory';
 import { buildMilestones, GOALS_SECTION_IDS, summarizeAssignments, summarizeDerivedAllocation, summarizeGoals, summarizeTrajectory, sumAssetValues } from '@/lib/utils/goalsSummary';
@@ -255,9 +256,12 @@ export function GoalBasedInvestingTab() {
   };
 
   // ─── Assignments ─────────────────────────────────────────────────────────────
-  const handleSaveAssignment = async (goalId: string, assetId: string, percentage: number) => {
+  // A quota in percent or in units (lib/utils/assetSlice.ts): stored as typed, converted before every formula.
+  const handleSaveAssignment = async (goalId: string, assetId: string, slice: AssetSlice) => {
     const filtered = cleanedAssignments.filter((a) => !(a.goalId === goalId && a.assetId === assetId));
-    const updated: GoalAssetAssignment[] = percentage > 0 ? [...filtered, { goalId, assetId, percentage }] : filtered;
+    const quota: GoalAssetAssignment = 'units' in slice ? { goalId, assetId, units: slice.units } : { goalId, assetId, percentage: slice.percent };
+    const isEmpty = 'units' in slice ? !(slice.units > 0) : !(slice.percent > 0);
+    const updated: GoalAssetAssignment[] = isEmpty ? filtered : [...filtered, quota];
     await saveMutation.mutateAsync({ goals, assignments: updated });
     toast.success('Assegnazione aggiornata');
   };
@@ -462,7 +466,7 @@ export function GoalBasedInvestingTab() {
       />
 
       {assignmentGoalId && (
-        <AssetAssignmentDialog open onClose={() => setAssignmentGoalId(null)} onSave={handleSaveAssignment} goalId={assignmentGoalId} assets={assets} assignments={cleanedAssignments} />
+        <AssetAssignmentDialog open onClose={() => setAssignmentGoalId(null)} onSave={handleSaveAssignment} goalId={assignmentGoalId} goals={goals} assets={assets} assignments={cleanedAssignments} />
       )}
     </div>
   );

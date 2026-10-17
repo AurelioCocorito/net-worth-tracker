@@ -484,16 +484,31 @@ export function describeAssegnazioniAside(view: AssignmentsView): string {
   return `${view.totalInstrumentCount} ${plural(view.totalInstrumentCount, 'strumento', 'strumenti')} · ${view.quotaCount} ${plural(view.quotaCount, 'quota', 'quote')}`;
 }
 
-/** The footer explains what a quota is — or, in the warning tone, names an instrument past 100%. */
+/** «12 quote» / «5.000 €» — a units quota as the tile prints it beside its derived percent. */
+export function formatQuotaUnits(units: number, unitLabel: string): string {
+  const figure = Number.isInteger(units) ? String(units) : units.toLocaleString('it-IT', { maximumFractionDigits: 4 });
+  return `${figure} ${unitLabel}`;
+}
+
+/**
+ * The footer explains what a quota is — or, in the warning tone, names an instrument assigned
+ * past the whole of it: in units when a units quota is in the mix («120 quote assegnate su 100:
+ * quote da riassegnare», a sale that shrank the asset leaves the quota as typed — never
+ * rescaled, lib/utils/assetSlice.ts), in percent otherwise.
+ */
 export function describeAssegnazioniFooter(view: AssignmentsView): { narrative: Narrative; tone: 'neutral' | 'warning' } {
   if (view.overAssigned.length === 1) {
     const [over] = view.overAssigned;
+    if (over.inUnits) {
+      return { tone: 'warning', narrative: [prose(`${over.name} ha `), figure(formatQuotaUnits(Math.round(over.inUnits.assigned * 10000) / 10000, over.inUnits.unitLabel)), prose(' assegnate su '), figure(formatQuotaUnits(over.inUnits.quantity, over.inUnits.unitLabel)), prose(': quote da riassegnare.')] };
+    }
     return { tone: 'warning', narrative: [prose(`${over.name} è assegnato ${atThePercent(over.percentage, 0)}`), pct(over.percentage), prose(': riduci una quota, il limite è il '), pct(100), prose('.')] };
   }
   if (view.overAssigned.length > 1) {
-    return { tone: 'warning', narrative: [prose(`${joinNames(view.overAssigned.map((o) => o.name))} sono assegnati oltre il `), pct(100), prose(': riduci una quota.')] };
+    const inUnits = view.overAssigned.some((o) => o.inUnits !== null);
+    return { tone: 'warning', narrative: inUnits ? [prose(`${joinNames(view.overAssigned.map((o) => o.name))} hanno quote da riassegnare: le quote assegnate superano quelle possedute.`)] : [prose(`${joinNames(view.overAssigned.map((o) => o.name))} sono assegnati oltre il `), pct(100), prose(': riduci una quota.')] };
   }
-  return { tone: 'neutral', narrative: [prose('Una quota è la percentuale del valore di uno strumento; lo stesso strumento può servire più obiettivi fino al '), pct(100), prose('.')] };
+  return { tone: 'neutral', narrative: [prose('Una quota è una parte di uno strumento, in percentuale o in quote (euro per un conto o un immobile); lo stesso strumento può servire più obiettivi fino al '), pct(100), prose('.')] };
 }
 
 // ─── The closed rows' answers (the landscape index) ───────────────────────────

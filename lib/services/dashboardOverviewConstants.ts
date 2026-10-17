@@ -54,7 +54,10 @@ export const DASHBOARD_OVERVIEW_SUMMARY_COLLECTION = 'dashboardOverviewSummaries
 // the Panoramica's Intestatari tile reads the day's summary like every other tile.
 // Bumped from 22→23: topAssets list a property NET of its mortgage, with `debtNetted` (rankTopAssets),
 // and no mortgage row of its own — a stored list would keep the house gross at its old weight.
-export const DASHBOARD_OVERVIEW_SOURCE_VERSION = 23;
+// Bumped from 23→24: ownership splits an asset by its quotas (`Asset.ownerShares`, lib/utils/assetSlice.ts),
+// counts a card in the red against its owner and carries `reassign` — a stored summary would keep
+// the whole asset on one person and no declaration.
+export const DASHBOARD_OVERVIEW_SOURCE_VERSION = 24;
 // The materialized summary is stale when invalidated, of another source version, computed on an
 // earlier Italian DAY (the payload is the day's: the current/previous month and the month-end
 // projection are read from «today»), or older than this. Every mutation of an input already

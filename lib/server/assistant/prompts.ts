@@ -151,7 +151,7 @@ function formatGoalsSection(goals: AssistantMonthContextBundle['goals']): string
   }
 
   lines.push(
-    `Elenco completo (${goals.items.length}). Il "valore attuale" è la quota di portafoglio assegnata all'obiettivo, non un conto separato.`
+    `Elenco completo (${goals.items.length}). Il "valore attuale" è la quota di portafoglio assegnata all'obiettivo, non un conto separato: una quota è una parte di uno strumento, scritta dall'utente in percentuale o in quote (euro per un conto o un immobile) e già convertita in euro qui.`
   );
 
   for (const goal of goals.items) {

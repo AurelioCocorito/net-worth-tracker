@@ -584,6 +584,7 @@ describe('describePatrimonioClosedAnswers (the landscape index)', () => {
       total: 5000,
       assetCount: 5,
       hasOwners: true,
+      reassign: [],
     };
     expect(text(describePatrimonioClosedAnswers(input({ ownership }))[PATRIMONIO_SECTION_IDS.intestatari])).toBe('Giulia 60%');
   });

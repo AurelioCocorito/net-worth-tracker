@@ -451,10 +451,19 @@ describe('describeAssegnazioni', () => {
 
   it('the footer explains a quota, or warns about an instrument past 100%', () => {
     expect(describeAssegnazioniFooter(ASSEGNAZIONI).tone).toBe('neutral');
-    expect(plain(describeAssegnazioniFooter(ASSEGNAZIONI).narrative)).toBe('Una quota è la percentuale del valore di uno strumento; lo stesso strumento può servire più obiettivi fino al 100%.');
-    const over = describeAssegnazioniFooter({ ...ASSEGNAZIONI, overAssigned: [{ assetId: 'cc', name: 'Conto corrente', percentage: 130 }] });
+    expect(plain(describeAssegnazioniFooter(ASSEGNAZIONI).narrative)).toBe('Una quota è una parte di uno strumento, in percentuale o in quote (euro per un conto o un immobile); lo stesso strumento può servire più obiettivi fino al 100%.');
+    const over = describeAssegnazioniFooter({ ...ASSEGNAZIONI, overAssigned: [{ assetId: 'cc', name: 'Conto corrente', percentage: 130, inUnits: null }] });
     expect(over.tone).toBe('warning');
     expect(plain(over.narrative)).toBe('Conto corrente è assegnato al 130%: riduci una quota, il limite è il 100%.');
+  });
+
+  // A units quota a sale outgrew (2026-10-17): the declaration reads in units, «quote da riassegnare».
+  it('the footer declares a units quota past the asset in units', () => {
+    const over = describeAssegnazioniFooter({ ...ASSEGNAZIONI, overAssigned: [{ assetId: 'vwce', name: 'VWCE', percentage: 120, inUnits: { assigned: 120, quantity: 100, unitLabel: 'quote' } }] });
+    expect(over.tone).toBe('warning');
+    expect(plain(over.narrative)).toBe('VWCE ha 120 quote assegnate su 100 quote: quote da riassegnare.');
+    const two = describeAssegnazioniFooter({ ...ASSEGNAZIONI, overAssigned: [{ assetId: 'a', name: 'VWCE', percentage: 120, inUnits: { assigned: 120, quantity: 100, unitLabel: 'quote' } }, { assetId: 'b', name: 'Conto', percentage: 110, inUnits: null }] });
+    expect(plain(two.narrative)).toBe('VWCE e Conto hanno quote da riassegnare: le quote assegnate superano quelle possedute.');
   });
 });
 
@@ -535,7 +544,7 @@ describe('describeGoalsClosedAnswers', () => {
   });
 
   it('an instrument past 100% wins over the free total; nothing free reads «tutto assegnato»', () => {
-    const over = answers({ assignments: { ...ASSEGNAZIONI, overAssigned: [{ assetId: 'a', name: 'VWCE', percentage: 120 }] } });
+    const over = answers({ assignments: { ...ASSEGNAZIONI, overAssigned: [{ assetId: 'a', name: 'VWCE', percentage: 120, inUnits: null }] } });
     expect(visible(over[ids.assegnazioni])).toBe('quote oltre il 100%');
     expect(visible(answers({ assignments: { ...ASSEGNAZIONI, freeTotal: 0.3 } })[ids.assegnazioni])).toBe('tutto assegnato');
   });

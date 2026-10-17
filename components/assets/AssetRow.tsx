@@ -50,10 +50,10 @@ export function formatDeltaPercent(delta: number | null): string {
  */
 export function describeAssetRowSubLine(asset: Asset, now: Date, financedAssetName: string | null = null, ownerLabel: string | null = null): string | null {
   const facts = describeAssetRowFacts(asset, now, financedAssetName);
-  // «di Marco» closes the line (owner, 2026-10-17): the Intestatario under the name, no column added;
-  // a shared asset prints nothing — the default stays silent, the exception is named.
-  const owner = ownerLabel ? `di ${ownerLabel}` : null;
-  return [facts, owner].filter((part): part is string => part !== null).join(' · ') || null;
+  // The owner closes the line (owner, 2026-10-17): «di Marco» for a whole asset, the quotas by
+  // name for a split one («Marco 100 · Giulia 20 · 30 in comune», `describeAssetOwnerLabel`), no
+  // column added; a shared asset prints nothing — the default stays silent, the exception is named.
+  return [facts, ownerLabel].filter((part): part is string => part !== null).join(' · ') || null;
 }
 
 /** The storage facts of the row (a bond's dates, a loan's property and TAN, a hand-valued holding's date), without the owner. */
@@ -224,7 +224,7 @@ interface AssetRowProps {
   mortgage?: { debt: number } | null;
   /** The property a loan finances, for its sub-line; null for a personal loan. */
   financedAssetName?: string | null;
-  /** The owner's name for the sub-line («di Marco», `resolveAssetOwnerLabel`); null for a shared asset. */
+  /** The owner part of the sub-line («di Marco», the quotas by name — `describeAssetOwnerLabel`); null for a shared asset. */
   ownerLabel?: string | null;
 }
 
