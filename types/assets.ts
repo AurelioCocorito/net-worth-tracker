@@ -158,12 +158,15 @@ export interface AssetComposition {
   subCategory?: string; // Specific sub-category for this component of the composite asset
 }
 
-/** One row of «Intestatari» on an asset: a household member and the units they hold (see `Asset.ownerShares`). */
-export interface AssetOwnerShare {
-  memberId: string;
-  /** Units of the asset — quote, or euro where the value lives in `quantity` at price 1. Always > 0. */
-  units: number;
-}
+/**
+ * One row of «Intestatari» on an asset: a household member and their part, in UNITS (quote, or
+ * euro where the value lives in `quantity` at price 1) or in PERCENT of the asset — the form's
+ * % | quote switch, the owner's choice of 2026-10-17 (a joint account stays 50/50 while its
+ * balance moves; a unit count stays put while the price moves). See `Asset.ownerShares`.
+ */
+export type AssetOwnerShare =
+  | { memberId: string; units: number } // > 0
+  | { memberId: string; percent: number }; // 0-100
 
 // Core asset model representing a single financial holding.
 // Supports stocks, ETFs, bonds, crypto, real estate, cash, commodities.
@@ -235,10 +238,11 @@ export interface Asset {
   ownerMemberId?: string;
   // The quotas by person (owner, 2026-10-17; lib/utils/assetSlice.ts): the rows typed in the
   // form, each a member and a number of UNITS — quote of an instrument, euro of an account, a
-  // property or a loan (whose value lives in `quantity` at price 1). Units, never percentages:
-  // they do not move with the price, and a quantity that falls below their sum is declared
-  // («quote da riassegnare»), never rescaled in silence. Absent or empty: the whole asset goes
-  // to `ownerMemberId`, else in comune.
+  // property or a loan (whose value lives in `quantity` at price 1) — or a PERCENT of the asset
+  // (the form's switch, % by default where the value is money, quote on a quoted instrument).
+  // Units do not move with the price, and a quantity that falls below their sum is declared
+  // («quote da riassegnare»), never rescaled in silence; a percent follows the asset whole.
+  // Absent or empty: the whole asset goes to `ownerMemberId`, else in comune.
   ownerShares?: AssetOwnerShare[];
   /** @deprecated Superseded by `allocationRole`. Read-only legacy fallback: true → 'excluded'. Never write it. */
   excludeFromAllocation?: boolean;
@@ -289,7 +293,7 @@ export interface AssetFormData {
   isPrimaryResidence?: boolean;
   allocationRole?: AllocationRole; // How the Allocazione page treats this asset. See AllocationRole.
   ownerMemberId?: string; // «Intestatario»: the member who takes the rest; absent = in comune (see Asset)
-  ownerShares?: AssetOwnerShare[]; // The quotas by person, in units (see Asset); absent = none typed
+  ownerShares?: AssetOwnerShare[]; // The quotas by person, in units or percent (see Asset); absent = none typed
   leverageRatio?: number; // For a leveraged/composite ETF: 2 = 2x, 3 = 3x, 1 or absent = no leverage.
   isin?: string; // ISIN code for dividend scraping (optional)
   // The cash account this instrument's dividends and coupons credit (lib/utils/dividendAccount.ts).

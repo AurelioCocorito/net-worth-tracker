@@ -6,9 +6,11 @@
  * `allocationUtils`).
  *
  * The rules, each the owner's call of that day:
- *  - `Asset.ownerShares` is the list member → UNITS (quote of an instrument, euro of an account,
- *    a property or a loan — lib/utils/assetSlice.ts); the units are the primary memory, the
- *    percentage is derived on today's quantity. `Asset.ownerMemberId` names who takes the REST —
+ *  - `Asset.ownerShares` is the list member → a SLICE: UNITS (quote of an instrument, euro of an
+ *    account, a property or a loan — lib/utils/assetSlice.ts), which stay put while the price
+ *    moves, or a PERCENT of the asset (the form's switch, the owner's call of the same day: a
+ *    joint account is 50/50 whatever its balance), which follows the asset whole; the other
+ *    figure is derived on today's quantity. `Asset.ownerMemberId` names who takes the REST —
  *    every unit the list does not name, the ones a trade adds included; absent, the rest is
  *    «IN COMUNE» (the form's «Nessuna quota in comune» off). A document with `ownerMemberId` and
  *    no `ownerShares` — every one written before the quotas — is the whole asset to one member:
@@ -28,11 +30,11 @@
  *    their share).
  */
 
-import { isLoanAsset, type Asset, type FamilyMember } from '@/types/assets';
+import { isLoanAsset, type Asset, type AssetOwnerShare, type FamilyMember } from '@/types/assets';
 import { SPLIT_UNASSIGNED_LABEL } from '@/lib/utils/expenseSplitSummary';
 import { OWNER_FILTER_ALL, OWNER_FILTER_COMMON, OWNER_FILTER_UNASSIGNED, type OwnerFilterOption } from '@/lib/utils/movementsOwnerFilter';
-import { sliceBase, sliceUnit, sliceUnitLabel, summarizeSlices, SLICE_UNITS_EPSILON, type SliceBudget, type SliceUnit } from '@/lib/utils/assetSlice';
-import { cachedFormatCurrencyEUR, formatNumberIt } from '@/lib/utils/formatters';
+import { isUnitsSlice, sliceBase, sliceUnit, sliceUnitLabel, sliceUnits, summarizeSlices, SLICE_UNITS_EPSILON, type AssetSlice, type SliceBudget, type SliceUnit } from '@/lib/utils/assetSlice';
+import { cachedFormatCurrencyEUR, formatNumberIt, formatPercentageIt } from '@/lib/utils/formatters';
 
 /** The shared group's label — the same words the expense form and the Movimenti filter use. */
 export const OWNER_COMMON_LABEL = 'In comune';
@@ -44,8 +46,8 @@ export const REASSIGN_LABEL = 'quote da riassegnare';
 export interface OwnerSlice {
   memberId: string | null;
   fraction: number;
-  /** The units behind the fraction, as stored (the rest's computed); null for a derived owner (a pension fund, a mortgage). */
-  units: number | null;
+  /** The slice as stored (the rest's computed in the rows' form); null for a derived owner (a pension fund, a mortgage). */
+  slice: AssetSlice | null;
 }
 
 export interface AssetOwnership {
@@ -53,11 +55,18 @@ export interface AssetOwnership {
   slices: OwnerSlice[];
   /** How the owner is known: typed on this asset, the whole of it to one member or in comune, or derived from another document. */
   source: 'shares' | 'whole' | 'pensionFund' | 'mortgage';
-  /** The typed units against the quantity (null unless `source` is `shares`). */
+  /** The form the rows were typed in — percent, or units of `unit` (null unless `source` is `shares`). */
+  mode: 'percent' | 'units' | null;
+  /** The typed slices against the quantity (null unless `source` is `shares`). */
   budget: SliceBudget | null;
   /** The stored units are more than the asset has: declared on the row and on the tile. */
   needsReassignment: boolean;
   unit: SliceUnit;
+}
+
+/** The slice a stored row is (`lib/utils/assetSlice.ts`). */
+export function ownerShareSlice(share: AssetOwnerShare): AssetSlice {
+  return 'percent' in share ? { percent: share.percent } : { units: share.units };
 }
 
 /**
@@ -69,47 +78,75 @@ export interface AssetOwnership {
 export function resolveAssetOwnership(asset: Asset, assets: readonly Asset[]): AssetOwnership {
   const unit = sliceUnit(asset);
   if (asset.type === 'pensionFund') {
-    return { slices: [{ memberId: asset.pensionFundDetails?.familyMemberId || null, fraction: 1, units: null }], source: 'pensionFund', budget: null, needsReassignment: false, unit };
+    return { slices: [{ memberId: asset.pensionFundDetails?.familyMemberId || null, fraction: 1, slice: null }], source: 'pensionFund', mode: null, budget: null, needsReassignment: false, unit };
   }
   if (isLoanAsset(asset) && asset.financedAssetId) {
     const financed = assets.find((candidate) => candidate.id === asset.financedAssetId);
     if (financed) {
       const property = resolveAssetOwnership(financed, assets);
-      return { slices: property.slices.map((slice) => ({ ...slice, units: null })), source: 'mortgage', budget: null, needsReassignment: false, unit };
+      return { slices: property.slices.map((slice) => ({ ...slice, slice: null })), source: 'mortgage', mode: null, budget: null, needsReassignment: false, unit };
     }
   }
 
   const typed = mergeShares(asset.ownerShares ?? []);
   const rest = asset.ownerMemberId || null;
   if (typed.length === 0) {
-    return { slices: [{ memberId: rest, fraction: 1, units: null }], source: 'whole', budget: null, needsReassignment: false, unit };
+    return { slices: [{ memberId: rest, fraction: 1, slice: null }], source: 'whole', mode: null, budget: null, needsReassignment: false, unit };
   }
 
+  // One form per asset: a percent row among the typed ones makes the block a percent block (the
+  // form writes one or the other, never both; a mixed document reads by its percents' form).
+  const mode: 'percent' | 'units' = typed.some((share) => 'percent' in share) ? 'percent' : 'units';
   const base = sliceBase(asset.quantity);
-  const budget = summarizeSlices(typed.map((share) => ({ units: share.units })), asset.quantity);
-  const typedUnits = typed.reduce((sum, share) => sum + share.units, 0);
-  // Over the quantity the stored proportions still split the whole asset (the tile adds up);
-  // the overflow is declared, not absorbed.
-  const divisor = budget.needsReassignment ? typedUnits : base;
-  const slices: OwnerSlice[] = typed.map((share) => ({
+  const typedSlices = typed.map(ownerShareSlice);
+  const budget = summarizeSlices(typedSlices, asset.quantity);
+  // Over the quantity the stored proportions still split the whole asset (the tile adds up); the
+  // overflow is declared, not absorbed. A percent block past 100 (never written by the form) splits
+  // by the same rule.
+  const typedUnits = typedSlices.reduce((sum, slice) => sum + sliceUnits(slice, asset.quantity), 0);
+  const slices: OwnerSlice[] = typed.map((share, index) => ({
     memberId: share.memberId,
-    fraction: divisor > 0 ? share.units / divisor : 0,
-    units: share.units,
+    fraction: budget.needsReassignment ? (typedUnits > 0 ? sliceUnits(typedSlices[index], asset.quantity) / typedUnits : 0) : sliceFractionOf(typedSlices[index], asset.quantity),
+    slice: typedSlices[index],
   }));
-  if (!budget.needsReassignment && budget.freeUnits > SLICE_UNITS_EPSILON) {
-    slices.push({ memberId: rest, fraction: base > 0 ? budget.freeUnits / base : 0, units: budget.freeUnits });
+  if (!budget.needsReassignment) {
+    // The rest in the block's own figures (not 1 − Σ fractions: float noise would print «39,99…»).
+    const typedPercent = typedSlices.reduce((sum, slice) => sum + (isUnitsSlice(slice) ? 0 : slice.percent), 0);
+    const restPercent = Math.max(0, 100 - typedPercent);
+    const restFraction = mode === 'percent' ? restPercent / 100 : base > 0 ? budget.freeUnits / base : 0;
+    if (restFraction > SLICE_UNITS_EPSILON) {
+      slices.push({ memberId: rest, fraction: restFraction, slice: mode === 'percent' ? { percent: restPercent } : { units: budget.freeUnits } });
+    }
   }
-  return { slices, source: 'shares', budget, needsReassignment: budget.needsReassignment, unit };
+  return { slices, source: 'shares', mode, budget, needsReassignment: budget.needsReassignment, unit };
 }
 
-/** The typed rows with a positive count, one per member (a member named twice is summed). */
-function mergeShares(shares: readonly { memberId: string; units: number }[]): { memberId: string; units: number }[] {
-  const byMember = new Map<string, number>();
-  for (const share of shares) {
-    if (!share.memberId || !(share.units > 0)) continue;
-    byMember.set(share.memberId, (byMember.get(share.memberId) ?? 0) + share.units);
+/** A units slice on an empty asset is nothing; a percent one is its percent whatever the quantity. */
+function sliceFractionOf(slice: AssetSlice, quantity: number): number {
+  if (isUnitsSlice(slice)) {
+    const base = sliceBase(quantity);
+    return base > 0 ? slice.units / base : 0;
   }
-  return [...byMember].map(([memberId, units]) => ({ memberId, units }));
+  return slice.percent / 100;
+}
+
+/** The typed rows with a positive figure, one per member (a member named twice is summed within its form). */
+function mergeShares(shares: readonly AssetOwnerShare[]): AssetOwnerShare[] {
+  const byMember = new Map<string, AssetOwnerShare>();
+  for (const share of shares) {
+    if (!share.memberId) continue;
+    const figure = 'percent' in share ? share.percent : share.units;
+    if (!(figure > 0)) continue;
+    const prior = byMember.get(share.memberId);
+    if (!prior) {
+      byMember.set(share.memberId, share);
+    } else if ('percent' in prior && 'percent' in share) {
+      byMember.set(share.memberId, { memberId: share.memberId, percent: prior.percent + share.percent });
+    } else if ('units' in prior && 'units' in share) {
+      byMember.set(share.memberId, { memberId: share.memberId, units: prior.units + share.units });
+    }
+  }
+  return [...byMember.values()];
 }
 
 /** Whether the form offers the quotas: a pension fund and a linked mortgage derive their owner. */
@@ -247,13 +284,25 @@ export function formatOwnerUnits(units: number, unit: SliceUnit): string {
   return `${formatNumberIt(units, 0)} ${unit.currency}`;
 }
 
+/** «50%» / «33,3%» — a percent row as the sub-line and the form print it. */
+export function formatOwnerPercent(percent: number): string {
+  const rounded = Math.round(percent * 10) / 10;
+  return formatPercentageIt(rounded, Number.isInteger(rounded) ? 0 : 1);
+}
+
+/** A stored or computed slice in its own form: «100», «5.000 €» or «50%». */
+export function formatOwnerSlice(slice: AssetSlice, unit: SliceUnit): string {
+  return isUnitsSlice(slice) ? formatOwnerUnits(slice.units, unit) : formatOwnerPercent(slice.percent);
+}
+
 /**
  * The owner part of a Strumenti row's sub-line (owner, 2026-10-17; the «di Marco» of the first
  * day kept for an asset wholly one member's — the number would add nothing). A split asset lists
- * every name with its units and the rest: «Marco 100 · Giulia 20 · 30 in comune», the rest's
- * member computed like the others («Marco 40 · Giulia 60»); stored units past the quantity close
- * the line with the declaration: «quote da riassegnare (120 su 100)». `null` for a shared asset —
- * the default stays silent, the exception is named.
+ * every name with its part in the form it was typed and the rest: «Marco 100 · Giulia 20 · 30 in
+ * comune», «Marco 50% · Giulia 50%», the rest's member computed like the others («Marco 40 ·
+ * Giulia 60»); stored units past the quantity close the line with the declaration: «quote da
+ * riassegnare (120 su 100)». `null` for a shared asset — the default stays silent, the exception
+ * is named.
  */
 export function describeAssetOwnerLabel(asset: Asset, assets: readonly Asset[], memberNames: ReadonlyMap<string, string>): string | null {
   const ownership = resolveAssetOwnership(asset, assets);
@@ -265,8 +314,8 @@ export function describeAssetOwnerLabel(asset: Asset, assets: readonly Asset[], 
     return name === OWNER_UNASSIGNED_LABEL ? name.toLowerCase() : `di ${name}`;
   }
   const parts = ownership.slices.map((slice) => {
-    const units = formatOwnerUnits(slice.units ?? 0, ownership.unit);
-    return slice.memberId === null ? `${units} in comune` : `${nameOf(slice.memberId)} ${units}`;
+    const figure = formatOwnerSlice(slice.slice ?? { units: 0 }, ownership.unit);
+    return slice.memberId === null ? `${figure} in comune` : `${nameOf(slice.memberId)} ${figure}`;
   });
   if (ownership.needsReassignment && ownership.budget) {
     const label = sliceUnitLabel(ownership.unit);
