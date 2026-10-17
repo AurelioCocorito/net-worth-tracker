@@ -105,8 +105,8 @@ export function TraguardoTile({ reading, target, caption, view, onViewChange, fa
       {/* The Recharts views stretch with the tile's free height: the SVG's 100% height resolves
           against the absolutely positioned box, never against its own ratio. The Distribuzione
           view flows: its bars stretch, its sentences take the height they need. */}
-      {/* Below `desktop:` the plot yields to 120px, never the reading (doc/mobile/README.md § 9,
-          decision 4, since 2026-10-15): THE tile stays open on a phone. */}
+      {/* Below `desktop:` the plot yields to 120px, never the reading (DESIGN.md → The First-Screen
+          Rule, since 2026-10-15): THE tile stays open on a phone. */}
       {view === 'distribuzione' && fanAvailable ? (
         <div className="mt-4 flex flex-1 flex-col max-desktop:min-h-[120px] desktop:min-h-[240px]">{chart}</div>
       ) : (

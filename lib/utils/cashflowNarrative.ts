@@ -267,7 +267,7 @@ export function scheduledSentence(scheduled: ScheduledSlice, horizon: string | n
 /**
  * The same words as a caption of their own — the leading space of `scheduledSentence` dropped, so
  * the clause can open a line instead of closing a sentence. The `scope` of a verdict whose strip
- * prints totals that CONTAIN the calendar (doc/mobile/README.md § 9, decision 14: rendered at
+ * prints totals that CONTAIN the calendar (The Binding-Clause Rule, since 2026-10-10: rendered at
  * every width by `PageVerdict`, after the strip on a phone and under the paragraph at 1440).
  */
 export function scheduledScope(scheduled: ScheduledSlice, horizon: string | null): Narrative | null {
@@ -278,8 +278,8 @@ export function scheduledScope(scheduled: ScheduledSlice, horizon: string | null
 
 /**
  * Tracciamento's scope line: «Nel totale ci sono ancora 1850 € di spese e 500 € di entrate già in
- * calendario da qui a fine mese.» under the three cells, which print the PERIOD's totals (decision
- * 31); `null` with nothing in the calendar, and the line is simply absent. Its words are
+ * calendario da qui a fine mese.» under the three cells, which print the PERIOD's totals;
+ * `null` with nothing in the calendar, and the line is simply absent. Its words are
  * `scheduledSentence`'s, the one source of that clause. Analisi gets a scope line of its own in
  * the same form (since 2026-10-14, `describeAnalisiScope` over its own horizon): what it shares is
  * `scheduledScope` above, not this function.
@@ -289,7 +289,7 @@ export function describeTrackingScope(period: Period, now: Date, scheduled: Sche
 }
 
 /**
- * The two labels of «Il perché» on a phone (decision 3): the first sentence restates the strip's
+ * The two labels of «Il perché» on a phone (The Binding-Clause Rule): the first sentence restates the strip's
  * three figures, so without a calendar the title stands alone and the whole sentence is «le cifre
  * del periodo»; with a calendar and a lived part, the first sentence (what has happened) stands
  * and the second — «dove chiude il periodo» — goes behind the tap.
@@ -427,13 +427,14 @@ function calendarSentence(period: Period, now: Date, totals: PeriodCashflowTotal
  * the calendar takes it. Until 2026-09-14 the tone came from the whole span, so on the 14th a
  * salary dated the 15th made the month «andare bene».
  *
- * Where a phone cuts it (since 2026-10-12; doc/mobile/README.md § 9, decision 3): the strip
+ * Where a phone cuts it (since 2026-10-12; The Binding-Clause Rule): the strip
  * under the title prints the period's three totals, so a sentence that restates them goes whole
  * behind «Il perché» (`leadLength: 0`) — without a calendar, or with the calendar alone (nothing
  * lived yet: the verdict IS the calendar sentence). With a calendar AND a lived part the first
  * sentence judges what happened on figures the strip does not print, and stands; the calendar
  * sentence goes behind the tap. A period with no strip at all (nothing in, nothing out) keeps
- * its one sentence whole: the title alone would say less than it (decision 70).
+ * its one sentence whole: the title alone would say less than it (2026-10-12,
+ * doc/guide/cashflow-tracciamento.md).
  */
 export function buildCashflowVerdict(input: CashflowVerdictInput): PageVerdictModel {
   const subject = describePeriodSubject(input.period, input.now);

@@ -272,7 +272,7 @@ export function buildWhatIfVerdict(input: WhatIfVerdictInput): PageVerdictModel 
   }
 
   // The event and its clauses are the first sentence; the Coast and the bridge note follow it —
-  // behind «Il perché» on a phone, the bridge kept in sight by the scope line (decision 44).
+  // behind «Il perché» on a phone, the bridge kept in sight by the scope line (The Binding-Clause Rule).
   const coast = coastSentence(summary);
   const sentence: Narrative = [prose('Con '), ...eventClause(event), prose(' '), ...joinClauses(clauses), prose('.'), ...coast, ...(summary.isBridge ? BRIDGE_NOTE : [])];
   return {

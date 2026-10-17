@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * Flusso's 50/30/20 view below 640px: the 50/30/20 bar with the reference ticks, then each role's
- * categories as ranked rows. Drawn by FlowShareMobile.
+ * Flusso's 50/30/20 view in a cell narrower than 608px (`FLUSSO_SANKEY_MIN_CELL`, since 2026-10-16;
+ * 640px of viewport before): the 50/30/20 bar with the reference ticks, then each role's categories
+ * as ranked rows. Drawn by FlowShareMobile.
  *
  * Every figure and every word comes from the pure layer: the shares from
  * `summarizeSpendingRoleShares` — the SAME source `describeSpendingRolesFlow` prints above the bar,
@@ -33,7 +34,7 @@ interface Props {
   onEntityClick: (target: { expenseType: ExpenseType; categoryKey: string }) => void;
   /** The strip's «Risparmio» cell prints the surplus: «Risparmi» hides what repeats it (The Lifted-Figure Rule). */
   savingsLifted?: boolean;
-  /** The figures the first screen prints (`collectPrintedFigures`): the caption drops an amount among them (decision 82). */
+  /** The figures the first screen prints (`collectPrintedFigures`): the caption drops an amount among them (2026-10-14). */
   printedFigures?: ReadonlySet<string>;
 }
 

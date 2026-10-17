@@ -67,12 +67,13 @@ interface FlussoTileProps {
    */
   collapse?: TileCollapse;
   /**
-   * The strip's «Risparmio» cell prints the surplus (The Lifted-Figure Rule): below 640px the
-   * blocks that print it again hide — the type view's «Risparmio», the roles view's note (and
-   * «Risparmi» whole without a saving row). The bar stays: its legend prints shares, not euro.
+   * The strip's «Risparmio» cell prints the surplus (The Lifted-Figure Rule): in a cell narrower than
+   * 608px (the share bar's drawing, since 2026-10-16) the blocks that print it again hide — the type
+   * view's «Risparmio», the roles view's note (and «Risparmi» whole without a saving row). The bar
+   * stays: its legend prints shares, not euro.
    */
   liftedFigures?: readonly FlussoLiftedBlock[];
-  /** The figures the first screen prints: a caption of the bar drops an amount among them (decision 82). */
+  /** The figures the first screen prints: a bar caption equal to one of them drops its amount (2026-10-14). */
   printedFigures?: ReadonlySet<string>;
   className?: string;
 }
@@ -133,19 +134,21 @@ type DrillState =
  * on), the subcategory layer and the single type/role drill — and builds the view, so the words
  * above the plot describe exactly what is drawn.
  *
- * THE FLUSSO PICKS ITS DRAWING AT 640px (owner's decision, 2026-09-27): a legibility threshold of
- * the chart, not a second composition. From 640 the Sankey; below it, where a four-column flow gets
- * ~80px a column, the SAME figures as a share bar and ranked rows — SpendingRolesMobileFlow for the
- * roles view, SpendingTypesMobileFlow for the type view, both drawn by FlowShareMobile. Below 640
- * no Sankey model is built at all (no view, no height, no label), and the role colours are not read.
+ * THE FLUSSO PICKS ITS DRAWING BY ITS CELL (owner's decision, 2026-09-27, at a 640px viewport; by the
+ * cell since 2026-10-16): a legibility threshold of the chart, not a second composition. In a cell of
+ * 608px or more (`FLUSSO_SANKEY_MIN_CELL` in AnalisiTab: a 640px viewport's cell) the Sankey; in a
+ * narrower one — a phone, where a four-column flow gets ~80px a column, and the landscape index — the
+ * SAME figures as a share bar and ranked rows — SpendingRolesMobileFlow for the roles view,
+ * SpendingTypesMobileFlow for the type view, both drawn by FlowShareMobile. In a narrow cell no Sankey
+ * model is built at all (no view, no height, no label), and the role colours are not read.
  */
 export function FlussoTile({ expenses, isMobile, reading, flow, spendingRoles, scheduled, scheduledHorizon, onEntityClick, collapse, liftedFigures = [], printedFigures, className }: FlussoTileProps) {
   const savingsLifted = liftedFigures.includes('risparmio');
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [preferredMode, setPreferredMode] = useState<FlowMode>('roles');
-  // A drill is a place INSIDE the Sankey, and the Sankey exists only from 640px. Stored WITH the
-  // width it was opened at (AGENTS.md → «State belonging to a subject must be stored WITH its
-  // subject»), it resolves to none as soon as the viewport crosses below 640 — no effect resets it,
+  // A drill is a place INSIDE the Sankey, and the Sankey exists only in a cell of 608px or more. Stored
+  // WITH the drawing it was opened in (AGENTS.md → «State belonging to a subject must be stored WITH its
+  // subject»), it resolves to none as soon as the cell narrows below 608px — no effect resets it,
   // and the phone never builds a view for it; widened again, the reader is back where they were.
   const [storedDrill, setStoredDrill] = useState<{ isMobile: boolean; drill: DrillState } | null>(null);
   const drill = storedDrill !== null && storedDrill.isMobile === isMobile ? storedDrill.drill : null;

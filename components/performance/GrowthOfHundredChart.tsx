@@ -14,8 +14,8 @@ interface GrowthOfHundredChartProps {
   /**
    * Minimum height of the plot; the tile's flex column lets it stretch past it, up to `maxHeight`.
    * The caller may set `--growth-min-h` on the chart's box by width (`RendimentoTile`: 120px below
-   * `desktop:`, 160px from it — the curve yields on a phone, never the reading, doc/mobile/README.md
-   * § 9, decision 4); this prop is the fallback where the variable is not set.
+   * `desktop:`, 160px from it — the curve yields on a phone, never the reading, DESIGN.md
+   * → The First-Screen Rule); this prop is the fallback where the variable is not set.
    */
   minHeight?: number;
   /** The plot stops growing here whatever flex space it is given: see the component's note. */

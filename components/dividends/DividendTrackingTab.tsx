@@ -6,9 +6,9 @@
  * 12-column bento of tiles, each answering ONE question with a reading line over its figures.
  * The payments list — table or calendar — is the last tile, the inventory it is.
  *
- *   Below desktop:    ONE sequence, the desktop DOM (doc/mobile/README.md § 9, decisions 1 and 11;
+ *   Below desktop:    ONE sequence, the desktop DOM (DESIGN.md → The First-Screen Rule;
  *                     composed since 2026-10-12): title → [periodo · +] in the verdict's
- *                     axis slot → the verdict, whole (no strip, no cut — decision 30: received
+ *                     axis slot → the verdict, whole (no strip, no cut: received
  *                     and announced are never one figure, and the Rendimento is not on the axis)
  *                     → Incasso netto, open → «Il resto della pagina» → Affidabilità, Rendimento,
  *                     Chi paga di più, Per anno, Pagamenti as closed rows (Pagamenti open by
@@ -160,7 +160,7 @@ interface DividendTrackingTabProps {
 
 /**
  * The rows of the phone composition, in the DOM's order (The Closed-Row Rule): every tile but
- * Incasso netto, THE tile (decision 21). Two module-level lists, the second with Rendimento's
+ * Incasso netto, THE tile, which never closes. Two module-level lists, the second with Rendimento's
  * read failed (`useDividendStats`): the controller asks for a stable list, and a literal array
  * would rebuild every handler on every render. With nothing recorded there are no rows at all.
  */
@@ -558,7 +558,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
 
   const addButtonLabel = isDemo ? 'Aggiungi dividendo — non disponibile in modalità demo' : 'Aggiungi dividendo';
 
-  // The axis below `desktop:` — the verdict's slot (decision 2): the period pill and the only
+  // The axis below `desktop:` — the verdict's slot (DESIGN.md → Page Verdict): the period pill and the only
   // «add» affordance there is on a phone (the bottom-nav FAB belongs to Tracciamento). The
   // scrape lives in the Pagamenti toolbar there: four period labels and two 44px squares did
   // not fit 390. None with nothing recorded: the empty Pagamenti carries both actions.
@@ -672,7 +672,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
           With nothing recorded there is no grid: the stage stays a plain column. */}
       <div className={STAGE_WRAPPER_CLASS}>
       <div ref={stageRef} className={nothingRecorded ? 'space-y-4' : STAGE_CLASS}>
-      {/* ── Verdict, whole at every width (no strip, no cut — decision 30), the axis under its
+      {/* ── Verdict, whole at every width (no strip, no cut — see the header), the axis under its
           title below `desktop:` and a second instance of the pill beside it from there ──────── */}
       <div data-stage="verdict" className={cn('flex items-start justify-between gap-6 pt-1', !nothingRecorded && VERDICT_CELL_CLASS)}>
         <div className="min-w-0 flex-1">
@@ -726,7 +726,7 @@ export function DividendTrackingTab({ dividends, assets, loading, loadFailed, on
       ) : (
         <>
           {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width
-              (decision 11; the `order-*` the phone used went on 2026-10-12) — THE tile, «Il resto
+              (The First-Screen Rule; the `order-*` the phone used went on 2026-10-12) — THE tile, «Il resto
               della pagina», then the rows (inside the index) ─────────────────────────── */}
           <div className={COMPACT_GRID_WRAPPER_CLASS}>
           <div className={COMPACT_GRID_CLASS}>

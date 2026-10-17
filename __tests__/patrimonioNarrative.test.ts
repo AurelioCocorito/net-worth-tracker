@@ -390,10 +390,11 @@ describe('describeMortgageYearScope — a partial year says so', () => {
 });
 
 /**
- * The phone's cut of the verdict (2026-10-14; doc/mobile/README.md § 9, decisions 3, 5,
- * 20 and 81). Seen red: the market sentence glued back with «; sul mercato» (the lead swallowed
- * it); the `binding` flag dropped from `describeSales` (the rest of a taxed month went behind
- * «Il perché»); the zero signed again with `value >= 0 ? '+'` («+0,00 €»).
+ * The phone's cut of the verdict (2026-10-14; The Binding-Clause Rule, a full stop where the
+ * cut falls, a printed zero unsigned, the year a sentence of its own). Seen red: the market
+ * sentence glued back with «; sul mercato» (the lead swallowed it); the `binding` flag dropped
+ * from `describeSales` (the rest of a taxed month went behind «Il perché»); the zero signed
+ * again with `value >= 0 ? '+'` («+0,00 €»).
  */
 describe('buildPatrimonioVerdict — the phone composition', () => {
   const YEAR = { value: 4500, percentage: 4.1 };

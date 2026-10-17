@@ -11,10 +11,10 @@
  *
  *   Desktop (12 col): Probabilità(5) | Distribuzione(4) | Scenari a confronto(3)
  *                     Parametri(12)
- *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11,
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule,
  *                     since 2026-10-15): the verdict's title → the first sentence (the base run) →
  *                     the strip of two figures («Mediana», «Orso») → the lock as the scope line
- *                     (44) → «Il perché» (the bear and the bull, the bridge) → Probabilità open,
+ *                     → «Il perché» (the bear and the bull, the bridge) → Probabilità open,
  *                     its fan at 120px → «Il resto della pagina» → Distribuzione, Scenari,
  *                     Parametri as closed rows (`useMobileSections` with `tab: 'montecarlo'`,
  *                     doc/guide/fire-monte-carlo.md § Composizione mobile) → Dettaglio. Without a
@@ -137,7 +137,7 @@ const DEFAULT_RETIREMENT_YEARS = 30;
 const DEFAULT_SIMULATIONS = DEFAULT_MONTE_CARLO_SIMULATIONS;
 const DEFAULT_WITHDRAWAL = 30000;
 
-/** The rows below `desktop:`, in the DOM's order: every tile but Probabilità, THE tile (decision 21). No row carries `failed`. */
+/** The rows below `desktop:`, in the DOM's order: every tile but Probabilità, THE tile, which never closes. No row carries `failed`. */
 const MONTE_CARLO_SECTIONS: readonly SectionSpec[] = [
   { id: MONTE_CARLO_SECTION_IDS.distribuzione, eyebrow: 'Distribuzione' },
   { id: MONTE_CARLO_SECTION_IDS.scenari, eyebrow: 'Scenari a confronto' },
@@ -424,7 +424,7 @@ export function MonteCarloTab() {
         />
       </div>
 
-      {/* ONE sequence, no `order-*` (decision 11). Tablet: Probabilità on two columns, the closed
+      {/* ONE sequence, no `order-*` (The First-Screen Rule). Tablet: Probabilità on two columns, the closed
           rows two by two at 768, an open row on the whole grid row; in landscape the rows in the
           index beside the verdict and Probabilità. */}
       <div className={run ? COMPACT_GRID_WRAPPER_CLASS : undefined}>

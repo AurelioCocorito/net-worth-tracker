@@ -205,7 +205,7 @@ export function buildAllocazioneVerdict(input: AllocazioneVerdictInput): PageVer
 
   // The first sentence is the drift — what a phone shows under the title; the leverage and the
   // next money follow as sentences of their own («. La leva è…», «. Con 1000 € in più…»), at
-  // 1440 too (doc/mobile/README.md § 9, decision 5): the cut needs a full stop, not a «;».
+  // 1440 too: the cut needs a full stop, not a «;».
   const lead: Narrative =
     input.isBalanced || input.offTarget.length === 0
       ? [prose(input.band.type === 'rule525' ? 'Tutte le classi rispettano la regola 5/25' : `Tutte le classi sono ${bandClause(input.band)}`)]

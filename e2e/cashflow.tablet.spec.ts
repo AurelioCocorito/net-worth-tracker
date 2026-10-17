@@ -7,7 +7,7 @@
  * pill at 768, the axis' «Aggiungi» in landscape — the only one there, a 44px target. And the second
  * sample page at 1440: twelve columns, as a page opened there.
  *
- * Seen red on 2026-10-16 (the landscape stage, decision 105), one at a time (with
+ * Seen red on 2026-10-16 (the landscape stage), one at a time (with
  * `overview.tablet.spec.ts`): the stage's columns without `max-desktop:` — «the grid spans main at
  * 1440»; `REST_CELL_CLASS` emptied — «"Il resto" as tall as a row»; `INDEX_CLASS`'s `min-h` dropped —
  * «the index ends on THE tile line»; `WIDE_CELL_CLASS` emptied — «the open row spans the grid» at 768.

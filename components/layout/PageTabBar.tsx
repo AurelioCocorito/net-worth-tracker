@@ -91,7 +91,7 @@ export function PageTabBar({ tabs, value, onValueChange, layoutId, ariaLabel, re
               onClick={() => onValueChange(tv)}
               transition={SPRING}
               // `min-h-11 min-w-11`: a thumb's target (the pill measured 38×32 until 2026-10-10,
-              // doc/mobile/README.md § 9, decision 22); the icon-only tabs centre in the square.
+              // DESIGN.md → Navigation); the icon-only tabs centre in the square.
               className={cn(
                 'relative flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-[6px] px-3 py-1.5 text-sm font-medium whitespace-nowrap z-10',
                 isActive ? 'text-foreground' : 'text-muted-foreground',

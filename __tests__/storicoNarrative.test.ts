@@ -599,7 +599,7 @@ describe('buildStoricoVerdict without a snapshot', () => {
 });
 
 /**
- * The phone's cut of the verdict (2026-10-14; decision 3). Seen red: the cut moved before
+ * The phone's cut of the verdict (2026-10-14; The Binding-Clause Rule). Seen red: the cut moved before
  * the parenthesis with `binding` dropped from «versamenti inclusi» (the base of the rate went behind
  * «Il perché»).
  */

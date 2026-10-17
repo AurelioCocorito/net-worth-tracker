@@ -451,7 +451,7 @@ describe('load errors and the series aside', () => {
 // ─── The phone's cut (2026-10-15, the composition of the page) ────────────────
 // Seen red with `leadLength` left `undefined` on one measured block (title only never happened).
 
-describe('buildPensionVerdict — title only with one measured contributor (decisions 3 and 46)', () => {
+describe('buildPensionVerdict — title only with one measured contributor (the headline-only cut, 2026-10-15)', () => {
   it('cuts to the title with ONE measured block: the strip says the three causes', () => {
     const verdict = buildPensionVerdict({ blocks: [MARIO], taxYear: 2026, currentYear: 2026 });
     expect(verdict.leadLength).toBe(0);
@@ -469,7 +469,8 @@ describe('buildPensionVerdict — title only with one measured contributor (deci
 
 // ─── A printed zero, and the closed rows' words (2026-10-16, in the retirement of the composition) ──
 // Seen red: `signedPct` deciding the sign on the VALUE («+0,00%» green beside a strip cell that
-// prints «0,00%» unsigned — decision 20 of doc/mobile/README.md § 9, the class of the 66/72/78).
+// prints «0,00%» unsigned — the printed-zero rule of AGENTS.md § Layout and Color Tokens, the class
+// fixed across pages on 2026-10-11, 10-12 and 10-14).
 
 describe('buildPensionVerdict — a market return that rounds to zero', () => {
   it('prints it unsigned and uncoloured, as the strip cell does', () => {

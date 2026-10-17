@@ -90,7 +90,7 @@ test.describe('Analisi, composed for a phone', () => {
     const periodo = page.getByRole('region', { name: 'Periodo', exact: true });
     await expect(periodo.getByText(/^2000\s?€$/)).toBeHidden();
     await expect(periodo.getByText(/^61,0%$/)).toBeVisible();
-    // The spending delta is the first sentence's pacing (−13,3% su 2025): lifted (decision 83); the
+    // The spending delta is the first sentence's pacing (−13,3% su 2025): lifted (since 2026-10-14); the
     // income delta, which nothing above prints, stays.
     await expect(verdict.getByText(/−13,3%/)).toBeVisible();
     await expect(periodo.getByText('↓ 13,3%')).toBeHidden();

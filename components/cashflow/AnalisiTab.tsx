@@ -10,7 +10,7 @@
  *                                        | Spese per categoria(4) | Entrate per categoria(3)
  *                     Scheda(12, only with a focus)
  *                     Flusso(12)
- *   Below desktop:    ONE sequence, the DOM above (decisions 1 and 11; since 2026-10-14 —
+ *   Below desktop:    ONE sequence, the DOM above (The First-Screen Rule; since 2026-10-14 —
  *                     the `order-1…7` are gone): title → the axis → the first sentence → Entrate and
  *                     Risparmio as a strip → the calendar's scope → «Il perché» → Periodo, open, its
  *                     trio lifted and its bars at 120px → «Il resto della pagina» → Fuori scala,
@@ -171,7 +171,7 @@ const NO_FOCUS: DrillDownState = { level: 'category', chartType: null, selectedC
 
 /**
  * Every row of the phone composition, in the DOM's order (The Closed-Row Rule;
- * 2026-10-14): every tile but Periodo, which is THE tile and never closes (decision 21).
+ * 2026-10-14): every tile but Periodo, which is THE tile and never closes (The First-Screen Rule).
  * Module-level, as the controller asks; the page hands it the rows PRESENT
  * (`resolveAnalisiSections`) — Fuori scala exists only on a month, the Scheda only with a focus,
  * the Flusso only when something flowed. One read for the page: no row is ever `failed`.
@@ -812,10 +812,10 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
     />
   );
 
-  // The strip: the period's income and what was left, the trio's own figures (decision 14 keeps
-  // the calendar in the `scope` under them, at every width). The Periodo hides the trio, the Flusso
-  // its «Risparmio» block, and below 640px a caption of the bar drops an amount the first screen
-  // already prints (decision 82).
+  // The strip: the period's income and what was left, the trio's own figures (The Binding-Clause Rule
+  // keeps the calendar in the `scope` under them, at every width). The Periodo hides the trio, the
+  // Flusso its «Risparmio» block, and in a cell narrower than 608px (`FLUSSO_SANKEY_MIN_CELL`, since
+  // 2026-10-16) a caption of the bar drops an amount the first screen already prints (2026-10-14).
   const strip = selectAnalisiStrip(totals, { notStarted: describeAnalisiSubject(period, today, historyStartYear).future });
   const scheduledScope = describeAnalisiScope({ scheduled, period, today });
   const periodoLifted = liftedBlocks(strip, ANALISI_PERIODO_ID).filter(isPeriodoLiftedBlock);
@@ -836,7 +836,7 @@ export function AnalisiTab({ allExpenses, categories, loading, loadFailed, histo
       {header}
       <div className="space-y-4">
         {/* ── Verdict, with the one period axis: in the verdict's `axis` slot below `desktop:`, beside
-            it from `desktop:` (two instances of one control, decision 12) ──────────────── */}
+            it from `desktop:` (two instances of one control, DESIGN.md → Page Verdict) ──────────────── */}
         {/* The stage: the verdict over the grid; on a tablet in landscape the answer on the left
             (verdict and THE tile) and the index on the right (lib/utils/tabletComposition.ts). */}
         <div className={STAGE_WRAPPER_CLASS}>

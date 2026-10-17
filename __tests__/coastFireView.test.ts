@@ -686,7 +686,7 @@ describe('coastFireView — parity with the projection', () => {
 // promised «euro non compatto» falsification was never recorded here: the identity assertions
 // below would catch it, and the retirement of 2026-10-16 says so instead of claiming a red.
 
-describe('coastFireView — the cut (doc/mobile/README.md § 9, decisions 5 and 44)', () => {
+describe('coastFireView — the cut (a full stop at 1440 too, the lock as the scope line)', () => {
   it('keeps the walk under the title, the pace and the lock behind «Il perché»', () => {
     const { target } = buildTarget();
     const verdict = buildCoastVerdict({ target, incompleteReason: null, pace: buildPace()!, lock: LOCK });

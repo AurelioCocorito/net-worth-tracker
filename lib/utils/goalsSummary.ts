@@ -34,8 +34,9 @@ import { getAssetDisplayTicker } from '@/lib/utils/assetDisplay';
 
 /**
  * The ids of the tab's rows below `desktop:` (`useMobileSections` with `tab: 'goals'`, The
- * Closed-Row Rule): every tile but Obiettivi, THE tile, which never closes (doc/mobile/README.md
- * § 9, decision 21); Allocazione derivata only with goal-driven targets. No strip (decision 47).
+ * Closed-Row Rule): every tile but Obiettivi, THE tile, which never closes (DESIGN.md → The
+ * First-Screen Rule); Allocazione derivata only with goal-driven targets. No strip
+ * (doc/guide/fire-obiettivi.md § Composizione mobile).
  */
 export const GOALS_SECTION_IDS = {
   traiettoria: 'goals-traiettoria',

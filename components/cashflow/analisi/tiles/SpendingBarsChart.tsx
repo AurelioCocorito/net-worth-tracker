@@ -11,7 +11,7 @@ interface SpendingBarsChartProps {
   kind: 'month' | 'year';
   /**
    * The plot's minimum height as classes (RecordBars' precedent): the tile's flex column lets it
-   * stretch past it, and a phone can shorten it (`max-desktop:min-h-[120px]`, decision 4).
+   * stretch past it, and a phone can shorten it (`max-desktop:min-h-[120px]`, The First-Screen Rule).
    */
   plotClassName?: string;
   className?: string;

@@ -1,10 +1,11 @@
 /**
  * mobile:census — «what does the FIRST SCREEN hold, on a phone and on a tablet?», per surface
  * (a route, or a tab of Cashflow and FIRE) at 390×844, 768×1024 and 1024×768, on the production
- * build `perf:serve` serves on :3200 (the manual: doc/guide/prima-schermata.md). `npm run mobile:budget` then holds the run against doc/mobile/budget.json.
+ * build `perf:serve` serves on :3200 (the manual: doc/guide/prima-schermata.md). `npm run mobile:budget` then holds the run against perf/mobile-budget.json.
  *
- * Ported on 2026-10-10 from the throwaway that measured the mirror on 2026-09-26
- * (doc/mobile/reference/mobile-census.mjs, the baseline of doc/mobile/README.md § 3). It stays
+ * Ported on 2026-10-10 from the throwaway that measured the mirror on 2026-09-26 (its baseline is
+ * doc/guide/prima-schermata-misure.md § Baseline storica; the script itself is in `git log -- doc/mobile/reference/`,
+ * deleted with the series' folder on 2026-10-17). It stays
  * `.mjs`, run by node and not by tsx: both measuring functions below are serialised into the page
  * by `page.evaluate`, and a source transformed by tsx can carry a `__name` helper the browser does
  * not have. Seven corrections to what the throwaway got wrong:
@@ -14,7 +15,7 @@
  *   2. the verdict is the `section` with `view-transition-name: page-verdict` that is ON SCREEN —
  *      Cashflow keeps Tracciamento mounted (`forceMount`), so the first one in the DOM is a
  *      hidden verdict of height 0 on every other tab;
- *   3. figures are split: inside the verdict (its scope included, README § 9 decision 13) and
+ *   3. figures are split: inside the verdict (its scope included, The Binding-Clause Rule) and
  *      outside it (the strip `ul[aria-label="Le cifre del verdetto"]` counts outside), which is
  *      what The First-Screen Rule limits — and a figure whose unit is a text node of its own
  *      (`NarrativeSegments`, 2026-10-10) is ONE figure, not none;
@@ -47,13 +48,13 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /**
- * A «figure» is a number followed by € or % (decision 7), as the baseline counted it. `\s` covers
+ * A «figure» is a number followed by € or % (doc/guide/prima-schermata.md), as the baseline counted it. `\s` covers
  * the no-break spaces Intl writes before the unit (U+00A0, U+202F). A string, because it crosses
  * into `page.evaluate`, where a RegExp object would not survive the serialisation.
  */
 export const FIGURE_PATTERN = '\\d[\\d.,]*\\s?(?:€|%)';
 
-const BUDGET_PATH = 'doc/mobile/budget.json';
+const BUDGET_PATH = 'perf/mobile-budget.json';
 const OUT = '.mobile-census';
 const CENSUS_ACCOUNT = 'census@example.com';
 // The password every emulator account shares: MIRROR_PASSWORD of scripts/mirrorProdAccount.mts and
@@ -94,7 +95,8 @@ export function measureFirstScreen({ figurePattern, withTexts }) {
   const main = document.querySelector('main');
   main.scrollTo(0, 0);
   const mainRect = main.getBoundingClientRect();
-  // The baseline's first screen: the scroller's own height (README § 3, kept for comparison).
+  // The baseline's first screen: the scroller's own height (kept for comparison with
+  // doc/guide/prima-schermata-misure.md § Baseline storica).
   const fold = mainRect.top + main.clientHeight;
   // Correction 1: the first screen the eye gets ends at the pill's top edge.
   const nav = document.querySelector('nav[data-nav="pill"]');
@@ -141,7 +143,7 @@ export function measureFirstScreen({ figurePattern, withTexts }) {
   // own, so «+11.967» and «€» are TWO text nodes: such a unit node whose previous text node ends in
   // digits is that figure, counted once and measured where the digits are (the unit sits on the
   // same line). ONLY that span: a value and a unit split elsewhere (a KPI block, a hero) stay
-  // uncounted as the baseline left them (decision 7, «una cifra come la baseline»), or the budget
+  // uncounted as the baseline left them (2026-09-27, «una cifra come la baseline»), or the budget
   // would move for a definition and not for the app (seen 2026-10-10: Analisi at 768, 20 → 25).
   const figure = new RegExp(figurePattern, 'g');
   const endsInDigits = /\d[\d.,]*[\s\u00a0\u202f]?$/;
@@ -153,8 +155,9 @@ export function measureFirstScreen({ figurePattern, withTexts }) {
   let figuresOutsideVerdict = 0;
   let figuresInVerdict = 0;
   // The baseline's own definition (a visible parent that STARTS in the first screen, `.sr-only`
-  // out, nothing else), kept as a diagnostic: it splits a gap from README § 3 into what the
-  // stricter definition removes and what the data or the app changed.
+  // out, nothing else), kept as a diagnostic: it splits a gap from the historical baseline
+  // (doc/guide/prima-schermata-misure.md § Baseline storica) into what the stricter definition
+  // removes and what the data or the app changed.
   let baselineFiguresAboveFold = 0;
   let previous = null;
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {

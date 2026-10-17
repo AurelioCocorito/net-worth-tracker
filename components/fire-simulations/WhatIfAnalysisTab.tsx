@@ -11,10 +11,10 @@
  *
  *   Desktop (12 col): Evento(4) | Prima e dopo(5) | Delta(3)
  *                     Sensibilità(12)
- *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1, 11 and
- *                     43, since 2026-10-15): the verdict's title → the first sentence (the event
+ *   Below desktop:    ONE sequence, the DOM above (The First-Screen Rule, The Input Tile Rule,
+ *                     since 2026-10-15): the verdict's title → the first sentence (the event
  *                     and its clauses) → the strip of two figures (the hit today, the hit at the
- *                     FIRE year) → the lock as the scope line with the bridge on (44) → «Il perché»
+ *                     FIRE year) → the lock as the scope line with the bridge on → «Il perché»
  *                     (the Coast, the bridge note) → Evento open → «Il resto della pagina» → Prima
  *                     e dopo, Delta, Sensibilità as closed rows (`useMobileSections` with `tab:
  *                     'whatif'`, doc/guide/fire-what-if.md § Composizione mobile).
@@ -125,7 +125,7 @@ import { SensibilitaTile } from '@/components/fire-simulations/whatif/tiles/Sens
 /** The grid's geometry, for the skeleton: the same spans as the tiles below — shared with the page's lazy-tab wait. */
 const SKELETON_CELLS = WHAT_IF_TAB_SKELETON_CELLS;
 
-/** The rows below `desktop:`, in the DOM's order: every tile but Evento, THE tile (decisions 21 and 43). No row carries `failed`. */
+/** The rows below `desktop:`, in the DOM's order: every tile but Evento, THE tile (The Input Tile Rule). No row carries `failed`. */
 const WHAT_IF_SECTIONS: readonly SectionSpec[] = [
   { id: WHAT_IF_SECTION_IDS.primaDopo, eyebrow: 'Prima e dopo' },
   { id: WHAT_IF_SECTION_IDS.delta, eyebrow: 'Delta' },
@@ -455,9 +455,9 @@ export function WhatIfAnalysisTab() {
         />
       </div>
 
-      {/* ONE sequence, Evento first at every width (decisions 11 and 43). Tablet: Evento on two
-          columns, the closed rows two by two at 768, an open row on the whole grid row; in
-          landscape the rows in the index beside the verdict and Evento. */}
+      {/* ONE sequence, Evento first at every width (The First-Screen Rule, The Input Tile Rule).
+          Tablet: Evento on two columns, the closed rows two by two at 768, an open row on the whole
+          grid row; in landscape the rows in the index beside the verdict and Evento. */}
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
       <div className={COMPACT_GRID_CLASS}>
         <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-4')}>

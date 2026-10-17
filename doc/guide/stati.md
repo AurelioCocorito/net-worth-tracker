@@ -77,14 +77,14 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   Rendimento (since 2026-10-12), then Rendimenti's Benchmark and Plusvalenze realizzate (since 2026-10-14: every one
   of the six model series failed, or the ledger's meta failed with no document to show — `ErrorNotice` in the cell at
   every width, a failed row below `desktop:`; doc/guide/rendimenti.md § Composizione mobile), then Allocazione's
-  Esposizione and the four rows of Previdenza (since 2026-10-15, MOB-07: the Esposizione's profiles failed on their first
+  Esposizione and the four rows of Previdenza (since 2026-10-15: the Esposizione's profiles failed on their first
   read — a failed «Aggiorna» over profiles already read keeps the tile with its own notice; doc/guide/allocazione.md and
   doc/guide/previdenza.md § Composizione mobile). The five FIRE tabs keep a failed read as the WHOLE tab's notice: no row
   there carries `failed`. **A failed read of a WHOLE tab is
   the verdict's `pending` notice** (`PageVerdict.pending`, `{ kind: 'failed', notice }`, since 2026-10-12: Tracciamento,
   Divisione and — from the spec's retirement — Centri di Costo, whose empty summary's verdict «Nessun centro di costo.»
   stood above the notice until then): the `section` stays, the axis keeps its slot and its focus, the notice takes the
-  sentence's place; `VerdictSkeleton`'s gap went from 2,5 to 2 that day so the wait matches the verdict it stands for,
+  sentence's place; `VerdictSkeleton`'s gap (its pieces `VerdictSkeletonHeadline` and `VerdictSkeletonLines`, which `PageVerdict.pending` reuses) went from 2,5 to 2 that day so the wait matches the verdict it stands for,
   on every page's `TileGridSkeleton`. `compact` (the cell width, drops the reassurance) is NOT
   `sections.compact` (the composition's width): write the latter in full at the call site.
 - **Where the 20 surfaces are**: `app/dashboard/{page,assets,history,performance,allocation,hall-of-fame,settings}`,

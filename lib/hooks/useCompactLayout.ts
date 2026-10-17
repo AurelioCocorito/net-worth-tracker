@@ -10,7 +10,7 @@ import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
 export const COMPACT_QUERY = '(width < 1440px)';
 
 /**
- * Whether the page is composed for a small screen (The Closed-Row Rule, doc/mobile/README.md):
+ * Whether the page is composed for a small screen (DESIGN.md → The Closed-Row Rule):
  * below `desktop:` the rows of a page are closed tiles and the verdict is cut; at 1440 nothing of
  * that exists and `useMobileSections().collapse(id)` answers `undefined`. ONE store, not a second
  * one beside `useMediaQuery`: the CSS (`max-desktop:`) and this hook read the same query, so a

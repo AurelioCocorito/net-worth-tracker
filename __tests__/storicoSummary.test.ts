@@ -437,7 +437,7 @@ describe('summarizeLaborMetrics', () => {
 });
 
 /**
- * The phone's strip of Storico (2026-10-14; decisions 15 and 39). Each cell prints EXACTLY
+ * The phone's strip of Storico (2026-10-14; The Lifted-Figure Rule, doc/guide/storico.md). Each cell prints EXACTLY
  * what its tile prints: «Ultimi 12 mesi» the euro of Evoluzione's chip (`formatSignedEuro`, whole
  * euros), «Risparmio {anno}» the savings row of the Driver's ledger (`formatDriverEuro`, the
  * formatter `DriverTile` prints its rows with). Seen red: the cell's `tone: 'neutral'` dropped (the

@@ -10,11 +10,11 @@
  *
  *   Desktop (12 col): Traguardo(5, 2 rows) | Base di calcolo(7: rows beside the lock)
  *                                           | Reddito passivo(4) | Scenari(3)
- *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11,
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule,
  *                     since 2026-10-15): the verdict's title → the first sentence («…ci arrivi nel
  *                     2032, a 44 anni.») → the strip of two figures («Ti mancano», «Rendita oggi»)
  *                     → the lock as the scope line («Modello ponte: fondo pensione escluso fino
- *                     al 2050», decision 44) → «Il perché» (what the plan lives on from then, the
+ *                     al 2050», The Binding-Clause Rule) → «Il perché» (what the plan lives on from then, the
  *                     lock sentence) → Traguardo open, its plot at 120px → «Il resto della pagina»
  *                     → Base di calcolo, Reddito passivo, Scenari as closed rows (`useMobileSections`
  *                     with `tab: 'fire'`, doc/guide/fire.md § Composizione mobile) → Parametri →
@@ -208,7 +208,7 @@ const SKELETON_CELLS: TileSkeletonCell[] = [
 
 /**
  * The four cells of the grid: one class per tile, shared by the data and the empty branches. ONE
- * sequence, no `order-*` (decision 11): Traguardo, then Base, Reddito, Scenari at every width; on
+ * sequence, no `order-*` (The First-Screen Rule): Traguardo, then Base, Reddito, Scenari at every width; on
  * a tablet a row cell adds the place `useTabletComposition` gives it at 768 (in landscape the rows
  * sit in the index beside the verdict and THE tile, lib/utils/tabletComposition.ts).
  */
@@ -219,7 +219,7 @@ const SCENARI_CELL = cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-3');
 
 /**
  * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but Traguardo,
- * THE tile, which never closes (decision 21). Module-level, so the controller sees one stable list;
+ * THE tile, which never closes. Module-level, so the controller sees one stable list;
  * no row carries `failed` — a failed read is the whole tab's notice, as at 1440.
  */
 const FIRE_SECTIONS: readonly SectionSpec[] = [

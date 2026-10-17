@@ -43,7 +43,7 @@ interface EvoluzioneTileProps {
    * The blocks a phone's verdict already prints, hidden below `desktop:` (The Lifted-Figure Rule;
    * since 2026-10-14): `'growth'` and `'cagr'` — the first two chips, which the first sentence
    * restates —, `'trailing'` — the euro of the third chip, the strip's «Ultimi 12 mesi»; its
-   * percentage stays (decision 17). Default none.
+   * percentage stays (only the repeated figure hides). Default none.
    */
   liftedFigures?: readonly EvoluzioneLiftedBlock[];
   className?: string;
@@ -190,9 +190,9 @@ export function EvoluzioneTile({ aside, reading, growth, pace, points, noteCount
         )}
         {pace.trailingDelta !== null && (
           // The euro is the strip's «Ultimi 12 mesi» cell: ONE formatter with it, a printed zero
-          // unsigned and uncoloured (decision 20; at every width since 2026-10-14, the percentage
-          // beside it since 2026-10-15 — it read «0 € (+0,0%)»); lifted on a phone, where the
-          // percentage stays alone.
+          // unsigned and uncoloured (the printed-zero rule, AGENTS.md § Layout and Color Tokens; at
+          // every width since 2026-10-14, the percentage beside it since 2026-10-15 — it read
+          // «0 € (+0,0%)»); lifted on a phone, where the percentage stays alone.
           <Chip value={printedSign(pace.trailingDelta, 0) === 0 ? null : pace.trailingDelta} caption="ultimi 12 mesi" className={trailingChipLifted ? LIFTED_FIGURE_CLASS : undefined}>
             <span className={lifted('trailing') ? LIFTED_FIGURE_CLASS : undefined}>
               {formatSignedEuro(pace.trailingDelta, true)}
@@ -219,7 +219,7 @@ export function EvoluzioneTile({ aside, reading, growth, pace, points, noteCount
           </div>
           {/* The chart is the element that stretches: the container is absolute inside a flex-1 box,
               so the SVG's 100% height resolves against the row and never against its own ratio. */}
-          {/* Below `desktop:` the curve yields to 120px — the curve shortens, never the reading (decision 4). */}
+          {/* Below `desktop:` the curve yields to 120px — the curve shortens, never the reading (The First-Screen Rule). */}
           <div className="relative mt-2 flex-1 max-desktop:min-h-[120px] desktop:min-h-[220px]">
             <div className="absolute inset-0">
               <ResponsiveContainer width="100%" height="100%">

@@ -115,13 +115,13 @@ describe('compareCensusToBudget — the closed-row ratchet', () => {
   });
 
   it('fails a registered value whose closed rows are gone (null)', () => {
-    const budget = makeBudget({ firstClosedRowAbovePill: false, raisedBy: 'MOB-07: LA tessera senza curva' });
+    const budget = makeBudget({ firstClosedRowAbovePill: false, raisedBy: '2026-10-15: LA tessera senza curva' });
 
     expect(compareCensusToBudget([row({ firstClosedRowAbovePill: null })], budget).violations.map((v) => v.kind)).toEqual(['closed-row-regressed']);
   });
 
   it('accepts true where the exception false was registered', () => {
-    const budget = makeBudget({ firstClosedRowAbovePill: false, raisedBy: 'MOB-07: LA tessera senza curva' });
+    const budget = makeBudget({ firstClosedRowAbovePill: false, raisedBy: '2026-10-15: LA tessera senza curva' });
 
     expect(compareCensusToBudget([row({ firstClosedRowAbovePill: true })], budget).ok).toBe(true);
   });
@@ -173,7 +173,7 @@ describe('compareCensusToBudget — informational metrics', () => {
 describe('compareCensusToBudget — widening against HEAD', () => {
   it('accepts a widening that carries a new raisedBy', () => {
     const previous = makeBudget();
-    const widened = makeBudget({ screens: 3.9, raisedBy: 'MOB-02: pill a 44 px' });
+    const widened = makeBudget({ screens: 3.9, raisedBy: '2026-10-10: pill a 44 px' });
 
     expect(compareCensusToBudget([row({ screens: 3.9 })], widened, previous).ok).toBe(true);
   });
@@ -185,8 +185,8 @@ describe('compareCensusToBudget — widening against HEAD', () => {
   });
 
   it('fails a widening that reuses the previous raise\'s reason', () => {
-    const previous = makeBudget({ screens: 3.9, raisedBy: 'MOB-02: pill a 44 px' });
-    const verdict = compareCensusToBudget([row({ screens: 4 })], makeBudget({ screens: 4, raisedBy: 'MOB-02: pill a 44 px' }), previous);
+    const previous = makeBudget({ screens: 3.9, raisedBy: '2026-10-10: pill a 44 px' });
+    const verdict = compareCensusToBudget([row({ screens: 4 })], makeBudget({ screens: 4, raisedBy: '2026-10-10: pill a 44 px' }), previous);
 
     expect(verdict.violations.map((v) => v.kind)).toEqual(['reason-reused']);
   });
@@ -264,9 +264,9 @@ describe('tightenBudget', () => {
   });
 
   it('keeps the raisedBy of an entry', () => {
-    const budget = makeBudget({ screens: 3.9, raisedBy: 'MOB-02: pill a 44 px' });
+    const budget = makeBudget({ screens: 3.9, raisedBy: '2026-10-10: pill a 44 px' });
 
-    expect(tightenBudget(run([row({ screens: 3.85 })]), budget).budget.panoramica['390']?.raisedBy).toBe('MOB-02: pill a 44 px');
+    expect(tightenBudget(run([row({ screens: 3.85 })]), budget).budget.panoramica['390']?.raisedBy).toBe('2026-10-10: pill a 44 px');
   });
 
   it('creates the entry of a surface the budget does not have yet', () => {

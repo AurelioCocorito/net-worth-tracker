@@ -63,9 +63,10 @@ export const MAX_SPLIT_STRIP_MEMBERS = 4;
 
 /**
  * The tone of a person's booked residual — the tile's colour and the strip cell's: gain or loss
- * of money that has MOVED, and NONE on a residual that prints as zero (decision 20: «0 €» for
- * −0,3 is neither, as the cell already printed it; until 2026-10-12 the tile coloured it green
- * at exactly 0 and red just below, while the cell was untoned). `null` without a basis.
+ * of money that has MOVED, and NONE on a residual that prints as zero (the printed-zero rule,
+ * AGENTS.md § Layout and Color Tokens: «0 €» for −0,3 is neither, as the cell already printed it;
+ * until 2026-10-12 the tile coloured it green at exactly 0 and red just below, while the cell was
+ * untoned). `null` without a basis.
  */
 export function residualTone(remainingBooked: number | null): 'positive' | 'negative' | null {
   if (remainingBooked === null || isPrintedZero(formatEuroMinus(remainingBooked))) return null;

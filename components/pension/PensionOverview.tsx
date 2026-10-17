@@ -12,18 +12,18 @@
  *   Desktop (12 col): Il fondo oggi(5, 2 rows) | Rendimento(3) | Anno fiscale(4)
  *                                              | Versato nel {anno}(7)
  *                     Versamenti {anno}(12)
- *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11,
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule,
  *                     since 2026-10-15): the verdict's title → the year in its `axis` slot → with
  *                     ONE contributor measured, no sentence but the strip of three causes («Mercato
  *                     da…», «Datore nel…», «Fisco nel…, circa»: the whole sentence behind «Il
- *                     perché»); with two or more, the whole verdict and no strip (decision 46) →
+ *                     perché»); with two or more, the whole verdict and no strip →
  *                     Il fondo oggi open, its curve at 120px → «Il resto della pagina» →
  *                     Rendimento, Anno fiscale, Versato, Versamenti as closed rows — a failed read
  *                     a red row, silent (`useMobileSections`, doc/guide/previdenza.md
  *                     § Composizione mobile) → the Dettaglio. No `order-*`: the phone reads the DOM.
  *
  * THE PAGE'S ONE AXIS IS THE FISCAL YEAR, beside the verdict from `desktop:` and under its title
- * below (a second instance of the same control, decision 12).
+ * below (a second instance of the same control, DESIGN.md → Page Verdict).
  * It governs the verdict's two ANNUAL clauses (the employer's share, the IRPEF saving), «Anno
  * fiscale», «Versato» and «Versamenti». «Il fondo oggi» and «Rendimento» are OFF the axis — the
  * fund's value is a running total and its return has its own trust-derived window
@@ -212,8 +212,8 @@ export function PensionOverview() {
   // The rows (`resolvePensionSections`, lib/utils/pensionSummary.ts: Rendimento fails on the
   // contributions OR the snapshots, the other three on the contributions; none without a fund);
   // the controller hands each tile its row and the verdict its «Il perché». The strip — three
-  // causes or none (decision 46) — is read from the same blocks the verdict reads, and from
-  // nothing once a read failed. Every cell opens a row, so `reveal` IS the handler.
+  // causes with one contributor, none with more — is read from the same blocks the verdict reads,
+  // and from nothing once a read failed. Every cell opens a row, so `reveal` IS the handler.
   const hasFund = funds.length > 0;
   const sectionSpecs = useMemo(() => resolvePensionSections({ hasFund, contributionsError, snapshotsError }), [hasFund, contributionsError, snapshotsError]);
   const sections = useMobileSections({ route: 'pension', sections: sectionSpecs });
@@ -301,7 +301,7 @@ export function PensionOverview() {
       <div className={STAGE_WRAPPER_CLASS}>
       <div ref={stageRef} className={STAGE_CLASS}>
       {/* The verdict and the page's one axis: beside it from desktop, under its title below —
-          two instances of the same control, the same state (decision 12, `hidden desktop:block`). */}
+          two instances of the same control, the same state (DESIGN.md → Page Verdict, `hidden desktop:block`). */}
       <div
         data-stage="verdict"
         className={cn('flex flex-col gap-3 pt-1 desktop:flex-row desktop:items-start desktop:justify-between desktop:gap-6', VERDICT_CELL_CLASS)}
@@ -316,7 +316,7 @@ export function PensionOverview() {
         {yearAxis && <div className="hidden desktop:block">{yearAxis}</div>}
       </div>
 
-      {/* ONE sequence: the DOM order is the reading order at every width, no `order-*` (decision 11).
+      {/* ONE sequence: the DOM order is the reading order at every width, no `order-*` (The First-Screen Rule).
           At 768 Il fondo oggi on two columns, the closed rows two by two, an open row (a failed read,
           open on its own) on the whole grid row; on a tablet in landscape the index beside the
           verdict and Il fondo oggi. */}

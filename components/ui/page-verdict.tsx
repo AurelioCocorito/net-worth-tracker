@@ -18,7 +18,7 @@ interface PageVerdictProps {
   /** Accessible name of the section — what the verdict is about ("Verdetto del mese"). */
   ariaLabel: string;
   /**
-   * The verdict is being read, or its read failed (decision 35, 2026-10-12): the same `section`
+   * The verdict is being read, or its read failed (2026-10-12; doc/guide/stati.md): the same `section`
    * renders the `axis` slot where the title will leave it — with `kind: 'loading'` between the
    * headline's line and the sentence's two (`VerdictSkeleton`'s), with `kind: 'failed'` before
    * the notice — so a period picker in the slot is the SAME element in every state and keeps the
@@ -66,7 +66,7 @@ const SENTENCE_CLASS = 'text-[14px] leading-[1.6] text-muted-foreground desktop:
 
 /**
  * The verdict, in ONE DOM in reading order on every width — no `order-*`, no `contents`
- * (doc/mobile/README.md § 9, decisions 1 and 12): title → axis → first sentence → strip →
+ * (DESIGN.md → The First-Screen Rule and Page Verdict): title → axis → first sentence → strip →
  * scope → «Il perché» → the rest. Below `desktop:` the first sentence stands alone and the rest
  * opens under the button (The Binding-Clause Rule, `splitVerdict`). At 1440 the controller hands
  * the page no `restCollapse` (`useMobileSections` answers `undefined` there), so the branch below

@@ -6,7 +6,7 @@
  *
  * What a browser alone can prove: the strip is one cell per person on the BOOKED residual, in
  * the positive token — never the period's −100 €; the calendar's clause is the scope line under
- * the strip (decision 14; at 1440 `cashflow.split.spec.ts` prints it too); Tracciamento and
+ * the strip (The Scheduled-Is-Not-Spent Rule; at 1440 `cashflow.split.spec.ts` prints it too); Tracciamento and
  * Divisione, both mounted (`forceMount`), each have their own «Il perché» and no id is doubled in
  * `main` — five verdicts share one DOM, so every rest id is prefixed.
  *
@@ -59,7 +59,7 @@ test.describe('Cashflow › Divisione, composed for a phone', () => {
     expect(scopeBox!.y, JSON.stringify({ stripBox, scopeBox })).toBeGreaterThanOrEqual(stripBox!.y + stripBox!.height - 1);
     expect(percheBox!.y).toBeGreaterThanOrEqual(scopeBox!.y + scopeBox!.height - 1);
 
-    // The people are closed rows, their hero hidden where the strip prints it (decision 15).
+    // The people are closed rows, their hero hidden where the strip prints it (The Lifted-Figure Rule).
     const nibbioRow = page.getByRole('region', { name: 'Quanto resta a Nibbio' });
     await expect(nibbioRow.locator('[id$="-trigger"]')).toHaveAttribute('aria-expanded', 'false');
     await expect(nibbioRow.locator('[id$="-trigger"]')).toContainText('quanto resta');

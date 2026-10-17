@@ -13,7 +13,7 @@
  * stack still while the page scrolls, never overlapped; the same grid as today at 1440 after a
  * resize; nothing past `main`. Where each row goes at 768 is Vitest's (`__tests__/tabletComposition.test.ts`).
  *
- * Seen red on 2026-10-16 (the landscape stage, decision 105), one at a time, with `cashflow.tablet.spec.ts`
+ * Seen red on 2026-10-16 (the landscape stage), one at a time, with `cashflow.tablet.spec.ts`
  * and `patrimonio.tablet.spec.ts`: `INDEX_CLASS`'s `min-h` dropped — «the index ends on THE tile line»;
  * the stage's columns without `max-desktop:` — «the grid spans main at 1440» (the 1440 grid squeezed
  * into the 360px column; the first version of the check counted twelve tracks and stayed GREEN);

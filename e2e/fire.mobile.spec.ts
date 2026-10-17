@@ -1,7 +1,7 @@
 /**
  * FIRE e Simulazioni a 390px — il Calcolatore senza scorrimento orizzontale e, dal 2026-10-15, la
- * composizione delle cinque tab (le regole in doc/guide/fire.md § Composizione mobile e le decisioni
- * in doc/mobile/README.md § 9).
+ * composizione delle cinque tab (le regole in doc/guide/fire.md § Composizione mobile e in DESIGN.md →
+ * Small-Screen Composition).
  *
  * PERCHÉ ESISTE: l'hero `[2fr_1fr]` del vecchio tab è uscito dal viewport per due volte. La prima
  * fu misurata il 2026-08-18 mentre si ridisegnava il tab Coast e archiviata come debito noto; la
@@ -23,10 +23,10 @@
  *
  * La composizione, su account base (il vincolo del fondo acceso da `scripts/seedCoastFireE2E.mts`:
  * RITA a 57 anni, sblocco nel 2048): il vincolo è la riga d'ambito sotto la striscia («Modello
- * ponte: fondo pensione escluso fino al 2048», decisione 44) e la sua frase sta dietro «Il perché»;
+ * ponte: fondo pensione escluso fino al 2048», The Binding-Clause Rule) e la sua frase sta dietro «Il perché»;
  * la memoria delle righe è per tab (`mobile-sections:fire-simulations:fire` e `:coast`), e a tab
  * smontata resta solo `localStorage`; Obiettivi, spento sul fixture base, è una tessera sola senza
- * «Il resto della pagina»; su What If l'Evento è la prima tessera del DOM (decisione 43).
+ * «Il resto della pagina»; su What If l'Evento è la prima tessera del DOM (DESIGN.md → The Input Tile Rule).
  *
  * Visti rossi il 2026-10-15, una cosa alla volta: la chiave del controller senza `tab` (Coast
  * ricordava le righe del Calcolatore); `PageRest` reso anche nel ramo «disattivato» di Obiettivi (un

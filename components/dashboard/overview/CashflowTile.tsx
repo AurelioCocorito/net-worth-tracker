@@ -96,7 +96,7 @@ export function CashflowTile({
     >
       {/* The three figures are the WHOLE month, calendar included; what is still in the calendar is
           declared under each figure that contains it, at every width (The Scheduled-Is-Not-Spent
-          Rule, decision 14 of doc/mobile/README.md § 9). */}
+          Rule, DESIGN.md → The Binding-Clause Rule). */}
       <div className="mt-4 grid grid-cols-3 gap-3.5">
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className={TILE_SUB_EYEBROW_CLASS}>Entrate</p>
@@ -116,7 +116,8 @@ export function CashflowTile({
         </div>
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className={TILE_SUB_EYEBROW_CLASS}>Risparmio</p>
-          {/* A net that prints as zero takes no «−» (decision 20; `formatEuroMinus` since 2026-10-12). */}
+          {/* A net that prints as zero takes no «−» (AGENTS.md § Layout and Color Tokens;
+              `formatEuroMinus` since 2026-10-12). */}
           <p className="font-mono text-[22px] font-bold leading-none tracking-[-0.03em] tabular-nums text-foreground">{formatEuroMinus(net)}</p>
           <ScheduledCaption caption={describeScheduledNetCaption(expensesScheduled, incomeScheduled, daysInMonth)} />
           <p className="text-[11px] text-muted-foreground">

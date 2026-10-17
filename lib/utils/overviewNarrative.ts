@@ -113,8 +113,8 @@ export interface OverviewVerdict {
   tone: VerdictTone;
   sentence: Narrative;
   /**
-   * Where a phone cuts the sentence (since 2026-10-11; doc/mobile/README.md § 9,
-   * decisions 3 and 27): `0` — title only, the strip restates the first sentence — or, when the
+   * Where a phone cuts the sentence (since 2026-10-11; The Binding-Clause Rule, doc/guide/panoramica.md
+   * § Composizione mobile): `0` — title only, the strip restates the first sentence — or, when the
    * headline names the tax on a sale, the end of the sale clause, so the tax stays on the first
    * screen. Absent when nothing would be left behind «Il perché».
    */
@@ -130,7 +130,7 @@ const prose = (text: string): NarrativeSegment => ({ text });
 /**
  * A signed figure, or a bare one when it prints as zero: «0,00 €» and «0,00%» take no sign and no
  * colour whatever the sign of the raw value (−0,004 is a zero as printed; `isPrintedZero`, the
- * strip's rule — decision 20 of doc/mobile/README.md § 9, since 2026-10-11, at 1440 too).
+ * strip's rule — the printed-zero rule, AGENTS.md § Layout and Color Tokens, since 2026-10-11, at 1440 too).
  */
 function signed(value: number, unsigned: string): NarrativeSegment {
   if (isPrintedZero(unsigned)) return { text: unsigned, mono: true };
@@ -322,8 +322,8 @@ export function buildOverviewVerdict(input: OverviewVerdictInput): OverviewVerdi
     );
   }
   if (input.yearlyVariation) {
-    // The year's euro in brackets after its percentage (since 2026-10-11; decision 17 of
-    // doc/mobile/README.md § 9): on a phone the year's chip of THE tile is lifted whole — the
+    // The year's euro in brackets after its percentage (since 2026-10-11; DESIGN.md → The
+    // Lifted-Figure Rule): on a phone the year's chip of THE tile is lifted whole — the
     // percentage is the strip's cell — and nothing else prints its euro; at 1440 it is a
     // declared addition to the sentence.
     sentence.push(
@@ -361,15 +361,17 @@ export function buildOverviewVerdict(input: OverviewVerdictInput): OverviewVerdi
     if (purchases.length > 0) saleClause.push(prose(' '), ...purchases);
   }
   if (taxIsTheStory) sentence.push(...saleClause);
-  // Where a phone cuts (decision 27): after the sale when the headline names its tax — the tax
-  // is binding, and a cut before it would be cancelled by `splitVerdict` — otherwise under the
-  // title (decision 3: the first sentence would restate the strip's euro and percentage).
+  // Where a phone cuts (doc/guide/panoramica.md § Composizione mobile): after the sale when the
+  // headline names its tax — the tax is binding, and a cut before it would be cancelled by
+  // `splitVerdict` — otherwise under the title (The Binding-Clause Rule: the first sentence would
+  // restate the strip's euro and percentage).
   const leadLength = taxIsTheStory ? sentence.length : 0;
 
   const hasSavingsClause = input.savingsRate !== null;
   if (input.savingsRate !== null) {
-    // Rounded once, here; the strip's cell carries the same rounded value (decision 26). A negative
-    // rate takes the typographic minus, as every figure does (The Comma Rule; since 2026-10-11).
+    // Rounded once, here; the strip's cell carries the same rounded value (doc/guide/panoramica.md
+    // § Composizione mobile). A negative rate takes the typographic minus, as every figure does
+    // (The Comma Rule; since 2026-10-11).
     const rate = Math.round(input.savingsRate);
     sentence.push(
       prose(' Hai messo da parte il '),
@@ -404,7 +406,7 @@ export function buildOverviewVerdict(input: OverviewVerdictInput): OverviewVerdi
 
   // The cut exists only with something behind it (a sentence that ends at the lead has no
   // «Il perché»); in a taxed month that is not the story the sale's binding clause sits past
-  // the cut and `splitVerdict` keeps the whole paragraph on the phone (decision 3).
+  // the cut and `splitVerdict` keeps the whole paragraph on the phone (The Binding-Clause Rule).
   if (sentence.length <= leadLength) return { headline, tone, sentence };
   const restLabel = overviewRestLabel({
     savings: hasSavingsClause,
@@ -438,7 +440,7 @@ const SCHEDULED_CAPTION_MIN_EUR = 1;
 /**
  * «di cui 350 € già in calendario, entro il 30» — the caption under ONE figure that contains
  * rows dated after today (The Scheduled-Is-Not-Spent Rule, at every width since
- * 2026-10-11; decision 14 of doc/mobile/README.md § 9): the Cashflow tile's Entrate and Spese,
+ * 2026-10-11): the Cashflow tile's Entrate and Spese,
  * the total of the two category tiles. The words «già in calendario» are `scheduledSentence`'s
  * (cashflowNarrative.ts); the short form is a caption, without a verb, and «di cui» says the
  * amount is INSIDE the figure above it. `null` under one euro: no caption, never «0 €».

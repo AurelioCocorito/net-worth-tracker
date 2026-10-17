@@ -741,8 +741,8 @@ export function buildCoastVerdict(input: CoastVerdictInput): PageVerdictModel {
 
 /**
  * The ids of the tab's rows below `desktop:` (`useMobileSections` with `tab: 'coast'`, The
- * Closed-Row Rule): the two tiles beside Traguardo, THE tile, which never closes (doc/mobile/README.md
- * § 9, decision 21).
+ * Closed-Row Rule): the two tiles beside Traguardo, THE tile, which never closes (DESIGN.md → The
+ * First-Screen Rule).
  */
 export const COAST_SECTION_IDS = {
   afflussi: 'coast-afflussi',
@@ -806,7 +806,7 @@ export interface CoastStripInput {
  * verdict's «Ti mancano» — or, once the target is behind, the margin over it («Margine», the
  * verdict's «di 10.000 €»; met to the euro: «raggiunto»), opening the Afflussi; and the bear
  * scenario's Coast number — the Scenari row's own figure — opening Scenari. Nothing is lifted:
- * the readings stay whole (decision 15).
+ * the readings stay whole (DESIGN.md → The Lifted-Figure Rule).
  */
 export function selectCoastStrip({ target, scenarios }: CoastStripInput): StripFigure[] {
   const bear = scenarios.find((row) => row.key === 'bear') ?? null;

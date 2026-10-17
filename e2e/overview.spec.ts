@@ -36,7 +36,7 @@ test('is the page of every width at 1440: no rows, no strip, the chips and the d
   await expect(theTile.getByText('da inizio anno')).toBeVisible();
   await expect(theTile.getByText('Mercato:')).toBeVisible();
 
-  // The calendar under the figures that contain it, at this width too (decision 14).
+  // The calendar under the figures that contain it, at this width too (The Scheduled-Is-Not-Spent Rule).
   const cashflow = page.getByRole('region', { name: /^Cashflow/ });
   await expect(cashflow).toContainText(/di cui 350\s?€ già in calendario, entro il \d{2}/);
   const expenses = page.getByRole('region', { name: 'Spese per categoria' });

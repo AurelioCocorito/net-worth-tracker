@@ -441,11 +441,11 @@ export function resolveCategoryMovers(rows: CategoryDeltaRow[]): { grown: Catego
 
 // ─── The phone composition (2026-10-14) ───────────────────────────────────────
 
-/** THE tile of the page (Periodo): open at every width, never a row (decision 21). */
+/** THE tile of the page (Periodo): open at every width, never a row (The First-Screen Rule). */
 export const ANALISI_PERIODO_ID = 'analisi-periodo';
 
 /**
- * The rows below `desktop:`, in the DOM's order (decision 11 — the `order-1…7` that reordered them
+ * The rows below `desktop:`, in the DOM's order (The First-Screen Rule — the `order-1…7` that reordered them
  * on a phone are gone). Fuori scala exists only on a month, the Scheda only with a focus, the
  * Flusso only when something flowed: the page hands the controller the rows PRESENT.
  */
@@ -469,7 +469,7 @@ export const ANALISI_SAVINGS_BLOCK = 'risparmio';
  * what was left of it, exactly as the Periodo trio prints them (`currency`: the «−» U+2212 only on
  * a negative net, a printed zero unsigned — `formatEuroMinus`). The spending is in the verdict's
  * first sentence. «Entrate» lifts the trio — whose three values the strip and the first sentence
- * all print, so the rate and the coverage stay (decision 17) — «Risparmio» the Flusso's own
+ * all print, so the rate and the coverage stay (The Lifted-Figure Rule) — «Risparmio» the Flusso's own
  * «Risparmio» figure, which prints the same surplus.
  *
  * `[]` when nothing flowed (income and spending both zero: a period of transfers only, and the

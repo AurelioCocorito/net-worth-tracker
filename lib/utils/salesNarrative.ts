@@ -18,7 +18,7 @@ const figure = (text: string): NarrativeSegment => ({ text, mono: true });
 /**
  * Signed compact euro figure with a typographic minus, coloured by sign — unless it prints as a
  * zero: «0 € risparmiati» takes no sign and no colour, like every printed zero of the page
- * (`isPrintedZero`, decision 20 of doc/mobile/README.md § 9; here since 2026-10-11, when the
+ * (`isPrintedZero`, AGENTS.md § Layout and Color Tokens; here since 2026-10-11, when the
  * retirement of the Panoramica's composition found «+0 €» still printed by this helper).
  */
 function signedCompactEuro(value: number): NarrativeSegment {
@@ -29,8 +29,8 @@ function signedCompactEuro(value: number): NarrativeSegment {
 }
 
 /**
- * The clauses a phone must never hide behind a tap (The Binding-Clause Rule, doc/mobile/README.md
- * § 9; since 2026-10-11): the tax paid on a sale and the month without it change the
+ * The clauses a phone must never hide behind a tap (DESIGN.md → The
+ * Binding-Clause Rule; since 2026-10-11): the tax paid on a sale and the month without it change the
  * meaning of the variation already printed, so each of their segments is `binding` and
  * `splitVerdict` cancels any cut that would leave them in the rest. The proceeds, the gain, a loss
  * and a missing rate are facts beside the figure, not readings of it: they stay plain. The email

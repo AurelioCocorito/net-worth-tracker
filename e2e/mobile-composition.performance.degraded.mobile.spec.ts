@@ -1,6 +1,6 @@
 /**
  * Rendimenti composed for a phone (since 2026-10-14; the rules in doc/guide/rendimenti.md
- * § Composizione mobile and doc/mobile/README.md § 9): at 390 on the degraded account's
+ * § Composizione mobile and DESIGN.md → Small-Screen Composition): at 390 on the degraded account's
  * `performance` fixture (`scripts/seedPensionE2E.mts` → PERFORMANCE_SERIES: an ETF that gains
  * 2%, 1,5% and 2% over three measured months, the pension fund out of the base, no trade ledger —
  * so six rows, Plusvalenze absent). The six model series and the FX are answered by the browser
@@ -116,7 +116,7 @@ test.describe('Rendimenti, composed for a phone', () => {
     await stubBenchmarks(page);
     await openPerformance(page);
 
-    // The axis is in the verdict's section, between the title and the strip (decisions 2 and 12);
+    // The axis is in the verdict's section, between the title and the strip (DESIGN.md → Page Verdict);
     // one visible copy of the radiogroup (the desktop one is mounted hidden).
     const verdict = verdictOf(page);
     const axis = page.getByRole('radiogroup', { name: 'Periodo di misura' }).locator('visible=true');
@@ -151,7 +151,7 @@ test.describe('Rendimenti, composed for a phone', () => {
     await expect(perche(page)).toHaveAttribute('aria-expanded', 'false');
     await expect(perche(page)).toContainText('rendimento, Sharpe, drawdown e mesi positivi');
 
-    // The measured base is on the first screen without a tap, above «Il resto della pagina» (decision 13).
+    // The measured base is on the first screen without a tap, above «Il resto della pagina» (The Binding-Clause Rule).
     const base = baseCaption(page);
     await expect(base).toContainText("Base: portafoglio gestito, al netto dei fondi pensione e degli asset esclusi dall'allocazione.");
     const rest = page.getByRole('heading', { level: 2, name: 'Il resto della pagina' });

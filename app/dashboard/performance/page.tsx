@@ -13,7 +13,7 @@
  *                     then two columns, every tile at its natural height:
  *                       left (7)  Da dove viene il rendimento · Capitale e mercato (takes the slack)
  *                       right (5) Rischio · Consistenza · Plusvalenze (absent without a closed sale)
- *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11,
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule,
  *                     since 2026-10-14): the verdict's title → the period in its `axis` slot → the
  *                     strip of two figures (the return on its basis, the gap on the 60/40) → the
  *                     measured base as the `scope` → «Il perché» → Rendimento (TWR) open, without
@@ -194,7 +194,7 @@ const NO_TRADES: AssetTransaction[] = [];
 
 /**
  * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but Rendimento,
- * which is THE tile and never closes (decision 21). Module-level, so the controller sees one
+ * which is THE tile and never closes (The First-Screen Rule). Module-level, so the controller sees one
  * stable list; the page hands it the rows PRESENT with their `failed` flag through
  * `resolvePerformanceSections` — Da dove viene il rendimento comes and goes with the window,
  * Plusvalenze with a closed sale, and two rows can fail (Benchmark, Plusvalenze).
@@ -376,7 +376,7 @@ export default function PerformancePage() {
   const { data: fxRates, isLoading: isFxLoading, isError: isFxError } = useFxRates(true);
   const benchmarkResults = [b0, b1, b2, b3, b4, b5];
   const isAnyBenchmarkLoading = benchmarkResults.some((r) => r.isLoading) || isFxLoading;
-  // Every model's series failed: the Benchmark tile is a failed read at every width (decision 36).
+  // Every model's series failed: the Benchmark tile is a failed read at every width (doc/guide/rendimenti.md).
   // One model missing keeps the tile, with «—» on its row.
   const benchmarkFailed = benchmarkResults.every((r) => r.isError);
 
@@ -626,7 +626,7 @@ export default function PerformancePage() {
     hasAttribution,
   });
   // What THE tile hides on a phone: the blocks the strip prints, plus the «dal massimo del
-  // periodo» chip, whose figure the verdict's sequel carries (decision 38).
+  // periodo» chip, whose figure the verdict's sequel carries (doc/guide/rendimenti.md § Composizione mobile).
   const liftedFigures: RendimentoLiftedBlock[] = [...liftedBlocks(strip, PERFORMANCE_SECTION_IDS.twr).filter(isRendimentoLiftedBlock), RENDIMENTO_DRAWDOWN_CHIP_BLOCK];
 
   const referenceAnnualized = referenceRow?.annualized;
@@ -741,7 +741,7 @@ export default function PerformancePage() {
     selectedPeriod === 'CUSTOM' && performanceData?.custom ? (
       <CustomPeriodChip startDate={performanceData.custom.startDate} endDate={performanceData.custom.endDate} onClear={handleResetCustomPeriod} />
     ) : null;
-  // The axis below `desktop:`, under the verdict's title (decisions 2 and 12): the period picker,
+  // The axis below `desktop:`, under the verdict's title (DESIGN.md → Page Verdict): the period picker,
   // the custom range as a 44px calendar icon after it (on a second line when the five options
   // take the width), and the active custom range's chip under them. At 1440 the picker beside the
   // verdict is a second instance of the same control.
@@ -847,7 +847,7 @@ export default function PerformancePage() {
 
   // The measured base, named where the numbers are — the recurring question is why the drawdown
   // does not match Storico, and the answer is that they measure different capitals. The verdict's
-  // `scope` (decision 13): after the strip on a phone, under the paragraph at 1440, never behind a
+  // `scope` (The Binding-Clause Rule): after the strip on a phone, under the paragraph at 1440, never behind a
   // tap — without it «+2,1%» reads as the return of the whole net worth.
   const scope = (
     <p className="max-w-[920px] text-[12px] leading-[1.5] text-muted-foreground">
@@ -869,7 +869,7 @@ export default function PerformancePage() {
       <div className={STAGE_WRAPPER_CLASS}>
       <div ref={stageRef} className={STAGE_CLASS}>
       {/* ── Verdict, with the one period axis beside it from desktop (a second instance of the
-          same control, `hidden desktop:block`, decision 12) — and the custom range's chip, in the
+          same control, `hidden desktop:block`, DESIGN.md → Page Verdict) — and the custom range's chip, in the
           verdict's box so it is never a loose cell of the stage. `desktop:space-y-4`: the chip is
           hidden below 1440, and a gap there would add 16px under the verdict in landscape (the box
           is a grid item, so its child's margin does not collapse through it). ─────────────── */}
@@ -898,7 +898,7 @@ export default function PerformancePage() {
       {/* No `key` on the grid (2026-09-12): a period switch TRANSFORMS every tile — the hero glides,
           the plots morph, the heatmap fades cell by cell, the bars slide — so the tiles must survive
           it. Only a refresh, which re-reads the data, dims the grid while it waits. ONE sequence:
-          the DOM order is the reading order at every width, no `order-*` (decision 11). */}
+          the DOM order is the reading order at every width, no `order-*` (The First-Screen Rule). */}
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
       <div
         className={cn(COMPACT_GRID_CLASS, 'transition-opacity duration-200', (isRefreshing || loaded.isRecomputing) && 'opacity-60')}
@@ -930,7 +930,7 @@ export default function PerformancePage() {
         <PageRest sections={sections} className={REST_CELL_CLASS} />
 
         {/* «Rispetto a cosa?» is the page's question: the models sit beside the return. Every
-            series failed → the row is a failed read at every width (decision 36), silent below
+            series failed → the row is a failed read at every width (doc/guide/rendimenti.md), silent below
             `desktop:` where `PageRest` carries the one live node. */}
         <div className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PERFORMANCE_SECTION_IDS.benchmark), 'desktop:col-span-4')}>
           {benchmarkFailed ? (

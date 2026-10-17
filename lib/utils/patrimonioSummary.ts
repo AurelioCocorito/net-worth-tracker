@@ -302,11 +302,11 @@ export function resolveLastPriceUpdate(assets: Asset[]): Date | null {
 
 // ─── The phone composition (2026-10-14) ───────────────────────────────────────
 
-/** THE tile of the page (Patrimonio totale lordo): open at every width, never a row (decision 21). */
+/** THE tile of the page (Patrimonio totale lordo): open at every width, never a row (The First-Screen Rule). */
 export const PATRIMONIO_PATRIMONIO_ID = 'patrimonio-patrimonio';
 
 /**
- * The rows below `desktop:`, in the DOM's order (decision 11). A loan's «Mutuo» row is
+ * The rows below `desktop:`, in the DOM's order (The First-Screen Rule). A loan's «Mutuo» row is
  * `patrimonio-mutuo-<loanId>` (`patrimonioMutuoSectionId`), one per loan with linked instalments;
  * a failed read of the instalments is ONE row, `mutuo`.
  */
@@ -328,12 +328,12 @@ export function patrimonioMutuoSectionId(loanId: string): string {
 export const PATRIMONIO_GAIN_BLOCK = 'gain';
 
 /**
- * The two figures under the verdict on a phone (The First-Screen Rule; decision 40): the
- * unrealized gain over the cost basis, with the cents the Rendimento tile prints (its KPI is
- * lifted), and the share of the gross total on the accounts, which repeats the Liquidità
- * READING — a reading stays whole (decision 15). The month's change is in the verdict's first
- * sentence, the total is THE tile's hero (decision 24). If the census counts more than five
- * figures outside the verdict, the Liquidità cell is the one to go (decision 40).
+ * The two figures under the verdict on a phone (The First-Screen Rule; doc/guide/patrimonio.md
+ * § Composizione mobile): the unrealized gain over the cost basis, with the cents the Rendimento
+ * tile prints (its KPI is lifted), and the share of the gross total on the accounts, which repeats
+ * the Liquidità READING — a reading stays whole (The Lifted-Figure Rule). The month's change is in
+ * the verdict's first sentence, the total is THE tile's hero (never lifted). If the census counts
+ * more than five figures outside the verdict, the Liquidità cell is the one to go.
  */
 export function selectPatrimonioStrip({ gains, cash }: { gains: UnrealizedGainsSummary; cash: CashAccountsSummary }): StripFigure[] {
   const cashReason =

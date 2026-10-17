@@ -3,7 +3,7 @@
  * strip prints «Fuori posizione», so the tile hides that KPI's VALUE and nothing else (2026-10-16).
  *
  * Only the value hides (`LIFTED_FIGURE_CLASS`, hidden below `desktop:`); «… € da spostare», which
- * nothing else prints, stays under the label (decision 17 of doc/mobile/README.md § 9), and so do
+ * nothing else prints, stays under the label (The Lifted-Figure Rule), and so do
  * the other KPIs. The browser spec at 390 (`e2e/allocation.mobile.spec.ts`) runs on the base
  * fixture, whose cell is «nulla» and lifts nothing, so the hiding itself is proved here.
  *

@@ -62,7 +62,7 @@ export function VerdictSkeletonLines() {
  * announced by the grid's `role="status"`.
  *
  * `axis`: a placeholder of the verdict's `axis` slot, under the headline's line as `PageVerdict`
- * puts it (doc/mobile/README.md § 9, decision 12) — the two lazy Cashflow tabs' fallbacks draw
+ * puts it (DESIGN.md → Page Verdict) — the two lazy Cashflow tabs' fallbacks draw
  * their period control there since 2026-10-12 (`CashflowTabSkeletons.tsx`), so a deep link lands
  * on the same geometry the tab draws.
  */

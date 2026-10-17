@@ -1,27 +1,27 @@
 /**
  * The first-screen budget of the small-screen composition: per surface × viewport, how long the
- * page is and what the first screen holds, against `doc/mobile/budget.json` — a budget that can
+ * page is and what the first screen holds, against `perf/mobile-budget.json` — a budget that can
  * only get BETTER (doc/guide/prima-schermata.md).
  *
  * Pure on purpose, like `perfBudget.ts`: `scripts/mobileCensus.mjs` measures in a browser,
  * `scripts/mobileBudget.mts` reads the files and git, this module decides. Every metric has a
  * direction and zero tolerance (the fixture `census@example.com` is deterministic, so a drift of
- * one is a finding, never noise — doc/mobile/README.md § 9, decision 23):
+ * one is a finding, never noise — doc/guide/prima-schermata.md, since 2026-10-10):
  *   - a CEILING (`screens`, `figuresAboveFold`, `figuresOutsideVerdict`) may not be exceeded;
  *   - a FLOOR (`tilesAboveFold`, `tilesFullyAboveFold`) may not be missed;
  *   - `firstClosedRowAbovePill` is a three-state ratchet: `null` (no closed row on the page yet)
  *     accepts only `null`, `true` stays `true`, and `false` is an exception registered only with
- *     a `raisedBy` (decision 19);
+ *     a `raisedBy` (DESIGN.md → The First-Screen Rule, since 2026-10-10);
  *   - `overflowX` is always `false`, whatever the budget says.
  * And the ratchet's second half, as in `perfBudget`: an entry WORSE than the one committed in HEAD
  * needs a `raisedBy` of its own — a reason already spent on an earlier widening does not cover a
- * new one (decision 22: «MOB-02: pill a 44 px»).
+ * new one (the first: «2026-10-10: pill a 44 px», when the `PageTabBar` pill grew to 44×44).
  */
 
 export const MOBILE_VIEWPORTS = ['390', '768', '1024'] as const;
 export type MobileViewport = (typeof MOBILE_VIEWPORTS)[number];
 
-/** The account the budget is measured on (decision 10): never the mirror. */
+/** The account the budget is measured on (since 2026-10-10, doc/guide/prima-schermata.md): never the mirror. */
 export const CENSUS_ACCOUNT = 'census@example.com';
 
 export const CEILING_METRICS = ['screens', 'figuresAboveFold', 'figuresOutsideVerdict'] as const;
@@ -45,7 +45,7 @@ export interface MobileMetrics {
 
 /** One budget entry: the metrics, plus why it was widened when it was. */
 export interface MobileBudgetEntry extends MobileMetrics {
-  /** «MOB-NN: perché». Required on a widening, and on a `firstClosedRowAbovePill: false`. */
+  /** «<data>: perché». Required on a widening, and on a `firstClosedRowAbovePill: false`. */
   raisedBy?: string;
 }
 
@@ -58,11 +58,11 @@ export interface MobileSurface {
   target: boolean;
 }
 
-/** The shape of `doc/mobile/budget.json`. Aggregate numbers only: never a verdict's or an eyebrow's text. */
+/** The shape of `perf/mobile-budget.json`. Aggregate numbers only: never a verdict's or an eyebrow's text. */
 export interface MobileBudget {
   measuredAt: string;
   account: string;
-  /** Slack per numeric metric, in its own unit; empty = zero tolerance (decision 23). */
+  /** Slack per numeric metric, in its own unit; empty = zero tolerance (since 2026-10-10). */
   tolerance: Partial<Record<NumericMetric, number>>;
   /** Metrics printed but not enforced at a viewport; empty since 2026-10-16, when 768 and 1024 became binding. */
   informational: Partial<Record<MobileViewport, MobileMetric[]>>;
@@ -124,7 +124,7 @@ export interface MobileBudgetVerdict {
   targets: FirstScreenTarget[];
 }
 
-/** The First-Screen Rule at 390 (decision 16): at most five figures outside the verdict, LA tessera included. */
+/** The First-Screen Rule at 390 (DESIGN.md): at most five figures outside the verdict, LA tessera included. */
 export const FIRST_SCREEN_MAX_FIGURES = 5;
 
 /**
@@ -203,7 +203,7 @@ function checkEntryReasons(
 /**
  * The First-Screen Rule for one measured row. At 390 the rule itself (≤ 5 figures outside the
  * verdict, the first closed row above the pill); at 768/1024 the objective is the measure recorded in the budget
- * (decision 16, 2026-10-16), so it is met when the run stays within its budget entry — every
+ * (The First-Screen Rule, 2026-10-16), so it is met when the run stays within its budget entry — every
  * metric, the closed row included (a `false` with its `raisedBy` is the measured objective).
  */
 function firstScreenTarget(
@@ -306,7 +306,7 @@ export function tightenRefusal(run: CensusRun, budget: MobileBudget): string | n
   return null;
 }
 
-/** The better of two closed-row values; `false` is never written by a measure (decision 19). */
+/** The better of two closed-row values; `false` is never written by a measure (a `raisedBy` registers it). */
 function tightenClosedRow(measured: boolean | null, current: boolean | null | undefined): boolean | null {
   if (current === undefined) return measured === true ? true : null;
   return measured === true ? true : current;
@@ -374,7 +374,7 @@ export function describeMobileViolation(v: MobileViolation): string {
     case 'not-measured':
       return `${where}: ha un budget ma la corsa non l'ha misurata`;
     case 'no-budget':
-      return `${where}: misurata ma senza budget in doc/mobile/budget.json`;
+      return `${where}: misurata ma senza budget in perf/mobile-budget.json`;
     case 'widened-without-reason':
       return `${where}: ${v.metric} allargato rispetto a HEAD senza «raisedBy»`;
     case 'reason-reused':

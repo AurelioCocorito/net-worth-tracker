@@ -17,7 +17,7 @@ import { OverviewTile, TILE_SUB_EYEBROW_CLASS } from './OverviewTile';
  * The blocks of this tile a phone's strip can repeat (The Lifted-Figure Rule: the Panoramica since
  * 2026-10-11, Patrimonio with the same names since 2026-10-14 — doc/guide/patrimonio.md § Composizione
  * mobile): the month's chip, the year's chip, the «Mercato:» digest, the right-hand label under the curve (the hero in compact form). A lifted block takes
- * `LIFTED_FIGURE_CLASS` and hides below `desktop:`; the hero itself is exempt (decision 24).
+ * `LIFTED_FIGURE_CLASS` and hides below `desktop:`; the hero itself is never lifted (the same rule).
  */
 export type PatrimonioLiftedBlock = 'monthly' | 'yearly' | 'movers' | 'curve-end';
 
@@ -169,7 +169,7 @@ export function PatrimonioTile({
 
       {/* Variation chips + record, one grouped row from tablet up, a column on phones. A chip the
           strip repeats hides whole below `desktop:`: the month's euro is the cell and its percentage
-          is in «Il perché», the year's euro is in the sentence (decision 17). «Massimo storico» stays. */}
+          is in «Il perché», the year's euro is in the sentence (The Lifted-Figure Rule). «Massimo storico» stays. */}
       {(variations.monthly || variations.yearly || isNewATH) && (
         <div
           className={cn(
@@ -216,7 +216,7 @@ export function PatrimonioTile({
               ratio — an in-flow SVG with height:100% in an auto-height parent grows to
               width × (viewBox height / width), hundreds of pixels. preserveAspectRatio="none"
               makes the stretch safe. Below `desktop:` the curve yields to 120px — the curve
-              shortens, never the reading (decision 4). */}
+              shortens, never the reading (The First-Screen Rule). */}
           <div className="relative -mx-5 mt-3 flex-1 max-desktop:min-h-[120px] desktop:min-h-[180px] [&_svg]:absolute [&_svg]:inset-0 [&_svg]:h-full [&_svg]:w-full">
             <NetWorthSparkline data={sparklineDisplay} filled={true} color="var(--chart-1)" height={180} interactive />
           </div>

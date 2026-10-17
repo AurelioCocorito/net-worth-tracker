@@ -726,7 +726,7 @@
    {
     "name": "spring-fab",
     "value": "type: spring, stiffness: 400, damping: 28",
-    "purpose": "The bottom pill's «add expense» button entering scale 0.6 -> 1 (components/layout/BottomNavigation.tsx:41): a touch of overshoot on the one element that pops in from nothing rather than sliding between two states."
+    "purpose": "The bottom pill's «add expense» button entering scale 0.6 -> 1 (components/layout/BottomNavigation.tsx): a touch of overshoot on the one element that pops in from nothing rather than sliding between two states."
    },
    {
     "name": "spring-metric-settle",
@@ -1003,7 +1003,7 @@
    },
    {
     "name": "The Lifted-Figure Rule",
-    "body": "(Composizione mobile, 2026-10-17). A figure the phone has already printed — lifted into the strip, or in the verdict's first sentence — is not printed again by its tile on a phone: the PAGE hides that figure (`LIFTED_FIGURE_CLASS`, keyed by `liftedBlocks`), only that figure, and the rest of its block stays («… € da spostare» keeps its caption); when the figure left behind would push the first screen past five, the whole block hides and the figure joins the verdict's «Il perché» as a clause. Wherever the strip is drawn — below `desktop:`, a tablet included — the tile does not repeat it; it returns whole at 1440. A reading, a ranking row and a ledger that adds up to the euro are never lifted, and THE tile's hero never is: a cell may repeat them. A cell that reads `null` hides nothing and prints its reason, never a zero; a signed zero prints bare («0 €»).",
+    "body": "(Composizione mobile, 2026-10-17). A figure the phone has already printed — lifted into the strip, or in the verdict's first sentence — is not printed again by its tile on a phone: the PAGE hides that figure (`LIFTED_FIGURE_CLASS`, keyed by `liftedBlocks`), only that figure, and the rest of its block stays («… € da spostare» keeps its caption); when the figure left behind would push the first screen past five, the whole block hides and the figure joins the verdict's «Il perché» as a clause. Wherever the strip is drawn — below `desktop:`, a tablet included — the tile does not repeat it; it returns whole at 1440. A reading, a ranking row and a ledger that adds up to the euro are never lifted, and THE tile's hero never is — save where the cell carries it whole, on the hero's own basis and with its qualifier (Rendimenti's «Rendimento nei 4 mesi»): a cell may repeat them. A cell that reads `null` hides nothing and prints its reason, never a zero; a signed zero prints bare («0 €»).",
     "section": "components"
    },
    {

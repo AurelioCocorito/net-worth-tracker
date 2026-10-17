@@ -153,7 +153,7 @@ describe('buildCostCentersVerdict', () => {
     );
   });
 
-  // A phone never cuts these verdicts (since 2026-10-12): no strip (decision 30), and «con le
+  // A phone never cuts these verdicts (since 2026-10-12): no strip (doc/guide/centri-di-costo.md), and «con le
   // spese già in calendario» stays visible because nothing is hidden — even where the sentence has
   // two («Nessuna spesa nei centri di costo.», `HOW_TO_LINK`). The closed rows speak in words.
   // Seen red on 2026-10-12 with `leadLength` set half-way through the list's sentence.

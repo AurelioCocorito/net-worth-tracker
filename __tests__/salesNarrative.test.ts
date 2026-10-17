@@ -127,8 +127,8 @@ describe('describeMonthSplit', () => {
   });
 
   /**
-   * A printed zero is unsigned and uncoloured on every figure of the page (decision 20 of
-   * doc/mobile/README.md § 9). Seen red on 2026-10-11, in the retirement of the Panoramica's
+   * A printed zero is unsigned and uncoloured on every figure of the page (AGENTS.md § Layout
+   * and Color Tokens). Seen red on 2026-10-11, in the retirement of the Panoramica's
    * composition: `signedCompactEuro` still printed «+0 € risparmiati» with a positive colour.
    */
   it('should print a part that rounds to zero without a sign and without a colour', () => {

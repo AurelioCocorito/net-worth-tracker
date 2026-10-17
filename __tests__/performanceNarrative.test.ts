@@ -174,7 +174,7 @@ describe('buildPerformanceVerdict', () => {
     const v = buildPerformanceVerdict({ ...baseInput, benchmark: null });
     expect(v.headline).toBe("Nell'ultimo anno il portafoglio rende bene.");
     expect(plain(v.sentence)).toBe(
-      // The first «;» is a full stop since 2026-10-14 (the phone's cut, decision 5: at 1440 too).
+      // The first «;» is a full stop since 2026-10-14 (the phone's cut needs a full stop, at 1440 too).
       'Rende +7,3% annualizzato (TWR), con uno Sharpe di 1,08. Il drawdown massimo è stato −4,1% a marzo, recuperato in 2 mesi; 9 mesi su 12 positivi.',
     );
   });

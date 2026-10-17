@@ -326,7 +326,7 @@ describe('summarizeAlerts', () => {
 
 /**
  * The phone's strip (since 2026-10-12): two KPIs of the Tetto lifted whole, The Risk-vs-Fact Rule
- * in the second cell (decision 34; «Supererai» to the verdict by decision 67). The identity below
+ * in the second cell («Supererai» opens the verdict, which names the day). The identity below
  * is `TettoTile`'s: «~» + the compact euro on the projection, the compact euro on the rest. Seen red
  * on 2026-10-12 with `opens` of «Oltre» and «Supererai» swapped (Avvisi for a crossing still in the
  * calendar), and with the identity on a projection formatted without the tilde.
@@ -390,7 +390,7 @@ describe('selectBudgetStrip', () => {
     expect(validateStrip(strip, KNOWN)).toEqual([]);
   });
 
-  it('crossed only by the calendar: «Supererai» puts the focus on the verdict, which names the day (decision 67)', () => {
+  it('crossed only by the calendar: «Supererai» puts the focus on the verdict, which names the day (2026-10-12)', () => {
     const ahead = [...august, expense({ amount: -400, date: new Date(2026, 7, 28, 12) })];
     const s = summarizeCeiling(3000, ahead, NOW)!;
     expect(s.exceeded).toBe(true);

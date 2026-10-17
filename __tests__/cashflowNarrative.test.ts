@@ -338,8 +338,8 @@ describe('buildCashflowVerdict', () => {
 });
 
 /**
- * Where a phone cuts the verdict (since 2026-10-12; doc/mobile/README.md § 9, decisions 3 and
- * 70) and the scope line under the strip. Seen red on 2026-10-12 with `leadLength` set to the
+ * Where a phone cuts the verdict (since 2026-10-12; The Binding-Clause Rule, and with no strip the
+ * sentence whole) and the scope line under the strip. Seen red on 2026-10-12 with `leadLength` set to the
  * first sentence in every branch (the no-calendar case then kept «Ad agosto hai messo da parte…»
  * on the first screen beside the three cells that restate it), and with `describeTrackingScope`
  * returning `null` whatever the slice.
@@ -377,7 +377,7 @@ describe('the phone cut of the verdict and the scope line', () => {
     expect(verdict.sentence[verdict.leadLength! - 1].text).toBe('.');
   });
 
-  it('should not cut a period with no strip: nothing in, nothing out, the one sentence stays whole (decision 70)', () => {
+  it('should not cut a period with no strip: nothing in, nothing out, the one sentence stays whole', () => {
     const empty = buildCashflowVerdict({ ...INPUT, totals: { income: 0, expenses: 0, net: 0, savingsRate: null, coverageRatio: null, transferCount: 0 } });
     expect(empty.leadLength).toBeUndefined();
     expect(splitVerdict(empty).rest).toEqual([]);

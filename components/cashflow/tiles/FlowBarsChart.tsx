@@ -14,7 +14,7 @@ interface FlowBarsChartProps {
   /**
    * Minimum height of the plot from `desktop:`; the tile's flex column lets it stretch past it.
    * Below `desktop:` the plot yields to `PHONE_MIN_HEIGHT_CLASS` whatever is passed
-   * (doc/mobile/README.md § 9, decision 4: with THE tile tall the curve gives, never the reading).
+   * (The First-Screen Rule: with THE tile tall the curve gives, never the reading).
    */
   minHeight?: number;
   className?: string;

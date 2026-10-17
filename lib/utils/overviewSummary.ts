@@ -26,10 +26,10 @@ import type { Narrative } from '@/lib/utils/narrative';
 import type { StripFigure } from '@/lib/utils/verdictStrip';
 import type { DashboardOverviewCategoryAmount, DashboardOverviewExpenseStats, DashboardOverviewPayload } from '@/types/dashboardOverview';
 
-/** THE tile of the page: open at every width, never a row (decision 21); a strip cell targets it. */
+/** THE tile of the page: open at every width, never a row (The First-Screen Rule); a strip cell targets it. */
 export const OVERVIEW_PATRIMONIO_ID = 'panoramica-patrimonio';
 
-/** The rows below `desktop:`, in the DOM's order (decision 11: Sintesi before Cashflow, as at 1440). */
+/** The rows below `desktop:`, in the DOM's order (The First-Screen Rule: Sintesi before Cashflow, as at 1440). */
 export const OVERVIEW_SECTION_IDS = {
   sintesi: 'panoramica-sintesi',
   cashflow: 'panoramica-cashflow',
@@ -66,7 +66,7 @@ export function monthCoverageRatio(stats: DashboardOverviewExpenseStats | null |
 /**
  * The savings rate the verdict judges — what has already happened (`resolveLivedCashflow`), or
  * the whole month on a payload that cannot say — rounded as the sentence rounds it
- * (`Math.round`, decision 26). `null` with nothing to divide by.
+ * (`Math.round`; doc/guide/panoramica.md § Composizione mobile). `null` with nothing to divide by.
  */
 function verdictSavingsRate(stats: DashboardOverviewExpenseStats | null | undefined): { rate: number | null; lived: boolean } {
   const lived = resolveLivedCashflow(stats);

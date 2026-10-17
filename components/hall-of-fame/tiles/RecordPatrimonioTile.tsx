@@ -77,7 +77,7 @@ export function RecordPatrimonioTile({
                   podium rows above it, a 450px plot reads as the tile's subject rather than its
                   second fact. Whatever slack is left sits above the footer. Below `desktop:` THE
                   tile yields its chart to the first screen — 120px, always, never the podium
-                  (doc/mobile/README.md § 9, decisions 4 and 25). */}
+                  (The First-Screen Rule; doc/guide/hall-of-fame.md § Composizione mobile). */}
               <RecordBars
                 points={timeline}
                 ariaLabel="I mesi record, in ordine cronologico."

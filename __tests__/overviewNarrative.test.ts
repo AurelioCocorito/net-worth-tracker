@@ -536,8 +536,8 @@ describe('projectMonthEndSpending', () => {
 });
 
 /**
- * Where a phone cuts the verdict (since 2026-10-11; doc/mobile/README.md § 9, decisions 3 and
- * 27). Falsified on 2026-10-11, one at a time: «title only» went red with `leadLength` set to the
+ * Where a phone cuts the verdict (since 2026-10-11; The Binding-Clause Rule and doc/guide/panoramica.md).
+ * Falsified on 2026-10-11, one at a time: «title only» went red with `leadLength` set to the
  * first sentence's length; the taxed-story cut went red moved one segment earlier (the tax's
  * `binding` segment past the cut cancelled it, no «Il perché» at all) and one later (the savings
  * clause's first segment landed in the lead); the whole-paragraph case went red with `binding`
@@ -681,7 +681,7 @@ describe('overviewRestLabel', () => {
 });
 
 /**
- * The calendar as a caption under a figure (The Scheduled-Is-Not-Spent Rule, decision 14).
+ * The calendar as a caption under a figure (The Scheduled-Is-Not-Spent Rule).
  * Falsified on 2026-10-11: the floor case went red with `> 0` in place of `>= 1`; the words went
  * red with «già» dropped.
  */

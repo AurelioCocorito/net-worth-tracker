@@ -162,8 +162,8 @@ export function summarizeMonteCarloRun(results: MonteCarloResults, params: Monte
 
 /**
  * The ids of the tab's rows below `desktop:` (`useMobileSections` with `tab: 'montecarlo'`, The
- * Closed-Row Rule): every tile but Probabilità, THE tile, which never closes (doc/mobile/README.md
- * § 9, decision 21). Without a run Parametri is the one tile and is not a row.
+ * Closed-Row Rule): every tile but Probabilità, THE tile, which never closes (The
+ * First-Screen Rule). Without a run Parametri is the one tile and is not a row.
  */
 export const MONTE_CARLO_SECTION_IDS = {
   distribuzione: 'mc-distribuzione',

@@ -14,7 +14,7 @@ import { progressFillColor, progressTextClass } from '@/components/cashflow/budg
 import { CenterStackBars } from './CenterStackBars';
 
 interface CostoTileProps {
-  /** THE tile's anchor (`cdc-centro-costo`): open at every width, never a row (decision 21). */
+  /** THE tile's anchor (`cdc-centro-costo`): open at every width, never a row (The First-Screen Rule). */
   id?: string;
   summary: CenterSummary;
   /** The center's own trailing months (a one-series stack). */

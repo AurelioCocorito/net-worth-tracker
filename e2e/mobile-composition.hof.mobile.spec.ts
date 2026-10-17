@@ -114,7 +114,7 @@ test.describe('Hall of Fame, composed for a phone', () => {
     const anniPanel = panel(page, 'hof-anni');
     expect(await anniPanel.evaluate((el) => ({ inert: el.hasAttribute('inert'), children: el.children.length }))).toEqual({ inert: true, children: 0 });
 
-    // The two actions close the page, after the Dettaglio (decision 25).
+    // The two actions close the page, after the Dettaglio (doc/guide/hall-of-fame.md § Composizione mobile).
     const order = await page.evaluate(() => {
       const main = document.querySelector('main')!;
       const dettaglio = [...main.querySelectorAll('button')].find((b) => /^Dettaglio/.test(b.textContent ?? ''))!;

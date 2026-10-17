@@ -48,7 +48,7 @@ const ROW_CLASS = 'flex items-baseline justify-between gap-3 py-2 text-[13px]';
 const ROW_VALUE_CLASS = 'shrink-0 whitespace-nowrap font-mono tabular-nums';
 
 // Every signed figure here is signed and toned on the PRINTED text, never on the raw value
-// (decision 20 of doc/mobile/README.md § 9). Until 2026-10-16 the tile chose the sign with
+// (AGENTS.md § Layout and Color Tokens). Until 2026-10-16 the tile chose the sign with
 // `value >= 0`, so a TWR of −0,004 printed «−0,00%» in red under the strip's «0,00%» (the cell and
 // the reading both decide on `printedSign`). The formatters' helpers are the one rule; the
 // typographic «−» comes with them.

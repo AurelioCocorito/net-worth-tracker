@@ -44,14 +44,14 @@ interface CashflowKpiTrioProps {
    */
   previousLabel: string | null;
   /**
-   * The three values are the phone's strip (The Lifted-Figure Rule, doc/mobile/README.md § 9,
-   * decision 31): hidden below `desktop:` by `LIFTED_FIGURE_CLASS`; the labels, the deltas, the
-   * savings rate and the coverage stay — only the figure the strip repeats goes (decision 17).
+   * The three values are the phone's strip (The Lifted-Figure Rule; doc/guide/cashflow-tracciamento.md
+   * § Composizione mobile): hidden below `desktop:` by `LIFTED_FIGURE_CLASS`; the labels, the deltas,
+   * the savings rate and the coverage stay — only the figure the strip repeats goes.
    */
   lifted?: boolean;
   /**
    * The spending delta a page's verdict already prints (Analisi: «−1,5% su 2025» in its first
-   * sentence, owner's call 2026-10-14, decision 83), hidden below `desktop:` like a lifted value.
+   * sentence, owner's call 2026-10-14), hidden below `desktop:` like a lifted value.
    * Default false: Tracciamento's verdict names no delta.
    */
   expensesDeltaLifted?: boolean;
@@ -85,7 +85,7 @@ export function CashflowKpiTrio({ totals, incomeDelta, expensesDelta, previousLa
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className={TILE_SUB_EYEBROW_CLASS}>Risparmio</p>
         {/* The strip's cell repeats this figure on a phone: ONE formatter decides the «−», and a
-            net that prints as zero takes none (decision 20, 2026-10-12). */}
+            net that prints as zero takes none (AGENTS.md § Layout and Color Tokens, 2026-10-12). */}
         <p className={cn(valueClass, 'text-foreground')}>{formatEuroMinus(net)}</p>
         <p className="text-[11px] text-muted-foreground">
           {savingsRate !== null ? (

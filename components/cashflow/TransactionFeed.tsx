@@ -377,7 +377,7 @@ export interface TransactionFeedProps {
   /** Hint shown in the empty state when no filters are active. */
   emptyHint?: string;
   /**
-   * The row just saved from the «+» on a phone (2026-10-12, doc/mobile/README.md § 9, 29): the
+   * The row just saved from the «+» on a phone (2026-10-12, doc/guide/cashflow-tracciamento.md): the
    * visible window widens to include it, its button takes `focusRowRef`, and the feed puts the
    * focus on it once it is in the list — the modal that saved it closes first and hands the focus
    * back through the same ref (`ExpenseDialog.returnFocusTo`); when the refetch is slower than the

@@ -21,12 +21,12 @@
  * tile is the unit the eye lands on. It also makes the grid scale to a third person without a
  * layout of its own.
  *
- * BELOW DESKTOP (doc/mobile/README.md § 9, decisions 1 and 11; composed since 2026-10-12):
+ * BELOW DESKTOP (DESIGN.md → The First-Screen Rule; composed since 2026-10-12):
  * ONE sequence, the desktop DOM — title → [periodo] in the verdict's axis slot → the
  * sentence up to the shares → the strip, one cell per person on their booked residual (the
- * person's hero, lifted; none past four people or without a basis — decision 32) → the calendar's
- * scope line (decision 14, at every width) → «Il perché» → In comune, open → «Il resto della
- * pagina» → Quota and one row per person, closed. The «−» of a deficit is U+2212 in the strip
+ * person's hero, lifted; none past four people or without a basis) → the calendar's scope line
+ * (The Scheduled-Is-Not-Spent Rule, at every width, 2026-10-10) → «Il perché» → In comune, open →
+ * «Il resto della pagina» → Quota and one row per person, closed. The «−» of a deficit is U+2212 in the strip
  * and in the hero alike (`formatBookedResidual`).
  */
 
@@ -157,8 +157,8 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
     order: [SPLIT_SECTION_IDS.quota, ...summary.members.map((balance) => splitMemberSectionId(balance.member.id))],
   });
 
-  // The strip: each person's booked residual, their hero lifted (decision 32); the scope line
-  // the calendar's clause, out of the sentence at every width (decision 14).
+  // The strip: each person's booked residual, their hero lifted; the scope line
+  // the calendar's clause, out of the sentence at every width (The Scheduled-Is-Not-Spent Rule).
   const strip = selectSplitStrip(summary);
   const scope = describeSplitScope(summary, period, now);
 
@@ -176,7 +176,7 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
   // A wait is a skeleton, a failed read a notice — and in both the picker stays: the read is the
   // read of ONE period, and the way out of it is another period (Tracciamento's rule). Below
   // `desktop:` the picker is the verdict's `axis` slot in every state (`PageVerdict.pending`,
-  // decision 35): the same element, so the one that asked for the new period keeps its focus.
+  // doc/guide/stati.md): the same element, so the one that asked for the new period keeps its focus.
   const surface = resolveSurfaceState({ loading: loading, failed: loadFailed });
   const pending: PendingVerdict | undefined =
     surface === 'failed'
@@ -198,7 +198,7 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
 
   // The same row in both returns below: the picker is the same element while its period is read.
   const periodRows = (
-    // ── Verdict, with the period axis beside it on desktop (a second instance, decision 12) ──
+    // ── Verdict, with the period axis beside it on desktop (a second instance, DESIGN.md → Page Verdict) ──
     <div data-stage="verdict" className={cn('flex items-start justify-between gap-6 pt-1', VERDICT_CELL_CLASS)}>
       <div className="min-w-0 flex-1">
         <PageVerdict
@@ -340,9 +340,9 @@ export function ExpenseSplitTab({ familyMembers, availableYears, active }: Expen
             const consumed = describeIncomeConsumed(balance);
             const calendar = describeMemberCalendar(balance);
             const sectionId = splitMemberSectionId(balance.member.id);
-            // The hero is the strip's cell for this person: hidden when lifted (decision 15)
+            // The hero is the strip's cell for this person: hidden when lifted (The Lifted-Figure Rule)
             // wherever the strip is drawn — below `desktop:`, the tablet included since
-            // 2026-10-16 (`LIFTED_FIGURE_CLASS`, decision 104).
+            // 2026-10-16 (`LIFTED_FIGURE_CLASS`).
             const heroLifted = liftedBlocks(strip, sectionId).includes(SPLIT_MEMBER_HERO_BLOCK);
             return (
               <div key={balance.member.id} className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(sectionId))}>

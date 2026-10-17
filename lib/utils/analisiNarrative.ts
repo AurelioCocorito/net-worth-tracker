@@ -318,7 +318,7 @@ export function buildAnalisiVerdict(input: AnalisiVerdictInput): PageVerdictMode
   }
 
   // The first sentence ends here: the total and its pacing — what a phone keeps under the title
-  // (decisions 3 and 5 of doc/mobile/README.md § 9: «; Casa pesa» became «. Casa pesa», at 1440 too).
+  // (The Binding-Clause Rule; the cut needs a full stop, at 1440 too: «; Casa pesa» became «. Casa pesa»).
   sentence.push(prose('.'));
   const leadLength = sentence.length;
 
@@ -357,7 +357,7 @@ function capitaliseClause(clause: Narrative): Narrative {
 }
 
 /**
- * The verdict's `scope` (since 2026-10-14; decision 14 of doc/mobile/README.md § 9): the rows still
+ * The verdict's `scope` (since 2026-10-14; DESIGN.md → The Binding-Clause Rule): the rows still
  * in the calendar inside the period's totals, «Nel totale ci sono ancora 1850 € di spese già in
  * calendario da qui a fine anno.» — a caption of its own under the strip on a phone and under the
  * paragraph at 1440, no longer the sentence's last clause. The same form as Tracciamento's
@@ -382,9 +382,9 @@ export const ANALISI_CLOSED_ASIDES = {
 
 /**
  * The figures the first screen already prints, as the texts of their magnitudes («30.000 €»): the
- * verdict's first sentence and the strip's cells. A Flusso caption below 640px drops an amount
- * whose text is among them (decision 82, 2026-10-14) — a figure repeated a hand's width lower is
- * one more figure to read and no more to know.
+ * verdict's first sentence and the strip's cells. A Flusso caption drawn as a bar (a cell narrower
+ * than 608px since 2026-10-16) drops an amount whose text is among them (2026-10-14) — a figure
+ * repeated a hand's width lower is one more figure to read and no more to know.
  */
 export function collectPrintedFigures(lead: Narrative, strip: readonly StripFigure[]): ReadonlySet<string> {
   const unsigned = (text: string) => text.replace(/^[~+−-]+/, '');
@@ -610,8 +610,9 @@ export function describeSpendingRolesFlow(summary: SpendingRolesSummary): Narrat
 
 // ─── Flusso on a phone ────────────────────────────────────────────────────────
 //
-// Below 640px the Flusso is a share bar and rows, not a Sankey (FlowShareMobile). Its caption, its
-// surplus note and its empty line are sentences, so they live here like every other Analisi word.
+// In a cell narrower than 608px (`FLUSSO_SANKEY_MIN_CELL`, since 2026-10-16) the Flusso is a share
+// bar and rows, not a Sankey (FlowShareMobile). Its caption, its surplus note and its empty line are
+// sentences, so they live here like every other Analisi word.
 
 /** « Nessuna entrata: tutto è coperto dal patrimonio.» — the no-income tail of both captions. */
 const NO_INCOME_TAIL: Narrative = [prose(' Nessuna entrata: tutto è coperto dal patrimonio.')];
@@ -619,7 +620,7 @@ const NO_INCOME_TAIL: Narrative = [prose(' Nessuna entrata: tutto è coperto dal
 /**
  * « Oltre la linea delle entrate: 400 € dal patrimonio.» — the deficit tail, beside the red line;
  * without its amount when the first screen prints it already (the strip's «Risparmio» is the same
- * deficit, decision 82).
+ * deficit).
  */
 function deficitTail(deficit: number, printed: ReadonlySet<string>): Narrative {
   if (printed.has(euro(deficit))) return [prose(' Oltre la linea delle entrate, il resto viene dal patrimonio.')];
@@ -629,9 +630,9 @@ function deficitTail(deficit: number, printed: ReadonlySet<string>): Narrative {
 const NOTHING_PRINTED: ReadonlySet<string> = new Set();
 
 /**
- * A group's total on the Flusso below 640px (`FlowShareMobile`'s header, «Risparmio» included):
- * whole euros, like every aggregate of the page — the strip's «Risparmio» cell prints the same text
- * (`__tests__/analisiSummary.test.ts` holds the identity).
+ * A group's total on the Flusso drawn as a bar, in a cell narrower than 608px (`FlowShareMobile`'s
+ * header, «Risparmio» included): whole euros, like every aggregate of the page — the strip's
+ * «Risparmio» cell prints the same text (`__tests__/analisiSummary.test.ts` holds the identity).
  */
 export function formatFlowAmount(value: number): string {
   return cachedFormatCurrencyEUR(value, true);

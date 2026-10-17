@@ -1,8 +1,9 @@
 /**
  * The strip under a phone's verdict: at most four figures, each READ from a tile's `*Summary`
- * (never recomputed), each opening the row that explains it (The First-Screen Rule, proposed in
- * doc/mobile/MOB-09; the contract is this module's exports since 2026-10-10, under decisions 15,
- * 17, 20, 28 of doc/mobile/README.md § 9).
+ * (never recomputed), each opening the row that explains it (The First-Screen Rule, written into
+ * DESIGN.md on 2026-10-17; the contract is this module's exports since 2026-10-10: The
+ * Lifted-Figure Rule, the printed zero of AGENTS.md § Layout and Color Tokens, the wide cell of
+ * DESIGN.md → Page Verdict).
  *
  * A page's `select<Page>Strip(summary)` builds the figures; `VerdictStrip` renders them;
  * `formatStripFigure` is the ONE formatter, so a cell prints exactly what the tile's reading
@@ -51,7 +52,7 @@ const MINUS = '−';
 
 /**
  * True when a formatted figure prints as a zero: the sign is decided on the TEXT (The Comma
- * Rule), so «−0,004» is a zero too. Decision 20 (doc/mobile/README.md § 9): a printed zero takes
+ * Rule), so «−0,004» is a zero too. Since 2026-10-10 (AGENTS.md § Layout and Color Tokens): a printed zero takes
  * no sign anywhere — the strip here, the Panoramica's `signedCurrency`/`signedPercent` and the
  * shared `salesNarrative` since 2026-10-11, the tiles whose figure a cell repeats since
  * 2026-10-12 (`withTypographicMinus`, the same rule, in `lib/utils/formatters.ts`), Patrimonio's
@@ -103,7 +104,7 @@ function isSignedFormat(format: StripFormat): boolean {
  *
  * Signs follow The Comma Rule: a negative amount takes the typographic «−» (U+2212) in front of
  * the absolute figure — `Intl` would print the hyphen-minus — and a `signed-*` format adds «+».
- * A printed zero is unsigned and uncoloured whatever its sign («0 €», «0,0%»: decision 20);
+ * A printed zero is unsigned and uncoloured whatever its sign («0 €», «0,0%»: `isPrintedZero`);
  * «~» stays in front of the sign on an approximation.
  */
 export function formatStripFigure(figure: StripFigure): NarrativeSegment | null {

@@ -48,7 +48,7 @@ export const MIN_VISIBLE_AMOUNT = 0.5;
 /**
  * The ids of the page's rows below `desktop:` (`useMobileSections`, The Closed-Row Rule): THE
  * tile, Bilanciamento, is among them only as the target of a lifted block — it never closes
- * (doc/mobile/README.md § 9, decision 21). The DOM ids are not narrative, so they live here
+ * (The First-Screen Rule). The DOM ids are not narrative, so they live here
  * (the precedent of `overviewSummary.ts` and `performanceSummary.ts`).
  */
 export const ALLOCAZIONE_SECTION_IDS = {
@@ -59,12 +59,12 @@ export const ALLOCAZIONE_SECTION_IDS = {
   previdenza: 'alloc-previdenza',
 } as const;
 
-/** The block of `BilanciamentoTile` the strip lifts: the KPI «Fuori posizione» — its VALUE only, the caption stays (decision 17). */
+/** The block of `BilanciamentoTile` the strip lifts: the KPI «Fuori posizione» — its VALUE only, the caption stays (The Lifted-Figure Rule). */
 export const BILANCIAMENTO_MISALLOCATION_BLOCK = 'fuori-posizione';
 
 /**
  * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but
- * Bilanciamento, which is THE tile and never closes (decision 21). Module-level, so the controller
+ * Bilanciamento, which is THE tile and never closes (The First-Screen Rule). Module-level, so the controller
  * sees one stable list; `resolveAllocazioneSections` hands the page the rows PRESENT.
  */
 const ALLOCAZIONE_SECTIONS: readonly SectionSpec[] = [
@@ -119,7 +119,7 @@ export interface AllocazioneStripInput {
 }
 
 /**
- * The two figures of a phone's first screen (decision 45): the share out of position — the
+ * The two figures of a phone's first screen (never the score, 2026-10-10): the share out of position — the
  * KPI of Bilanciamento, lifted from the tile — opening the Piano, and the largest drift in
  * points of the classes the band puts off target («Azioni sopra 3,3 pp»), opening Per classe.
  * Both are read from the figures the verdict and the readings already print, with the same

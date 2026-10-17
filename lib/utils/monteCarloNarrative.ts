@@ -146,7 +146,7 @@ export function buildMonteCarloVerdict(input: MonteCarloVerdictInput): PageVerdi
     : [prose(inThePercent(run.successRate).replace(/^n/, 'N')), figure(ratePct(run.successRate)), prose(' delle '), count(run.simulations), prose(' simulazioni il capitale regge ')];
 
   // The base run is the first sentence; the bear and the bull, then the bridge, follow it —
-  // behind «Il perché» on a phone, the lock kept in sight by the scope line (decision 44).
+  // behind «Il perché» on a phone, the lock kept in sight by the scope line (The Binding-Clause Rule).
   const scenarios = scenariosSentence(input.scenarios);
   const sentence: Narrative = [...opening, ...horizonClause(run), prose('; '), ...outcomesClause(run), prose('.'), ...scenarios, ...bridgeSentence(input.lock)];
   return {
