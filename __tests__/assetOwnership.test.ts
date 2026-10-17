@@ -73,28 +73,28 @@ const OVER = asset({ id: 'over', name: 'Over ETF', quantity: 100, currentPrice: 
 
 describe('resolveAssetOwnership — the ONE resolution', () => {
   it('reads the whole asset to one member, derives a pension fund from Previdenza and a mortgage from its property', () => {
-    expect(resolveAssetOwnership(CASH, ALL).slices).toEqual([{ memberId: 'giulia', fraction: 1, units: null }]);
-    expect(resolveAssetOwnership(ETF, ALL).slices).toEqual([{ memberId: null, fraction: 1, units: null }]);
+    expect(resolveAssetOwnership(CASH, ALL).slices).toEqual([{ memberId: 'giulia', fraction: 1, slice: null }]);
+    expect(resolveAssetOwnership(ETF, ALL).slices).toEqual([{ memberId: null, fraction: 1, slice: null }]);
     expect(resolveAssetOwnership(FUND, ALL)).toMatchObject({ source: 'pensionFund', slices: [{ memberId: 'giulia', fraction: 1 }] });
     expect(resolveAssetOwnership(MORTGAGE, ALL)).toMatchObject({ source: 'mortgage', slices: [{ memberId: 'marco', fraction: 1 }] });
     // A mortgage whose property is gone falls back to its own fields; a personal loan reads its own.
-    expect(resolveAssetOwnership(MORTGAGE, [MORTGAGE]).slices).toEqual([{ memberId: 'giulia', fraction: 1, units: null }]);
-    expect(resolveAssetOwnership(asset({ id: 'car', type: 'loan', assetClass: 'cash', quantity: 100 }), ALL).slices).toEqual([{ memberId: null, fraction: 1, units: null }]);
+    expect(resolveAssetOwnership(MORTGAGE, [MORTGAGE]).slices).toEqual([{ memberId: 'giulia', fraction: 1, slice: null }]);
+    expect(resolveAssetOwnership(asset({ id: 'car', type: 'loan', assetClass: 'cash', quantity: 100 }), ALL).slices).toEqual([{ memberId: null, fraction: 1, slice: null }]);
   });
 
   it('splits by the typed units, the rest in comune or to the member the field names', () => {
     const split = resolveAssetOwnership(SPLIT, [SPLIT]);
     expect(split.source).toBe('shares');
     expect(split.slices).toEqual([
-      { memberId: 'marco', fraction: 0.4, units: 40 },
-      { memberId: 'giulia', fraction: 0.2, units: 20 },
-      { memberId: null, fraction: 0.4, units: 40 },
+      { memberId: 'marco', fraction: 0.4, slice: { units: 40 } },
+      { memberId: 'giulia', fraction: 0.2, slice: { units: 20 } },
+      { memberId: null, fraction: 0.4, slice: { units: 40 } },
     ]);
     expect(split.budget).toEqual({ assignedUnits: 60, freeUnits: 40, overBy: 0, needsReassignment: false });
     expect(resolveAssetOwnership(SPLIT_REST_TO_GIULIA, [SPLIT_REST_TO_GIULIA]).slices).toEqual([
-      { memberId: 'marco', fraction: 0.4, units: 40 },
-      { memberId: 'giulia', fraction: 0.2, units: 20 },
-      { memberId: 'giulia', fraction: 0.4, units: 40 },
+      { memberId: 'marco', fraction: 0.4, slice: { units: 40 } },
+      { memberId: 'giulia', fraction: 0.2, slice: { units: 20 } },
+      { memberId: 'giulia', fraction: 0.4, slice: { units: 40 } },
     ]);
   });
 
@@ -104,9 +104,9 @@ describe('resolveAssetOwnership — the ONE resolution', () => {
     // A buy of 100 more quote: the typed rows are what they were, the rest grew.
     const bought = { ...SPLIT, quantity: 200 };
     expect(resolveAssetOwnership(bought, [bought]).slices).toEqual([
-      { memberId: 'marco', fraction: 0.2, units: 40 },
-      { memberId: 'giulia', fraction: 0.1, units: 20 },
-      { memberId: null, fraction: 0.7, units: 140 },
+      { memberId: 'marco', fraction: 0.2, slice: { units: 40 } },
+      { memberId: 'giulia', fraction: 0.1, slice: { units: 20 } },
+      { memberId: null, fraction: 0.7, slice: { units: 140 } },
     ]);
   });
 
@@ -115,6 +115,35 @@ describe('resolveAssetOwnership — the ONE resolution', () => {
     expect(over.needsReassignment).toBe(true);
     expect(over.budget).toMatchObject({ assignedUnits: 120, freeUnits: 0, overBy: 20 });
     expect(over.slices.map((s) => [s.memberId, s.fraction])).toEqual([['marco', 80 / 120], ['giulia', 40 / 120]]);
+  });
+
+  // The percent form (owner, same day): a joint account is 50/50 whatever its balance does.
+  it('reads percent rows as fractions that follow the asset whole, the rest in the same form', () => {
+    const joint = asset({ id: 'joint', type: 'cash', assetClass: 'cash', quantity: 8000, ownerShares: [{ memberId: 'marco', percent: 50 }, { memberId: 'giulia', percent: 30 }] });
+    const resolved = resolveAssetOwnership(joint, [joint]);
+    expect(resolved.mode).toBe('percent');
+    expect(resolved.slices).toEqual([
+      { memberId: 'marco', fraction: 0.5, slice: { percent: 50 } },
+      { memberId: 'giulia', fraction: 0.3, slice: { percent: 30 } },
+      { memberId: null, fraction: 0.2, slice: { percent: 20 } },
+    ]);
+    expect(resolved.needsReassignment).toBe(false);
+    // The balance moves: the fractions do not.
+    const moved = { ...joint, quantity: 12_000 };
+    expect(resolveAssetOwnership(moved, [moved]).slices.map((s) => s.fraction)).toEqual([0.5, 0.3, 0.2]);
+    // A units block answers 'units'; the rest to a member keeps the block's form.
+    expect(resolveAssetOwnership(SPLIT, [SPLIT]).mode).toBe('units');
+    const half = asset({ ...joint, id: 'half', ownerMemberId: 'giulia', ownerShares: [{ memberId: 'marco', percent: 50 }] });
+    expect(resolveAssetOwnership(half, [half]).slices).toEqual([
+      { memberId: 'marco', fraction: 0.5, slice: { percent: 50 } },
+      { memberId: 'giulia', fraction: 0.5, slice: { percent: 50 } },
+    ]);
+    expect(describeAssetOwnerLabel(half, [half], NAMES)).toBe('Marco 50% · Giulia 50%');
+    expect(describeAssetOwnerLabel(joint, [joint], NAMES)).toBe('Marco 50% · Giulia 30% · 20% in comune');
+    // A member named twice in one form is summed; the summary splits the value by the fractions.
+    const twice = asset({ ...joint, id: 'twice', ownerShares: [{ memberId: 'marco', percent: 20 }, { memberId: 'marco', percent: 30 }] });
+    expect(resolveAssetOwnership(twice, [twice]).slices[0]).toEqual({ memberId: 'marco', fraction: 0.5, slice: { percent: 50 } });
+    expect(summarizeOwnership([joint], MEMBERS, valueOf).rows.map((row) => [row.label, row.value])).toEqual([['Marco', 4000], ['Giulia', 2400], [OWNER_COMMON_LABEL, 1600]]);
   });
 
   it('gives a mortgage the fractions of its property, whatever its own fields say', () => {
