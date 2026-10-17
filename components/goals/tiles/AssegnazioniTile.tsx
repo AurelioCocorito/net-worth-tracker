@@ -9,12 +9,14 @@
  * targets.
  *
  * A quota is removed on one click: re-adding it is one dialog away, and the row names what it
- * removes. In demo the controls are disabled and the footer says so.
+ * removes. In demo the controls are disabled and the footer says so. A quota typed in units
+ * (2026-10-17) prints its units first and its derived percent after («12 quote · 40%»).
  */
 
 import { Plus, X } from 'lucide-react';
 import type { Narrative } from '@/lib/utils/narrative';
-import type { AssignmentsView, GoalAssignmentGroup } from '@/lib/utils/goalsSummary';
+import type { AssignmentRow, AssignmentsView, GoalAssignmentGroup } from '@/lib/utils/goalsSummary';
+import { formatQuotaUnits } from '@/lib/utils/goalsNarrative';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { formatPercentage } from '@/lib/services/chartService';
 import { cn } from '@/lib/utils';
@@ -37,6 +39,8 @@ interface AssegnazioniTileProps {
 
 const money = (value: number) => cachedFormatCurrencyEUR(value, true);
 const share = (value: number) => formatPercentage(Math.round(value * 10) / 10, Number.isInteger(Math.round(value * 10) / 10) ? 0 : 1);
+/** «40%» for a percent quota; «12 quote · 40%» for a units one — the units primary, the percent derived (lib/utils/assetSlice.ts). */
+const quota = (row: AssignmentRow) => (row.units !== null ? `${formatQuotaUnits(row.units, row.unitLabel)} · ${share(row.percentage)}` : share(row.percentage));
 
 const ADD_CLASS =
   'inline-flex h-9 items-center gap-1 rounded-md border border-border px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 desktop:h-6 desktop:border-0 desktop:px-1.5 desktop:text-muted-foreground desktop:hover:text-foreground';
@@ -111,7 +115,7 @@ export function AssegnazioniTile({ reading, aside, view, onAdd, onRemove, footer
                     <th scope="row" className="py-2 text-left font-normal">
                       <InstrumentName name={row.name} ticker={row.ticker} />
                     </th>
-                    <td className="py-2 text-right font-mono tabular-nums text-foreground">{share(row.percentage)}</td>
+                    <td className="py-2 text-right font-mono tabular-nums text-foreground">{quota(row)}</td>
                     <td className="py-2 text-right font-mono tabular-nums text-foreground">{money(row.value)}</td>
                     <td className="py-1 text-right">
                       <button type="button" onClick={() => onRemove(group.goalId, row.assetId)} disabled={isDemo} className={REMOVE_CLASS} aria-label={removeLabel(row.name, group.name)}>
@@ -168,7 +172,7 @@ export function AssegnazioniTile({ reading, aside, view, onAdd, onRemove, footer
                     <InstrumentName name={row.name} ticker={row.ticker} />
                     <span className="ml-auto flex shrink-0 flex-col items-end font-mono text-[13px] tabular-nums leading-[1.3] text-foreground">
                       <span>{money(row.value)}</span>
-                      <span className="text-[11px] text-muted-foreground">{share(row.percentage)}</span>
+                      <span className="text-[11px] text-muted-foreground">{quota(row)}</span>
                     </span>
                     <button type="button" onClick={() => onRemove(group.goalId, row.assetId)} disabled={isDemo} className={REMOVE_CLASS} aria-label={removeLabel(row.name, group.name)}>
                       <X className="h-3.5 w-3.5" aria-hidden="true" />

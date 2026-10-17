@@ -657,7 +657,22 @@ export function describeOwnershipAnswer(summary: OwnershipSummary): Narrative | 
 
 /** The tile's footer: where the owner is set, and the two assets that derive theirs. */
 export const OWNERSHIP_FOOTER =
-  'L’intestatario si sceglie nel form di ogni asset; un fondo pensione segue il membro di Previdenza, un mutuo il suo immobile.';
+  'Le quote per persona si scrivono nel form di ogni asset; un fondo pensione segue il membro di Previdenza, un mutuo le quote del suo immobile.';
+
+/**
+ * The footer of the Intestatari tile: the neutral note, or — in the warning tone — the assets
+ * whose stored quotas no longer fit their quantity («1 asset ha quote da riassegnare: VWCE.»),
+ * since a sale or a value typed lower leaves the units as written (lib/utils/assetSlice.ts).
+ * `reassign` may be missing on a payload cached before the quotas: read as none.
+ */
+export function describeOwnershipFooter(summary: Pick<OwnershipSummary, 'reassign'>): { text: string; tone: 'neutral' | 'warning' } {
+  const reassign = summary.reassign ?? [];
+  if (reassign.length === 0) return { text: OWNERSHIP_FOOTER, tone: 'neutral' };
+  const names = reassign.map((entry) => entry.name);
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+  const verb = names.length === 1 ? 'ha' : 'hanno';
+  return { text: `${names.length} asset ${verb} quote da riassegnare: ${list}.`, tone: 'warning' };
+}
 
 /** The caption under a property listed net of its mortgage («Asset principali», 2026-10-17): «netto del mutuo di 95.000 €». */
 export function describeNetOfDebtCaption(debtNetted: number): string {

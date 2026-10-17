@@ -22,6 +22,16 @@
 - **The free shares are the residual**: `summarizeAssignments` lists an instrument with more than 0,5% and 0,50 € free, sums `freeTotal` over EVERY
   instrument so the «Non assegnato» row adds up, and names an instrument assigned past 100% in the footer's warning tone (the amber card is gone). Orphaned
   quotas are skipped as `goalMath` does; the tab still runs `cleanOrphanedAssignments` before every write, and every write rewrites the document whole.
+- **A quota is in PERCENT or in QUOTE** (owner, 2026-10-17; doc/guide/fire.md § FIRE, What If and Goals for the union and `assignmentFraction`; the
+  primitive lib/utils/assetSlice.ts): the Assegnazioni rows print a units quota as its units first and its derived percent after («12 quote · 40%»,
+  `AssignmentRow.units`/`unitLabel`; euro for an account or a property, whose value lives in `quantity` at price 1), a percent quota as before. The
+  dialog (`AssetAssignmentDialog`): pick the instrument, then ONE row with the % | quote switch (`SegmentedPill`, `semantics="radio"`; the figure
+  follows the switch, «40%» ↔ «40 quote») and the field, and under it the instrument's split as a computed list — the other goals' quotas each in
+  the form it was typed, this one, and «Non assegnate» as the REST, never typed; a total past the instrument reads «Oltre il posseduto» in red and
+  «Assegna» lands a refusal in the reading line (`describeModalStatus`, The Status-Is-The-Reading Rule), never a save. A units quota a SALE outgrew
+  (the quantity fell below the units, which stay as typed) is declared by the footer in units — «VWCE ha 120 quote assegnate su 100 quote: quote da
+  riassegnare.» (`overAssigned[].inUnits`) — and by the landscape answer «quote oltre il 100%»; the group's value is what the quota holds today, never
+  rescaled. `goals` is a prop of the dialog since then (the names of the other quotas).
 - **The Milestone never shows a deadline as an arrival**: a late goal keeps its projected month with «15 mesi dopo la scadenza di giugno 2029» under it, a goal
   the pace never reaches reads «mai, al ritmo attuale», an open goal is not listed. The old timeline fell back to the target date and called it a milestone.
 - Playwright locates the tiles by `role=region` + `aria-label` («Obiettivi», «Milestone», «Allocazione derivata», «Assegnazioni» — pass `exact: true`,
@@ -53,4 +63,4 @@ Composed on 2026-10-15 (its spec, retired on 2026-10-16, is in `git log -- doc/m
 
 ## Per-page blind spots
 
-- **FIRE › Obiettivi**: no Playwright spec of its own (its «disattivato» branch in `fire.mobile.spec.ts`); ONE `now` per mount; with three goals the Obiettivi tile leaves air under the rows; a goal past its deadline gets no pace; free shares under 0,5% / 0,50 € are not listed; the selection is session-only; the «assigned» bar counts the reached goals, the derived target does not; the two dialogs keep their old chrome and two pre-existing `react-hooks` errors.
+- **FIRE › Obiettivi**: no Playwright spec of its own (its «disattivato» branch in `fire.mobile.spec.ts`); ONE `now` per mount; with three goals the Obiettivi tile leaves air under the rows; a goal past its deadline gets no pace; free shares under 0,5% / 0,50 € are not listed; the selection is session-only; the «assigned» bar counts the reached goals, the derived target does not; the goal form keeps its old chrome; **a units quota on a foreign-currency account is euro of its NATIVE balance** (the quantity is the balance in that currency: «1.200 USD», `sliceUnit`), its value converted like the account's; the «N% libero» of the dialog's list rounds past float noise (`getAvailablePercentage` to six decimals) so «Esaurito» is an exact zero; the census fixture's two quotas stay in percent (no first-screen change).

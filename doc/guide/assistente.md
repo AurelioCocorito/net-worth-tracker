@@ -135,6 +135,11 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   `goalDrivenAllocationEnabled` on, Allocazione overrides them with `deriveTargetAllocationFromGoals`; quoting the
   Settings ones would be right numbers about the wrong thing. `buildGoalFields` derives goals, targets and source in ONE
   pass, falling back to the manual targets when the derivation yields null, mirroring the page.
+- **A quota reaches the model only as euro** (2026-10-17): a quota is a percent of the asset or a number of its units
+  (`GoalAssetAssignment`, doc/guide/fire.md), and the bundle carries each goal's `currentValue` through
+  `calculateGoalProgress`, which converts both forms (`assignmentFraction`); the prompt's goals block says a quota is
+  «in percentuale o in quote … già convertita in euro qui» and the ```goal-proposal schema carries NO assignment at all —
+  the model never sees a field the type does not have, and a proposal creates a goal, never a quota.
 - **Carry the trajectory numbers, don't make the model compute them**: `requiredMonthlyContribution` and
   `projectedValueAtDeadline` ship with `assumedAnnualReturn` and are labelled **projections** — a required pace without
   its return assumption cannot be audited, and a model without them multiplies contribution × months, ignoring

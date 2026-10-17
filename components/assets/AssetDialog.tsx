@@ -36,13 +36,13 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Timestamp } from 'firebase/firestore';
-import { useForm, useFieldArray, useWatch, type Control, type FieldErrors } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, type Control, type FieldErrors, type UseFormSetValue } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
 import { authenticatedFetch } from '@/lib/utils/authFetch';
-import { Asset, AssetFormData, AssetType, AssetClass, AllocationRole, AssetComposition, CouponFrequency, BondDetails, BondInflationIndexation } from '@/types/assets';
+import { Asset, AssetFormData, AssetType, AssetClass, AllocationRole, AssetComposition, CouponFrequency, BondDetails, BondInflationIndexation, type FamilyMember } from '@/types/assets';
 import type { PensionFundDetails } from '@/types/pension';
 import { createAsset, updateAsset, updateAssetMetadata } from '@/lib/services/assetService';
 import { isLedgerAssetType, type AssetTransactionFormData } from '@/types/assetTransactions';
@@ -57,6 +57,8 @@ import { resolveAllocationRole } from '@/lib/utils/allocationUtils';
 import { hasOwnOwnerField } from '@/lib/utils/assetOwnership';
 import { suggestIsLiquid } from '@/lib/utils/assetLiquidity';
 import { hasMarketPrice } from '@/lib/utils/assetPricing';
+import { sliceUnit, sliceUnitLabel, summarizeSlices } from '@/lib/utils/assetSlice';
+import { formatOwnerUnits } from '@/lib/utils/assetOwnership';
 import {
   effectiveBondNominal,
   isBondQuotedInPercent,
@@ -271,12 +273,16 @@ function buildAssetFormDataFromValues(
     allocationRole: data.type === 'loan' ? undefined : (data.allocationRole ?? 'tradable'),
     // «In comune» is the ABSENCE of the field (`updateAsset` turns the undefined into a
     // deleteField); a pension fund and a linked mortgage derive their owner and carry none.
-    ownerMemberId:
-      hasOwnOwnerField({ type: data.type, financedAssetId: data.type === 'loan' && data.financedAssetId !== '__none__' ? data.financedAssetId : undefined }) &&
-      data.ownerMemberId &&
-      data.ownerMemberId !== '__none__'
-        ? data.ownerMemberId
-        : undefined,
+    // `ownerMemberId` names who takes the REST of the quotas, `ownerShares` the rows typed —
+    // none typed and a rest member is the whole asset to that member, the shape of before.
+    ...(() => {
+      const owns = hasOwnOwnerField({ type: data.type, financedAssetId: data.type === 'loan' && data.financedAssetId !== '__none__' ? data.financedAssetId : undefined });
+      const shares = owns ? typedOwnerShares(data.ownerShares, data.ownerMemberId) : [];
+      return {
+        ownerMemberId: owns && data.ownerMemberId && data.ownerMemberId !== '__none__' ? data.ownerMemberId : undefined,
+        ownerShares: shares.length > 0 ? shares : undefined,
+      };
+    })(),
     pensionFundDetails: buildPensionFundDetailsFromForm(data),
   };
 }
@@ -440,9 +446,12 @@ const assetSchema = z.object({
   pensionProvider: z.string().optional(),
   pensionUnlockDate: z.string().optional(),
   pensionFamilyMemberId: z.string().optional(),
-  // «Intestatario» (lib/utils/assetOwnership.ts): a FamilyMember id, '__none__' = in comune. Not
-  // for a pension fund (its member is `pensionFamilyMemberId`) nor a mortgage (it follows its property).
+  // «Intestatari» (lib/utils/assetOwnership.ts): `ownerMemberId` is the member who takes the
+  // REST of the quotas, '__none__' = in comune («Nessuna quota in comune» off); `ownerShares` the
+  // rows typed, member → units (quote, or euro at price 1). Not for a pension fund (its member is
+  // `pensionFamilyMemberId`) nor a mortgage (it follows its property).
   ownerMemberId: z.string().optional(),
+  ownerShares: z.array(z.object({ memberId: z.string(), units: z.number().min(0, 'Una quota non può essere negativa').or(z.nan()) })).optional(),
 }).superRefine((data, ctx) => {
   const tickerRequired = data.type !== 'cash' && data.type !== 'realestate' && data.type !== 'pensionFund' && data.type !== 'loan';
   if (tickerRequired && (!data.ticker || data.ticker.trim().length === 0)) {
@@ -451,7 +460,21 @@ const assetSchema = z.object({
   if (data.type !== 'cash' && data.quantity < 0) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La quantità non può essere negativa', path: ['quantity'] });
   }
+  // The typed quotas never exceed the quantity: a refusal in the reading line, never a save that
+  // the row would then declare «da riassegnare» (lib/utils/assetSlice.ts).
+  if (!Number.isNaN(data.quantity) && typedOwnerShares(data.ownerShares, data.ownerMemberId).some(() => true)) {
+    const budget = summarizeSlices(typedOwnerShares(data.ownerShares, data.ownerMemberId).map((share) => ({ units: share.units })), data.quantity);
+    if (budget.needsReassignment) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Le quote intestate superano la quantità', path: ['ownerShares'] });
+    }
+  }
 });
+
+/** The quota rows that count: a positive number, not the rest member's (its row is computed). */
+function typedOwnerShares(shares: { memberId: string; units: number }[] | undefined, restMemberId: string | undefined): { memberId: string; units: number }[] {
+  const rest = restMemberId && restMemberId !== '__none__' ? restMemberId : null;
+  return (shares ?? []).filter((share) => share.memberId !== rest && !Number.isNaN(share.units) && share.units > 0);
+}
 
 type AssetFormValues = z.infer<typeof assetSchema>;
 
@@ -504,6 +527,7 @@ const FIELD_LABELS: Partial<Record<keyof AssetFormValues, string>> = {
   bondFinalPremiumRate: 'Premio finale',
   bondIndexationCoefficient: 'Coefficiente di indicizzazione',
   bondCouponRateSchedule: 'Tasso variabile',
+  ownerShares: 'Intestatari',
 };
 
 const assetTypes: { value: AssetType; label: string }[] = [
@@ -717,6 +741,118 @@ function FinalPremiumPreview({ control, currency }: { control: AssetFormControl;
   );
 }
 
+/**
+ * The «Intestatari» rows (owner, 2026-10-17; lib/utils/assetSlice.ts): one input per member in
+ * UNITS — quote of an instrument, euro of an account or a property —, the derived percentage
+ * beside it, and the LAST row the rest, computed and never typed: «In comune» by default, or the
+ * last member when «Nessuna quota in comune» is on (then the rest member's row moves last and
+ * reads what the others leave: «scrivo 40 a Giuseppe, Marcella legge 60 da sola»). Under the rows
+ * the sum («40 + 60 = 100 quote»); a sum past the quantity is red here and a refusal in the
+ * reading line at submit (the schema's superRefine), never a save. A leaf: it watches the quantity
+ * and the rows itself, so a key in «Quantità» re-renders this block and not the form.
+ */
+function OwnerSharesRows({
+  control,
+  setValue,
+  members,
+  restMemberId,
+  unitOf,
+  errorMessage,
+}: {
+  control: AssetFormControl;
+  setValue: UseFormSetValue<AssetFormValues>;
+  members: readonly FamilyMember[];
+  /** `ownerMemberId` as watched at the root: the member who takes the rest, '__none__' = in comune. */
+  restMemberId: string;
+  unitOf: { type: AssetType; subCategory?: string; currency: string };
+  errorMessage?: string;
+}) {
+  const quantity = useWatch({ control, name: 'quantity' });
+  const shares = useWatch({ control, name: 'ownerShares' }) ?? [];
+  const unit = sliceUnit(unitOf);
+  const base = Number.isNaN(quantity) ? 0 : Math.abs(quantity);
+  const rest = restMemberId !== '__none__' ? restMemberId : null;
+  const noCommon = rest !== null && members.some((member) => member.id === rest);
+  // The rest member's row goes last; the others keep the settings' order.
+  const typedMembers = members.filter((member) => member.id !== rest);
+  const unitsOf = (memberId: string): number => {
+    const share = shares.find((s) => s.memberId === memberId);
+    return share && !Number.isNaN(share.units) ? share.units : 0;
+  };
+  const budget = summarizeSlices(typedMembers.map((member) => ({ units: unitsOf(member.id) })), base);
+  const pctOf = (units: number) => (base > 0 ? formatPercentageIt((units / base) * 100, Number.isInteger((units / base) * 1000) ? 0 : 1) : '—');
+  const unitWord = sliceUnitLabel(unit);
+  const restLabel = noCommon ? `${members.find((member) => member.id === rest)?.name ?? ''} (il resto)` : 'In comune';
+
+  const updateUnits = (memberId: string, raw: string) => {
+    const units = raw === '' ? NaN : Number(raw);
+    const next = shares.filter((s) => s.memberId !== memberId);
+    setValue('ownerShares', Number.isNaN(units) ? next : [...next, { memberId, units }], { shouldValidate: !!errorMessage });
+  };
+  const toggleNoCommon = (checked: boolean) => {
+    // On: the last member takes the rest (its typed row, if any, is dropped — it is computed now).
+    const last = members[members.length - 1];
+    setValue('ownerMemberId', checked && last ? last.id : '__none__', { shouldValidate: !!errorMessage });
+  };
+
+  const sumWords = `${typedMembers.map((member) => formatOwnerUnits(unitsOf(member.id), unit)).join(' + ')}${typedMembers.length > 0 ? ' + ' : ''}${formatOwnerUnits(budget.freeUnits, unit)} = ${formatOwnerUnits(base, unit)}${unit.kind === 'units' ? ` ${unitWord}` : ''}`;
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        {typedMembers.map((member) => {
+          const id = `ownerShare-${member.id}`;
+          const units = unitsOf(member.id);
+          return (
+            <div key={member.id} className="grid grid-cols-[1fr_auto_3.5rem] items-center gap-2">
+              <Label htmlFor={id} className="truncate text-sm font-normal">{member.name}</Label>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  id={id}
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="any"
+                  className="w-28 text-right font-mono tabular-nums"
+                  value={shares.find((s) => s.memberId === member.id && !Number.isNaN(s.units)) ? units : ''}
+                  onChange={(event) => updateUnits(member.id, event.target.value)}
+                  aria-describedby={`${id}-pct`}
+                />
+                <span className="w-10 text-xs text-muted-foreground">{unitWord}</span>
+              </div>
+              <span id={`${id}-pct`} className="text-right font-mono text-xs tabular-nums text-muted-foreground">{pctOf(units)}</span>
+            </div>
+          );
+        })}
+        <div className="grid grid-cols-[1fr_auto_3.5rem] items-center gap-2" aria-live="polite">
+          <span className="truncate text-sm text-muted-foreground">{restLabel}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex h-9 w-28 items-center justify-end rounded-md border border-dashed border-border px-3 font-mono text-sm tabular-nums text-muted-foreground">
+              {formatOwnerUnits(budget.freeUnits, unit)}
+            </span>
+            <span className="w-10 text-xs text-muted-foreground">{unitWord}</span>
+          </div>
+          <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">{pctOf(budget.freeUnits)}</span>
+        </div>
+      </div>
+      <p className={budget.needsReassignment || errorMessage ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>
+        {budget.needsReassignment
+          ? `Le quote intestate (${formatOwnerUnits(budget.assignedUnits, unit)}) superano la quantità (${formatOwnerUnits(base, unit)}${unit.kind === 'units' ? ` ${unitWord}` : ''}).`
+          : errorMessage ?? sumWords}
+      </p>
+      {members.length > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <Label htmlFor="ownerNoCommon">Nessuna quota in comune</Label>
+            <p className="text-xs text-muted-foreground">Il resto va a {members[members.length - 1].name}, anche le quote che arriveranno.</p>
+          </div>
+          <Switch id="ownerNoCommon" checked={noCommon} onCheckedChange={toggleNoCommon} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** When the opening purchase settles on its account, from the date typed. */
 function SettlementTimingHint({ control, todayIso }: { control: AssetFormControl; todayIso: string }) {
   const openingDate = useWatch({ control, name: 'openingDate' });
@@ -785,6 +921,7 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
       allocationRole: 'tradable',
       openingCashAssetId: '__none__',
       dividendCashAssetId: NO_DIVIDEND_ACCOUNT,
+      ownerShares: [],
     },
   });
 
@@ -1053,6 +1190,7 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
         pensionUnlockDate: asset.pensionFundDetails?.unlockDate || undefined,
         pensionFamilyMemberId: asset.pensionFundDetails?.familyMemberId || '__none__',
         ownerMemberId: asset.ownerMemberId || '__none__',
+        ownerShares: (asset.ownerShares ?? []).map((share) => ({ memberId: share.memberId, units: share.units })),
       });
 
       // Pre-fill the bond detail fields (the toggles were set during render, above)
@@ -1114,6 +1252,7 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
         pensionUnlockDate: undefined,
         pensionFamilyMemberId: '__none__',
         ownerMemberId: '__none__',
+        ownerShares: [],
       });
       replaceTiers([]);
     }
@@ -2206,43 +2345,33 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
           </div>
           )}
 
-          {/* Intestatario (owner, 2026-10-17; lib/utils/assetOwnership.ts): whose this asset is,
-              among the members of Impostazioni › Famiglia — the Panoramica's and Patrimonio's
-              «Intestatari» tile and the Strumenti filter read it. «In comune» is the default and the
-              absence of the field. Not shown for a pension fund (its «Membro famiglia» IS its
-              owner) nor for a loan that finances a property (it follows the property). */}
+          {/* Intestatari (owner, 2026-10-17; lib/utils/assetOwnership.ts): whose this asset is,
+              by QUOTA, among the members of Impostazioni › Famiglia — one row per member, the LAST
+              row the rest, computed («In comune», or the last member with «Nessuna quota in
+              comune»); the Panoramica's and Patrimonio's «Intestatari» tile and the Strumenti
+              filter read it. Nothing typed and no rest member is «in comune», the absence of both
+              fields. Not shown for a pension fund (its «Membro famiglia» IS its owner) nor for a
+              loan that finances a property (it follows the property's quotas). */}
           {selectedType !== 'pensionFund' && (settings?.familyMembers ?? []).length > 0 && (
-            <div className="space-y-3 rounded-lg border p-4">
+            <div id="ownerShares" tabIndex={-1} className="space-y-3 rounded-lg border p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <div className="space-y-0.5">
-                <Label htmlFor="ownerMemberId">Intestatario</Label>
+                <Label>Intestatari</Label>
                 <p className="text-xs text-muted-foreground">
-                  A chi appartiene: le quote per persona in Panoramica e Patrimonio sommano gli asset per intestatario,
-                  quelli in comune a parte.
+                  A chi appartiene, in quote: le quote per persona in Panoramica e Patrimonio sommano gli asset per intestatario,
+                  quelle in comune a parte. L&apos;ultima riga è il resto, calcolato.
                 </p>
               </div>
               {selectedType === 'loan' && watchFinancedAssetId && watchFinancedAssetId !== '__none__' ? (
-                <p className="text-xs text-muted-foreground">Un mutuo segue l&apos;intestatario dell&apos;immobile che finanzia.</p>
+                <p className="text-xs text-muted-foreground">Un mutuo segue le quote dell&apos;immobile che finanzia.</p>
               ) : (
-                <Select
-                  value={watchOwnerMemberId ?? '__none__'}
-                  onValueChange={(value) => {
-                    if (!value) return;
-                    setValue('ownerMemberId', value);
-                  }}
-                >
-                  <SelectTrigger id="ownerMemberId">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">In comune</SelectItem>
-                    <SelectSeparator />
-                    {(settings?.familyMembers ?? []).map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <OwnerSharesRows
+                  control={control}
+                  setValue={setValue}
+                  members={settings?.familyMembers ?? []}
+                  restMemberId={watchOwnerMemberId ?? '__none__'}
+                  unitOf={{ type: selectedType, subCategory: selectedSubCategory || undefined, currency: watchCurrency }}
+                  errorMessage={errors.ownerShares?.message ?? (errors.ownerShares as { root?: { message?: string } } | undefined)?.root?.message}
+                />
               )}
             </div>
           )}

@@ -7,7 +7,7 @@ import {
   InvestmentGoal,
 } from '@/types/goals';
 import { calculateAssetValue } from './assetService';
-import { serializeGoalForFirestore } from '@/lib/utils/goalMath';
+import { assignmentFraction, serializeAssignmentForFirestore, serializeGoalForFirestore } from '@/lib/utils/goalMath';
 import { invalidateDashboardOverviewSummary } from './dashboardOverviewInvalidation';
 
 // Goal-Based Investing Service
@@ -21,6 +21,9 @@ import { invalidateDashboardOverviewSummary } from './dashboardOverviewInvalidat
 // re-exported here: this module imports the client Firestore SDK at top level,
 // so server-only code can never import it (doc/guide/panoramica.md § Panoramica and Dashboard
 // Data Isolation). Client call sites keep importing them from here.
+//
+// A quota is a percent OR a number of units of its asset (2026-10-17, lib/utils/assetSlice.ts):
+// every helper below reads it through `assignmentFraction`, so the two forms are one arithmetic.
 
 export {
   calculateGoalProgress,
@@ -62,11 +65,11 @@ export async function saveGoalData(
   try {
     const docRef = doc(db, GOALS_COLLECTION, userId);
     // Strip undefined values — Firestore rejects them inside an array element.
-    // The allowlist is shared with POST /api/goals via serializeGoalForFirestore.
+    // The allowlists are shared with POST /api/goals via goalMath's serializers.
     const cleanGoals = data.goals.map(serializeGoalForFirestore);
     await setDoc(docRef, {
       goals: cleanGoals,
-      assignments: data.assignments,
+      assignments: data.assignments.map(serializeAssignmentForFirestore),
       userId,
       updatedAt: new Date(),
     });
@@ -80,38 +83,38 @@ export async function saveGoalData(
 
 // ==================== Pure Calculation Functions ====================
 
+/** The fraction of an asset its quotas add up to, across every goal but `excludeGoalId`. */
+function assignedFractionOf(asset: Asset, assignments: GoalAssetAssignment[], excludeGoalId?: string): number {
+  let total = 0;
+  for (const assignment of assignments) {
+    if (assignment.assetId === asset.id && assignment.goalId !== excludeGoalId) {
+      total += assignmentFraction(assignment, asset);
+    }
+  }
+  return total;
+}
+
 /**
  * Calculate total portfolio value not assigned to any goal.
  *
- * For each asset, sums the assigned percentages across all goals,
+ * For each asset, sums the assigned fractions across all goals,
  * then adds the unassigned portion to the total.
  */
 export function getUnassignedValue(
   assets: Asset[],
   assignments: GoalAssetAssignment[]
 ): number {
-  // Build a map of assetId -> total assigned percentage
-  const assignedByAsset = new Map<string, number>();
-  for (const a of assignments) {
-    assignedByAsset.set(
-      a.assetId,
-      (assignedByAsset.get(a.assetId) || 0) + a.percentage
-    );
-  }
-
   let unassigned = 0;
   for (const asset of assets) {
     const assetValue = calculateAssetValue(asset);
-    const totalAssigned = assignedByAsset.get(asset.id) || 0;
-    const unassignedPct = Math.max(0, 100 - totalAssigned);
-    unassigned += (assetValue * unassignedPct) / 100;
+    const unassignedFraction = Math.max(0, 1 - assignedFractionOf(asset, assignments));
+    unassigned += assetValue * unassignedFraction;
   }
-
   return unassigned;
 }
 
 /**
- * Validate that no asset is over-assigned (> 100% total across all goals).
+ * Validate that no asset is over-assigned (its quotas past the whole of it).
  * Returns array of error messages, empty if valid.
  */
 export function validateAssignments(
@@ -119,25 +122,12 @@ export function validateAssignments(
   assets: Asset[]
 ): string[] {
   const errors: string[] = [];
-  const assignedByAsset = new Map<string, number>();
-
-  for (const a of assignments) {
-    assignedByAsset.set(
-      a.assetId,
-      (assignedByAsset.get(a.assetId) || 0) + a.percentage
-    );
-  }
-
-  const assetMap = new Map(assets.map((a) => [a.id, a]));
-
-  for (const [assetId, totalPct] of assignedByAsset.entries()) {
+  for (const asset of assets) {
+    const totalPct = assignedFractionOf(asset, assignments) * 100;
     if (totalPct > 100) {
-      const asset = assetMap.get(assetId);
-      const name = asset ? asset.name : assetId;
-      errors.push(`${name}: assegnato ${totalPct.toFixed(1)}% (max 100%)`);
+      errors.push(`${asset.name}: assegnato ${totalPct.toFixed(1)}% (max 100%)`);
     }
   }
-
   return errors;
 }
 
@@ -154,20 +144,16 @@ export function cleanOrphanedAssignments(
 }
 
 /**
- * Get the available (unassigned) percentage for an asset.
+ * Get the available (unassigned) percentage of an asset, 0-100.
  * Takes into account all existing assignments except those for a specific goal
- * (useful when editing an existing assignment).
+ * (useful when editing an existing assignment). The asset itself is needed since
+ * 2026-10-17: a units quota is a share of ITS quantity.
  */
 export function getAvailablePercentage(
-  assetId: string,
+  asset: Asset,
   assignments: GoalAssetAssignment[],
   excludeGoalId?: string
 ): number {
-  let totalAssigned = 0;
-  for (const a of assignments) {
-    if (a.assetId === assetId && a.goalId !== excludeGoalId) {
-      totalAssigned += a.percentage;
-    }
-  }
-  return Math.max(0, 100 - totalAssigned);
+  // Rounded past float noise: «Esaurito» is decided on an exact 0.
+  return Math.max(0, Math.round((100 - assignedFractionOf(asset, assignments, excludeGoalId) * 100) * 1e6) / 1e6);
 }
