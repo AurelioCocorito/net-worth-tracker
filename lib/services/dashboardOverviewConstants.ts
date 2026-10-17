@@ -50,7 +50,11 @@ export const DASHBOARD_OVERVIEW_SUMMARY_COLLECTION = 'dashboardOverviewSummaries
 // a stored settembre would keep 4089 €.
 // Bumped from 20→21: monthFlows (the pension contributions and the principal repaid per debt),
 // so the month's split names them instead of a «+1792 € di altre variazioni» that was the TFR.
-export const DASHBOARD_OVERVIEW_SOURCE_VERSION = 21;
+// Bumped from 21→22: ownership (the net worth by «Intestatario», lib/utils/assetOwnership.ts), so
+// the Panoramica's Intestatari tile reads the day's summary like every other tile.
+// Bumped from 22→23: topAssets list a property NET of its mortgage, with `debtNetted` (rankTopAssets),
+// and no mortgage row of its own — a stored list would keep the house gross at its old weight.
+export const DASHBOARD_OVERVIEW_SOURCE_VERSION = 23;
 // The materialized summary is stale when invalidated, of another source version, computed on an
 // earlier Italian DAY (the payload is the day's: the current/previous month and the month-end
 // projection are read from «today»), or older than this. Every mutation of an input already

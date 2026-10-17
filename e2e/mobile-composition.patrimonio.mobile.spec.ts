@@ -25,7 +25,8 @@ import { patchOverview } from './overviewFixture';
 const TOUCH_FLOOR = 44;
 const STORAGE_KEY = 'mobile-sections:assets';
 /** The base account's rows (no loan), in DOM order. */
-const ROW_IDS = ['patrimonio-movimenti', 'patrimonio-liquidita', 'patrimonio-classi', 'patrimonio-rendimento', 'patrimonio-strumenti'] as const;
+// Intestatari (2026-10-17): the base fixture's pension fund names a household member, so the row exists.
+const ROW_IDS = ['patrimonio-movimenti', 'patrimonio-liquidita', 'patrimonio-classi', 'patrimonio-rendimento', 'patrimonio-intestatari', 'patrimonio-strumenti'] as const;
 const TOP_MOVER = { topInstrumentMovers: [{ id: 'fenicottero', name: 'Fenicottero ETF', delta: 1500 }] };
 
 const verdictOf = (page: Page) => page.getByRole('region', { name: 'Verdetto del portafoglio' });
@@ -135,7 +136,7 @@ test.describe('Patrimonio, composed for a phone', () => {
         .filter((el) => el.checkVisibility())
         .map((el) => ({ name: el.getAttribute('aria-label'), top: Math.round(el.getBoundingClientRect().top) })),
     );
-    expect(order.map((s) => s.name)).toEqual(['Patrimonio', 'Movimenti del mese', 'Liquidità', 'Classi', 'Rendimento', 'Strumenti']);
+    expect(order.map((s) => s.name)).toEqual(['Patrimonio', 'Movimenti del mese', 'Liquidità', 'Classi', 'Rendimento', 'Intestatari', 'Strumenti']);
     expect(order.every((s, i) => i === 0 || s.top >= order[i - 1].top - 1), JSON.stringify(order)).toBe(true);
     expect(
       await page.evaluate(() => [...document.querySelector('main')!.querySelectorAll('*')].flatMap((el) => [...el.classList]).filter((name) => /^(?:[a-z-]+:)*order-/.test(name))),
@@ -176,6 +177,7 @@ test.describe('Patrimonio, composed for a phone', () => {
     expect(firstChild).toContain('Il resto della pagina');
     await expect(trigger(page, 'patrimonio-movimenti')).toHaveAttribute('aria-expanded', 'true');
     await expect(trigger(page, 'patrimonio-liquidita')).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.locator('main [id$="-trigger"]')).toHaveCount(3);
+    // Movimenti, Liquidità, Intestatari (on the live assets, overview or not) and Strumenti.
+    await expect(page.locator('main [id$="-trigger"]')).toHaveCount(4);
   });
 });

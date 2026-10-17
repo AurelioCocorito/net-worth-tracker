@@ -3,8 +3,8 @@
  * one spec, two projects — `tablet` (768×1024, two columns, the pill) and `tablet-landscape`
  * (1024×768, the stage: the answer on the left, the index on the right, the icon rail) — branching on
  * the width. Base account with the overview response patched on the wire (`e2e/overviewFixture.ts`:
- * `hasTERTracking` on and no goal, so SEVEN closed rows — Sintesi, Cashflow, Composizione, Costi,
- * Spese, Entrate, Asset).
+ * `hasTERTracking` on and no goal, so EIGHT closed rows — Sintesi, Cashflow, Composizione, Costi,
+ * Spese, Entrate, Asset, and since 2026-10-17 Intestatari, which the fixture's pension fund member brings).
  *
  * What a browser alone can prove: the columns at 768 and the landscape stage (the verdict and THE tile
  * 16px apart on the left, the 360px index on the right starting on the verdict line and ending on
@@ -43,7 +43,7 @@ import {
 } from './tabletLayout';
 
 const LEAD_ID = 'panoramica-patrimonio';
-/** The seven rows of the patched payload (no goal), in DOM order. */
+/** The eight rows of the patched payload (no goal), in DOM order — Intestatari since 2026-10-17 (the fixture's pension fund names a member). */
 const ROW_IDS = [
   'panoramica-sintesi',
   'panoramica-cashflow',
@@ -52,6 +52,7 @@ const ROW_IDS = [
   'panoramica-spese',
   'panoramica-entrate',
   'panoramica-asset',
+  'panoramica-intestatari',
 ] as const;
 
 // Framer's entrance and the panels' spring off: every box is read where it lands.
@@ -87,7 +88,7 @@ test.describe('Panoramica, composed for a tablet', () => {
   test('at 768 no grid row is half empty', async ({ page }) => {
     test.skip(isLandscape(page), 'a 768 rule');
     await open(page);
-    // Seven closed rows: the seventh, alone, takes the whole row.
+    // Eight closed rows, two by two (seven until 2026-10-17: the seventh, alone, took the whole row).
     await expectNoHalfCells(page, gridOf(page, LEAD_ID), ROW_IDS);
   });
 

@@ -42,6 +42,8 @@ const ROW_IDS = [
   'panoramica-spese',
   'panoramica-entrate',
   'panoramica-asset',
+  // The base fixture's pension fund names a household member, so the Intestatari row exists (2026-10-17).
+  'panoramica-intestatari',
 ] as const;
 
 const verdictOf = (page: Page) => page.getByRole('region', { name: 'Verdetto del mese' });
@@ -234,7 +236,7 @@ test.describe('Panoramica, composed for a phone', () => {
       return sections.map((el) => ({ name: el.getAttribute('aria-label'), top: Math.round(el.getBoundingClientRect().top) }));
     });
     // Sintesi before Cashflow on the phone, as at 1440 (The First-Screen Rule); the Cashflow tile is named after its month.
-    const EXPECTED = [/^Patrimonio$/, /^Sintesi patrimoniale$/, /^Cashflow · \p{Ll}+$/u, /^Composizione$/, /^Costi$/, /^Spese per categoria$/, /^Entrate per categoria$/, /^Asset principali$/];
+    const EXPECTED = [/^Patrimonio$/, /^Sintesi patrimoniale$/, /^Cashflow · \p{Ll}+$/u, /^Composizione$/, /^Costi$/, /^Spese per categoria$/, /^Entrate per categoria$/, /^Asset principali$/, /^Intestatari$/];
     expect(order.length, JSON.stringify(order)).toBe(EXPECTED.length);
     order.forEach((s, i) => expect(s.name, `tile ${i}`).toMatch(EXPECTED[i]));
     expect(order.every((s, i) => i === 0 || s.top >= order[i - 1].top - 1), JSON.stringify(order)).toBe(true);

@@ -248,6 +248,7 @@ describe('describeOverviewAsides', () => {
       [OVERVIEW_SECTION_IDS.spese]: 'le prime del mese',
       [OVERVIEW_SECTION_IDS.entrate]: 'le prime del mese',
       [OVERVIEW_SECTION_IDS.asset]: 'valore, peso, rendimento',
+      [OVERVIEW_SECTION_IDS.intestatari]: 'quote per persona',
     });
     for (const aside of Object.values(asides)) expect(aside).not.toMatch(/\d|€/);
   });
@@ -302,13 +303,32 @@ describe('describeOverviewClosedAnswers (the landscape index)', () => {
       [OVERVIEW_SECTION_IDS.spese]: 'tutto in Casa',
       [OVERVIEW_SECTION_IDS.entrate]: 'tutto da Stipendio',
       [OVERVIEW_SECTION_IDS.asset]: 'VWCE 40,0%',
+      // No held asset names a person on this fixture: the Intestatari row does not exist.
+      [OVERVIEW_SECTION_IDS.intestatari]: null,
     });
     for (const answer of Object.values(answers)) {
-      expect(answer!.filter((segment) => segment.mono).length).toBeLessThanOrEqual(1);
+      if (!answer) continue;
+      expect(answer.filter((segment) => segment.mono).length).toBeLessThanOrEqual(1);
       // None of these figures is a gain or a loss: no sign colour.
-      expect(answer!.some((segment) => segment.sign)).toBe(false);
+      expect(answer.some((segment) => segment.sign)).toBe(false);
       expect(text(answer)!.length).toBeLessThanOrEqual(22);
     }
+  });
+
+  // «Intestatari» (2026-10-17): the largest owner and the share its row prints, a figure no other row carries.
+  it('answers the Intestatari row with the largest owner, as the payload carries it', () => {
+    const withOwners = makeOverview({
+      ownership: {
+        rows: [
+          { key: 'marco', kind: 'member', memberId: 'marco', label: 'Marco', value: 120000, sharePct: 53.3, assetCount: 2 },
+          { key: 'common', kind: 'common', memberId: null, label: 'In comune', value: 105000, sharePct: 46.7, assetCount: 3 },
+        ],
+        total: 225000,
+        assetCount: 5,
+        hasOwners: true,
+      },
+    });
+    expect(text(describeOverviewClosedAnswers(withOwners, CALENDAR)[OVERVIEW_SECTION_IDS.intestatari])).toBe('Marco 53%');
   });
 
   it('never repeats a figure the strip prints (The Lifted-Figure Rule)', () => {

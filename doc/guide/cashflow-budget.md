@@ -115,6 +115,16 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   sotto il tetto.») — with `aria-invalid` on the field and the focus on it; any edit clears it. The two choices are
   `RadioChoice`, a radio group with ONE tab stop (roving `tabIndex`, arrows move). The dialog is mounted only while
   open, so `BudgetTab` remembers the opener (`openerRef`) and gives it the focus back on close.
+- **A row «Fuori dal budget» is Budget's business in no figure, and everyone else's in every figure** (owner,
+  2026-10-17; `Expense.excludeFromBudget`, the form's checkbox for spending types, every occurrence of a series or an
+  instalment plan carrying it): a purchase made for someone else and refunded later — the refund is income the
+  ceiling never sees, so the purchase must not weigh on it. ONE gate, `countsTowardBudget` (`budgetUtils.ts`; a
+  transfer fails it too): the ceiling, the per-category and annual items, `splitMonthlyTotalExpenses`, the dated rows
+  of the crossing day, `getPeriodExpensesForItem` (the weekly email's overspend list) and `evaluateBudgetAlerts` (the
+  monthly email) all read it — the two server readers spread the document, so the flag reaches them. Tracciamento,
+  Analisi, Panoramica, Storico and FIRE keep the row (the refund compensates it there). The feed and the table print
+  a «fuori budget» chip, the detail a «Budget» line; the words are `EXPENSE_BUDGET_EXCLUSION_*` in
+  `dialogNarrative.ts`. Pinned by `__tests__/budgetUtils.test.ts` (seen red with the gate reading `type` alone).
 - **GOTCHA**: never reconcile items against `categories` while `categories.length === 0` (they load async) — every
   category budget is dropped as an orphan and a later edit can persist the empty set.
 
@@ -140,6 +150,9 @@ Composed on 2026-10-12 (PR #454; its spec, retired the same day, is in `git log 
 ## Per-page blind spots
 
 - **Without a budget the phone shows Per categoria alone** (2026-10-12): Categorie a rischio and Avvisi are hidden below `desktop:` (they would repeat its empty state), so the first budget is added from that tile or the settings under it. The base fixture has no ceiling: its Budget has no strip, and the census's `firstClosedRowAbovePill` for this tab is read without one.
+- **The fee of a row «fuori dal budget» stays IN the budget** (2026-10-17): the flag is the row's alone, and a fee is a
+  row of its own (doc/guide/cashflow.md) — a bank charge for a purchase made for someone else is still a cost of
+  yours. Mark the fee row too if it should not count. The CSV import writes no flag.
 - **`useBudgetConfig` derives what it used to write** (2026-09-06): `items` is a `useMemo` reconcile over the saved list
   and `saveStatus` comes from `editSeq`/`lastWrite`, so three transient readings differ from before while every write is
   identical — a write landing while a newer edit is queued shows «saving» instead of a brief «saved»; after an error a

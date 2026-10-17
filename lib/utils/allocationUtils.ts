@@ -18,13 +18,14 @@
  *      `byAssetClass` map — no new data, just better questions answered.
  */
 
-import type {
-  AllocationData,
-  AllocationResult,
-  AllocationRole,
-  Asset,
-  AssetAllocationTarget,
-  AssetClass,
+import {
+  isLoanAsset,
+  type AllocationData,
+  type AllocationResult,
+  type AllocationRole,
+  type Asset,
+  type AssetAllocationTarget,
+  type AssetClass,
 } from '@/types/assets';
 import { getAssetDisplayTicker } from './assetDisplay';
 import { costBasisPerUnitEur } from './costBasisEur';
@@ -42,6 +43,8 @@ export type AllocationAction = 'COMPRA' | 'VENDI' | 'OK';
 function isTaxableOnSale(asset: Asset): boolean {
   if (asset.type === 'pensionFund') return false;
   if (asset.type === 'cash' && asset.assetClass === 'cash') return false;
+  // A debt is never sold (it is reported, never a plan's leg): it contributes 0 to the estimate.
+  if (isLoanAsset(asset)) return false;
   return true;
 }
 
@@ -601,6 +604,24 @@ export function resolveAllocationRole(asset: Asset): AllocationRole {
 }
 
 /**
+ * The role of an asset AMONG its list — the same as `resolveAllocationRole` for everything but a
+ * loan, whose role is DERIVED and never read from its document (owner, 2026-10-17): a debt follows
+ * what it finances. A mortgage takes the role of its property — the excluded home → the loan nets
+ * the excluded figure; a property in the allocation → the loan nets Immobili in the base and in
+ * the percentages. A personal loan (no `financedAssetId`, or one no longer in the list) is
+ * negative liquidity in the base, like a credit card's balance. Until that day a loan was
+ * `excluded` by the form's default, so the page summed Immobili and Liquidità GROSS of every
+ * debt. A loan is never a plan's leg — you neither buy nor sell a debt — because `buildHoldings`
+ * skips a non-positive value unless asked to REPORT debts. The `allocationRole` a loan document
+ * may still carry (the form wrote `excluded`, the one-shot migration still does) is inert.
+ */
+export function resolveAllocationRoleWithin(asset: Asset, assets: readonly Asset[]): AllocationRole {
+  if (!isLoanAsset(asset)) return resolveAllocationRole(asset);
+  const financed = asset.financedAssetId ? assets.find((candidate) => candidate.id === asset.financedAssetId) : undefined;
+  return financed ? resolveAllocationRole(financed) : 'tradable';
+}
+
+/**
  * Split an asset list by the three roles. Apply UPSTREAM of `compareAllocations`, never to its
  * output.
  *
@@ -610,7 +631,8 @@ export function resolveAllocationRole(asset: Asset): AllocationRole {
  * `computeBalanceScore` decomposes into misallocation and leverage gap.
  *
  * `excluded` leaves entirely: keeping a house in the denominator pegs the realestate class
- * permanently off-target against a trade nobody can execute.
+ * permanently off-target against a trade nobody can execute. A loan goes where the asset it
+ * finances goes (`resolveAllocationRoleWithin`), so each group's sum is NET of its debts.
  */
 export function partitionByAllocationRole(assets: Asset[]): {
   /** In the denominator AND in the plans. */
@@ -625,7 +647,7 @@ export function partitionByAllocationRole(assets: Asset[]): {
   const excluded: Asset[] = [];
 
   for (const asset of assets) {
-    const role = resolveAllocationRole(asset);
+    const role = resolveAllocationRoleWithin(asset, assets);
     if (role === 'excluded') excluded.push(asset);
     else if (role === 'frozen') frozen.push(asset);
     else tradable.push(asset);
@@ -687,17 +709,24 @@ export interface AllocatableHolding {
  * amounts still sum back to the class amount, and each sleeve lands in the class it really belongs
  * to. A frozen composite therefore contributes its equity sleeve to the equity percentages and its
  * bond sleeve to the bond ones, which is the whole point of counting it.
+ *
+ * A debt (a `loan`, worth minus its principal) is skipped by default — the planners read this
+ * list, and a debt is no leg of a plan. `includeDebts` is for the REPORTING lists (the frozen and
+ * excluded groups, the euro of each class in excluded assets): there a loan is a row with its
+ * negative value, so the group's total is net of it like the class sums are (2026-10-17).
  */
 export function buildHoldings(
   assets: Asset[],
-  valueOf: (asset: Asset) => number
+  valueOf: (asset: Asset) => number,
+  options: { includeDebts?: boolean } = {}
 ): AllocatableHolding[] {
   const holdings: AllocatableHolding[] = [];
 
   for (const asset of assets) {
     const value = valueOf(asset);
-    if (value <= 0) continue;
-    const tradable = resolveAllocationRole(asset) === 'tradable';
+    const isDebt = isLoanAsset(asset) && value < 0;
+    if (isDebt ? !options.includeDebts : value <= 0) continue;
+    const tradable = resolveAllocationRoleWithin(asset, assets) === 'tradable';
     // holdingLabel() appends this in parens next to the name — only worth showing when it's a
     // genuine ticker/alias distinct from the name; the resolver's name-fallback would otherwise
     // duplicate it (e.g. "Conto Corrente (Conto Corrente)" for a tickerless asset).

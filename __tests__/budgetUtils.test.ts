@@ -34,6 +34,7 @@ import {
   splitMonthActualForItem,
   splitMonthlyTotalExpenses,
   evaluateBudgetAlerts,
+  countsTowardBudget,
   OVERALL_BUDGET_KEY,
 } from '@/lib/utils/budgetUtils';
 import type { Expense, ExpenseCategory } from '@/types/expenses';
@@ -175,6 +176,33 @@ describe('getMonthlyTotalExpenses', () => {
     expect(getMonthlyTotalExpenses(EXPENSES, 2025, 1)).toBeCloseTo(950);
     // March 2025: only the cat2 variable expense
     expect(getMonthlyTotalExpenses(EXPENSES, 2025, 3)).toBeCloseTo(200);
+  });
+});
+
+// «Fuori dal budget» (owner, 2026-10-17): a purchase made for someone else, refunded later. ONE
+// predicate, `countsTowardBudget`, takes the row out of every Budget figure — the ceiling, the
+// item, the split, the dated rows the crossing day reads — and out of nothing else.
+describe('a row marked excludeFromBudget', () => {
+  const amazonForAFriend = makeExpense({ categoryId: 'cat1', amount: -120, date: new Date(2025, 0, 20), excludeFromBudget: true });
+  const expenses = [...EXPENSES, amazonForAFriend];
+
+  it('is Budget\'s business only when the flag is absent or false (transfers never are)', () => {
+    expect(countsTowardBudget({ type: 'variable' })).toBe(true);
+    expect(countsTowardBudget({ type: 'variable', excludeFromBudget: false })).toBe(true);
+    expect(countsTowardBudget({ type: 'variable', excludeFromBudget: true })).toBe(false);
+    expect(countsTowardBudget({ type: 'transfer' })).toBe(false);
+  });
+
+  it('weighs on no ceiling, item, split or dated row', () => {
+    expect(getMonthlyTotalExpenses(expenses, 2025, 1)).toBeCloseTo(950);
+    expect(getActualForItem(CAT_ITEM, expenses, 2025)).toBe(getActualForItem(CAT_ITEM, EXPENSES, 2025));
+    expect(getMonthActualForItem(CAT_ITEM, expenses, 2025, 1)).toBeCloseTo(950);
+    const now = new Date(2025, 0, 25, 12);
+    expect(splitMonthlyTotalExpenses(expenses, 2025, 1, now)).toEqual(splitMonthlyTotalExpenses(EXPENSES, 2025, 1, now));
+    expect(splitMonthActualForItem(CAT_ITEM, expenses, 2025, 1, now)).toEqual(splitMonthActualForItem(CAT_ITEM, EXPENSES, 2025, 1, now));
+    expect(collectMonthSpending(expenses, 2025, 1).some((row) => row.amount === 120)).toBe(false);
+    expect(collectMonthItemSpending(CAT_ITEM, expenses, 2025, 1).some((row) => row.amount === 120)).toBe(false);
+    expect(getPeriodExpensesForItem(CAT_ITEM, expenses, now)).not.toContain(amazonForAFriend);
   });
 });
 

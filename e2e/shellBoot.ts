@@ -125,6 +125,54 @@ export async function expectThemeOnFirstFrame(page: Page): Promise<void> {
   expect(probe.frames.filter((frame) => frame !== NON_DEFAULT_THEME)).toEqual([]);
 }
 
+/**
+ * (d) The browser's own chrome follows the page (2026-10-17, lib/utils/themeColor.ts): every
+ * `<meta name="theme-color">` carries the hex of the RESOLVED `--background` — the colour `<html>`
+ * itself is painted with, so an overscroll shows the page's colour, not white — and `color-scheme`
+ * on `<html>` says the mode next-themes put there. Read after the page's heading, when
+ * `ThemeColorSync` has had its frame. The bars themselves are outside the page: the owner looks at
+ * them on the phone; this holds what feeds them.
+ */
+export async function expectBrowserChromeFollowsTheme(page: Page): Promise<void> {
+  await page.goto('/dashboard', { waitUntil: 'load' });
+  await expect(pageHeading(page)).toBeVisible();
+  // The poll answers «ok» or the probe itself, so a red run prints what the page held.
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const html = document.documentElement;
+        const style = getComputedStyle(html);
+        // Chromium serves a down-levelled token as `lab(…)` (lib/utils/colorParse.ts), and its
+        // `fillStyle` getter keeps that form: the PIXEL painted with it is the `#rrggbb` the meta carries.
+        const toHex = (color: string) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 1;
+          canvas.height = 1;
+          const context = canvas.getContext('2d');
+          if (!context) return color;
+          context.fillStyle = color;
+          context.fillRect(0, 0, 1, 1);
+          const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
+          return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+        };
+        const probe = {
+          metas: Array.from(document.querySelectorAll('meta[name="theme-color"]')).map((meta) => meta.getAttribute('content')),
+          htmlBackground: toHex(style.backgroundColor),
+          bodyBackground: toHex(getComputedStyle(document.body).backgroundColor),
+          colorScheme: style.colorScheme,
+          isDark: html.classList.contains('dark'),
+        };
+        const ok =
+          probe.metas.length > 0 &&
+          probe.metas.every((content) => content === probe.htmlBackground) &&
+          probe.htmlBackground === probe.bodyBackground &&
+          probe.colorScheme === (probe.isDark ? 'dark' : 'light');
+        return ok ? 'ok' : JSON.stringify(probe);
+      }),
+    )
+    .toBe('ok');
+}
+
 /** Without a session the shell shows, the page never does, and /login follows. */
 export async function expectRedirectWithoutSession(page: Page): Promise<void> {
   await page.goto('/dashboard');

@@ -561,6 +561,8 @@ describe('describePatrimonioClosedAnswers (the landscape index)', () => {
       [PATRIMONIO_SECTION_IDS.mutuo]: null,
       [MUTUO]: 'fine prevista nov 2036',
       [PATRIMONIO_SECTION_IDS.strumenti]: 'i 3 maggiori 60,0%',
+      // No owner set on this fixture: the Intestatari row does not exist.
+      [PATRIMONIO_SECTION_IDS.intestatari]: null,
     });
     for (const answer of Object.values(answers)) {
       if (!answer) continue;
@@ -570,6 +572,20 @@ describe('describePatrimonioClosedAnswers (the landscape index)', () => {
     // Only the return on cost is a gain: the net invested is not, nor is the balance.
     expect(answers[PATRIMONIO_SECTION_IDS.rendimento]!.find((segment) => segment.mono)!.sign).toBe('positive');
     expect(answers[PATRIMONIO_SECTION_IDS.movimenti]!.some((segment) => segment.sign)).toBe(false);
+  });
+
+  // «Intestatari» (2026-10-17): the largest owner and the share its row prints.
+  it('should answer the Intestatari row with the largest owner when a held asset names one', () => {
+    const ownership = {
+      rows: [
+        { key: 'giulia', kind: 'member' as const, memberId: 'giulia', label: 'Giulia', value: 3000, sharePct: 60, assetCount: 1 },
+        { key: 'common', kind: 'common' as const, memberId: null, label: 'In comune', value: 2000, sharePct: 40, assetCount: 4 },
+      ],
+      total: 5000,
+      assetCount: 5,
+      hasOwners: true,
+    };
+    expect(text(describePatrimonioClosedAnswers(input({ ownership }))[PATRIMONIO_SECTION_IDS.intestatari])).toBe('Giulia 60%');
   });
 
   it('should never repeat a figure the strip prints (The Lifted-Figure Rule)', () => {

@@ -10,7 +10,7 @@
  * (`excluded` leaves every view and every coverage clause). «Quoted instrument» is ONE rule,
  * `hasMarketPrice` plus a non-empty ticker: never a hand-written list of types here.
  */
-import type { Asset, AssetType } from '@/types/assets';
+import { isLoanAsset, type Asset, type AssetType } from '@/types/assets';
 import type { ProfileModule, ProfileRequest } from '@/types/exposure';
 import { resolveAllocationRole } from '@/lib/utils/allocationUtils';
 import { hasMarketPrice } from '@/lib/utils/assetPricing';
@@ -20,9 +20,13 @@ export function instrumentTicker(asset: Pick<Asset, 'ticker'>): string {
   return (asset.ticker ?? '').trim();
 }
 
-/** In the Allocazione portfolio: held, and not `excluded`. */
+/**
+ * In the Allocazione portfolio: held, and not `excluded`. A loan never is: since 2026-10-17 it
+ * follows what it finances into the allocation (`resolveAllocationRoleWithin`), but a debt has no
+ * exposure to read, and its negative value would break the identity the coverage line adds up.
+ */
 export function isExposureBaseAsset(asset: Asset): boolean {
-  return asset.quantity > 0 && resolveAllocationRole(asset) !== 'excluded';
+  return asset.quantity > 0 && !isLoanAsset(asset) && resolveAllocationRole(asset) !== 'excluded';
 }
 
 /** Priced by a market AND identifiable by a ticker: the only assets Yahoo can be asked about. */

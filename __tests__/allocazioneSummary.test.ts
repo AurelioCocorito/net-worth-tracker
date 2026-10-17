@@ -746,6 +746,20 @@ describe('buildPensionLookThrough', () => {
     expect(look!.hasExcluded).toBe(true);
     expect(look!.allFrozen).toBe(true);
   });
+
+  // «Tutto il patrimonio» is the NET worth (owner, 2026-10-17): a mortgage lowers Immobili, a
+  // personal loan Liquidità. Seen red with the non-positive skip put back (the house gross).
+  it('nets a loan into the class of what it finances, in the whole-wealth mix', () => {
+    const mortgage = asset({ id: 'm', name: 'Mutuo Casa', type: 'loan', assetClass: 'realestate', quantity: 80000, currentPrice: 1, financedAssetId: 'h' } as Partial<Asset>);
+    const netValueOf = (a: Asset) => (a.type === 'loan' ? -a.quantity : a.quantity * a.currentPrice);
+    const look = buildPensionLookThrough([fund, house, etf, mortgage], netValueOf)!;
+    const realestate = look.combinedSlices.find((s) => s.assetClass === 'realestate')!;
+    expect(realestate.value).toBe(100000);
+    expect(look.combinedTotal).toBeCloseTo(284835, 2);
+    expect(realestate.percentage).toBeCloseTo((100000 / 284835) * 100, 6);
+    // The funds' own mix never sees a debt.
+    expect(look.fundValue).toBe(42000);
+  });
 });
 
 // ─── selectAllocazioneStrip — the phone's two cells (2026-10-15) ──────────────

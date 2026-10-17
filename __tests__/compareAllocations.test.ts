@@ -142,6 +142,55 @@ describe('compareAllocations — allocationRole partitioning', () => {
   });
 });
 
+// A loan follows what it finances (owner, 2026-10-17; `resolveAllocationRoleWithin`): until then
+// every loan was `excluded` by the form's default and Immobili and Liquidità read GROSS of debt.
+// Seen red with the partition reading the loan's stored role again.
+describe('compareAllocations — a loan nets the class of what it finances', () => {
+  it('nets a mortgage into Immobili when its property is in the allocation', () => {
+    const assets = [
+      makeAsset({ id: 'etf', assetClass: 'equity', quantity: 1, currentPrice: 1000 }),
+      makeAsset({ id: 'rental', type: 'realestate', assetClass: 'realestate', quantity: 1, currentPrice: 3000 }),
+      // Stored `excluded` by an older form: inert, the role is the rental's.
+      makeAsset({ id: 'loan', type: 'loan', assetClass: 'realestate', quantity: 2000, currentPrice: 1, financedAssetId: 'rental', allocationRole: 'excluded' }),
+    ];
+    const result = compareAllocations(assets, targets({ equity: 50, realestate: 50 }));
+
+    // 1000 equity + (3000 − 2000) realestate = 2000 of market base.
+    expect(result.marketValue).toBe(2000);
+    expect(result.byAssetClass.realestate.currentValue).toBe(1000);
+    expect(result.byAssetClass.realestate.currentPercentage).toBeCloseTo(50, 6);
+    expect(result.byAssetClass.equity.currentPercentage).toBeCloseTo(50, 6);
+  });
+
+  it('keeps a mortgage OUT with the excluded home it finances, and nets a personal loan into Liquidità', () => {
+    const assets = [
+      makeAsset({ id: 'cash', type: 'cash', assetClass: 'cash', quantity: 1000, currentPrice: 1 }),
+      makeAsset({ id: 'home', type: 'realestate', assetClass: 'realestate', quantity: 1, currentPrice: 5000, allocationRole: 'excluded' }),
+      makeAsset({ id: 'mortgage', type: 'loan', assetClass: 'realestate', quantity: 4000, currentPrice: 1, financedAssetId: 'home' }),
+      makeAsset({ id: 'car', type: 'loan', assetClass: 'cash', quantity: 400, currentPrice: 1 }),
+    ];
+    const result = compareAllocations(assets, targets({ cash: 100 }));
+
+    expect(result.marketValue).toBe(600);
+    expect(result.byAssetClass.cash.currentValue).toBe(600);
+    expect(result.byAssetClass.realestate).toBeUndefined();
+  });
+
+  it('declares a class below zero instead of clamping it', () => {
+    const assets = [
+      makeAsset({ id: 'etf', assetClass: 'equity', quantity: 1, currentPrice: 1000 }),
+      makeAsset({ id: 'cash', type: 'cash', assetClass: 'cash', quantity: 100, currentPrice: 1 }),
+      makeAsset({ id: 'car', type: 'loan', assetClass: 'cash', quantity: 300, currentPrice: 1 }),
+    ];
+    const result = compareAllocations(assets, targets({ equity: 90, cash: 10 }));
+
+    expect(result.marketValue).toBe(800);
+    expect(result.byAssetClass.cash.currentValue).toBe(-200);
+    expect(result.byAssetClass.cash.currentPercentage).toBeCloseTo(-25, 6);
+    expect(result.byAssetClass.cash.action).toBe('COMPRA');
+  });
+});
+
 describe('applyRebalanceBand preserves leverage metadata', () => {
   it('keeps marketValue / notionalValue / leverageRatio / hasLeveragedExposure after re-banding', () => {
     const assets = [

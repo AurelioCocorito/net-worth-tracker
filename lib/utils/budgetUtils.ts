@@ -54,6 +54,18 @@ export function categoryKind(category: Pick<ExpenseCategory, 'type'>): 'expense'
 // ==================== Core Matching ====================
 
 /**
+ * Whether a row is Budget's business at all — the ONE gate every total, split, projection and
+ * alert in this module reads (owner, 2026-10-17). Two rows are not: a transfer (net-zero, it was
+ * never spending) and a row marked «Fuori dal budget» (`Expense.excludeFromBudget`: a purchase
+ * made for someone else, refunded later — the refund is income the ceiling never sees, so the
+ * purchase must not weigh on it either). Everything outside Budget still counts the row.
+ */
+export function countsTowardBudget(expense: Pick<Expense, 'type' | 'excludeFromBudget'>): boolean {
+  if (expense.type === 'transfer') return false;
+  return expense.excludeFromBudget !== true;
+}
+
+/**
  * Returns true if an expense matches the budget item's scope, kind and identifiers.
  *
  * Type-scope expense items match only spending types; type-scope income items match
@@ -61,8 +73,7 @@ export function categoryKind(category: Pick<ExpenseCategory, 'type'>): 'expense'
  * a category is inherently income or expense, so its `kind` is fixed by the category.
  */
 function expenseMatchesItem(expense: Expense, item: BudgetItem): boolean {
-  // Transfers are net-zero — never match any budget item
-  if (expense.type === 'transfer') return false;
+  if (!countsTowardBudget(expense)) return false;
 
   switch (item.scope) {
     case 'type':
@@ -130,7 +141,8 @@ export function getMonthlyActualsForItem(
 
 /**
  * Returns the absolute EUR total of all real spending in a single month/year —
- * every expense (amount < 0) except transfers, regardless of category.
+ * every expense (amount < 0) except transfers and the rows «fuori dal budget», regardless of
+ * category.
  *
  * This is what the overall budget is measured against: a ceiling on ALL spending
  * combined (issue #148), not just the categories that happen to have a budget.
@@ -142,7 +154,7 @@ export function getMonthlyTotalExpenses(
 ): number {
   let total = 0;
   for (const expense of expenses) {
-    if (expense.type === 'transfer') continue;
+    if (!countsTowardBudget(expense)) continue;
     if (expense.amount >= 0) continue; // income / positive corrections
     const { month: expMonth, year: expYear } = getItalyMonthYear(toDate(expense.date));
     if (expYear !== year || expMonth !== month) continue;
@@ -184,7 +196,7 @@ export function splitMonthlyTotalExpenses(
   let scheduled = 0;
   const todayIso = getItalyDateIso(now);
   for (const expense of expenses) {
-    if (expense.type === 'transfer') continue;
+    if (!countsTowardBudget(expense)) continue;
     if (expense.amount >= 0) continue;
     const date = toDate(expense.date);
     const { month: expMonth, year: expYear } = getItalyMonthYear(date);
@@ -562,11 +574,11 @@ export interface DatedAmount {
   amount: number;
 }
 
-/** The month's spending rows as dated amounts (income and transfers out), unsorted. */
+/** The month's spending rows as dated amounts (income, transfers and the rows «fuori dal budget» out), unsorted. */
 export function collectMonthSpending(expenses: Expense[], year: number, month: number): DatedAmount[] {
   const out: DatedAmount[] = [];
   for (const expense of expenses) {
-    if (expense.type === 'transfer' || expense.amount >= 0) continue;
+    if (!countsTowardBudget(expense) || expense.amount >= 0) continue;
     const date = toDate(expense.date);
     const { month: expMonth, year: expYear } = getItalyMonthYear(date);
     if (expYear !== year || expMonth !== month) continue;

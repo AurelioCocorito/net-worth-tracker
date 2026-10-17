@@ -127,6 +127,9 @@ import {
   EXPENSE_FEE_NEEDS_CATEGORY,
   EXPENSE_FEE_READING,
   EXPENSE_FEE_UNREAD,
+  EXPENSE_BUDGET_EXCLUSION_LABEL,
+  EXPENSE_BUDGET_EXCLUSION_HINT,
+  EXPENSE_BUDGET_EXCLUSION_SERIES_HINT,
   type ModalStatus,
 } from '@/lib/utils/dialogNarrative';
 import { cn } from '@/lib/utils';
@@ -167,6 +170,8 @@ const expenseSchema = z
     debtAssetId: z.string().optional(),
     // «Estinzione anticipata»: the whole amount is principal (lib/utils/mortgageRepayment.ts).
     isDebtPayoff: z.boolean().optional(),
+    // «Fuori dal budget»: Budget skips the row, every other total keeps it (types/expenses.ts).
+    excludeFromBudget: z.boolean().optional(),
   })
   .refine(
     (data) => {
@@ -460,6 +465,8 @@ interface FormBodyProps {
   loans: Asset[];
   watchedDebtAssetId: string | undefined;
   watchedIsDebtPayoff: boolean | undefined;
+  /** «Fuori dal budget» (types/expenses.ts): offered on spending types only. */
+  watchedExcludeFromBudget: boolean | undefined;
   /** The line under «Riduce il debito di»: principal vs interest of this instalment, on today's debt. */
   debtRepaymentHint: string;
   advancedOpen: boolean;
@@ -512,6 +519,7 @@ function ExpenseFormBody({
   loans,
   watchedDebtAssetId,
   watchedIsDebtPayoff,
+  watchedExcludeFromBudget,
   debtRepaymentHint,
   advancedOpen,
   setAdvancedOpen,
@@ -900,6 +908,31 @@ function ExpenseFormBody({
               <span>Estinzione anticipata (parziale o totale): tutto l&apos;importo riduce il debito</span>
             </label>
           )}
+        </div>
+      )}
+
+      {/* ---- Fuori dal budget (owner, 2026-10-17) ----
+          A spending row Budget must not count: a purchase made for someone else, refunded later.
+          Spending types only — an income or a transfer is never in a budget's spending — and in
+          the main body, since it is decided row by row; the hint says what stays (the cashflow)
+          and what goes (the ceiling, the per-category budgets). On a series or an instalment plan
+          every occurrence takes the same flag (lib/services/expenseService.ts). */}
+      {selectedType !== 'income' && selectedType !== 'transfer' && (
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              id="excludeFromBudget"
+              className="h-4 w-4 rounded"
+              checked={!!watchedExcludeFromBudget}
+              onChange={(event) => setValue('excludeFromBudget', event.target.checked)}
+            />
+            <span>{EXPENSE_BUDGET_EXCLUSION_LABEL}</span>
+          </label>
+          <p id="excludeFromBudget-hint" className="text-xs text-muted-foreground">
+            {EXPENSE_BUDGET_EXCLUSION_HINT}
+            {(selectedIsRecurring || watchedIsInstallment) && ` ${EXPENSE_BUDGET_EXCLUSION_SERIES_HINT}`}
+          </p>
         </div>
       )}
 
@@ -1479,6 +1512,7 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
   const watchedFee = useWatch({ control, name: 'fee' });
   const watchedDebtAssetId = useWatch({ control, name: 'debtAssetId' });
   const watchedIsDebtPayoff = useWatch({ control, name: 'isDebtPayoff' });
+  const watchedExcludeFromBudget = useWatch({ control, name: 'excludeFromBudget' });
   const watchedAmount = useWatch({ control, name: 'amount' });
 
   const isEdit = !!expense;
@@ -1618,6 +1652,7 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
         fee: Number.NaN,
         debtAssetId: expense.debtAssetId || '__none__',
         isDebtPayoff: expense.isDebtPayoff === true,
+        excludeFromBudget: expense.excludeFromBudget === true,
       });
     } else {
       reset({
@@ -1638,6 +1673,7 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
         fee: Number.NaN,
         debtAssetId: '__none__',
         isDebtPayoff: false,
+        excludeFromBudget: false,
       });
     }
   }, [expense, reset, open]);
@@ -1907,6 +1943,8 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
     // The loan only exists on a debt row: re-typed away from one, the link goes, and the payoff flag with it.
     const resolvedDebtAssetId = data.type === 'debt' && data.debtAssetId && data.debtAssetId !== '__none__' ? data.debtAssetId : undefined;
     const resolvedIsDebtPayoff = !!resolvedDebtAssetId && data.isDebtPayoff === true;
+    // «Fuori dal budget» is a spending row's flag: re-typed to income or transfer, it goes.
+    const resolvedExcludeFromBudget = data.type !== 'income' && data.type !== 'transfer' && data.excludeFromBudget === true;
     // A fee row takes no fee of its own; any other row may carry one (lib/utils/expenseFee.ts).
     const requestedFee = isFeeRowEdit ? null : normalizeExpenseFee(data.fee);
     const feeNote = describeExpenseFeeNote({
@@ -1955,6 +1993,7 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
         costCenterId: resolvedCostCenterId,
         costCenterName: resolvedCostCenterName,
         personalMemberId: resolvedPersonalMemberId,
+        excludeFromBudget: resolvedExcludeFromBudget || undefined,
       };
 
       // One «now» for the whole save: whether a row moves its account today or on its date
@@ -2016,6 +2055,8 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
           transferFeeExpenseId: fee.feeExpenseId ?? deleteField(),
           debtAssetId: resolvedDebtAssetId ?? deleteField(),
           isDebtPayoff: resolvedIsDebtPayoff ? true : deleteField(),
+          // Absent means counted (types/expenses.ts), so unticking has to DELETE the field.
+          excludeFromBudget: resolvedExcludeFromBudget ? true : deleteField(),
         };
         await updateExpense(
           expense.id,
@@ -2065,6 +2106,7 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
             transferFeeExpenseId: fee.feeExpenseId ?? undefined,
             debtAssetId: resolvedDebtAssetId,
             isDebtPayoff: resolvedIsDebtPayoff ? true : undefined,
+            excludeFromBudget: resolvedExcludeFromBudget ? true : undefined,
             updatedAt: now,
           },
         };
@@ -2292,6 +2334,7 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
     loans,
     watchedIsDebtPayoff,
     watchedDebtAssetId,
+    watchedExcludeFromBudget,
     debtRepaymentHint,
     advancedOpen,
     setAdvancedOpen,

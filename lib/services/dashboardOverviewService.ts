@@ -25,6 +25,7 @@ import {
   computeTopMovers,
   rankCostDrivers,
   rankGoalProgress,
+  rankTopAssets,
   type PensionMarketInput,
 } from '@/lib/utils/dashboardOverviewUtils';
 import { resolvePensionReturnStart } from '@/lib/utils/pensionReturn';
@@ -51,8 +52,8 @@ import {
 } from '@/lib/services/chartService';
 import { calculateMonthlyChange, calculateYearlyChange } from '@/lib/services/snapshotService';
 import { getItalyDateIso, getItalyMonthYear, ITALY_TIMEZONE, toDate } from '@/lib/utils/dateHelpers';
-import { getAssetDisplayTicker } from '@/lib/utils/assetDisplay';
 import { costBasisPerUnitEur } from '@/lib/utils/costBasisEur';
+import { summarizeOwnership } from '@/lib/utils/assetOwnership';
 import {
   DASHBOARD_OVERVIEW_SOURCE_VERSION,
   DASHBOARD_OVERVIEW_SUMMARY_COLLECTION,
@@ -406,32 +407,12 @@ function buildLiveOverviewPayload(
       : [];
   const goalProgress = goalProgressList[0] ?? null;
   const costDrivers = rankCostDrivers(assets);
+  // The net worth by «Intestatario»: null when no held asset names a person (the tile is absent).
+  const ownershipSummary = summarizeOwnership(assets, settings?.familyMembers ?? [], calculateAssetValue);
+  const ownership = ownershipSummary.hasOwners ? ownershipSummary : null;
 
-  // Top assets for the portfolio list card — active assets sorted by value desc, capped at 15.
-  const topAssets: DashboardOverviewTopAsset[] = assets
-    .filter(a => a.quantity > 0)
-    .map(a => {
-      const value = calculateAssetValue(a);
-      // Use null instead of undefined — Firestore rejects undefined values. Compared in EUR on both
-      // sides (costBasisPerUnitEur), never the native-currency averageCost against the EUR value.
-      let returnPercent: number | null = null;
-      const basisPerUnit = costBasisPerUnitEur(a);
-      if (basisPerUnit && basisPerUnit > 0) {
-        const costBasis = a.quantity * basisPerUnit;
-        returnPercent = costBasis > 0 ? ((value - costBasis) / costBasis) * 100 : null;
-      }
-      return {
-        id: a.id,
-        name: getAssetDisplayTicker(a),
-        assetType: a.type,
-        assetClass: a.assetClass,
-        totalValue: value,
-        portfolioPercent: totalValue > 0 ? (value / totalValue) * 100 : 0,
-        returnPercent,
-      };
-    })
-    .sort((a, b) => b.totalValue - a.totalValue)
-    .slice(0, 15);
+  // Top assets for the portfolio list card — a property NET of its mortgage (rankTopAssets, 2026-10-17).
+  const topAssets: DashboardOverviewTopAsset[] = rankTopAssets(assets, totalValue);
 
   return {
     metrics: {
@@ -483,6 +464,7 @@ function buildLiveOverviewPayload(
       currentMonthSnapshotExists: !!currentMonthSnapshot,
     },
     topAssets,
+    ownership,
     // EVERY historical snapshot + the current live value for the hero sparkline, so «All»
     // is all (a 40-point cap used to start the line at the 41st-last month and call it All).
     // Each point is tiny ({month, year, totalNetWorth}): a decade of months is ~5 KB.

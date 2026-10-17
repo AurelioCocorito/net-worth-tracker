@@ -2,6 +2,7 @@
 
 import { Suspense, type Ref } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { EXPENSE_BUDGET_EXCLUSION_CHIP } from '@/lib/utils/dialogNarrative';
 import { cn } from '@/lib/utils';
 import { cachedFormatCurrencyEUR } from '@/lib/utils/formatters';
 import { LAZY_CATEGORY_ICONS } from '@/components/expenses/IconPickerPopover';
@@ -116,6 +117,11 @@ export function CompactExpenseRow({
           {ownerLabel && (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 flex-shrink-0 text-muted-foreground">
               {ownerLabel}
+            </Badge>
+          )}
+          {expense.excludeFromBudget && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 flex-shrink-0 text-muted-foreground">
+              {EXPENSE_BUDGET_EXCLUSION_CHIP}
             </Badge>
           )}
         </div>

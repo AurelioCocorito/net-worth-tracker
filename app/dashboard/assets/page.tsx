@@ -42,7 +42,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
 import { useAssets, useDeleteAsset } from '@/lib/hooks/useAssets';
-import { calculateTotalValue } from '@/lib/services/assetService';
+import { useSettings } from '@/lib/hooks/useSettings';
+import { calculateAssetValue, calculateTotalValue } from '@/lib/services/assetService';
+import { summarizeOwnership } from '@/lib/utils/assetOwnership';
 import { useAssetLedgerMeta, useAssetTransactions } from '@/lib/hooks/useAssetTransactions';
 import { migrateAssetLedger, backfillAverageCostEur } from '@/lib/services/assetTransactionService';
 import { useSnapshots } from '@/lib/hooks/useSnapshots';
@@ -90,7 +92,7 @@ import {
   summarizeUnrealizedGains,
 } from '@/lib/utils/patrimonioSummary';
 import { computeAssetPerformanceDeltas, computeAssetUnitPriceSeries } from '@/lib/utils/assetPerformanceDeltas';
-import { isLoanAsset, type Asset } from '@/types/assets';
+import { isLoanAsset, type Asset, type FamilyMember } from '@/types/assets';
 import { debtBalanceOf } from '@/lib/utils/mortgageRepayment';
 import { propertiesWithLegacyDebt } from '@/lib/utils/loanMigration';
 import { migratePropertyDebtsToLoans } from '@/lib/services/loanMigration';
@@ -110,6 +112,7 @@ import { RowAnswers } from '@/components/ui/row-answers';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { isPatrimonioLiftedBlock, PatrimonioTile, resolveHeroValueClass, type PatrimonioLiftedBlock } from '@/components/dashboard/overview/PatrimonioTile';
 import { ComposizioneTile } from '@/components/dashboard/overview/ComposizioneTile';
+import { IntestatariTile } from '@/components/dashboard/overview/IntestatariTile';
 import type { SparklinePeriod } from '@/components/dashboard/PeriodSelector';
 import { LiquiditaTile } from '@/components/assets/tiles/LiquiditaTile';
 import { MovimentiTile } from '@/components/assets/tiles/MovimentiTile';
@@ -144,12 +147,15 @@ const ROW_EYEBROWS = {
   liquidita: 'Liquidità',
   classi: 'Classi',
   rendimento: 'Rendimento',
+  intestatari: 'Intestatari',
   strumenti: 'Strumenti',
 } as const;
 
 /** With the overview unread there is no verdict and no hero: the month's movements open by default. */
 const OVERVIEW_FAILED_DEFAULT_OPEN: readonly string[] = [PATRIMONIO_SECTION_IDS.movimenti];
 const NO_DEFAULT_OPEN: readonly string[] = [];
+/** A stable empty list while the settings are unread or hold no household member. */
+const EMPTY_MEMBERS: readonly FamilyMember[] = [];
 
 /**
  * The rows of the phone composition, in the DOM's order (The Closed-Row Rule;
@@ -161,6 +167,8 @@ function resolvePatrimonioSections(input: {
   overviewAvailable: boolean;
   movimentiFailed: boolean;
   mortgageSections: readonly SectionSpec[];
+  /** The Intestatari row exists only when a held asset names a person (2026-10-17). */
+  hasOwnership: boolean;
 }): readonly SectionSpec[] {
   return [
     { id: PATRIMONIO_SECTION_IDS.movimenti, eyebrow: ROW_EYEBROWS.movimenti, failed: input.movimentiFailed },
@@ -171,6 +179,7 @@ function resolvePatrimonioSections(input: {
           { id: PATRIMONIO_SECTION_IDS.rendimento, eyebrow: ROW_EYEBROWS.rendimento },
         ]
       : []),
+    ...(input.hasOwnership ? [{ id: PATRIMONIO_SECTION_IDS.intestatari, eyebrow: ROW_EYEBROWS.intestatari }] : []),
     ...input.mortgageSections,
     { id: PATRIMONIO_SECTION_IDS.strumenti, eyebrow: ROW_EYEBROWS.strumenti },
   ];
@@ -191,6 +200,9 @@ export default function AssetsPage() {
   const assetsQuery = useAssets(ownerId);
   const snapshotsQuery = useSnapshots(ownerId);
   const overviewQuery = useDashboardOverview(ownerId);
+  // The household's members, for the «Intestatario» of each asset (the ONE settings key; a
+  // settings document that does not exist, or one still being read, means no member).
+  const { data: settings } = useSettings(ownerId);
   const { data: assets = [], isLoading: loadingAssets, isError: assetsError } = assetsQuery;
   const { data: snapshots = [], isLoading: loadingSnapshots } = snapshotsQuery;
   const { data: overview, isLoading: loadingOverview, isError: overviewError } = overviewQuery;
@@ -310,6 +322,13 @@ export default function AssetsPage() {
   // The Liquidità tile's rows: the accounts and the personal loans, which read «debito» beside them.
   const liquidityRows = useMemo(() => assets.filter(isLiquidityRow), [assets]);
   const instruments = useMemo(() => assets.filter((a) => !isCashAccount(a)), [assets]);
+  // The net worth by «Intestatario» (lib/utils/assetOwnership.ts, 2026-10-17), on the live assets
+  // and the settings' members; null when no held asset names a person — then no tile, no row.
+  const familyMembers = settings?.familyMembers ?? EMPTY_MEMBERS;
+  const ownership = useMemo(() => {
+    const summary = summarizeOwnership(assets, familyMembers, calculateAssetValue);
+    return summary.hasOwners ? summary : null;
+  }, [assets, familyMembers]);
   // Sold-out positions stay in the table («Azzerato») but are not owned: every count runs on these.
   // A loan is neither an instrument nor an account: counted apart («1 prestito»).
   const heldInstruments = useMemo(() => instruments.filter((a) => isHeld(a) && !isLoanAsset(a)), [instruments]);
@@ -439,8 +458,8 @@ export default function AssetsPage() {
     [mortgageError, mortgageFailedEyebrow, mortgages],
   );
   const sectionSpecs = useMemo(
-    () => resolvePatrimonioSections({ overviewAvailable: !overviewUnavailable, movimentiFailed, mortgageSections }),
-    [overviewUnavailable, movimentiFailed, mortgageSections],
+    () => resolvePatrimonioSections({ overviewAvailable: !overviewUnavailable, movimentiFailed, mortgageSections, hasOwnership: ownership !== null }),
+    [overviewUnavailable, movimentiFailed, mortgageSections, ownership],
   );
   const sections = useMobileSections({
     route: 'assets',
@@ -626,6 +645,7 @@ export default function AssetsPage() {
     mortgageFailed: mortgageError,
     instruments,
     totalValue,
+    ownership,
   });
 
   // ─── Render ───────────────────────────────────────────────────────────────────
@@ -815,6 +835,22 @@ export default function AssetsPage() {
             </>
           )}
 
+          {/* «Di chi è?» — the net worth by Intestatario (owner, 2026-10-17), a full row before the
+              loans; absent when no held asset names a person. The same tile as the Panoramica's, on
+              the live assets here. */}
+          {ownership && (
+            <motion.div
+              variants={cardItem}
+              className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.intestatari), overviewUnavailable && 'tablet:col-span-2', 'desktop:col-span-12')}
+            >
+              <IntestatariTile
+                summary={ownership}
+                collapse={sections.collapse(PATRIMONIO_SECTION_IDS.intestatari)}
+                asideWhenClosed="quote per persona"
+              />
+            </motion.div>
+          )}
+
           {/* A failed read of the instalments is not «no mortgage»: it says so where the tile would be.
               With the overview unread (the plain grid) the loans and Strumenti take both columns at 768. */}
           {mortgageError ? (
@@ -868,6 +904,8 @@ export default function AssetsPage() {
               onRegisterTrade={setTradeAsset}
               onMovements={setMovementsAsset}
               onCalculateTaxes={setTaxAsset}
+              members={familyMembers}
+              allAssets={assets}
             />
           </motion.div>
           </div>
