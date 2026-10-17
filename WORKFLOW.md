@@ -308,7 +308,10 @@ The app **is** locally runnable; there is no fallback to declare.
   absolute path and the local bytes (a Windows checkout is CRLF under `* text=auto`, so its fingerprint never
   matches a macOS checkout's), while `trend` and `signals` match by slug. On 2026-09-14 the four snapshots written on Windows
   were rewritten to the macOS path and LF fingerprint. The owner works from two machines with different line endings, so
-  close a snapshot on the machine that wrote it.
+  close a snapshot on the machine that wrote it. **Impeccable runs on the Windows machine since 2026-10-17** (owner): every
+  command that writes or closes a snapshot — `critique`, `polish`, `critique-storage` — runs there, so a snapshot's path and
+  CRLF fingerprint always match the checkout that reads them. Every snapshot was deleted that day (MOB-09), so the history
+  starts on Windows; the Mac-stamped snapshots before it are in `git log`.
 - **Do not duplicate project conventions here.** Code and comment conventions live in
   `DEVELOPMENT_GUIDELINES.md` and `COMMENTS.md`, repo-wide patterns and traps in `AGENTS.md`, the
   per-area rules in `doc/guide/<tema>.md`, the aesthetic in `DESIGN.md`, environment and emulators

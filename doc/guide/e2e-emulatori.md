@@ -345,6 +345,11 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   filter (both header copies, `toHaveText(['', ''])`). The sign-out test reads the record back through IndexedDB
   itself (`indexedDB.open` + `get`), the way «assert on data» means here.
 - **Prove the test can fail before trusting it** (the 1440px assertions were re-run at 1200px, where they must fail).
+- **The full run closing MOB-09** (2026-10-16, no app code touched, 290 tests incl. 6 setups, as MOB-08's retirement): 288 green
+  and one skipped in 12,1 min, one red and green ×3 alone right after (`--repeat-each=3`, both tablet projects, 31 green):
+  `cashflow.tablet.spec.ts` «the tabs are 44×44…» [tablet] counted 0 visible tabs 1,3 s after the verdict showed — the tab bar
+  not yet painted when `open()` returned on the verdict and THE tile (first time; if it returns, `open()` waits for the
+  tablist too).
 - **The full run retiring MOB-08** (2026-10-16, the reference machine, 290 tests incl. 6 setups, +2: `patrimonio.tablet.spec.ts`
   in the two tablet projects; the landscape stage rewrote both tablet specs and `e2e/tabletLayout.ts`): 288 green in 12,0 min,
   one skipped (the 768 rule in landscape) and one red — «a cell with a six-figure variation…» again, the second row 1,3 px apart:

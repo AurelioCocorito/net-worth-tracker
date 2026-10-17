@@ -1,6 +1,6 @@
 # MOB-09 — DESIGN.md, guide e chiusura
 
-> Stato: da fare · riletta in modo adversariale il 2026-10-10: 27 rilievi, 6 decisioni · Priorità: 3 (chiude la serie; finché manca, DESIGN.md dice il contrario del codice) · Sforzo: M ·
+> Stato: fatta il 2026-10-17, da ritirare (doc/mobile/README.md § 6) · riletta in modo adversariale il 2026-10-10: 27 rilievi, 6 decisioni · Priorità: 3 (chiude la serie; finché manca, DESIGN.md dice il contrario del codice) · Sforzo: M ·
 > Dipende da: MOB-02..08 (MOB-01..08 ritirate, l'ultima MOB-08 il 2026-10-16, in develop dal 2026-10-16, PR #466 — con il ridisegno del tablet in orizzontale fatto nel suo ritiro, README § 9, 105–110: i loro nomi vivono nel codice, README § 5) · Sblocca: —
 
 ## 1. Il problema, misurato
