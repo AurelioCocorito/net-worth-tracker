@@ -6,7 +6,7 @@
  * picker, and under it a 12-column bento of tiles, each answering ONE question with a reading
  * line over its figures. The inventory (TransactionFeed / ExpenseTable) is the last tile.
  *
- *   Below desktop:    ONE sequence, the desktop DOM (doc/mobile/README.md § 9, decisions 1 and 11;
+ *   Below desktop:    ONE sequence, the desktop DOM (DESIGN.md → The First-Screen Rule;
  *                     composed since 2026-10-12): title → [periodo · Aggiungi] in the
  *                     verdict's axis slot → the first sentence (or the title alone) → the strip of
  *                     three — Entrate, Spese, Risparmio, the trio of THE tile lifted whole — → the
@@ -155,7 +155,7 @@ import { RowAnswers } from '@/components/ui/row-answers';
 
 /**
  * The rows of the phone composition, in the DOM's order (The Closed-Row Rule): every tile but
- * Cashflow del periodo, THE tile that never closes (decision 21). Module-level, as the controller
+ * Cashflow del periodo, THE tile that never closes (The First-Screen Rule). Module-level, as the controller
  * asks (a literal array would rebuild every handler on every render). No row ever carries
  * `failed`: the tab reads two keys, and a failed read is the whole tab's `ErrorNotice`.
  */
@@ -346,7 +346,7 @@ export function ExpenseTrackingTab({
 
   // The row the «+» just saved, on a phone: Movimenti opens on it and the focus lands on its
   // button (`TransactionFeed.focusRowId`, the modal's `returnFocusTo`). Forgotten by the next
-  // gesture — a period, a filter, «Carica altri», another save — never by an effect (decision 29).
+  // gesture — a period, a filter, «Carica altri», another save — never by an effect (2026-10-12).
   const [savedRowId, setSavedRowId] = useState<string | null>(null);
   const savedRowRef = useRef<HTMLButtonElement | null>(null);
   const forgetSavedRow = () => setSavedRowId(null);
@@ -553,7 +553,7 @@ export function ExpenseTrackingTab({
   };
 
   /**
-   * A save on a phone opens Movimenti on the row it wrote (decision 29): only when the row is in
+   * A save on a phone opens Movimenti on the row it wrote (since 2026-10-12): only when the row is in
    * the period and passes the list's filters — read off the ROW, since the list in this closure
    * precedes the refetch — otherwise nothing opens, period and filters stay, the toast says it
    * saved. `reveal` opens the row, scrolls to it and focuses its trigger; the feed then moves the
@@ -882,9 +882,10 @@ export function ExpenseTrackingTab({
   const movementsSummary = useMemo(() => summarizeMovements(filteredExpenses, now), [filteredExpenses, now]);
 
   // ─── The phone composition (2026-10-12) ───────────────────────────────────────────
-  // The strip is the trio of THE tile, lifted whole (decision 31): the PERIOD's totals, so the
-  // scope line under it says how much of them is still in the calendar (decision 14, at every
-  // width). The cells open the two category rows and the savings history.
+  // The strip is the trio of THE tile, lifted whole (doc/guide/cashflow-tracciamento.md § Composizione
+  // mobile): the PERIOD's totals, so the scope line under it says how much of them is still in the
+  // calendar (The Binding-Clause Rule, at every width). The cells open the two category rows and the
+  // savings history.
   const strip = selectTracciamentoStrip({ totals });
   const scope = describeTrackingScope(period, now, scheduled);
   const liftedFigures = liftedBlocks(strip, TRACKING_SECTION_IDS.periodo).filter(isCashflowPeriodoLiftedBlock);
@@ -892,7 +893,7 @@ export function ExpenseTrackingTab({
   // A wait is a skeleton, a failed read a notice — and in both the pickers stay: the read that is
   // waited for, or that failed, is the read of ONE period, and the way out of it is another period.
   // The picker under the title is the verdict's `axis` slot in every state (`PageVerdict.pending`,
-  // decision 35): the same element, so the one that asked for the new period keeps its focus.
+  // DESIGN.md → Page Verdict): the same element, so the one that asked for the new period keeps its focus.
   const surface = resolveSurfaceState({ loading: loading, failed: loadFailed });
   const pending: PendingVerdict | undefined =
     surface === 'failed'
@@ -933,7 +934,7 @@ export function ExpenseTrackingTab({
 
   const periodRows = (
     // ── Verdict, with the one period axis beside it on desktop (a second instance of the same
-    // control, `hidden desktop:block`, decision 12) ─────────────────────────────────
+    // control, `hidden desktop:block`, DESIGN.md → Page Verdict) ─────────────────────────────────
     <div data-stage="verdict" className={cn('flex items-start justify-between gap-6 pt-1', VERDICT_CELL_CLASS)}>
       <div className="min-w-0 flex-1">
         <PageVerdict
@@ -1249,7 +1250,7 @@ export function ExpenseTrackingTab({
       {periodRows}
 
       {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width
-          (decision 11) — THE tile, «Il resto della pagina», then the rows (inside the index) ── */}
+          (The First-Screen Rule) — THE tile, «Il resto della pagina», then the rows (inside the index) ── */}
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
       <div className={COMPACT_GRID_CLASS}>
         <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>

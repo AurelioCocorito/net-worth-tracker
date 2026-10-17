@@ -11,7 +11,7 @@ interface RecordBarsProps {
   /**
    * The plot's floor, as classes: the tile decides it per width (`min-h-[120px] desktop:min-h-[130px]`
    * on Record del patrimonio since 2026-10-10 — the phone yields the chart, never the podium nor
-   * the reading, doc/mobile/README.md § 9, decision 4). Default the 130px of every width.
+   * the reading, The First-Screen Rule). Default the 130px of every width.
    */
   plotClassName?: string;
   className?: string;

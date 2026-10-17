@@ -22,7 +22,7 @@ import type { WhatIfAdjustedInputs, WhatIfBaseline, WhatIfEventType, WhatIfImpac
 /**
  * The ids of the tab's rows below `desktop:` (`useMobileSections` with `tab: 'whatif'`, The
  * Closed-Row Rule): every tile but Evento, THE tile — first in the DOM at every width since
- * 2026-10-15 (doc/mobile/README.md § 9, decision 43) and never closed (21).
+ * 2026-10-15 (The Input Tile Rule) and never closed (The First-Screen Rule).
  */
 export const WHAT_IF_SECTION_IDS = {
   primaDopo: 'whatif-prima-dopo',

@@ -84,7 +84,7 @@ export interface UseMobileSectionsOptions {
   route: string;
   /** The tab, where the page has them (`budget`). */
   tab?: string;
-  /** The rows, in DOM order. THE tile is not among them: it never closes (decision 21). */
+  /** The rows, in DOM order. THE tile is not among them: it never closes (The First-Screen Rule). */
   sections: readonly SectionSpec[];
   /** The rows open on a first visit; default none. */
   defaultOpen?: readonly string[];

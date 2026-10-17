@@ -12,10 +12,10 @@
  *
  *   Desktop (12 col): Traguardo(5, 2 rows) | Afflussi(7)
  *                                          | Scenari(7)
- *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11,
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule,
  *                     since 2026-10-15): the verdict's title → the first sentence (the gap and the
  *                     walk) → the strip of two figures («Ti mancano» or «Margine», «Nell'orso») →
- *                     the lock as the scope line (decision 44) → «Il perché» (the pace, the lock
+ *                     the lock as the scope line (The Binding-Clause Rule) → «Il perché» (the pace, the lock
  *                     sentence) → Traguardo open, its plot at 120px → «Il resto della pagina» →
  *                     Afflussi, Scenari as closed rows (`useMobileSections` with `tab: 'coast'`,
  *                     doc/guide/fire-coast.md § Composizione mobile) → Ipotesi → Dettaglio.
@@ -133,7 +133,7 @@ const SKELETON_CELLS = COAST_TAB_SKELETON_CELLS;
 
 /**
  * The three cells of the grid: one class per tile, shared by the data and the empty branches. ONE
- * sequence, no `order-*` (decision 11); on a tablet a row cell adds the place
+ * sequence, no `order-*` (The First-Screen Rule); on a tablet a row cell adds the place
  * `useTabletComposition` gives it at 768 (in landscape the rows sit in the index beside the verdict
  * and THE tile, lib/utils/tabletComposition.ts).
  */
@@ -141,7 +141,7 @@ const TRAGUARDO_CELL = cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 
 const AFFLUSSI_CELL = cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-7');
 const SCENARI_CELL = cn(TILE_ROW_CELL_CLASS, 'desktop:col-span-7');
 
-/** The rows below `desktop:`, in the DOM's order: every tile but Traguardo, THE tile (decision 21). No row carries `failed`. */
+/** The rows below `desktop:`, in the DOM's order: every tile but Traguardo, THE tile (The First-Screen Rule). No row carries `failed`. */
 const COAST_SECTIONS: readonly SectionSpec[] = [
   { id: COAST_SECTION_IDS.afflussi, eyebrow: 'Afflussi' },
   { id: COAST_SECTION_IDS.scenari, eyebrow: 'Scenari' },

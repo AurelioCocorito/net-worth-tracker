@@ -138,8 +138,8 @@ export function FondoOggiTile({
               so its 100% height resolves against the flex-sized box instead of its own viewBox
               ratio — an in-flow SVG with height:100% in an auto-height parent grows to
               width × (viewBox height / width). preserveAspectRatio="none" makes the stretch safe. */}
-          {/* Below `desktop:` the curve yields to 120px, never the reading (doc/mobile/README.md § 9,
-              decision 4, since 2026-10-15): THE tile stays open on a phone and the first closed row
+          {/* Below `desktop:` the curve yields to 120px, never the reading (The First-Screen
+              Rule, since 2026-10-15): THE tile stays open on a phone and the first closed row
               has to come into view. */}
           <div className="relative -mx-5 mt-3 flex-1 max-desktop:min-h-[120px] desktop:min-h-[180px] [&_svg]:absolute [&_svg]:inset-0 [&_svg]:h-full [&_svg]:w-full">
             <NetWorthSparkline data={sparklineData} filled={true} color="var(--chart-1)" height={180} interactive />

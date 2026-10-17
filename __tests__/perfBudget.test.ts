@@ -82,7 +82,7 @@ describe('compareRoutesToBudget — the ceiling', () => {
   });
 });
 
-describe('compareRoutesToBudget — the raised ceiling (§ 9)', () => {
+describe('compareRoutesToBudget — the raised ceiling (doc/guide/velocita.md § Il ratchet e il tetto alzato)', () => {
   const raised = (raisedBy?: string): PerfBudget => ({
     ...budget,
     routes: { ...budget.routes, '/dashboard/analisi': { initialJsGzKB: 780, ...(raisedBy ? { raisedBy } : {}) } },

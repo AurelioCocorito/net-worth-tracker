@@ -1,7 +1,7 @@
 /**
  * Allocazione a 390px — la riga di copertura dell'Esposizione (dal 2026-09-28) e, dal 2026-10-15,
- * la composizione della pagina (le regole in doc/guide/allocazione.md § Composizione mobile e le
- * decisioni in doc/mobile/README.md § 9).
+ * la composizione della pagina (le regole in doc/guide/allocazione.md § Composizione mobile e in
+ * DESIGN.md → Small-Screen Composition).
  *
  * PERCHÉ ESISTE: la riga di copertura (letto · non letto · non applicabile · fuori vista) è una
  * frase con quattro importi e i nomi degli strumenti, sopra un elenco a quattro colonne, e nessuna
@@ -100,7 +100,7 @@ test.describe('Allocazione, composta per un telefono', () => {
     // LA tessera: con una cella che stampa la percentuale il valore del KPI «Fuori posizione» è
     // nascosto (la striscia lo stampa) e la didascalia «… da spostare» resta sotto l'etichetta; con
     // la cella «nulla» (sotto la soglia: il fixture base) niente è sollevato e il KPI resta intero.
-    // La lettura resta intera in entrambi i casi (decisioni 15 e 17).
+    // La lettura resta intera in entrambi i casi (DESIGN.md → The Lifted-Figure Rule).
     const bilanciamento = page.getByRole('region', { name: "Bilanciamento dell'allocazione" });
     const kpiLabel = bilanciamento.getByText('Fuori posizione', { exact: true });
     await expect(kpiLabel).toBeVisible();

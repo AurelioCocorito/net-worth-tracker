@@ -266,8 +266,9 @@ export interface PerformanceVerdictInput extends PerformancePeriodInput {
   /**
    * Where the portfolio stands TODAY against the period's peak (`computeDrawdownStatus`): below
    * it, the figure joins the drawdown clause («…; oggi a −1,2% dal massimo del periodo») — the
-   * Rendimento tile's «dal massimo del periodo» chip, which the phone hides (doc/mobile/README.md
-   * § 9, decision 38; at 1440 a declared addition). Absent or at the peak, no clause.
+   * Rendimento tile's «dal massimo del periodo» chip, which the phone hides (2026-10-10;
+   * doc/guide/rendimenti.md § Composizione mobile; at 1440 a declared addition). Absent or at the
+   * peak, no clause.
    */
   drawdownToday?: DrawdownStatus | null;
   consistency: ReturnConsistency;
@@ -369,7 +370,7 @@ function buildSentence(input: PerformanceVerdictInput, gap: number | null): Narr
   }
 
   // Today's distance from the peak, where the sentence already speaks of the drawdown: the
-  // tile's chip on a phone (decision 38). Only a printed figure is a clause — at the peak, or a
+  // tile's chip on a phone (doc/guide/rendimenti.md). Only a printed figure is a clause — at the peak, or a
   // dip that prints as zero, the chip has none and the sentence says nothing more.
   const today = input.drawdownToday;
   if (today && !today.atPeak && printed(today.current) < 0) {
@@ -389,8 +390,8 @@ function buildSentence(input: PerformanceVerdictInput, gap: number | null): Narr
 const CLAUSE_PREFIX = '; ';
 
 /**
- * Where a phone cuts the paragraph (The Binding-Clause Rule, doc/mobile/README.md § 9, decisions
- * 3, 5 and 18), on the strip's two cells — the return and the gap against the model:
+ * Where a phone cuts the paragraph (DESIGN.md → The Binding-Clause Rule; every strip cell counts),
+ * on the strip's two cells — the return and the gap against the model:
  *
  *   - with the model, the first sentence would reprint BOTH cells («+2,1%», «0,4 punti»): title
  *     only (`leadLength: 0`), the whole paragraph behind «Il perché»;

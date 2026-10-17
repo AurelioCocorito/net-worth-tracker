@@ -259,6 +259,6 @@ test('at 1440 the page is the page of today: no closed row, no strip, the whole 
   const verdict = page.getByRole('region', { name: 'Verdetto sul fondo pensione' });
   await expect(verdict.getByText(/Il fondo di Marco vale/)).toBeVisible();
   await expect(verdict.getByRole('button', { name: /^Il perché/ })).toHaveCount(0);
-  // The axis is mounted twice (decision 12); one is visible, and it is the one beside the verdict.
+  // The axis is mounted twice (DESIGN.md → Page Verdict); one is visible, and it is the one beside the verdict.
   await expect(page.getByRole('radiogroup', { name: 'Anno fiscale' })).toHaveCount(1);
 });

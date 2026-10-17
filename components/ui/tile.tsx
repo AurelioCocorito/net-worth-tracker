@@ -69,7 +69,7 @@ export const TILE_SUB_EYEBROW_CLASS =
 /**
  * Grid-cell wrapper for a tile: the tile stretches to the row height so `mt-auto` footers
  * align across a row. Pair with the desktop span (`desktop:col-span-N`). Never an `order-*`: the
- * DOM order is the reading order on every width (doc/mobile/README.md § 9, decisions 1 and 11).
+ * DOM order is the reading order on every width (DESIGN.md → The First-Screen Rule).
  */
 export const TILE_CELL_CLASS = 'flex min-w-0 [&>section]:flex-1';
 
@@ -82,8 +82,8 @@ export const TILE_ROW_CELL_CLASS = `${TILE_CELL_CLASS} max-desktop:self-start`;
 
 /**
  * The block of a tile that the verdict's strip already prints, hidden wherever the strip is drawn —
- * below `desktop:`, the tablet included since 2026-10-16 (The Lifted-Figure Rule; doc/mobile/README.md
- * § 9, 104: on a tablet the tile was whole beside the strip and the same figures read twice): a key from `liftedBlocks(strip, section)` takes this class. The
+ * below `desktop:`, the tablet included since 2026-10-16 (The Lifted-Figure Rule:
+ * on a tablet the tile was whole beside the strip and the same figures read twice): a key from `liftedBlocks(strip, section)` takes this class. The
  * convention for a page tile that lifts (first used by the Panoramica): the tile takes
  * `liftedFigures?: readonly K[]` with `K` the union of its block names, and its module exports
  * `isXLiftedBlock(b: string): b is K`, the guard that narrows the `string[]` of `liftedBlocks`

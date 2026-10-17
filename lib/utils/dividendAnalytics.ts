@@ -32,10 +32,10 @@ export type DividendPeriod = 'month' | 'year' | 'rolling12' | 'all';
 // ─── The phone composition: the ids (since 2026-10-12) ────────────────────────
 
 /**
- * THE tile and the rows of Dividendi below `desktop:`, in the desktop DOM's order (doc/mobile/
- * README.md § 9, decision 11 — the `order-*` the phone used to swap them with are gone); `dvd-`
- * keeps them unique among the five `forceMount` tabs. No strip (decision 30): received and
- * announced are never one figure, and the two already head THE tile.
+ * THE tile and the rows of Dividendi below `desktop:`, in the desktop DOM's order (The First-Screen
+ * Rule — the `order-*` the phone used to swap them with are gone); `dvd-` keeps them unique among
+ * the five `forceMount` tabs. No strip (doc/guide/cashflow-dividendi.md § Composizione mobile):
+ * received and announced are never one figure, and the two already head THE tile.
  */
 export const DIVIDEND_SECTION_IDS = {
   incasso: 'dvd-incasso',

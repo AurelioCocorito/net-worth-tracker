@@ -97,7 +97,7 @@ import { describeReadFailure, resolveSurfaceState } from '@/lib/utils/statesNarr
  *   Desktop (12 col): Patrimonio(5, 2 rows) | Sintesi(3) | Cashflow(4)
  *                                           | Composizione(3) | Costi(2) | Obiettivo(2)
  *                     Spese(4) | Entrate(4) | Asset principali(4)
- *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11;
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule;
  *                     since 2026-10-11): title → the strip of three figures → «Il perché» →
  *                     Patrimonio, open, its chips lifted and its curve at 120px → «Il resto della
  *                     pagina» → Sintesi, Cashflow, Composizione, Costi, Obiettivo, Spese, Entrate,
@@ -121,7 +121,7 @@ const CELL_CLASS = TILE_CELL_CLASS;
 
 /**
  * Every row of the phone composition, in the DOM's order (The Closed-Row Rule): every tile but
- * Patrimonio, which is THE tile and never closes (decision 21). Module-level, as the controller
+ * Patrimonio, which is THE tile and never closes (The First-Screen Rule). Module-level, as the controller
  * asks; the page hands it the rows PRESENT (`resolveOverviewSections`), because Costi, Obiettivo
  * and the two category tiles come and go with the payload. The page has one payload, so no row
  * ever carries `failed`.
@@ -432,7 +432,7 @@ export default function DashboardPage() {
     ? describeCategoryShare(rankingFromOverview(expenseStats.topIncomeCategories, expenseStats.currentMonth.income), 'income')
     : null;
   // The two totals hold the rows still in the calendar: declared under the readings
-  // (The Scheduled-Is-Not-Spent Rule, at every width — decision 14).
+  // (The Scheduled-Is-Not-Spent Rule, at every width — DESIGN.md → The Binding-Clause Rule).
   const expensesScheduledCaption = expenseStats ? describeScheduledCaption(expenseStats.currentMonth.expensesScheduled ?? 0, today.daysInMonth) : null;
   const incomeScheduledCaption = expenseStats ? describeScheduledCaption(expenseStats.currentMonth.incomeScheduled ?? 0, today.daysInMonth) : null;
 
@@ -524,7 +524,7 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* ONE sequence: the DOM order is the reading order at every width, no `order-*`
-            (decision 11); a new tile takes its place in the JSX — inside the index if it is a row. */}
+            (The First-Screen Rule); a new tile takes its place in the JSX — inside the index if it is a row. */}
         <div className={COMPACT_GRID_WRAPPER_CLASS}>
         <motion.div
           variants={staggerContainer}

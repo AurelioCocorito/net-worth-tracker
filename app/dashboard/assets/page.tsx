@@ -9,7 +9,7 @@
  *                                           | Classi(3)    | Rendimento(4)
  *                     [Mutuo(12) — one per loan with instalments linked to it]
  *                     Strumenti(12)
- *   Below desktop:    ONE sequence, the DOM above (decisions 1 and 11; since 2026-10-14):
+ *   Below desktop:    ONE sequence, the DOM above (The First-Screen Rule; since 2026-10-14):
  *                     title → the verdict's first sentence → G/P and Liquidità as a strip → «Il
  *                     perché» → Patrimonio, open, its chips lifted and its curve at 120px → «Il
  *                     resto della pagina» → Movimenti, Liquidità, Classi, Rendimento, [Mutuo],
@@ -272,7 +272,7 @@ export default function AssetsPage() {
   const tradesQuery = useAssetTransactions(ownerId, undefined, { enabled: ledgerReady });
   const { data: trades = [], isLoading: loadingTrades, isError: tradesError } = tradesQuery;
   // A failed read of the ledger (or of its meta) is not «nessuna operazione»: Movimenti says so at
-  // every width (decision 41, 2026-10-14) — until then the tile printed the month as empty.
+  // every width (2026-10-14) — until then the tile printed the month as empty.
   const movimentiFailed = ledgerMetaError || tradesError;
 
   // ─── Dialog state ─────────────────────────────────────────────────────────────
@@ -407,7 +407,7 @@ export default function AssetsPage() {
       month: today.month,
       totalValue,
       monthlyVariation: overview.variations.monthly,
-      // Its sentence opens «Il perché» on a phone, where the year's chip is lifted (decision 81).
+      // Its sentence opens «Il perché» on a phone, where the year's chip is lifted (at every width since 2026-10-14).
       yearlyVariation: overview.variations.yearly,
       isNewATH: overview.ath?.isNewATH ?? false,
       instrumentCount: heldInstruments.length,
@@ -598,8 +598,9 @@ export default function AssetsPage() {
 
   // The strip (G/P and Liquidità) and what THE tile and Rendimento hide because of it (The
   // Lifted-Figure Rule): the month's chip — its figures are in the first sentence —, the year's
-  // chip whole — its euro is in «Il perché» (decision 81) —, the curve's last label (the hero),
-  // and the «Mercato:» digest when the sentence names the market. The hero itself stays (decision 24).
+  // chip whole — its euro is in «Il perché» —, the curve's last label (the hero), and the
+  // «Mercato:» digest when the sentence names the market. The hero itself stays (the same rule: a
+  // hero is never lifted).
   const strip = overviewUnavailable ? [] : selectPatrimonioStrip({ gains, cash: cashSummary });
   const heroLifted: PatrimonioLiftedBlock[] = [
     ...liftedBlocks(strip, PATRIMONIO_PATRIMONIO_ID).filter(isPatrimonioLiftedBlock),
@@ -734,7 +735,7 @@ export default function AssetsPage() {
             className={cn(TILE_ROW_CELL_CLASS, tablet.cellClass(PATRIMONIO_SECTION_IDS.movimenti), 'desktop:col-span-4 desktop:col-start-9 desktop:row-start-1')}
           >
             {movimentiFailed ? (
-              // A failed read of the ledger is not «nessuna operazione», at every width (decision 41).
+              // A failed read of the ledger is not «nessuna operazione», at every width (2026-10-14).
               // Silent below `desktop:`, where `PageRest` carries the one live node.
               <ErrorNotice
                 compact

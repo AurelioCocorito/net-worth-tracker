@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * Flusso's type view below 640px — the only view when the 50/30/20 roles are off: one bar of the
- * SPENDING split by type, then each type's categories as ranked rows, then what was put aside.
- * Drawn by FlowShareMobile.
+ * Flusso's type view in a cell narrower than 608px (since 2026-10-16) — the only view when the
+ * 50/30/20 roles are off: one bar of the SPENDING split by type, then each type's categories as
+ * ranked rows, then what was put aside. Drawn by FlowShareMobile.
  *
  * One base on the screen: the reading above prints the types as shares of the spending («fisse
  * 53%, variabili 37%, debiti 10%»), so the bar is the spending and its legend prints those very
@@ -32,7 +32,7 @@ interface Props {
   onEntityClick: (target: { expenseType: ExpenseType; categoryKey: string }) => void;
   /** The strip's «Risparmio» cell prints the surplus: the closing block hides (The Lifted-Figure Rule). */
   savingsLifted?: boolean;
-  /** The figures the first screen prints (`collectPrintedFigures`): the caption drops an amount among them (decision 82). */
+  /** The figures the first screen prints (`collectPrintedFigures`): the caption drops an amount among them (2026-10-14). */
   printedFigures?: ReadonlySet<string>;
 }
 

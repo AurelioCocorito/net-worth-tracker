@@ -89,8 +89,8 @@ export function RendimentoTile({ gains, ranking, rankedFrom, collapse, asideWhen
         <>
           <div className="mt-3.5 flex flex-col gap-1.5">
             {/* The KPI the strip's «G/P non realizzato» cell prints, lifted on a phone with its label;
-                the percentage under it stays (decision 17). ONE formatter with the cell: a zero as
-                printed takes no sign and no colour (decision 20). */}
+                the percentage under it stays (The Lifted-Figure Rule). ONE formatter with the cell: a zero as
+                printed takes no sign and no colour (the printed-zero rule). */}
             <p className={cn(TILE_SUB_EYEBROW_CLASS, liftedFigures.includes('gain') && LIFTED_FIGURE_CLASS)}>G/P non realizzato</p>
             <p
               className={cn(

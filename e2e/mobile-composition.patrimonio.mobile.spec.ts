@@ -63,7 +63,7 @@ test.describe('Patrimonio, composed for a phone', () => {
     await expect(cells.nth(1)).toHaveAccessibleName(/, apre Liquidità$/);
     for (let i = 0; i < 2; i++) expect((await cells.nth(i).boundingBox())!.height, `cell ${i}`).toBeGreaterThanOrEqual(TOUCH_FLOOR);
 
-    // THE tile: the hero stays (decision 24); the chips, the digest and the curve's last label go.
+    // THE tile: the hero stays (The Lifted-Figure Rule); the chips, the digest and the curve's last label go.
     const theTile = page.getByRole('region', { name: 'Patrimonio' });
     await expect(theTile.getByText(/190\.000,00\s?€/)).toBeVisible();
     await expect(theTile.getByText('questo mese')).toBeHidden();

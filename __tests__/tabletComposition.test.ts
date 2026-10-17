@@ -2,7 +2,7 @@
  * Tests for lib/utils/tabletComposition.ts — where each row of a composed page sits at 768 (on the
  * whole grid row when open or left alone), the heights the landscape stage reads (`--fold`,
  * `--verdict-h`, `--left-h`), and the rules over the classes and the composed grids (2026-10-16;
- * the landscape stage is decision 105).
+ * the landscape stage: DESIGN.md → The First-Screen Rule).
  *
  * Falsified on 2026-10-16, one at a time: the odd-run rule dropped (`closeRun` never marking the
  * lone row) → «a closed row left alone at 768» and «the last closed row of an odd page» red;
@@ -153,7 +153,7 @@ describe('the tablet classes', () => {
     expect(source.includes('@['), 'a literal @[…] class').toBe(false);
     expect(/['"`\s]@container[\s'"`]/.test(source), 'a literal @container').toBe(false);
     expect(BANNED_VARIANT.test(source), 'lg: or min-[…]:').toBe(false);
-    expect(/tablet\.(gridStyle|cellStyle)/.test(source), 'the 1024 rail of decision 104').toBe(false);
+    expect(/tablet\.(gridStyle|cellStyle)/.test(source), 'the 1024 column the landscape stage replaced on 2026-10-16').toBe(false);
     expect(source.includes("'grid grid-cols-1 gap-3 tablet:grid-cols-2 desktop:grid-cols-12'"), 'a plain grid written by hand').toBe(false);
   });
 

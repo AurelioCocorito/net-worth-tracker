@@ -48,7 +48,7 @@ function SavingsRateBars({ history, highlightKey }: { history: SavingsHistory; h
   const barWidth = slot * BAR_SHARE;
 
   // The typographic minus, as everywhere on the page (The Comma Rule) — none on a rate that
-  // prints as zero («0%» for −0,4; decision 20, since 2026-10-12).
+  // prints as zero («0%» for −0,4; the printed-zero rule, since 2026-10-12).
   const rateText = (rate: number) => withTypographicMinus(rate, formatPercentage(Math.abs(rate), 0));
   const label = history.months
     .map((m) => `${m.label}: ${m.savingsRate === null ? 'nessuna entrata' : rateText(m.savingsRate)}`)

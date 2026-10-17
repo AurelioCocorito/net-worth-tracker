@@ -707,8 +707,8 @@ describe('selectTracciamentoStrip', () => {
     expect(cellText(balanced[2])).toBe(trioNet(0));
     expect(cellText(balanced[2])).not.toMatch(/[−+-]/);
 
-    // A net that PRINTS as zero takes no sign either (decision 20): «0 €» in the cell and in the
-    // trio. Seen red on 2026-10-12, in the spec's retirement: the trio decided its «−» on the
+    // A net that PRINTS as zero takes no sign either (the printed-zero rule, 2026-10-10): «0 €» in the
+    // cell and in the trio. Seen red on 2026-10-12, in the spec's retirement: the trio decided its «−» on the
     // value and printed «−0 €» for −0,3 against the cell's «0 €».
     const nearZero = selectTracciamentoStrip({ totals: totals(1000, 1000.3) });
     expect(cellText(nearZero[2])).toBe('0 €');
@@ -722,7 +722,7 @@ describe('selectTracciamentoStrip', () => {
     expect(formatStripFigure(noIncome[1])!.sign).toBe('negative');
   });
 
-  it('should be no strip at all with nothing in and nothing out — transfers or not (decision 70)', () => {
+  it('should be no strip at all with nothing in and nothing out — transfers or not (2026-10-12)', () => {
     expect(selectTracciamentoStrip({ totals: totals(0, 0) })).toEqual([]);
     expect(selectTracciamentoStrip({ totals: { ...totals(0, 0), transferCount: 2 } })).toEqual([]);
   });

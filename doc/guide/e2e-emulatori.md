@@ -152,7 +152,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   «still in the calendar» is planted on the 28th of December at noon UTC (`ornitorinco` in its note) and removed after,
   the test skipped from that day on. Storico's ledger is summed on its VISIBLE rows inside `#storico-driver-panel`, the
   featured year being the panel's `button[aria-expanded="true"]`.
-- **Allocazione, Previdenza and the five FIRE tabs are composed at 390 since 2026-10-15 (MOB-07): a spec opens the row before it reads inside it** — `#alloc-esposizione-trigger` before the coverage line (`allocation.mobile.spec.ts`), `#prev-versamenti-trigger` before the ledger's delete targets (`pension.mobile.spec.ts`), «Apri tutte» before `fire.mobile.spec.ts` and `coast.mobile.spec.ts` measure `main`. **A request that must NOT happen is counted with a positive anchor first** (`allocation.mobile.spec.ts`: `page.on('request')` on `/api/portfolio/instrument-profiles`, the Esposizione's trigger seen closed, then `[]` after 1,5 s; the opening makes the count grow): the Esposizione reads its profiles only once its row has been opened, and the route's abort (`page.route(…, route.abort())`, the pattern of `settings.spec.ts`) makes the FIRST read fail into an `ErrorNotice` row with ONE live node. **The FIRE page's memory is per tab** (`mobile-sections:fire-simulations:fire`, `:coast`, …): `fire.mobile.spec.ts` opens a row, switches tab, opens one there and comes back — the inactive `TabsContent` is unmounted, so what survives the switch is `localStorage` alone. A What If spec reads the Evento FIRST in `section.rounded-2xl` of the tabpanel at both widths (decision 43). On the base account the FIRE verdict may read «Sei già FIRE.» (small expenses): `fire.spec.ts` asserts «anni. Da allora» only on a headline that starts with «FIRE nel».
+- **Allocazione, Previdenza and the five FIRE tabs are composed at 390 since 2026-10-15: a spec opens the row before it reads inside it** — `#alloc-esposizione-trigger` before the coverage line (`allocation.mobile.spec.ts`), `#prev-versamenti-trigger` before the ledger's delete targets (`pension.mobile.spec.ts`), «Apri tutte» before `fire.mobile.spec.ts` and `coast.mobile.spec.ts` measure `main`. **A request that must NOT happen is counted with a positive anchor first** (`allocation.mobile.spec.ts`: `page.on('request')` on `/api/portfolio/instrument-profiles`, the Esposizione's trigger seen closed, then `[]` after 1,5 s; the opening makes the count grow): the Esposizione reads its profiles only once its row has been opened, and the route's abort (`page.route(…, route.abort())`, the pattern of `settings.spec.ts`) makes the FIRST read fail into an `ErrorNotice` row with ONE live node. **The FIRE page's memory is per tab** (`mobile-sections:fire-simulations:fire`, `:coast`, …): `fire.mobile.spec.ts` opens a row, switches tab, opens one there and comes back — the inactive `TabsContent` is unmounted, so what survives the switch is `localStorage` alone. A What If spec reads the Evento FIRST in `section.rounded-2xl` of the tabpanel at both widths (Evento is THE tile, first in the DOM at 1440 too — DESIGN.md → The Input Tile Rule). On the base account the FIRE verdict may read «Sei già FIRE.» (small expenses): `fire.spec.ts` asserts «anni. Da allora» only on a headline that starts with «FIRE nel».
 - **Rendimenti's composition spec runs on the degraded account at 390, with the model series answered by the browser**
   (2026-10-14, `e2e/mobile-composition.performance.degraded.mobile.spec.ts`, project `degraded-mobile`:
   `testMatch: /\.degraded\.mobile\.spec\.ts/`, `DEGRADED_STORAGE_STATE`; `mobile` ignores `degraded.`, or it would
@@ -185,7 +185,7 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   and reads as a timeout on the other tab's verdict (2026-10-12, twice in the full suite, green alone). A memory held in
   `localStorage` is falsified by clearing its key before the step (`mobile-sections:cashflow:cost-centers` before Back,
   `cashflow.centri.mobile.spec.ts`), not by editing the hook.
-- **A phone spec freezes the clock BEFORE `goto`, and a closed row holds nothing** (2026-10-10, MOB-02,
+- **A phone spec freezes the clock BEFORE `goto`, and a closed row holds nothing** (2026-10-10, Hall of Fame composed,
   `e2e/mobile-composition.hof.mobile.spec.ts`): `page.clock.setFixedTime(new Date('2026-09-15T12:00:00+02:00'))` keeps
   the `hof` fixture's running month and year whatever the calendar — the parked Firebase token outlives the frozen
   instant and the emulator does not check it, so the session holds (the fallback the spec names, moving the memory
@@ -345,34 +345,34 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   filter (both header copies, `toHaveText(['', ''])`). The sign-out test reads the record back through IndexedDB
   itself (`indexedDB.open` + `get`), the way «assert on data» means here.
 - **Prove the test can fail before trusting it** (the 1440px assertions were re-run at 1200px, where they must fail).
-- **The full run closing MOB-09** (2026-10-16, no app code touched, 290 tests incl. 6 setups, as MOB-08's retirement): 288 green
+- **The full run closing the DESIGN.md write-up of the composition** (2026-10-16, no app code touched, 290 tests incl. 6 setups, as the landscape tablet's retirement): 288 green
   and one skipped in 12,1 min, one red and green ×3 alone right after (`--repeat-each=3`, both tablet projects, 31 green):
   `cashflow.tablet.spec.ts` «the tabs are 44×44…» [tablet] counted 0 visible tabs 1,3 s after the verdict showed — the tab bar
   not yet painted when `open()` returned on the verdict and THE tile (first time; if it returns, `open()` waits for the
   tablist too).
-- **The full run retiring MOB-08** (2026-10-16, the reference machine, 290 tests incl. 6 setups, +2: `patrimonio.tablet.spec.ts`
+- **The full run retiring the landscape tablet's spec** (2026-10-16, the reference machine, 290 tests incl. 6 setups, +2: `patrimonio.tablet.spec.ts`
   in the two tablet projects; the landscape stage rewrote both tablet specs and `e2e/tabletLayout.ts`): 288 green in 12,0 min,
   one skipped (the 768 rule in landscape) and one red — «a cell with a six-figure variation…» again, the second row 1,3 px apart:
   it returned, so the test now polls until the two cells share their line before reading the boxes (green ×3 alone). A second full run had one red, Patrimonio's «remembered across a reload» (the disposed response, closed below); the final one, on the fixed fixture, 289 green and one skipped in 12,0 min, no red. The 11
   red of the first run of the day were the pill's selector: the landscape `TabletRail` is the same landmark «Navigazione
   principale» and comes first in the DOM, so every tool that means THE PILL reads `nav[data-nav="pill"]` (the census included).
-- **The full run implementing MOB-08** (2026-10-16, the reference machine, 288 tests incl. 6 setups, +24: the two tablet
+- **The full run implementing the landscape stage** (2026-10-16, the reference machine, 288 tests incl. 6 setups, +24: the two tablet
   specs in two projects): 286 green in 12,3 min, two red and both green ×3 alone right after (`--repeat-each=3`):
   `mobile-composition.performance.degraded.mobile.spec.ts` «Analizza con AI … a thumb's target» read 43,999996 px against
   `>= 44` — the sub-pixel shape of the pill's «Dividendi» of 2026-10-11, so the assertion now takes half a pixel of tolerance,
   as that entry said; and `overview.mobile.spec.ts` «a cell with a six-figure variation…», the two cells of the strip's second
   row 1,6 px apart where they share a line (first time; if it returns, read the boxes after the count-up settles).
-- **The full run retiring MOB-07** (2026-10-16, the reference machine, 264 tests incl. 6 setups, +2: the failed «Aggiorna» of
+- **The full run retiring the Allocazione, Previdenza and FIRE composition** (2026-10-16, the reference machine, 264 tests incl. 6 setups, +2: the failed «Aggiorna» of
   the Esposizione and the Calcolatore's `order-*` probe): 264 green in 11,4 min, no flake; before it, seven E2E falsifications
   seen red one at a time (the headers of `allocation.mobile`, `fire.mobile`, `coast.mobile`, `allocation`, `pension`, `fire`,
   `coast` `.spec.ts`), `useCompactLayout` forced true among them — 16 red across the four 1440 specs.
-- **The full run closing MOB-07** (2026-10-15, the reference machine, 262 tests incl. 6 setups): 259 green in 9,9 min, three red
+- **The full run closing the Allocazione, Previdenza and FIRE composition** (2026-10-15, the reference machine, 262 tests incl. 6 setups): 259 green in 9,9 min, three red
   and all three green alone and in their own spec: `mobile-composition.analisi.mobile.spec.ts` «a category row opens the
   Scheda…» (`#analisi-scheda-trigger` counted 1 where 0 was expected — the Scheda's row trigger survived the Escape in
   that run), and the two «remembered across a reload» of `mobile-composition.patrimonio.mobile.spec.ts` and
   `overview.mobile.spec.ts` on `apiResponse.json: Response has been disposed` — the response a probe holds across
-  `page.reload()` disposed before `.json()`, the shape of the `holdChunks` entry below. None of the three pages is
-  MOB-07's. **Closed on 2026-10-16** (it returned on Patrimonio in the final run retiring MOB-08): `patchOverview` reads the body in a `try` and lets a disposed response go with `route.continue()` — the reload's own request is patched — green ×5 on both tests. The 15 new cases (`allocation`, `pension` and `fire` `.mobile.spec.ts` + one at 1440 in each of the four pages' desktop specs; `coast.mobile.spec.ts` only adapted — the commit and the index said 16 in eight specs, corrected in the retirement of 2026-10-16) were green
+  `page.reload()` disposed before `.json()`, the shape of the `holdChunks` entry below. None of the three pages
+  was composed that day. **Closed on 2026-10-16** (it returned on Patrimonio in the final run retiring the landscape tablet's spec): `patchOverview` reads the body in a `try` and lets a disposed response go with `route.continue()` — the reload's own request is patched — green ×5 on both tests. The 15 new cases (`allocation`, `pension` and `fire` `.mobile.spec.ts` + one at 1440 in each of the four pages' desktop specs; `coast.mobile.spec.ts` only adapted — the commit and the series' index (`git log -- doc/mobile/`) said 16 in eight specs, corrected in the retirement of 2026-10-16) were green
   in the suite and alone, twelve falsifications seen red one at a time (their headers; «nine» until 2026-10-16).
 - **`e2e/cashflow.transfer-fee.spec.ts` was red ONCE in a full run** (2026-10-07, Windows machine, the second full run
   of PR #434, which did not touch transfers): green alone and in the suite's order, cause not traced. A second red

@@ -49,7 +49,7 @@ interface BilanciamentoTileProps {
   /**
    * The blocks the verdict's strip already prints, hidden below `desktop:` (The Lifted-Figure Rule):
    * `liftedBlocks(strip, 'alloc-bilanciamento').filter(isBilanciamentoLiftedBlock)`. Only the KPI's
-   * VALUE hides; «… € da spostare», which nothing else prints, stays under the label (decision 17).
+   * VALUE hides; «… € da spostare», which nothing else prints, stays under the label.
    */
   liftedFigures?: readonly BilanciamentoLiftedBlock[];
   band: RebalanceBand;

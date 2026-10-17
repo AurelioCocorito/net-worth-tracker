@@ -20,7 +20,7 @@ export function isTettoLiftedBlock(block: string): block is TettoLiftedBlock {
 }
 
 interface TettoTileProps {
-  /** THE tile's anchor (`bud-tetto`): open at every width, never a row (decision 21). */
+  /** THE tile's anchor (`bud-tetto`): open at every width, never a row (The First-Screen Rule). */
   id?: string;
   summary: CeilingSummary;
   aside: Narrative;
@@ -35,7 +35,7 @@ interface TettoTileProps {
    * The KPI blocks the phone's strip already prints (`liftedBlocks(strip, id).filter(
    * isTettoLiftedBlock)`): each hides WHOLE below `desktop:` — label, value and caption, because
    * the caption («tolte le spese in calendario») qualified a figure the verdict already qualifies
-   * (decisions 17 and 33). «Al giorno» is never lifted.
+   * (The Lifted-Figure Rule; doc/guide/cashflow-budget.md § Composizione mobile). «Al giorno» is never lifted.
    */
   liftedFigures?: readonly TettoLiftedBlock[];
   className?: string;

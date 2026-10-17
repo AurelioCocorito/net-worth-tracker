@@ -23,8 +23,8 @@ import type { FIREProjectionResult } from '@/types/assets';
 
 /**
  * The ids of the tab's rows below `desktop:` (`useMobileSections` with `tab: 'fire'`, The
- * Closed-Row Rule): every tile but Traguardo, THE tile, which never closes (doc/mobile/README.md
- * § 9, decision 21). The DOM ids are not narrative, so they live here.
+ * Closed-Row Rule): every tile but Traguardo, THE tile, which never closes
+ * (The First-Screen Rule). The DOM ids are not narrative, so they live here.
  */
 export const FIRE_SECTION_IDS = {
   base: 'fire-base',
@@ -41,7 +41,7 @@ export interface FireStripInput {
  * The two figures of the Calcolatore's first screen: the gap to the number — the verdict's
  * first figure, «Ti mancano 191.500 €» — opening the Base di calcolo, and what the net worth
  * yields a month at the SWR — the Reddito passivo reading's figure — opening that row. Nothing is
- * lifted: both readings stay whole (decision 15). A reached target has no gap: the cell says so.
+ * lifted: both readings stay whole (The Lifted-Figure Rule). A reached target has no gap: the cell says so.
  */
 export function selectFireStrip({ target, passiveIncome }: FireStripInput): StripFigure[] {
   return [

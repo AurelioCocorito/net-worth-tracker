@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * Analisi's Flusso below 640px: one share bar, then each group's categories as ranked rows. A
+ * Analisi's Flusso in a cell narrower than 608px (`FLUSSO_SANKEY_MIN_CELL`, since 2026-10-16; 640px of
+ * viewport before): one share bar, then each group's categories as ranked rows. A
  * four-column Sankey gets ~80 px a column at 390 and stops saying anything, so on a phone the tile
  * draws its DATA instead — the same figures, the same words, the same landing (a row opens the
  * Scheda through the page's one entry path).

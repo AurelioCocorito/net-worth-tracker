@@ -42,7 +42,7 @@ const TYPOGRAPHIC_MINUS = '−';
 
 /**
  * «+7,96%» / «−2,40%», coloured by sign — and «0,00%», unsigned and uncoloured, when the value
- * PRINTS as zero (`printedSign`, decision 20 of doc/mobile/README.md § 9; since 2026-10-16): the
+ * PRINTS as zero (`printedSign`, AGENTS.md § Layout and Color Tokens; since 2026-10-16): the
  * strip cell «Mercato da …» prints the same TWR through `formatStripFigure`, which decides on the
  * text, and the two read «+0,00%» against «0,00%» until then.
  */
@@ -194,8 +194,8 @@ export function buildPensionVerdict({ blocks, taxYear, currentYear }: PensionVer
     sentence.push(...blockSentence(block, taxYear, currentYear));
   });
   // With ONE contributor measured the strip prints the three causes, and the sentence would print
-  // them again: «title only» on a phone (decisions 3 and 46, `leadLength: 0`), the sentence whole
-  // behind «Il perché», where it may repeat the cells (decision 8). With two or more, or a return
+  // them again: «title only» on a phone (The Binding-Clause Rule, `leadLength: 0`), the sentence whole
+  // behind «Il perché», where it may repeat the cells (The Lifted-Figure Rule). With two or more, or a return
   // that is not a measure, there is no strip and nothing is cut.
   if (hasPensionStrip(blocks)) return { headline, tone, sentence, leadLength: 0, restLabel: 'le tre cause' };
   return { headline, tone, sentence };

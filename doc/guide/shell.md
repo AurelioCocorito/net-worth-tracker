@@ -85,9 +85,9 @@ rules below name.
   `useSearchParams` at their root and `/dashboard/settings` is in the prerender manifest): on the server `loading` is
   always true, so `ProtectedRoute` renders only its fallback and the page function never runs at prerender — the rule
   above is for what sits OUTSIDE it.
-- **The `PageTabBar` pill's tabs are 44×44 since 2026-10-10** (`min-h-11 min-w-11 justify-center`, doc/mobile/README.md
-  § 9, decision 22; they measured 38×32 on touch until then): the pill grew from ~40 to 52px, so every tabbed surface
-  of the first-screen budget moved ~12px (`doc/mobile/budget.json`, `raisedBy: "MOB-02: pill a 44 px"`). `layout="size"`
+- **The `PageTabBar` pill's tabs are 44×44 since 2026-10-10** (`min-h-11 min-w-11 justify-center`, DESIGN.md →
+  Segmented Pill Control; they measured 38×32 on touch until then): the pill grew from ~40 to 52px, so every tabbed surface
+  of the first-screen budget moved ~12px (`perf/mobile-budget.json`, `raisedBy: "2026-10-10: pill a 44 px"`). `layout="size"`
   on the tab stays. `e2e/cashflow.mobile.spec.ts` holds the size of every visible tab.
 - **The bottom nav's layout animations run only where it is visible** (2026-10-08): it stays mounted at every
   width (it is in the prerendered shell), but `layout` on the `motion.nav` and the active pill's `layoutId` follow
@@ -97,7 +97,7 @@ rules below name.
   to JUMP aside when the «+» appeared. Pinned by `e2e/motion.layout{,.mobile}.spec.ts` (0 measures at 1440, a glide at
   390). In dev the page scene freezes rendering while the route compiles, so the glide is asserted without view
   transitions.
-- **A tablet in landscape has the icon rail, not the bar** (2026-10-16; doc/mobile/README.md § 9, 105, rewriting 48):
+- **A tablet in landscape has the icon rail, not the bar** (2026-10-16, the landscape redesign, which left the landscape bar below to a phone alone; DESIGN.md → Navigation):
   `components/layout/TabletRail.tsx` is the 1440 sidebar's routes as a 56px rail on the left (`primaryNav`, `analysisNav`,
   `planningNav`, the Assistente behind its flag, Impostazioni at the foot), every target 44px, the current page marked (`aria-current="page"`, `--sidebar-accent`), the same landmark «Navigazione principale» as the phone's pill and first in the DOM — a tool that means one of them selects `nav[data-nav="rail"]` or `nav[data-nav="pill"]` (the census and eight E2E files read the rail by mistake on 2026-10-16: eleven red); its last button («Account e preferenze») calls `toggleSidebar`, which below
   1440 opens the sidebar's sheet — the account, the theme and the logout stay there. It shows by CSS alone through the
@@ -111,8 +111,8 @@ rules below name.
   (`max-desktop:@[880px]:`, AGENTS.md § Tailwind Breakpoints, `lib/utils/tabletComposition.ts`). Held by `expectLandscapeShell`
   (`e2e/tabletLayout.ts`: the rail at x 0 and 56px wide, every target ≥ 44, one current page, `main` at top 0 with the
   viewport's height, no visible trigger).
-- **The landscape bar is a PHONE turned sideways only** (since 2026-10-16; 53px with a 44px trigger since MOB-08's
-  implementation, decision 48): below 1000px in landscape — where the bottom pill is hidden — `app/dashboard/layout.tsx`'s
+- **The landscape bar is a PHONE turned sideways only** (since 2026-10-16; 53px with a 44px trigger since the landscape
+  tablet's first implementation that day): below 1000px in landscape — where the bottom pill is hidden — `app/dashboard/layout.tsx`'s
   bar is `py-1` + `SidebarTrigger` at `size-11` (the primitive's default, `components/ui/sidebar.tsx`; it was `size-7`,
   28px under a thumb, with `py-2.5`: 49px) + `border-b`, and `tablet-landscape:hidden`. A phone loses 4px to it — no
   budget there (not one of the three viewports). Cashflow › Tracciamento's «Aggiungi» in the verdict's axis, the only add

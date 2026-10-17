@@ -1,6 +1,6 @@
 /**
  * The census's `--surfaces=` and `--viewports=` options (`validateSelection` of
- * scripts/mobileCensus.mjs): a value that is not a surface key of `doc/mobile/budget.json`, or
+ * scripts/mobileCensus.mjs): a value that is not a surface key of `perf/mobile-budget.json`, or
  * not one of the three viewports, is an error that names it and lists the valid ones — never a
  * silent drop, which measured nothing and overwrote `last-run.json` (seen on 2026-10-10 with
  * `--surfaces=cashflow`, a page name and not a key).

@@ -42,8 +42,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 /**
- * The section pill of `PageTabBar` is a thumb's target since 2026-10-10 (doc/mobile/README.md § 9,
- * decision 22: it measured 38×32 until then). Seen red with `min-h-11` removed from the tab.
+ * The section pill of `PageTabBar` is a thumb's target since 2026-10-10 (DESIGN.md → Navigation,
+ * a 44×44 target: it measured 38×32 until then). Seen red with `min-h-11` removed from the tab.
  */
 test('every tab of the pill is at least 44×44', async ({ page }) => {
   const tabs = page.getByRole('tab').filter({ visible: true });

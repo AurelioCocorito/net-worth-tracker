@@ -162,7 +162,7 @@ export function buildHallOfFameVerdict(input: HallOfFameVerdictInput): PageVerdi
 
   // The first sentence closes on the record's figures — a phone shows it alone (The Binding-Clause
   // Rule, since 2026-10-10); the running year and month follow as a SECOND sentence at
-  // every width («; il 2026» became «. Il 2026» on 2026-10-10, doc/mobile/README.md § 9, decision 5).
+  // every width («; il 2026» became «. Il 2026» on 2026-10-10: the cut needs a full stop, at 1440 too).
   const sentence: Narrative = [prose('In quel mese il patrimonio è salito di '), signedCurrency(bestMonth.value)];
   if (bestMonth.percentage !== null) {
     sentence.push(prose(', il '), signedPercent(bestMonth.percentage), prose(' in un mese'));
@@ -435,7 +435,7 @@ export function describeNotes(summary: NotesSummary): Narrative {
 /**
  * «nessuna nota» / «una nota» / «4 note» — what the closed Note row says beside its eyebrow on a
  * phone (The Closed-Row Rule: words, never an amount). A count of notes is not a figure of the
- * census (only € and % are, decision 7), so it may stand on a closed row.
+ * census (only € and % are: doc/guide/prima-schermata.md), so it may stand on a closed row.
  */
 export function describeClosedNotesAside(summary: NotesSummary): string {
   if (summary.total === 0) return 'nessuna nota';

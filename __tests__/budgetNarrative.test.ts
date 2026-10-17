@@ -133,8 +133,9 @@ describe('buildBudgetVerdict', () => {
     );
   });
 
-  // A phone never cuts a Budget verdict (doc/mobile/README.md § 9, decision 33): one sentence that
-  // already names the calendar, whole even over the ceiling, where it restates the two cells.
+  // A phone never cuts a Budget verdict (doc/guide/cashflow-budget.md § Composizione mobile): one
+  // sentence that already names the calendar, whole even over the ceiling, where it restates the
+  // two cells.
   // Seen red on 2026-10-12 with `leadLength` set on the exceeded branch.
   it('is never cut on a phone, over the ceiling included', () => {
     const over = ceiling({ spent: 4180, spentToDate: 4180, usedPct: 104.5, projection: 5890, remaining: 0, exceeded: true, overBy: 180, crossedOn: 13 });

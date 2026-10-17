@@ -4,8 +4,8 @@
  *
  * The strip's TWR cell prints «0,00%» for a TWR of −0,004 (`formatStripFigure`, and the reading's
  * `signedPct` in pensionNarrative.ts, both on `printedSign`); the tile printed «−0,00%» under it,
- * because it chose the sign with `value >= 0`. The rule is decision 20 of doc/mobile/README.md
- * § 9: a printed zero has no sign and no tone (`printedSign`, `formatSignedPercentIt`,
+ * because it chose the sign with `value >= 0`. The rule is the printed-zero rule of AGENTS.md
+ * § Layout and Color Tokens: a printed zero has no sign and no tone (`printedSign`, `formatSignedPercentIt`,
  * `formatSignedEuro` in lib/utils/formatters.ts). The figures here are invented and round.
  *
  * Seen red on 2026-10-16: the tile printed «−0,00%» for the TWR of −0,004, «+0,00%» for the

@@ -1,18 +1,20 @@
 /**
- * The tablet composition (2026-10-16; doc/mobile/README.md § 9, decisions 1, 48–51 and 101–105):
- * the same small-screen composition as the phone's, laid out on the widths a tablet gives it.
+ * The tablet composition (2026-10-16; DESIGN.md → The First-Screen Rule, AGENTS.md § Tailwind
+ * Breakpoints and Responsive Layout): the same small-screen composition as the phone's, laid out on
+ * the widths a tablet gives it.
  *
  *   - 768 (two columns): THE tile on both, «Il resto della pagina» on a row of its own, the closed
  *     rows two by two in DOM order, an OPEN row on the whole grid row. A closed row that would sit
  *     ALONE on its grid row — the last of an odd run before an open one, or the last of the page —
  *     takes the whole row too, so no half cell is left empty. `sparse` flow, never `dense`: a
- *     dense grid would pull a later row up into an earlier hole, a CSS reordering (decision 1).
+ *     dense grid would pull a later row up into an earlier hole, a CSS reordering.
  *   - A tablet in landscape (a content box of 880px or more below 1440: 936 at 1024×768 beside the
  *     56px icon rail, `TabletRail`; a 12,9" in portrait too): THE ANSWER on the left — the verdict
  *     and THE tile under it, still while the page scrolls — and on the right ONE tile, the INDEX:
  *     «Il resto della pagina» and every row, flat, one under the other, each opening in place
- *     (decision 105: the owner's hybrid of two directions drawn on 2026-10-16, after an Impeccable
- *     critique of the rail of decision 104 — «a phone made wider»). THE tile reaches the fold and its
+ *     (the owner's hybrid of two directions drawn on 2026-10-16, after an Impeccable critique of the
+ *     first landscape layout of the same day, a 360px column of rows beside THE tile — «a phone made
+ *     wider»). THE tile reaches the fold and its
  *     curve grows to fill it; the index is at least as tall, so the two cards start and end on the
  *     same lines.
  *
@@ -112,8 +114,9 @@ export const INDEX_GROUP_CLASS =
 export const REST_CELL_CLASS = 'max-desktop:@[880px]:min-h-[52px] max-desktop:@[880px]:pl-5 max-desktop:@[880px]:pr-3';
 
 /**
- * A closed row's ANSWER (`Tile`'s `answerWhenClosed`), shown in the landscape index only — 12px words,
- * the figure mono — and the scope aside it replaces there (`ASIDE_YIELDS_TO_ANSWER_CLASS`).
+ * A closed row's ANSWER (the page's `RowAnswers`, read by `TileRowShell` through `useRowAnswer`),
+ * shown in the landscape index only — 12px words, the figure mono — and the scope aside it replaces
+ * there (`ASIDE_YIELDS_TO_ANSWER_CLASS`).
  */
 export const CLOSED_ANSWER_CLASS = 'hidden text-[12px] text-foreground max-desktop:@[880px]:inline-flex';
 export const ASIDE_YIELDS_TO_ANSWER_CLASS = 'max-desktop:@[880px]:hidden';

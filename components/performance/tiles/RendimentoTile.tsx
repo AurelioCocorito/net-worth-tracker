@@ -14,8 +14,8 @@ import { SeriesLegend } from '@/components/ui/series-legend';
 import { GrowthOfHundredChart } from '@/components/performance/GrowthOfHundredChart';
 
 /**
- * The blocks a phone's strip lifts from this tile (The Lifted-Figure Rule, doc/mobile/README.md
- * § 9, decisions 17 and 38): the hero with its qualifier (the return cell), the gap chip (the
+ * The blocks a phone's strip lifts from this tile (The Lifted-Figure Rule; doc/guide/rendimenti.md
+ * § Composizione mobile): the hero with its qualifier (the return cell), the gap chip (the
  * model cell), and the «dal massimo del periodo» chip, whose figure the verdict's sequel carries.
  * The chip on the other basis stays.
  */
@@ -66,7 +66,8 @@ interface RendimentoTileProps {
 function HeroValue({ value }: { value: number }) {
   const animated = useCountUp(value, { duration: 620, fromPrevious: true });
   const shown = animated ?? value;
-  // The sign follows the PRINTED value (decision 20, since 2026-10-14): «0,0%» for +0,03, as the strip cell prints it.
+  // The sign follows the PRINTED value (AGENTS.md § Layout and Color Tokens, since 2026-10-14): «0,0%» for
+  // +0,03, as the strip cell prints it.
   return <>{formatSignedPercentIt(shown, 1)}</>;
 }
 
@@ -182,7 +183,7 @@ export function RendimentoTile({
               ]}
             />
           </div>
-          {/* The curve yields on a phone (120px below `desktop:`, 160 from it), never the reading (decision 4). */}
+          {/* The curve yields on a phone (120px below `desktop:`, 160 from it), never the reading (The First-Screen Rule). */}
           <GrowthOfHundredChart series={series} benchmarkName={benchmarkName} minHeight={160} className="mt-2 flex-1 [--growth-min-h:120px] desktop:[--growth-min-h:160px]" />
         </>
       )}

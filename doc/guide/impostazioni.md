@@ -178,7 +178,7 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
 ## Composizione mobile
 
-No composition, by design: a configuration page has no verdict and no question to answer first (DESIGN.md → The Declaration-Tile Rule), and every tile is a form the reader came to edit — a closed row would hide the control they came for. Below `desktop:` each tab keeps its grid in one column, two from `tablet:`; no strip, no closed row, no `mobile-sections:` key. `mobile:census` measures it as `target: false` (`doc/mobile/budget.json`), its screens a ceiling and not a goal.
+No composition, by design: a configuration page has no verdict and no question to answer first (DESIGN.md → The Declaration-Tile Rule), and every tile is a form the reader came to edit — a closed row would hide the control they came for. Below `desktop:` each tab keeps its grid in one column, two from `tablet:`; no strip, no closed row, no `mobile-sections:` key. `mobile:census` measures it as `target: false` (`perf/mobile-budget.json`), its screens a ceiling and not a goal.
 
 ## Per-page blind spots
 

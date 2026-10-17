@@ -24,8 +24,8 @@ import type { StripFigure } from '@/lib/utils/verdictStrip';
 // ─── The phone composition: the ids and the strip (since 2026-10-12) ──────────
 
 /**
- * THE tile and the rows of Tracciamento below `desktop:`, in the DOM's order (doc/mobile/README.md
- * § 9, decision 11). The `trk-` prefix keeps every id unique in `main`: the five Cashflow tabs stay
+ * THE tile and the rows of Tracciamento below `desktop:`, in the DOM's order (The First-Screen
+ * Rule). The `trk-` prefix keeps every id unique in `main`: the five Cashflow tabs stay
  * mounted together (`forceMount`), so a bare `movimenti` would exist twice. The DOM ids are not
  * narrative, so they live here and not in `cashflowNarrative.ts` (the Panoramica's precedent,
  * `overviewSummary.ts`).
@@ -60,14 +60,14 @@ export function growFeedWindow({ stored, shown, page = FEED_PAGE_SIZE }: { store
 }
 
 /**
- * The three figures under the title on a phone — the trio of THE tile, lifted whole (decision 31:
- * the PERIOD's totals, calendar included, which is why the page passes `describeTrackingScope` as
+ * The three figures under the title on a phone — the trio of THE tile, lifted whole (the
+ * PERIOD's totals, calendar included, which is why the page passes `describeTrackingScope` as
  * the verdict's `scope`): Entrate opens the income categories, Spese the spending ones, Risparmio
  * the savings history. Each prints EXACTLY what `CashflowKpiTrio` prints (`__tests__/
  * tracciamentoSummary.test.ts` holds the identity): the compact euro, `text-positive` on an income
  * above zero, `text-destructive` on spending above zero, the «−» of the trio on a negative net and
  * no colour on it. Nothing in, nothing out: `[]` with income and spending at zero (the verdict
- * then says «Nessun movimento registrato.» whole, decision 70).
+ * then says «Nessun movimento registrato.» whole).
  */
 export function selectTracciamentoStrip({ totals }: { totals: PeriodCashflowTotals }): StripFigure[] {
   if (totals.income <= 0 && totals.expenses <= 0) return [];

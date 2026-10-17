@@ -108,8 +108,8 @@ function targetClause(target: FireTarget): Narrative {
 /**
  * The lock changes the meaning of every figure of the FIRE page — the net worth, the number, the
  * year are all net of the fund — so a phone keeps it in sight whatever the cut hides (The
- * Binding-Clause Rule): this is the verdict's `scope` line below `desktop:` (doc/mobile/README.md
- * § 9, decision 44), «Modello ponte: fondo pensione escluso fino al 2050». Non-null exactly when
+ * Binding-Clause Rule): this is the verdict's `scope` line below `desktop:` (doc/guide/fire.md
+ * § Composizione mobile), «Modello ponte: fondo pensione escluso fino al 2050». Non-null exactly when
  * `lockSentence` has something to say, so the sentence in the sequel and the line never disagree;
  * at 1440 the page does not pass it (the whole paragraph already says it).
  */
@@ -172,7 +172,7 @@ function paceClause(monthlySavings: number, growthRate: number): Narrative {
  * it is the free assets that cover the expenses until the fund re-enters — the 4% of a net worth
  * that does not yet include the fund would not — and the clause says so. A sentence of its own
  * since 2026-10-15 («, e da allora» until then), at 1440 too: it is what a phone keeps behind
- * «Il perché» (doc/mobile/README.md § 9, decision 5).
+ * «Il perché» (the cut needs a full stop, at 1440 too — 2026-09-27).
  */
 function passiveIncomeClause(timeline: FireTimeline, swr: number, bridgeUntil: number | null, honest?: FireTargetHonest): Narrative {
   const { tax, pension } = honestClauses(honest);

@@ -260,7 +260,7 @@ test('a 1440 la pagina è quella di oggi: nessuna riga chiusa, nessuna striscia,
   await expect(page.getByRole('list', { name: 'Le cifre del verdetto' })).toBeHidden();
   await expect(page.getByRole('heading', { level: 2, name: 'Il resto della pagina' })).toBeHidden();
   // Dal 2026-10-15 la deriva è una frase e i prossimi soldi la seguono con un punto, anche a 1440
-  // (doc/mobile/README.md § 9, decisione 5): «…meno. Con 1000 € in più compreresti…».
+  // (il taglio del telefono vuole un punto fermo, 2026-09-27): «…meno. Con 1000 € in più compreresti…».
   const verdict = page.getByRole('region', { name: "Verdetto sull'allocazione" });
   await expect(verdict).toContainText(/\. Con 1000[\s ]*€ in più compreresti/);
   await expect(verdict).not.toContainText(/; con 1000/);

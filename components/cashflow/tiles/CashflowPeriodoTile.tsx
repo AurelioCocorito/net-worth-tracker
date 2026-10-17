@@ -9,7 +9,7 @@ import { NarrativeText } from '@/components/ui/narrative-text';
 import { CashflowKpiTrio, deltaClass } from './CashflowKpiTrio';
 import { FlowBarsChart } from './FlowBarsChart';
 
-/** The one block of this tile a phone's strip lifts: the trio's three values (decision 31). */
+/** The one block of this tile a phone's strip lifts: the trio's three values (doc/guide/cashflow-tracciamento.md). */
 export type CashflowPeriodoLiftedBlock = typeof TRACKING_TRIO_BLOCK;
 
 /** Narrows `liftedBlocks(strip, id)` at the call site (the convention of `LIFTED_FIGURE_CLASS`). */
@@ -27,7 +27,7 @@ export interface SpendingProjection {
 }
 
 interface CashflowPeriodoTileProps {
-  /** THE tile's anchor (`trk-periodo`): open at every width, never a row (decision 21). */
+  /** THE tile's anchor (`trk-periodo`): open at every width, never a row (The First-Screen Rule). */
   id?: string;
   eyebrow: string;
   aside?: ReactNode;
@@ -48,7 +48,7 @@ interface CashflowPeriodoTileProps {
   /**
    * The blocks the phone's strip already prints (`liftedBlocks(strip, id).filter(
    * isCashflowPeriodoLiftedBlock)`): the trio's three values hide below `desktop:`, its rate,
-   * coverage and deltas stay (decisions 17 and 31). Analisi passes none.
+   * coverage and deltas stay (The Lifted-Figure Rule). Analisi passes none.
    */
   liftedFigures?: readonly CashflowPeriodoLiftedBlock[];
   className?: string;

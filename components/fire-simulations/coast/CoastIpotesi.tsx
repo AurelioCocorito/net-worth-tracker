@@ -12,8 +12,8 @@
  * 127 px beside Profilo and Modello 251 px beside Scaglioni, measured (2026-09-23; AGENTS.md →
  * Hierarchy: a tile shares a row only with tiles of its own height). Below `desktop:` the
  * wrappers are `contents` and the tiles read in the DOM's order — Profilo, Modello, Pensioni,
- * Scaglioni — the same order Tab walks them (ONE sequence, no `order-*`: doc/mobile/README.md
- * § 9, decisions 1 and 11; the `order-*` that put Pensioni second went on 2026-10-15). Every
+ * Scaglioni — the same order Tab walks them (ONE sequence, no `order-*`: DESIGN.md →
+ * The First-Screen Rule; the `order-*` that put Pensioni second went on 2026-10-15). Every
  * control is 44 px on touch (`h-11 desktop:h-9`), the app's dense-list idiom.
  *
  * Config-first: the disclosure opens by itself only while no age is saved, or when an unsaved

@@ -1,10 +1,10 @@
 /**
- * mobile:budget — the last `npm run mobile:census` against doc/mobile/budget.json, the first-screen
+ * mobile:budget — the last `npm run mobile:census` against perf/mobile-budget.json, the first-screen
  * budget that can only get better (the manual: doc/guide/prima-schermata.md).
  *
  * Reads `.mobile-census/last-run.json` (no browser, no server) and hands it to
  * `compareCensusToBudget` (lib/utils/mobileBudget.ts) together with the budget committed in HEAD
- * (`git show HEAD:doc/mobile/budget.json`, as `perf:budget` does), so an entry widened without a
+ * (`git show HEAD:perf/mobile-budget.json`, as `perf:budget` does), so an entry widened without a
  * `raisedBy` of its own is red too. Prints every violation, the informational breaches (none since
  * 2026-10-16, when 768 and 1024 became binding) and the «obiettivo» column of The First-Screen Rule.
  *
@@ -28,7 +28,7 @@ import {
   type MobileBudget,
 } from '@/lib/utils/mobileBudget';
 
-const BUDGET_PATH = 'doc/mobile/budget.json';
+const BUDGET_PATH = 'perf/mobile-budget.json';
 const RUN_PATH = '.mobile-census/last-run.json';
 
 const args = Object.fromEntries(
@@ -106,8 +106,8 @@ if (typeof run.durationMs === 'number') console.log(`\nDurata della corsa: ${(ru
 if (!verdict.ok) {
   console.error('\n[mobile:budget] ROSSO:');
   for (const v of verdict.violations) console.error(`  - ${describeMobileViolation(v)}`);
-  console.error('  Una voce si allarga solo a mano, con l\'OK del proprietario: «raisedBy»: «MOB-NN: perché» sulla voce');
-  console.error('  (superficie × viewport) e una riga in doc/mobile/README.md § 3.1, nello stesso commit.');
+  console.error('  Una voce si allarga solo a mano, con l\'OK del proprietario: «raisedBy»: «<data>: perché» sulla voce');
+  console.error('  (superficie × viewport) e una riga nel registro di doc/guide/prima-schermata-misure.md, nello stesso commit.');
   process.exit(1);
 }
 console.log(`\n[mobile:budget] verde: ${run.results.length} misure dentro il budget.`);

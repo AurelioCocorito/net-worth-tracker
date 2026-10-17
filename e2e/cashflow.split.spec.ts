@@ -96,9 +96,9 @@ test.describe('Cashflow › Divisione', () => {
   });
 
   /**
-   * The calendar's clause is the verdict's SCOPE line at every width (doc/mobile/README.md § 9,
-   * decision 14, since 2026-10-12): under the paragraph at 1440 too, the one slot of MOB-02 no
-   * page of that spec passed — this is its first desktop proof. Seen red with the scope rendered
+   * The calendar's clause is the verdict's SCOPE line at every width (The Scheduled-Is-Not-Spent
+   * Rule, since 2026-10-12): under the paragraph at 1440 too, the one slot of the small-screen
+   * primitives (2026-10-10) no page composed with them had passed — this is its first desktop proof. Seen red with the scope rendered
    * only when `compact`.
    */
   test('prints the calendar\'s clause as the scope line under the verdict at 1440', async ({ page }) => {

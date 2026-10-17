@@ -201,7 +201,7 @@ export function buildStoricoVerdict(input: StoricoVerdictInput): PageVerdictMode
   if (lastDoubling) clauses.push([prose(`l'ultimo raddoppio ${atPeriodMonth(lastDoubling)}`)]);
   if (clauses.length > 0) sentence.push(prose(': '), ...joinClauses(clauses, ', '));
   sentence.push(prose('.'));
-  // Where a phone cuts (2026-10-14; decision 3): after the first sentence — the growth since
+  // Where a phone cuts (2026-10-14; The Binding-Clause Rule): after the first sentence — the growth since
   // the first snapshot and its best month. The last year's pace goes behind «Il perché».
   const leadLength = sentence.length;
   const pacePart = paceSentence(pace);

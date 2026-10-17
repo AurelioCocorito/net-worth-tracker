@@ -7,11 +7,11 @@
  * budget is always read on the current month (annual budgets are year-to-date and their tile
  * says so — the Off-Axis Tile Rule).
  *
- *   Below desktop:    ONE sequence, the desktop DOM (doc/mobile/README.md § 9, decisions 1 and 11;
- *                     composed since 2026-10-12): verdict (one sentence, never cut —
- *                     decision 33) → the strip of two, «Fine mese» and «Restano» / «Oltre» /
- *                     «Supererai», the Tetto's KPIs lifted (The Risk-vs-Fact Rule in the strip,
- *                     decision 34; «Supererai» to the verdict, 67) → [Aggiungi budget ·
+ *   Below desktop:    ONE sequence, the desktop DOM (DESIGN.md → The First-Screen Rule;
+ *                     composed since 2026-10-12): verdict (one sentence, never cut — no
+ *                     `leadLength`) → the strip of two, «Fine mese» and «Restano» / «Oltre» /
+ *                     «Supererai», the Tetto's KPIs lifted (The Risk-vs-Fact Rule in the strip;
+ *                     «Supererai» opens the verdict, which names the day) → [Aggiungi budget ·
  *                     impostazioni] → Tetto del mese, open → «Il resto della pagina» → Categorie a
  *                     rischio, Avvisi, Budget annuali, Per categoria as closed rows → Impostazioni.
  *                     Without a ceiling THE tile is Categorie a rischio, no strip; without a
@@ -141,8 +141,8 @@ const BUDGET_ROW_SPECS: Record<Exclude<(typeof BUDGET_SECTION_IDS)[keyof typeof 
  * The rows of the phone composition for this account (The Closed-Row Rule): with a ceiling the
  * Tetto is THE tile and the four others are rows; without one Categorie a rischio is THE tile
  * and three are rows; without a budget at all Per categoria alone, with its empty state, and no
- * rows (decision 21 names THE tile; `BudgetTab`'s header the three states). Budget annuali is a
- * row only while there is an annual budget.
+ * rows (THE tile never closes: The First-Screen Rule; `BudgetTab`'s header the three states).
+ * Budget annuali is a row only while there is an annual budget.
  */
 function resolveBudgetSections(state: { hasCeiling: boolean; hasItems: boolean; hasAnnual: boolean }): readonly SectionSpec[] {
   if (!state.hasItems) return [];
@@ -304,7 +304,8 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
 
   // ─── The phone composition (2026-10-12) ───────────────────────────────────────────
   // The strip is two KPIs of the Tetto, lifted whole; «Supererai» opens no row but puts the focus
-  // on the verdict (decision 67), which the controller does not know: its words come from here.
+  // on the verdict (it names the day; 2026-10-12), which the controller does not know: its words
+  // come from here.
   const strip = selectBudgetStrip(ceiling);
   const tettoLifted = liftedBlocks(strip, BUDGET_SECTION_IDS.tetto).filter(isTettoLiftedBlock);
   const closedAsides = describeBudgetClosedAsides(budget.alertsEnabled);
@@ -327,7 +328,7 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
   };
   // Categorie a rischio is a row with a ceiling and THE tile without one; without any budget it says
   // «Nessun budget mensile» under Per categoria's own empty state — hidden below `desktop:` with
-  // Avvisi, the desktop unchanged (decision 11). ONE element, placed by the grid below: inside the
+  // Avvisi, the desktop unchanged (The First-Screen Rule). ONE element, placed by the grid below: inside the
   // index after «Il resto» with a ceiling, before it (THE tile's place) without one.
   const rischioCell = (
     <div
@@ -362,7 +363,7 @@ export function BudgetTab({ categories, categoriesLoading, categoriesFailed, his
       {/* The verdict's box holds the verdict and, below desktop, the add row under it: in
           landscape the two are the left column's top, never a loose cell of the stage. */}
       <div data-stage="verdict" className={cn('space-y-4', hasItems && VERDICT_CELL_CLASS)}>
-      {/* ── Verdict (one sentence, never cut: decision 33); the box takes the focus from «Supererai» ── */}
+      {/* ── Verdict (one sentence, never cut: no `leadLength`); the box takes the focus from «Supererai» ── */}
       <div id={BUDGET_VERDICT_ID} tabIndex={-1} className="pt-1 outline-none">
         <PageVerdict
           verdict={verdict}

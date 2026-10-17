@@ -39,7 +39,8 @@ export interface PatrimonioVerdictInput {
   monthlyVariation: { value: number; percentage: number } | null;
   /**
    * Since the first snapshot of the year; null without one, absent on an older caller. Its
-   * sentence opens what a phone keeps behind «Il perché» (decision 81, 2026-10-14).
+   * sentence opens what a phone keeps behind «Il perché» (2026-10-14; doc/guide/patrimonio.md
+   * § Composizione mobile).
    */
   yearlyVariation?: { value: number; percentage: number } | null;
   isNewATH: boolean;
@@ -76,8 +77,8 @@ const figure = (text: string): NarrativeSegment => ({ text, mono: true });
 
 /**
  * A signed figure, or a bare one when it prints as zero: «0,00 €» and «0,00%» take no sign and no
- * colour whatever the sign of the raw value (`isPrintedZero`, the strip's rule — decision 20 of
- * doc/mobile/README.md § 9; on this page since 2026-10-14, at 1440 too). It used to print «+0,00 €»
+ * colour whatever the sign of the raw value (`isPrintedZero`, the strip's rule — AGENTS.md § Layout
+ * and Color Tokens; on this page since 2026-10-14, at 1440 too). It used to print «+0,00 €»
  * in green.
  */
 function signed(value: number, unsigned: string): NarrativeSegment {
@@ -252,9 +253,9 @@ export function formatHoldingCounts(instrumentCount: number, accountCount: numbe
  * its clause: no prior snapshot → no monthly clause; no attributable market effect → no
  * driver, even if a top mover was handed in.
  *
- * Where a phone cuts (2026-10-14; decisions 3 and 5 of doc/mobile/README.md § 9): after
+ * Where a phone cuts (2026-10-14; DESIGN.md → The Binding-Clause Rule, its full stop at 1440 too): after
  * the first sentence — the total, the month and the counts. Behind «Il perché» go the year
- * (decision 81: its chip is lifted whole from THE tile, so its euro lives here, in brackets after
+ * (a sentence of its own: its chip is lifted whole from THE tile, so its euro lives here, in brackets after
  * the percentage, at 1440 too), the market — a sentence of its own at every width, «; sul
  * mercato» until then — the month's split and the sale. The sale's tax and counterfactual are
  * `binding` (`describeSales`): that month the whole paragraph stays under the title.
@@ -320,7 +321,7 @@ export function buildPatrimonioVerdict(input: PatrimonioVerdictInput): Patrimoni
 /**
  * What «Il perché» opens on a phone, from what the rest holds: «il mercato del mese», «la vendita
  * del mese», «mercato e vendita del mese» (the `overviewRestLabel` of the Panoramica, on this
- * page's subjects); with the year in front of them (decision 81) «l'anno», «l'anno e il mercato
+ * page's subjects); with the year in front of them (since 2026-10-14) «l'anno», «l'anno e il mercato
  * del mese», «l'anno e la vendita del mese», «l'anno, il mercato e la vendita del mese».
  */
 export function patrimonioRestLabel(subjects: { year: boolean; market: boolean; sale: boolean }): string {

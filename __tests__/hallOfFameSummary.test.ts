@@ -440,7 +440,7 @@ describe('selectHallOfFameStrip', () => {
     expect(olderDocument[2]).toMatchObject({ value: null, reason: 'arriva con il prossimo aggiornamento' });
   });
 
-  it('lifts nothing: the cells repeat readings and ranking rows, which stay whole (decision 15)', () => {
+  it('lifts nothing: the cells repeat readings and ranking rows, which stay whole (The Lifted-Figure Rule)', () => {
     expect(strip.every((figure) => figure.lifts === undefined)).toBe(true);
   });
 });

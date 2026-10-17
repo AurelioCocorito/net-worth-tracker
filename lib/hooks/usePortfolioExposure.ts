@@ -26,8 +26,8 @@ export interface PortfolioExposureOptions {
    * Whether the profiles may be read at all (default `true`). Below `desktop:` the Esposizione is
    * a closed row and the page passes `false` until the row has been opened once: React Query
    * fetches a key as soon as ONE observer of it is enabled, so the hook inside the tile has to be
-   * off, not just its content unmounted (2026-10-15, doc/mobile/README.md § 9). Off, `profiles` is
-   * `undefined` and the engine does not run, whatever the signature.
+   * off, not just its content unmounted (2026-10-15, doc/guide/allocazione.md § Composizione
+   * mobile). Off, `profiles` is `undefined` and the engine does not run, whatever the signature.
    */
   enabled?: boolean;
 }

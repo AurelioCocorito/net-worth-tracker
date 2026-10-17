@@ -28,9 +28,9 @@ interface PeriodoTileProps {
   /**
    * The blocks the page's strip prints, hidden below `desktop:` (The Lifted-Figure Rule): `'trio'` —
    * the trio's three values (the strip's «Entrate» and «Risparmio», the first sentence's spending),
-   * the spending delta (the first sentence's pacing, decision 83) and the caption that names the
+   * the spending delta (the first sentence's pacing, owner's call 2026-10-14) and the caption that names the
    * deltas' baseline, which the first sentence names too. The income delta, the savings rate and
-   * the coverage stay (decision 17). Default none.
+   * the coverage stay. Default none.
    */
   liftedFigures?: readonly PeriodoLiftedBlock[];
   className?: string;
@@ -73,7 +73,7 @@ export function PeriodoTile({ eyebrow, aside, reading, totals, pacing, missingBa
         expensesDelta={pacedDelta(pacing?.expenses)}
         previousLabel={null}
         lifted={trioLifted}
-        // The spending delta is the first sentence's pacing, printed again a hand lower (decision 83).
+        // The spending delta is the first sentence's pacing, printed again a hand lower (owner's call 2026-10-14).
         expensesDeltaLifted={trioLifted}
         className="mt-4"
       />
@@ -100,7 +100,7 @@ export function PeriodoTile({ eyebrow, aside, reading, totals, pacing, missingBa
               )}
             </div>
           </div>
-          {/* Below `desktop:` the bars yield to 120px — the chart shortens, never the reading (decision 4). */}
+          {/* Below `desktop:` the bars yield to 120px — the chart shortens, never the reading (The First-Screen Rule). */}
           <SpendingBarsChart points={points} kind={chartKind} plotClassName="max-desktop:min-h-[120px] desktop:min-h-[150px]" className="mt-2.5 flex-1" />
         </>
       )}

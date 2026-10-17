@@ -25,7 +25,7 @@ page, tab, integration or subsystem, read only by whoever touches that area: the
 `cashflow*`, `rendimenti`, …), the cross-cutting subsystems since 2026-09-06 (`stati`, `dialog`, `temi`,
 `account-condiviso-demo`, Settings inside `impostazioni`), the test harness since 2026-09-20 (`e2e-emulatori`), the
 shell and the persisted cache since 2026-09-30 (`shell`, `cache-persistita`), the first-screen census since 2026-10-10
-(`prima-schermata`), and since 2026-10-10 the charts (`grafici`) and the server layer (`server`), which left this file
+(`prima-schermata`; its record — baselines, fixture table, widened entries — since 2026-10-17, `prima-schermata-misure`), and since 2026-10-10 the charts (`grafici`) and the server layer (`server`), which left this file
 whole, the two-step dialogs and the form reset joining `dialog` the same day. **How to use them**: section 3 is the index — for each guide the 3–4 things to know BEFORE opening it, then the
 pointer; the three subsystem guides born from sections 2 and 4 keep their stub under the heading the code cites
 (§ Server Layer and API Authorization, § Dialog Form Reset, § Two-Step Create Dialogs, § Recharts). A stub that grows
@@ -84,9 +84,12 @@ holds it): how it was learned is `git log`'s.
   a container query on a property that also has a `desktop:` class (columns, spans, grid rows, `display`) carries
   `max-desktop:` — the landscape stage's `max-desktop:@[880px]:contents` on a grid that is `desktop:grid-cols-12` —, or it
   wins at 1440 (the cascade, not the width, decides); one inside a tile that holds at every width on purpose
-  (`@[760px]:table-cell`) does not. **The landscape stage** (doc/mobile/README.md § 9, 104–106): the tablet composition's
+  (`@[760px]:table-cell`) does not. **The landscape stage** (2026-10-16; DESIGN.md → The First-Screen and Closed-Row Rules): the tablet composition's
   classes live in `lib/utils/tabletComposition.ts` alone, as literals (`__tests__/tabletComposition.test.ts` holds the rules
-  over its constants and the nineteen composed grids). A page wraps its verdict and its grid in a NEW `div`
+  over its constants and the nineteen composed grids: the verdict's box `VERDICT_CELL_CLASS`, the 768 grid
+  `COMPACT_GRID_WRAPPER_CLASS`/`COMPACT_GRID_CLASS` with `WIDE_CELL_CLASS` placed by `layoutTabletSections`, «Il resto»
+  `REST_CELL_CLASS`, the scope aside yielding to the answer `ASIDE_YIELDS_TO_ANSWER_CLASS`, the measured heights through
+  `stageCustomProperties` and `leftStackSticks`). A page wraps its verdict and its grid in a NEW `div`
   (`STAGE_WRAPPER_CLASS` = `@container`; never `PageContainer`, `container-type` would anchor a `fixed` descendant) around
   `STAGE_CLASS`, with `useTabletStage()`'s ref; the verdict's box `data-stage="verdict"`, THE tile's cell
   `data-stage="lead"`, «Il resto» and the rows inside ONE `INDEX_CLASS` box (a box of several rows inside it,
@@ -97,8 +100,9 @@ holds it): how it was learned is `git log`'s.
   cell through `leadCellClass(composed)` and the rest-less states `PLAIN_GRID_CLASS`, never a bare `LEAD_CELL_CLASS` — on a
   plain grid its landscape classes still answer the stage's container and leave the right column empty (Obiettivi with no
   goal, 2026-10-16). A page hands `useTabletComposition` the rows it RENDERS, in DOM order (768's pairing). The closed
-  rows ANSWER in the index (decision 106): ONE pure `describe*ClosedAnswers` per page in its narrative/summary module,
-  given by context (`RowAnswers`, `components/ui/row-answers.tsx`) and read by `TileRowShell` — never a prop through the
+  rows ANSWER in the index (2026-10-16, DESIGN.md → The Closed-Row Rule): ONE pure `describe*ClosedAnswers` per page in
+  its narrative/summary module, given by context (`RowAnswers`, `components/ui/row-answers.tsx`) and read by `TileRowShell`
+  through `useRowAnswer` — never a prop through the
   tiles, never on an open or failed row, `null` to keep the scope aside; each guide's § Composizione mobile lists them. **A tile that
   can be a row lays out its inside by its CONTAINER, never by the viewport** (2026-10-16): in landscape every row opens in a
   360px index, a phone's width at a tablet's viewport — a `tablet:` inside such a tile draws the wide layout in 320px
@@ -158,7 +162,8 @@ holds it): how it was learned is `git log`'s.
   dot, the table's badge and the hero's legend; a row's `income` is the sign token `positive`, each outflow a chart slot,
   the SERIES (bars) take chart slots, never the sign token. **Sign tokens mean gain and loss, and nothing else**: a
   neutral delta (a class gaining share) stays `text-muted-foreground`. **A figure that PRINTS as zero takes no sign and
-  no sign token, whatever the raw value** (doc/mobile/README.md § 9, decision 20; on the tiles since 2026-10-12): decide
+  no sign token, whatever the raw value** (2026-10-10, the phone composition: a strip cell and the tile beside it must print
+  the same zero — DESIGN.md → The Lifted-Figure Rule; on the tiles since 2026-10-12): decide
   the «−» on the formatted text with `withTypographicMinus`/`formatEuroMinus` (`lib/utils/formatters.ts`, where
   `isPrintedZero` lives, pinned by `__tests__/formatters.test.ts`), never on `value < 0`; a percent or a gap in points
   takes `printedSign`/`formatSignedPercentIt`/`formatSignedPoints` from the same module (the Rendimento (TWR) tile since
@@ -719,7 +724,7 @@ file used to carry.
   wrappers `contents` below `desktop:`, `desktop:flex desktop:flex-col` from it — and the ONE element that can be any
   height (a chart, `desktop:flex-1`) takes the slack. **Keep ONE sequence: the DOM order is the reading order on every
   device**; the desktop places cells with `desktop:col-start-*`/`row-start-*`, never with an `order` swap (2026-09-27,
-  doc/mobile/README.md § 9, decisions 1 and 11; Hall of Fame lost its `order-1…5` on 2026-10-10,
+  DESIGN.md → The First-Screen Rule; Hall of Fame lost its `order-1…5` on 2026-10-10,
   `e2e/mobile-composition.hof.mobile.spec.ts` holds the DOM-equals-vertical order at 390 and 1440 and the `order-*`
   utilities in `main` at 0 — read from `classList` with `/^(?:[a-z-]+:)*order-/`, since `[class*="order-"]` matches
   every `border-*`, doc/guide/e2e-emulatori.md). The Panoramica lost its `order-1…8` on 2026-10-11
@@ -732,13 +737,15 @@ file used to carry.
   order; each probe reads the `classList` AND the vertical order, seen red with an `order-*` put back): no composed grid
   carries `order-*` any more.
 - **The small-screen composition is DESIGN.md's** (§ 5 → Small-Screen Composition: The First-Screen, Lifted-Figure,
-  Closed-Row and Binding-Clause Rules, written 2026-10-17 by MOB-09; what each page does with them, its guide
-  § Composizione mobile). Three code traps, 2026-10-17, held by `e2e/mobile-composition.hof.mobile.spec.ts` (the first
-  screen, the reload, the DOM order) and `__tests__/mobileSections.test.ts`: **a closed row's panel is EMPTY** until its
-  first opening, so a spec opens the row before reading what is in it; **the memory (`mobile-sections:`) is written only
-  by a gesture** — a row's trigger, «Apri tutte»/«Chiudi tutte», a strip cell (`createSectionHandler`, `setAll`,
-  `reveal` in `lib/hooks/useMobileSections.ts`) — never by a default nor by a failed read opening itself; **no `order-*`**
-  in a composed grid (the bullet above). The primitives' own traps stay in § Motion (`TileRowShell`, the controller) and
+  Closed-Row and Binding-Clause Rules, written 2026-10-17 when the series closed; what each page does with them, its guide
+  § Composizione mobile). Three code traps, 2026-10-17: **a closed row's panel is EMPTY** until its first opening, so a spec opens
+  the row before reading what is in it (`e2e/mobile-composition.hof.mobile.spec.ts`); **the memory (`mobile-sections:`) is
+  written only by a gesture** — a row's trigger, «Apri tutte»/«Chiudi tutte», a strip cell (`createSectionHandler`,
+  `setAll`, `reveal` in `lib/hooks/useMobileSections.ts`) — never by a default nor by a failed read opening itself: the
+  gestures that write are held by the Hall of Fame spec, «a tab nobody touched writes nothing» by
+  `e2e/mobile-composition.cashflow.mobile.spec.ts`, and «a failed read opening itself writes nothing» only by
+  `createSectionHandler`'s structure (its auto-open is not in the written list; no test); **no `order-*`** in a composed
+  grid (the bullet above). The primitives' own traps stay in § Motion (`TileRowShell`, the controller) and
   § Accessibility (one live node).
 - **A row's caption WRAPS, it is never truncated, and the label column never grows to make room for it** (2026-09-14,
   `RankedRows`): a cut fact is no fact («30 set · Asilo nido · in calendario»); at 4 grid columns 46% is the most the
@@ -842,8 +849,8 @@ file used to carry.
   build, remove the worktree, count `ls node_modules | wc -l`.
 - **An accepted PR merged "with changes" is its diff applied, not its commits** (2026-09-07): `git apply --reject` of
   `base...head`, the session's fixes on top, one commit with the author as `Co-authored-by`, never the PR's own
-  `CLAUDE.md` and draft hunks. **While `doc/mobile/` is open** (2026-09-27; `doc/perf/` closed on 2026-10-08) it is
-  crossed with the open specs (a cited line that moves, a count, a baseline, a rule the new code should follow), the
+  `CLAUDE.md` and draft hunks. **While a spec series is open** (2026-09-27; `doc/perf/` closed on 2026-10-08,
+  `doc/mobile/` on 2026-10-17) it is crossed with the open specs (a cited line that moves, a count, a baseline, a rule the new code should follow), the
   specs amended in the same commit; it lands BEFORE a spec that rewrites the same files. Look first for the five defects
   of that day's three PRs: a sentence or number born in a component, an overflow asserted on `document`, an absence
   with no positive anchor, a hook running with its feature off, a write that does not invalidate its reader's key.
@@ -860,7 +867,7 @@ file used to carry.
   `exposureRequests.MODULE_BY_TYPE`, `DividendDialog`'s non-paying set (the `loan` of 2026-10-10 touched all five);
   widening `AssetClass` means `ASSET_CLASS_SEQUENCE` and its readers. **Perf tooling**: `perfBudget`, `perfRoutes`
   (`perf/routes.json` = `navigation.ts`), and for the first-screen census `mobileBudget`, `mobileSurfaces`
-  (`doc/mobile/budget.json`'s surfaces = `navigation.ts` minus the assistant), `mobileCensusFigures` and
+  (`perf/mobile-budget.json`'s surfaces = `navigation.ts` minus the assistant), `mobileCensusFigures` and
   `mobileCensusOptions`; `npm run perf:budget` after `npm run build`, or `-- --dist=.next-perf` after `perf:build`
   (2026-10-05: without it the script read a `.next` of 15/08 — its first line names the build); a route that grows
   raises its ceiling with `raisedBy` in the same commit (`doc/guide/velocita.md`).
@@ -928,17 +935,20 @@ file used to carry.
 - **A ceiling only a measure may lower, and only a new feature may raise** — `raisedBy` on the route, the before/after
   and a row in § Registro dei tetti alzati, in the same commit; `libraryCopies: { recharts: 1 }` is a rule, not a
   measure. TIMES compare only on the same machine in the same session (±10%); COUNTS compare anywhere.
-- **`perf:census` has a scenario for the phone composition** (2026-10-10, MOB-02): `npm run perf:census -- --mobile
+- **`perf:census` has a scenario for the phone composition** (2026-10-10): `npm run perf:census -- --mobile
   --scenario=hall-of-fame` taps a closed row four times; a tap re-renders that row, `PageRest` and the page, never
   another tile nor the verdict — a new `collapse(id)` identity on every render is what it would catch.
-- **The first-screen census shares the port** (2026-10-10, MOB-01; its manual is `doc/guide/prima-schermata.md`): `npm
+- **The first-screen census shares the port** (2026-10-10; its manual is `doc/guide/prima-schermata.md`, its record —
+  baselines, the fixture table, every widened entry — `doc/guide/prima-schermata-misure.md`): `npm
   run mobile:census` measures the composition of 19 surfaces × 390/768/1024 on the same :3200 build, re-seeding its own
-  fixture `census@example.com`; `npm run mobile:budget` holds the run against `doc/mobile/budget.json` (zero tolerance,
-  it only tightens, a widening carries `raisedBy: "MOB-NN: …"` and KEEPS every reason the entry carried before — concatenated,
-  never overwritten (`doc/mobile/README.md` § 9, 94, 2026-10-16: a `--tighten` had replaced twelve); `--tighten` refuses a partial run and a run in which
+  fixture `census@example.com`; `npm run mobile:budget` holds the run against `perf/mobile-budget.json` (zero tolerance,
+  it only tightens, a widening carries `raisedBy: "<date>: …"` and KEEPS every reason the entry carried before — concatenated,
+  never overwritten (2026-10-16: a `--tighten` had replaced twelve); `--tighten` refuses a partial run and a run in which
   Yahoo answered a profile, 2026-10-10). The fixture refuses to be measured from the 1st to the 4th and on the month's
   last day; an unknown `--surfaces` key or `--viewports` value exits 1 with the valid ones; a figure whose unit is a
-  `[data-figure-unit]` span counts once (2026-10-10).
+  `[data-figure-unit]` span counts once (2026-10-10). **A change that moves what a composed page shows on its first
+  screen closes on `mobile:census` + `mobile:budget` green on the fixture** (2026-10-17: the series that measured each page
+  is closed, the budget stays; DESIGN.md → The First-Screen Rule).
 - Il resto — every column, the baseline in force and the historical one of 2026-09-26, the before/after of every speed
   session, the census scenarios, `--revisit` and what the tables do not say — in `doc/guide/velocita.md`.
 

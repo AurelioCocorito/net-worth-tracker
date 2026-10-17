@@ -9,9 +9,9 @@
  * period axis: a center's cost is its whole cost, and every tile measured on another window
  * names it («quest'anno», «ultimi 12 mesi», the ceiling's own month or year).
  *
- *   Below desktop:    ONE sequence, the desktop DOM (doc/mobile/README.md § 9, decisions 1 and 11;
+ *   Below desktop:    ONE sequence, the desktop DOM (DESIGN.md → The First-Screen Rule;
  *                     composed since 2026-10-12): verdict (whole, never cut; no strip —
- *                     decision 30, Totale's three figures each name their window) → [Nuovo
+ *                     Totale's three figures each name their window) → [Nuovo
  *                     centro] → Totale, open → «Il resto della pagina» → Centri, Dormienti as
  *                     closed rows → Archiviati as it is. The detail is composed the same way
  *                     (`CostCenterDetail`), its memory per page, never per centre.
@@ -107,7 +107,7 @@ const CENTER_PARAM = 'center';
 const EMPTY_CENTERS: CostCenter[] = [];
 const EMPTY_EXPENSES: Expense[] = [];
 
-/** The list's rows below `desktop:`, in the DOM's order: every tile but Totale, THE tile (decision 21). */
+/** The list's rows below `desktop:`, in the DOM's order: every tile but Totale, THE tile, which never closes. */
 const COST_CENTERS_SECTIONS: readonly SectionSpec[] = [
   { id: COST_CENTER_SECTION_IDS.centri, eyebrow: 'Centri' },
   { id: COST_CENTER_SECTION_IDS.dormienti, eyebrow: 'Dormienti' },
@@ -310,7 +310,7 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
       {/* The verdict's box holds the verdict and, below desktop, the add button under it: in
           landscape the two are the left column's top, never a loose cell of the stage. */}
       <div data-stage="verdict" className={cn('space-y-4', composed && VERDICT_CELL_CLASS)}>
-      {/* ── Verdict (whole at every width: no strip, no cut — decision 30). A failed read is the
+      {/* ── Verdict (whole at every width: no strip, no cut — see the header). A failed read is the
           verdict's `pending` notice, not a sentence above it: until 2026-10-12 the verdict of the
           EMPTY summary («Nessun centro di costo.») stood over a notice saying the page would
           wrongly claim exactly that. ────────────────────────────────────────────── */}
@@ -357,7 +357,7 @@ export function CostCentersTab({ active }: CostCentersTabProps) {
       ) : (
         <>
           {/* ── Tile grid: ONE sequence, the DOM order is the reading order at every width
-              (decision 11; the `order-*` went on 2026-10-12) — THE tile, then «Il resto» and the
+              (The First-Screen Rule; the `order-*` went on 2026-10-12) — THE tile, then «Il resto» and the
               rows inside the index ───────────────────────────────────────────────── */}
           <div className={COMPACT_GRID_WRAPPER_CLASS}>
           <div className={COMPACT_GRID_CLASS}>

@@ -623,7 +623,7 @@ describe('the disclosures', () => {
 // above (`captionHonestClauses`), which predates the composition; no red was recorded for it on
 // 2026-10-15, and the retirement of 2026-10-16 says so instead of claiming one.
 
-describe('buildFireVerdict — the cut (doc/mobile/README.md § 9, decisions 5 and 44)', () => {
+describe('buildFireVerdict — the cut (a full stop at 1440 too, the lock as the scope line)', () => {
   it('closes the first sentence on the year and keeps «Da allora…» and the lock behind «Il perché»', () => {
     const verdict = buildFireVerdict(verdictInput());
     const { lead, rest, restLabel } = splitVerdict(verdict);
@@ -702,7 +702,7 @@ describe('selectFireStrip — the two cells of the Calcolatore', () => {
 });
 
 // ─── The closed rows' words (2026-10-16, in the retirement of the composition) ───────────────────
-// The owner chose them in session (doc/mobile/README.md § 9, 92); nothing pinned them until now.
+// The owner chose them in session on 2026-10-15; nothing pinned them until now.
 
 describe('the closed rows\' asides — words, never a figure', () => {
   it('names each row of the Calcolatore and the empty branch without a digit', () => {

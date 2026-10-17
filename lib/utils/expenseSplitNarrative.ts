@@ -147,15 +147,15 @@ export interface SplitVerdictInput {
   now: Date;
 }
 
-/** The label of «Il perché» on a phone: what the hidden half of the verdict is about (decision 68, 2026-10-12). */
+/** The label of «Il perché» on a phone: what the hidden half of the verdict is about (2026-10-12). */
 export const SPLIT_REST_LABEL = 'quanto resta a ciascuno';
 
 /**
  * A person's booked residual as their tile prints it at 32px: the compact euro with the «−»
  * U+2212 on a deficit (The Comma Rule; `Intl` writes the hyphen-minus), unsigned when it prints
- * as zero («0 €» for −0,3: decision 20, since 2026-10-12 — until then the sign was decided on the
+ * as zero («0 €» for −0,3: a printed zero takes no sign, since 2026-10-12 — until then the sign was decided on the
  * value and the tile printed «−0 €» against the cell's «0 €»). At every width since 2026-10-12
- * (doc/mobile/README.md § 9, decision 32), so the strip's cell — `formatStripFigure`, which
+ * (doc/guide/cashflow-divisione.md), so the strip's cell — `formatStripFigure`, which
  * decides the sign the same way — prints exactly what the tile prints.
  */
 export function formatBookedResidual(value: number): string {
@@ -166,7 +166,7 @@ export function formatBookedResidual(value: number): string {
 export const SPLIT_CLOSED_ASIDES = { quota: 'dalle entrate', member: 'quanto resta' } as const;
 
 /**
- * The scope line of Divisione's verdict (doc/mobile/README.md § 9, decision 14): «Nel totale ci
+ * The scope line of Divisione's verdict (DESIGN.md → The Binding-Clause Rule): «Nel totale ci
  * sono ancora 300 € di spese già in calendario da qui a fine mese.» — the part of the common pool
  * (and of the common income) dated after today, INSIDE the total the first sentence prints. Until
  * 2026-10-12 it was a sentence of the verdict itself; as the `scope` it is rendered at
@@ -261,7 +261,7 @@ function poolClause(common: CommonSpending): Narrative {
  * was left in comune.
  *
  * The scheduled part of the pool is the verdict's `scope` since 2026-10-12 (`describeSplitScope`,
- * decision 14): a running period's pool contains rows that have not been paid yet,
+ * The Binding-Clause Rule): a running period's pool contains rows that have not been paid yet,
  * and the caption says the amount is INSIDE the figure just printed, under the cells on a phone
  * and under the paragraph at 1440 — the sentence itself no longer carries it.
  *
@@ -348,7 +348,7 @@ function remainingClause(members: MemberBalance[]): Narrative {
  * " Con le spese in calendario, a fine periodo a Giuseppe restano 1173 € e a Marcella mancano
  * 83 €." — where the rows still in the calendar take each residual. It names them itself since
  * 2026-10-12: until then it opened on «Con quelle», whose antecedent was the scheduled
- * sentence just before it — now the verdict's `scope`, out of the sentence (decision 14).
+ * sentence just before it — now the verdict's `scope`, out of the sentence (The Binding-Clause Rule).
  *
  * Absent when nothing is scheduled, which is every closed period: then the booked residual IS the
  * period's, and a second sentence repeating it would be a form.

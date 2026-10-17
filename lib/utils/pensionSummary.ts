@@ -420,7 +420,7 @@ export function summarizePensionMembers(input: PensionSummaryInput): PensionMemb
 
 /**
  * The ids of the page's rows below `desktop:` (`useMobileSections`, The Closed-Row Rule): every
- * tile but «Il fondo oggi», THE tile, which never closes (doc/mobile/README.md § 9, decision 21).
+ * tile but «Il fondo oggi», THE tile, which never closes (The First-Screen Rule).
  * The DOM ids are not narrative, so they live here (the precedent of `overviewSummary.ts`).
  */
 export const PENSION_SECTION_IDS = {
@@ -432,7 +432,7 @@ export const PENSION_SECTION_IDS = {
 
 /**
  * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but «Il fondo
- * oggi», THE tile, which never closes (decision 21). Module-level, so the controller sees one
+ * oggi», THE tile, which never closes (The First-Screen Rule). Module-level, so the controller sees one
  * stable list.
  */
 const PENSION_SECTIONS: readonly SectionSpec[] = [
@@ -460,11 +460,11 @@ export function resolvePensionSections(input: { hasFund: boolean; contributionsE
 }
 
 /**
- * The strip exists for ONE contributor with a measured return and for nobody else (decision 46):
- * three cells, one per cause, or none — with two contributors the sentence of the one who lost
- * ground must not end behind a tap, and a return that is not a measure has no first cause to
- * lift. The verdict's cut (`buildPensionVerdict`) reads the same predicate, so «title only» and
- * the three cells always come together.
+ * The strip exists for ONE contributor with a measured return and for nobody else
+ * (doc/guide/previdenza.md § Composizione mobile): three cells, one per cause, or none — with two
+ * contributors the sentence of the one who lost ground must not end behind a tap, and a return
+ * that is not a measure has no first cause to lift. The verdict's cut (`buildPensionVerdict`)
+ * reads the same predicate, so «title only» and the three cells always come together.
  */
 export function hasPensionStrip(blocks: readonly PensionMemberBlock[]): boolean {
   return blocks.length === 1 && blocks[0].returnState === 'measured' && blocks[0].return !== null;
@@ -483,7 +483,7 @@ export interface PensionStripInput {
 }
 
 /**
- * The three causes as three cells (The Three-Causes Rule, decisions 3 and 46): the market on the
+ * The three causes as three cells (The Three-Causes Rule, The Binding-Clause Rule): the market on the
  * block's own window («Mercato da nov 2025», off the axis — a year change never moves it), the
  * employer's share and the IRPEF saving on the axis year. Each prints EXACTLY what the verdict's
  * clause prints (`__tests__/pensionSummary.test.ts` holds the identity); a cause with nothing

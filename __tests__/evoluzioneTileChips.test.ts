@@ -6,7 +6,7 @@
  * percentage stays alone. Without a percentage — the snapshot a year back worth zero or less —
  * nothing was left inside the chip: an empty coloured pill over «ultimi 12 mesi». The chip now
  * hides whole, and with it the row when nothing else of it remains. The percentage beside an
- * unsigned «0 €» is signed on the PRINTED value too (decision 20): it read «0 € (+0,0%)».
+ * unsigned «0 €» is signed on the PRINTED value too (the printed-zero rule): it read «0 € (+0,0%)».
  *
  * Seen red on 2026-10-15, one behaviour at a time: the chip's own `LIFTED_FIGURE_CLASS` removed
  * (the empty pill came back, and the row stayed); `signedPct` put back on the percentage

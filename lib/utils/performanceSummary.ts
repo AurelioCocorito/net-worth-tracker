@@ -36,8 +36,8 @@ import type { StripFigure } from '@/lib/utils/verdictStrip';
 // ---------------------------------------------------------------------------
 
 /**
- * THE tile and the rows of Rendimenti below `desktop:`, in the DOM's order (doc/mobile/README.md
- * § 9, decision 11). The DOM ids are not narrative, so they live here and not in
+ * THE tile and the rows of Rendimenti below `desktop:`, in the DOM's order (The
+ * First-Screen Rule). The DOM ids are not narrative, so they live here and not in
  * `performanceNarrative.ts` (the Panoramica's precedent, `overviewSummary.ts`).
  */
 export const PERFORMANCE_SECTION_IDS = {
@@ -51,7 +51,7 @@ export const PERFORMANCE_SECTION_IDS = {
   plusvalenze: 'rend-plusvalenze',
 } as const;
 
-/** The blocks of `RendimentoTile` a strip cell lifts — the hero and the gap chip; the page adds the drawdown chip (decision 38). */
+/** The blocks of `RendimentoTile` a strip cell lifts — the hero and the gap chip; the page adds the drawdown chip (doc/guide/rendimenti.md). */
 export const RENDIMENTO_HERO_BLOCK = 'hero';
 export const RENDIMENTO_BENCHMARK_CHIP_BLOCK = 'benchmark-chip';
 
@@ -69,7 +69,7 @@ export interface PerformanceStripInput {
 }
 
 /**
- * The two figures under the title on a phone (doc/mobile/README.md § 9, decision 18): the return
+ * The two figures under the title on a phone (doc/guide/rendimenti.md § Composizione mobile): the return
  * ON ITS BASIS — the label carries it («Rendimento nei 4 mesi», «Rendimento annualizzato»), the
  * binding clause The Binding-Clause Rule asks for — and the gap against the reference model on the
  * SAME basis (The Same-Basis Rule: the page hands over `resolveBenchmarkGap`'s result, never a
@@ -114,7 +114,7 @@ export interface RealizedGainsStateInput {
 
 /**
  * Whether Plusvalenze realizzate is a tile, an `ErrorNotice` or nothing (the failed-row shape of
- * doc/mobile/README.md § 9, decision 36, and the owner's choice of 2026-09-26 that a silent
+ * Benchmark, a failed read at every width, and the owner's choice of 2026-09-26 that a silent
  * Plusvalenze becomes a notice; the rule since 2026-10-14, doc/guide/rendimenti.md
  * § Composizione mobile). Before that day a meta in error read as «not migrated» and the tile
  * vanished in silence.

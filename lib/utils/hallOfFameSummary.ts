@@ -426,13 +426,13 @@ export const HOF_SECTION_IDS = {
 /**
  * The three figures of a phone's first screen (since 2026-10-10), each READ from a board
  * the tiles already print — the running year's growth (the verdict's own figure, which may show
- * again in the opened «Il perché», decision 8), the income record and the savings record — and
+ * again in the opened «Il perché», The Lifted-Figure Rule), the income record and the savings record — and
  * each opening the row that explains it. A figure that is not there says why, never a zero:
  * «in calo quest'anno» when the running year sits in the decline ranking, «non ancora misurato»
  * in January before a snapshot or without a ranking; «arriva con il prossimo aggiornamento» when
  * the document predates the savings ranking (2026-08-25), «nessun mese con entrate» when it holds
  * it empty. The cells repeat the rows' readings and their first line, which stay whole
- * (decision 15): nothing is lifted on this page.
+ * (The Lifted-Figure Rule lifts blocks only): nothing is lifted on this page.
  */
 export function selectHallOfFameStrip(summary: HallOfFameSummary): StripFigure[] {
   const growthYears = getBoard(summary, 'annual', 'growth');

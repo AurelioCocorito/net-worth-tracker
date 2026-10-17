@@ -16,10 +16,10 @@
  *   Desktop (12 col): Record del patrimonio(5, 2 rows) | Entrate(3) | Risparmio record(4)
  *                                                      | Anni(7)
  *                     Note(12)
- *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11):
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule):
  *                     verdict (first sentence · the strip of three figures · «Il perché») → Record,
  *                     open, its chart at 120px → «Il resto della pagina» → Entrate, Risparmio, Anni,
- *                     Note as closed rows → Dettaglio → the two actions (decision 25). The rows are
+ *                     Note as closed rows → Dettaglio → the two actions (2026-10-10). The rows are
  *                     `useMobileSections`' (doc/guide/hall-of-fame.md § Composizione mobile).
  *
  * DATA: one document, `hall-of-fame/{userId}`, written by `updateHallOfFame` — the rankings are
@@ -118,7 +118,7 @@ const BOARD_PREVIEW_SIZE = 5;
 
 /**
  * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but Record del
- * patrimonio, which is THE tile and never closes (decision 21). Module-level, so the controller
+ * patrimonio, which is THE tile and never closes (The First-Screen Rule). Module-level, so the controller
  * sees one stable list; the page has one payload, so no row ever carries `failed`.
  */
 const HOF_SECTIONS: readonly SectionSpec[] = [
@@ -488,7 +488,7 @@ export default function HallOfFamePage() {
 
       {/* At 768 Record on two columns, the closed rows two by two, an open row on the whole grid
           row; on a tablet in landscape the index beside the verdict and Record. One sequence: the
-          DOM order is the reading order at every width, no `order-*` (decision 11). */}
+          DOM order is the reading order at every width, no `order-*` (The First-Screen Rule). */}
       <div className={COMPACT_GRID_WRAPPER_CLASS}>
       <div className={COMPACT_GRID_CLASS}>
         <div data-stage="lead" className={cn(TILE_CELL_CLASS, LEAD_CELL_CLASS, 'desktop:col-span-5 desktop:row-span-2')}>
@@ -602,7 +602,7 @@ export default function HallOfFamePage() {
       <HallOfFameDettaglio summary={summary} notes={notes} onNoteClick={handleNoteClick} onAddNote={handleAddNoteForRow} />
 
       {/* Below desktop the two actions close the page as 44px buttons, after the Dettaglio: the
-          first screen is the verdict's and THE tile's (decision 25). */}
+          first screen is the verdict's and THE tile's (2026-10-10). */}
       <div className="grid grid-cols-2 gap-2 desktop:hidden">{headerActions(true)}</div>
 
       {dialogs}

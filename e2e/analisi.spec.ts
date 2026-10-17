@@ -334,7 +334,7 @@ test.describe('Flusso by 50/30/20 role', () => {
   });
 });
 
-// ── The calendar as the verdict's scope (2026-10-14; decision 14) ───────────────────────────────
+// ── The calendar as the verdict's scope (2026-10-14; The Binding-Clause Rule) ───────────────────
 //
 // The fixture has nothing in the calendar (every row in January), so one row is planted on the 28th
 // of December of this year, at noon UTC, and removed after: the scope renders under the paragraph

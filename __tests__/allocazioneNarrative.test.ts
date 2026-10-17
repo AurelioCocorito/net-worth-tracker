@@ -765,7 +765,7 @@ describe('describeFrozen / describeExcluded', () => {
 // clause); the joiner put back to «; » (the lead no longer ends on «.»); `binding` dropped from
 // the orphan sentence (the cut survived an unreachable target).
 
-describe('buildAllocazioneVerdict — the cut (doc/mobile/README.md § 9, decision 5)', () => {
+describe('buildAllocazioneVerdict — the cut (a full stop, at 1440 too)', () => {
   it('closes the first sentence on a full stop, at 1440 too, and names the rest', () => {
     const { lead, rest, restLabel } = splitVerdict(buildAllocazioneVerdict(verdictInput()));
     expect(plain(lead)).toBe('Le azioni pesano 3,3 pp più del target e le obbligazioni 3,3 pp meno.');

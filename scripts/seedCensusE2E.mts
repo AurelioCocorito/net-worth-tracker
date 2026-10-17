@@ -1,17 +1,17 @@
 /**
  * The first-screen budget's fixture: the account `census@example.com` (uid `census-user`), which
- * `npm run mobile:census` re-seeds before every run (doc/mobile/README.md § 9, decision 10).
+ * `npm run mobile:census` re-seeds before every run (doc/guide/prima-schermata.md, since 2026-10-10).
  *
  * Run via `npm run e2e:seed:census` (Admin SDK pointed at the emulators — NEVER production).
  *
- * WHY ITS OWN ACCOUNT. The budget in `doc/mobile/budget.json` has zero tolerance (decision 23), so
+ * WHY ITS OWN ACCOUNT. The budget in `perf/mobile-budget.json` has zero tolerance (2026-10-10), so
  * it is measured on data that cannot drift: never the mirror (it changes every month), never the
  * base account (every spec writes into it). And every surface must have something to show, or a
  * budget on an empty page would guard nothing: Centri di Costo and Divisione are ON, there is a
  * coupon, a Budget ceiling, a pension fund, 47 monthly snapshots for Hall of Fame, a row still in
  * the calendar at the end of the month. Every OPTION is measured in its default state (owner,
  * 2026-10-10): the 50/30/20 roles are off. FIRE › Obiettivi is ON since 2026-10-15 (the day the
- * tab was composed for a phone; doc/mobile/README.md § 9, 60), with ONE invented goal whose deadline is
+ * tab was composed for a phone; doc/guide/prima-schermata.md), with ONE invented goal whose deadline is
  * relative to the run — seven years out, a pace that keeps it «in rotta» from the 5th to the
  * penultimate day — so the budget looks at the `goals-*` rows; the goal-driven targets stay off.
  *

@@ -44,8 +44,8 @@ function RailLinks({ items, pathname }: { items: NavItem[]; pathname: string }) 
 /**
  * The navigation of a tablet in landscape (2026-10-16): the desktop sidebar's routes as a 56px icon
  * rail on the left, always there, in place of the 53px bar and its hamburger — the width is what a
- * landscape tablet has in excess and the height what it lacks (Impeccable critique of 2026-10-16,
- * `.impeccable/critique/`; the owner's choice). Every route is one tap and the current page is
+ * landscape tablet has in excess and the height what it lacks (an Impeccable critique of 2026-10-16,
+ * deleted on 2026-10-17 with every critique — `git log -- .impeccable/critique/`; the owner's choice). Every route is one tap and the current page is
  * marked, as the phone's pill does. Shown by CSS alone (`tablet-landscape:`, globals.css), so the
  * prerendered shell paints it before hydration with nothing to correct.
  *

@@ -5,7 +5,7 @@ import type { Narrative } from '@/lib/utils/narrative';
 
 /**
  * What each closed row of a composed page ANSWERS in the landscape index (since 2026-10-16,
- * doc/mobile/README.md § 9, 105): the row id → a short phrase with at most ONE figure, one the strip
+ * DESIGN.md → The Closed-Row Rule): the row id → a short phrase with at most ONE figure, one the strip
  * and THE tile do not print (The Lifted-Figure Rule), or `null` where the row keeps its scope aside
  * (an empty state, a failed read, an inventory, a figure that would repeat another). Below the
  * landscape width the rows keep their scope; the answer shows in the index only (`CLOSED_ANSWER_CLASS`).

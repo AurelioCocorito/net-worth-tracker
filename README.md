@@ -229,11 +229,34 @@ For contributors and AI agents, the repo keeps its guidance split by scope:
 | --- | --- |
 | [`CLAUDE.md`](CLAUDE.md) | Index — what each feature is and where it lives |
 | [`AGENTS.md`](AGENTS.md) | Repo-wide conventions, data/state patterns, UI patterns, testing, workflow |
-| [`doc/guide/`](doc/guide/) | One file per domain — a page, a tab, a subsystem (`stati`, `dialog` with the two-step dialogs and the form reset, `temi`, `account-condiviso-demo`, `shell`, `cache-persistita`, `grafici` for Recharts and the hand-written charts, `server` for the API routes and the Admin SDK, `prima-schermata` for the first-screen census, `e2e-emulatori` for the Playwright and emulator harness) — the full rules and blind spots for that area; `AGENTS.md` keeps a 3–4-point stub per guide |
-| [`perf/`](perf/) · [`doc/guide/velocita.md`](doc/guide/velocita.md) | The size budget (`budget.json`), the benchmark's routes and last runs; the manual — commands, baseline, raised ceilings, census — is the guide |
-| [`doc/mobile/`](doc/mobile/) | The live mobile-composition series (MOB-01..09): the index with the baseline, the decisions and the state, one spec per session, the first-screen budget (`budget.json`, its manual in [`doc/guide/prima-schermata.md`](doc/guide/prima-schermata.md)) and the prompt that retires a spec — the folder goes when the last spec is retired |
+| [`doc/guide/`](doc/guide/) | One file per domain — a page, a tab, a subsystem (`stati`, `dialog` with the two-step dialogs and the form reset, `temi`, `account-condiviso-demo`, `shell`, `cache-persistita`, `grafici` for Recharts and the hand-written charts, `server` for the API routes and the Admin SDK, `prima-schermata` for the first-screen census and `prima-schermata-misure` for its baselines and register, `e2e-emulatori` for the Playwright and emulator harness) — the full rules and blind spots for that area; `AGENTS.md` keeps a 3–4-point stub per guide |
+| [`perf/`](perf/) · [`doc/guide/velocita.md`](doc/guide/velocita.md) | The size budget (`budget.json`), the first-screen budget (`mobile-budget.json`, its manual in [`doc/guide/prima-schermata.md`](doc/guide/prima-schermata.md)), the benchmark's routes and last runs; the manual — commands, baseline, raised ceilings, census — is the guide |
 | [`DESIGN.md`](DESIGN.md) | The aesthetic spec (normative) |
 | [`PRODUCT.md`](PRODUCT.md) · [`SETUP.md`](SETUP.md) · [`WORKFLOW.md`](WORKFLOW.md) | Positioning · environment/emulators · session rules |
+
+**The mobile-composition series (2026-09-26 → 2026-10-17, closed).** On 2026-09-26 the owner asked whether a phone
+deserved a design of its own («lì guardo al massimo 4–5 informazioni»): a census of 19 surfaces on the mirror measured a
+median of 3.8 screens of scroll at 390, the first screen holding the verdict and the start of ONE tile
+(`doc/guide/prima-schermata-misure.md` § Baseline storica). Three directions were drawn on invented figures, each built by
+one agent and attacked by an adversarial reviewer: **A** «Prima schermata» (a short verdict, a strip of at most four
+figures, ONE open tile, the rest closed rows), **B** «Il diario dei verdetti» (the Panoramica as a feed of every page's
+verdict) and **C** «Schede a scorrimento» (one tile per screen, swiped). The owner chose **A** as the base on every page,
+taking from C the red eyebrow of a closed row whose read failed and Plusvalenze realizzate as an `ErrorNotice`; B and C
+were dropped, and so was a second design system (it would have doubled DESIGN.md, the twelve themes, the four states and
+the forty modals). Nine specs followed, re-read adversarially together on 2026-10-10 (#447: 261 findings, 49 owner
+decisions), implemented one at a time on `develop` and each retired by a session of its own that read the code against
+it: **MOB-01** the census and its budget (#448, retired in #449, 2026-10-10: four script defects), **MOB-02** the
+composition's primitives on Hall of Fame (#450 / #451, 2026-10-10: three runtime defects), **MOB-03** Panoramica (#452 /
+#453, 2026-10-11: the signed zero in `salesNarrative`), **MOB-04** the five Cashflow tabs (#454 / #456, 2026-10-12: four,
+two of them older than the series), **MOB-05** Rendimenti (#459 / #461, 2026-10-14: three), **MOB-06** Patrimonio,
+Analisi, Storico (#462 / #463, 2026-10-14/15: two, and the fixture's past rows moved to day 5), **MOB-07** Allocazione,
+Previdenza, FIRE (#464 / #465, 2026-10-15/16: six), **MOB-08** the tablet (#466 / #467, 2026-10-16: the landscape
+redesigned in the retirement — the stage, the icon rail, closed rows that answer — and six defects), **MOB-09** DESIGN.md,
+the guides and the closure (#468, 2026-10-17; retired the same day with its folder). After it, on the same mirror and a
+production build, the median fell to 1.82 screens at 390, 1.23 at 768 and 1.16 at 1024 x 768. The rules now live in
+DESIGN.md → Small-Screen Composition, each page's composition in its guide's § Composizione mobile, the measures in
+`doc/guide/prima-schermata.md` and `doc/guide/prima-schermata-misure.md`, the budget in `perf/mobile-budget.json`; the
+specs, their index and the 110 owner decisions are in `git log -- doc/mobile/`.
 
 ## Tech Stack
 
@@ -273,7 +296,7 @@ npm run emulators:seed # Seed a synthetic test account (once) — test@example.c
 npm run dev:emulator   # Run the app against the local emulators
 
 # Browser tests (needs the emulators above running; app served on :3100, so your dev server can stay up)
-npm run test:e2e       # Playwright: desktop 1440px, mobile 390px, degraded-state scenarios
+npm run test:e2e       # Playwright: desktop 1440px, mobile 390px, tablet 768×1024 and 1024×768, degraded-state scenarios
 npm run test:e2e:ui    # Same, interactive runner
 
 # Speed and size (doc/guide/velocita.md): options always after `--`
@@ -284,7 +307,7 @@ npm run perf:census -- --runs=5 # Components re-rendered per key / tab switch (a
 
 # First screen on phone and tablet (doc/guide/prima-schermata.md), on the same :3200 build
 npm run mobile:census -- --email=census@example.com  # Re-seeds its fixture, measures 19 surfaces at 390/768/1024
-npm run mobile:budget  # The last run against doc/mobile/budget.json (a budget that only tightens)
+npm run mobile:budget  # The last run against perf/mobile-budget.json (a budget that only tightens)
 ```
 
 Server time, which the emulators cannot show, is read in production: `GET /api/dashboard/overview` answers with a

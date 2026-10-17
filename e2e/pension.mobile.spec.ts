@@ -1,6 +1,7 @@
 /**
  * Previdenza at 390px — the width DESIGN.md designs against first; composed since 2026-10-15
- * (since 2026-10-15; the rules in doc/guide/previdenza.md § Composizione mobile, the decisions in doc/mobile/README.md § 9).
+ * (since 2026-10-15; the rules in doc/guide/previdenza.md § Composizione mobile and DESIGN.md →
+ * Small-Screen Composition).
  *
  * The desktop spec proves the grid switch happens; this one proves the phone's composition: the
  * verdict at 24px with the year axis INSIDE it, under the title; with ONE contributor measured
@@ -46,7 +47,7 @@ test('stacks THE tile and the closed rows in the DOM order, the axis inside the 
   expect(Math.abs(rendimento.x - hero.x)).toBeLessThan(2);
   for (const id of ROW_IDS) await expect(trigger(page, id)).toHaveAttribute('aria-expanded', 'false');
 
-  // The axis is in the verdict's section, between the title and the strip (decisions 2 and 12);
+  // The axis is in the verdict's section, between the title and the strip (DESIGN.md → Page Verdict);
   // one visible radiogroup (the desktop copy is mounted hidden).
   const axis = (await page.getByRole('radiogroup', { name: 'Anno fiscale' }).boundingBox())!;
   expect(axis.y).toBeGreaterThan(verdict.y);
@@ -70,7 +71,7 @@ test('with one contributor measured: title only, three causes in the strip, the 
   await expect(cells.nth(2)).toHaveAccessibleName(/, apre Anno fiscale$/);
   for (let i = 0; i < 3; i++) expect((await cells.nth(i).boundingBox())!.height, `cell ${i}`).toBeGreaterThanOrEqual(44);
 
-  // Title only (decisions 3 and 46): the sentence is in the DOM and hidden until «Il perché».
+  // Title only (one contributor; The Binding-Clause Rule): the sentence is in the DOM and hidden until «Il perché».
   const sentence = verdict.getByText(/Il fondo di Marco vale/);
   await expect(sentence).toBeHidden();
   const perche = verdict.getByRole('button', { name: /^Il perché/ });

@@ -8,7 +8,8 @@
  * say — «Il perché», the Cashflow row with the focus on its trigger, THE tile's curve on YTD with
  * the focus on the checked period; THE tile shows neither chip nor «Mercato:» while the sentence
  * names the market; every other tile is a closed row with an empty, inert panel, the first starting
- * after THE tile (under the pill at 390, owner's call: doc/mobile/README.md § 9, 65); the tax on a
+ * after THE tile (under the pill at 390, the owner's call of 2026-10-11, registered in
+ * doc/guide/prima-schermata-misure.md § Registro delle voci allargate); the tax on a
  * sale is on the first screen without a tap, and a taxed month that
  * is not the story keeps the whole paragraph with no «Il perché»; the rows are remembered across a
  * reload; the DOM order is the vertical order with no `order-*` left; nothing runs off `main`. The
@@ -100,9 +101,10 @@ test.describe('Panoramica, composed for a phone', () => {
 
     // The first screen ENDS at the pill: the title, the verdict (title only, the cells, «Il perché»)
     // and THE tile's hero and curve sit above it. The first closed row does NOT (owner, 2026-10-11,
-    // decision 19 extended to this page: the strip takes two rows whenever the month's euro has
-    // four digits — «+3000,00 €» is a wide cell, decision 28 — and the period picker is 44px, so
-    // Sintesi ends ~110px under the pill; `budget.json` registers `firstClosedRowAbovePill: false`
+    // the exception of DESIGN.md → The First-Screen Rule extended to this page: the strip takes two
+    // rows whenever the month's euro has four digits — «+3000,00 €» is a wide cell, longer than nine
+    // characters (DESIGN.md → Page Verdict) — and the period picker is 44px, so
+    // Sintesi ends ~110px under the pill; `perf/mobile-budget.json` registers `firstClosedRowAbovePill: false`
     // with its `raisedBy`). What is held here is the order: the row starts after THE tile ends.
     const pillTop = await page.locator('nav[data-nav="pill"]').evaluate((el) => el.getBoundingClientRect().top);
     expect(pillTop).toBeGreaterThan(600);
@@ -231,7 +233,7 @@ test.describe('Panoramica, composed for a phone', () => {
       const sections = [...main.querySelectorAll<HTMLElement>('section.rounded-2xl')].filter((el) => el.checkVisibility());
       return sections.map((el) => ({ name: el.getAttribute('aria-label'), top: Math.round(el.getBoundingClientRect().top) }));
     });
-    // Sintesi before Cashflow on the phone, as at 1440 (decision 11); the Cashflow tile is named after its month.
+    // Sintesi before Cashflow on the phone, as at 1440 (The First-Screen Rule); the Cashflow tile is named after its month.
     const EXPECTED = [/^Patrimonio$/, /^Sintesi patrimoniale$/, /^Cashflow · \p{Ll}+$/u, /^Composizione$/, /^Costi$/, /^Spese per categoria$/, /^Entrate per categoria$/, /^Asset principali$/];
     expect(order.length, JSON.stringify(order)).toBe(EXPECTED.length);
     order.forEach((s, i) => expect(s.name, `tile ${i}`).toMatch(EXPECTED[i]));

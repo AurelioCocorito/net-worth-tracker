@@ -11,8 +11,8 @@
  * legend is not in the DOM and the absence of the chart would pass empty. The strip's «Risparmio»
  * cell prints the surplus, so the Flusso's «Risparmio» block (and «Risparmi» whole, with no row
  * classified as saving on this fixture) is hidden at 390, the legend the positive anchor; the bar's
- * caption drops an amount the first screen prints (decision 82). The composition itself:
- * `mobile-composition.analisi.mobile.spec.ts`.
+ * caption drops an amount the first screen prints (2026-10-14, doc/guide/cashflow-analisi.md). The
+ * composition itself: `mobile-composition.analisi.mobile.spec.ts`.
  *
  * Seen red on 2026-10-15 with `FlussoTile` ignoring its `liftedFigures` (`savingsLifted` fixed to
  * false): the «Risparmio» block of the type view and the «Risparmi» group of the roles view both
@@ -66,7 +66,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('stacks the tiles in the DOM\'s order with no horizontal overflow', async ({ page }) => {
-  // The DOM order is the reading order (decision 11): Spese maggiori before the two category rows.
+  // The DOM order is the reading order (The First-Screen Rule): Spese maggiori before the two category rows.
   const order = await page.evaluate(() =>
     Array.from(document.querySelectorAll('main section[aria-label]'))
       .map((section) => ({ name: section.getAttribute('aria-label')!, top: section.getBoundingClientRect().top }))
@@ -249,7 +249,7 @@ test.describe('Flusso in deficit at 390', () => {
     await expect(legend.getByRole('listitem')).toHaveText([/^Variabili\s*100%$/]);
 
     // 1500 spent on 30 of income, nothing put aside. The first sentence prints the 1500 and the strip's
-    // «Risparmio» the −1470 the wealth covered, so the caption says both in words (decision 82).
+    // «Risparmio» the −1470 the wealth covered, so the caption says both in words (it drops what the first screen prints).
     await expect(flusso).toContainText('Quote delle spese. Oltre la linea delle entrate, il resto viene dal patrimonio.');
     await expect(flusso.getByRole('region', { name: 'Risparmio' })).toHaveCount(0);
 

@@ -51,7 +51,7 @@ export const BUDGET_SECTION_IDS = {
 
 export type BudgetSectionId = (typeof BUDGET_SECTION_IDS)[keyof typeof BUDGET_SECTION_IDS];
 
-/** The verdict's «Il perché» of this tab (never shown: a Budget verdict is one sentence, decision 33). */
+/** The verdict's «Il perché» of this tab (never shown: a Budget verdict is one sentence, never cut). */
 export const BUDGET_REST_ID = 'bud-perche';
 
 /** The three KPI blocks of `TettoTile` a strip cell can lift; «Al giorno» is never lifted. */
@@ -60,13 +60,13 @@ export type TettoLiftedBlock = 'fine-mese' | 'restano' | 'oltre';
 /**
  * The two cells under the title on a phone, both KPIs of the Tetto lifted whole (label, value and
  * caption: the caption «tolte le spese in calendario» qualified a figure the verdict already
- * qualifies, decision 33). «Fine mese» is the projection (`~`, red once it lands over the ceiling,
+ * qualifies). «Fine mese» is the projection (`~`, red once it lands over the ceiling,
  * «dal quarto giorno» while there is no pace) and opens Categorie a rischio; beside it, under the
  * ceiling, «Restano» opens Per categoria. Over the ceiling the second cell is The Risk-vs-Fact Rule
- * in the strip (decision 34): «Oltre» when the booked rows crossed it (`crossedOn` today or
+ * in the strip: «Oltre» when the booked rows crossed it (`crossedOn` today or
  * before) opens Avvisi, where the fact is listed; «Supererai» when only the calendar crosses it
  * (`crossedOn` after today) puts the focus on the verdict, whose first words say the day («Lo
- * superi il 28 con le spese già in calendario») — decision 67 (2026-10-12): the spec sent it to
+ * superi il 28 con le spese già in calendario») — the owner's call of 2026-10-12: a first draft sent it to
  * Categorie a rischio, where «Fine mese» already goes, and `validateStrip` refuses two cells on
  * one row. `[]` without a ceiling: the strip has nothing to lift.
  */

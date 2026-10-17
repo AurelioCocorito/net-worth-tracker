@@ -15,10 +15,11 @@ import {
 } from '@/lib/utils/formatters'
 
 /**
- * The sign and the tone of a figure follow its PRINTED value, on the Rendimenti tile too (decision
- * 20 reaching the tile a strip cell repeats; owner, 2026-10-14): for +0,03 the hero printed «+0,0%»
- * in green and the gap chip «+0 pt» while the cell under the title said «0,0%» and «0 pt». Seen red
- * on 2026-10-14 with the sign taken from the raw value in the three helpers («+0,0%», «+0 pt», 1).
+ * The sign and the tone of a figure follow its PRINTED value, on the Rendimenti tile too (the
+ * printed-zero rule reaching the tile a strip cell repeats; owner, 2026-10-14): for +0,03 the hero
+ * printed «+0,0%» in green and the gap chip «+0 pt» while the cell under the title said «0,0%» and
+ * «0 pt». Seen red on 2026-10-14 with the sign taken from the raw value in the three helpers
+ * («+0,0%», «+0 pt», 1).
  */
 describe('printedSign / formatSignedPercentIt / formatSignedPoints', () => {
   it('a figure that rounds to zero has no sign; the others keep theirs', () => {
@@ -47,8 +48,8 @@ describe('printedSign / formatSignedPercentIt / formatSignedPoints', () => {
 
 /**
  * The typographic minus on a printed MAGNITUDE (The Comma Rule), and none when the magnitude
- * prints as zero (doc/mobile/README.md § 9, decision 20). Seen red on 2026-10-12 with the zero
- * clause removed from `withTypographicMinus` («−0 €» for −0,3, «−0%» for −0,4).
+ * prints as zero (the printed-zero rule, AGENTS.md § Layout and Color Tokens). Seen red on
+ * 2026-10-12 with the zero clause removed from `withTypographicMinus` («−0 €» for −0,3, «−0%» for −0,4).
  */
 describe('withTypographicMinus / formatEuroMinus / isPrintedZero', () => {
   /** Node's Intl writes a narrow no-break space before «€»: read it as a plain one. */

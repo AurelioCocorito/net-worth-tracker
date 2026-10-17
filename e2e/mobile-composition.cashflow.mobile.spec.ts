@@ -1,6 +1,6 @@
 /**
  * The small-screen composition of Cashflow's tabs (since 2026-10-12; the rules in the five tab
- * guides § Composizione mobile and doc/mobile/README.md § 9): Tracciamento, Budget and
+ * guides § Composizione mobile and DESIGN.md → Small-Screen Composition): Tracciamento, Budget and
  * Dividendi at 390 on the BASE account (`scripts/seedEmulator.ts`: one salary of 2500 € and two
  * expenses, 320 € and 800 €, dated the 5th of the running month — or today, when the month is
  * younger). Divisione is `mobile-composition.cashflow.split.mobile.spec.ts`, on its own account.
@@ -219,14 +219,14 @@ test.describe('Cashflow › Tracciamento, composed for a phone', () => {
     for (let i = 0; i < 3; i++) expect((await cells.nth(i).boundingBox())!.height, `cell ${i}`).toBeGreaterThanOrEqual(TOUCH_FLOOR);
 
     // THE tile is open; its trio is lifted into the strip: the three VALUES hidden, their labels
-    // and the lines under them still there (decision 31).
+    // and the lines under them still there (doc/guide/cashflow-tracciamento.md § Composizione mobile).
     const theTile = page.locator('#trk-periodo');
     const lifted = theTile.locator('[class~="max-desktop:hidden"]');
     await expect(lifted).toHaveCount(3);
     for (let i = 0; i < 3; i++) await expect(lifted.nth(i)).toBeHidden();
     for (const label of ['Entrate', 'Spese', 'Risparmio']) await expect(theTile.getByText(label, { exact: true }).first()).toBeVisible();
     // The savings rate under «Risparmio» («55,2%») and the coverage («2,23×») stay: only the
-    // three values are lifted (decision 17).
+    // three values are lifted (The Lifted-Figure Rule: only the repeated figure hides).
     await expect(theTile.getByText(/^\d+,\d%/).first()).toBeVisible();
     await expect(theTile.getByText(/\d,\d\d×/).first()).toBeVisible();
 
@@ -346,7 +346,7 @@ test.describe('Cashflow › Budget, composed for a phone, with a ceiling of 1000
     // At 1440 the KPIs are printed again, side by side, each a container whose figure shrinks to
     // its cell (`container-type: inline-size`): a guard, not a proof of the overlap — no figure of
     // the fixture can run under its neighbour in a 1440 Tetto. Below `desktop:` they stay lifted on
-    // a tablet too since 2026-10-16 (decision 104: the strip is drawn up to 1439; this step
+    // a tablet too since 2026-10-16 (the strip is drawn up to 1439; this step
     // read 768 until then). Seen red on 2026-10-12 with `@container` removed from the KPI cell.
     await page.setViewportSize({ width: 1440, height: 900 });
     const kpiCells = page.locator('#bud-tetto .grid-cols-3 > div');
@@ -398,7 +398,7 @@ test.describe('Cashflow › Dividendi, composed for a phone, with one coupon', (
 
   test('the rows follow the DOM — Affidabilità before Rendimento — and no order-* is left', async ({ page }) => {
     await openDividendi(page);
-    // No strip: received and announced are never one figure (decision 30).
+    // No strip: received and announced are never one figure (2026-10-10).
     await expect(strip(page, 'Dividendi')).toHaveCount(0);
     for (const id of DIVIDEND_ROWS) await expect(trigger(page, id)).toHaveAttribute('aria-expanded', 'false');
     await expect(trigger(page, 'dvd-rendimento')).toContainText('ultimi 12 mesi');

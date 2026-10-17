@@ -168,7 +168,7 @@ The app **is** locally runnable; there is no fallback to declare.
   | `degraded@example.com` | `test-user-degraded` | The states in which a return is *not* a measure — empty/degraded readings |
   | `split@example.com` | `test-user-split` | Cashflow › Divisione ON: Ghiandaia and Nibbio at 60/40, with one row dated 31 December that stays «in calendario» all year — `npm run e2e:seed:split` |
   | `hof@example.com` | `hof-user` | Hall of Fame: 47 monthly snapshots from novembre 2022 with a story (best month marzo 2024, worst ottobre 2023, a two-month first year); NO rankings document — the specs press «Aggiorna i record» — `npm run e2e:seed:hof` |
-  | `census@example.com` | `census-user` | The first-screen budget's fixture (MOB-01): every surface with data, each option in its default state — Centri and Divisione on, a coupon, a Budget ceiling, a pension fund, 47 snapshots ending last month, one row «in calendario» on the month's last day; FIRE › Obiettivi ON with ONE invented goal since 2026-10-15 (MOB-07; doc/mobile/README.md § 9, 60) — dated relative to the run; `npm run mobile:census` re-seeds it and rebuilds its Hall of Fame (`npm run e2e:seed:census` alone does not) |
+  | `census@example.com` | `census-user` | The first-screen budget's fixture (since 2026-10-10, doc/guide/prima-schermata.md): every surface with data, each option in its default state — Centri and Divisione on, a coupon, a Budget ceiling, a pension fund, 47 snapshots ending last month, one row «in calendario» on the month's last day; FIRE › Obiettivi ON with ONE invented goal since 2026-10-15, the day that tab was composed for a phone (every option in its default state) — dated relative to the run; `npm run mobile:census` re-seeds it and rebuilds its Hall of Fame (`npm run e2e:seed:census` alone does not) |
 
 - **So the screen is not empty**: `npm run emulators:seed` for the base account, plus the fixture the
   page needs — `npm run e2e:seed` (Previdenza), `npm run e2e:seed:analisi` (Analisi),
@@ -252,14 +252,18 @@ The app **is** locally runnable; there is no fallback to declare.
 ### Where things are recorded
 
 - **Branches**: `develop` is the integration branch, `main` the default; a session branches off
-  whatever is active (usually `develop`) and merges into it by PR. **The `doc/mobile/` specs land on `develop`,
-  one session at a time, and reach `main` together after the last MOB spec is retired, by a PR the owner opens**
-  (owner, 2026-10-12; the PERF series went to `main` on its own, PR #446). Which spec is in `develop`:
-  `doc/mobile/README.md` § 6.
-- **A spec is retired by a session of its own** (since 2026-09-28: the fourteen PERF specs, then each MOB one —
-  `doc/mobile/README.md` § 6): the code is read against the
+  whatever is active (usually `develop`) and merges into it by PR. **A series of specs lands on `develop`, one
+  session at a time, and reaches `main` together after its last spec is retired, by a PR the owner opens** (owner,
+  2026-10-12, for the mobile-composition series, whose last spec was retired on 2026-10-17; the PERF series went to
+  `main` on its own, PR #446). While a series is open, its index's status table says which spec is in `develop`.
+- **A spec is retired by a session of its own** (since 2026-09-28: the fourteen PERF specs, then the nine MOB ones —
+  their history in README.md § Documentation): the code is read against the
   spec, every divergence gets a verdict, the lessons go home (AGENTS.md, the guide, a comment at the line, CLAUDE.md),
-  then the spec and every pointer to it go. A text-only defect found there is fixed in the retirement with `tsc`, lint
+  then the spec and every pointer to it go. **The LAST spec of a series retires its whole folder** (`doc/perf/` on
+  2026-10-08, `doc/mobile/` on 2026-10-17): before the delete, each operative piece of the index goes to ONE home — a rule
+  to AGENTS.md or the guide, a measure table to a guide, a live artefact (a budget file) moved with `git mv` and never
+  deleted —, every numbered decision cited in code, tests and guides is rewritten as its rule and date (a number outlives
+  the document that numbered it), and the series' history goes to README.md § Documentation. A text-only defect found there is fixed in the retirement with `tsc`, lint
   and Vitest, no Playwright; a runtime one only on the owner's call, with the area suite and the full Playwright; a
   deferral nobody wrote goes where its theme lives (a guide's blind spots, the speed manual); a tour done in the
   implementation session is recorded by the dossier's index. **`Draft Release Temp.md` never says a spec was retired**
@@ -289,8 +293,9 @@ The app **is** locally runnable; there is no fallback to declare.
   committed in the session that produces it; one that describes a surface since rebuilt is
   deleted, not kept as history (the eleven pre-«Verdict over Tiles» ones were removed that day). **A critique is written
   on the fixture, never on the mirror** (2026-10-15): the sixteen written «live sul mirror» printed the real account's
-  figures and accounts in a public repo and were redacted — amounts «x.xxx €», the account «Banca X» (doc/mobile/README.md
-  § 9, 93). The same rule as for the draft above: nothing of the real account in a tracked file.
+  figures and accounts in a public repo and were redacted — amounts «x.xxx €», the account «Banca X», a family surname replaced by an invented name in the fixtures that
+  had copied it. The same rule as for the draft above: nothing of the real account in a tracked file — nor the owner's
+  machines by model or name: «the reference machine» and «the other» (2026-10-15).
   `.impeccable/hook.cache.json` stays local (`.git/info/exclude`). **A snapshot closes only through
   `polish`, never by fixing the code** (2026-09-13): `critique-storage latest` judges it current from the
   fingerprint of the ONE target file (`page.tsx`, a 32-line wrapper), so corrections made in the
@@ -310,7 +315,7 @@ The app **is** locally runnable; there is no fallback to declare.
   were rewritten to the macOS path and LF fingerprint. The owner works from two machines with different line endings, so
   close a snapshot on the machine that wrote it. **Impeccable runs on the Windows machine since 2026-10-17** (owner): every
   command that writes or closes a snapshot — `critique`, `polish`, `critique-storage` — runs there, so a snapshot's path and
-  CRLF fingerprint always match the checkout that reads them. Every snapshot was deleted that day (MOB-09), so the history
+  CRLF fingerprint always match the checkout that reads them. Every snapshot was deleted that day (the owner, closing the mobile-composition series), so the history
   starts on Windows; the Mac-stamped snapshots before it are in `git log`.
 - **Do not duplicate project conventions here.** Code and comment conventions live in
   `DEVELOPMENT_GUIDELINES.md` and `COMMENTS.md`, repo-wide patterns and traps in `AGENTS.md`, the

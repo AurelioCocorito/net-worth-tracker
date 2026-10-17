@@ -310,7 +310,7 @@ describe('Dettaglio', () => {
 // Seen red one at a time: `leadLength` left `undefined` with a scenarios sentence; the bear cell
 // read from `medianFinal`; the rest labelled «orso e toro e il fondo pensione».
 
-describe('buildMonteCarloVerdict — the cut (doc/mobile/README.md § 9, decisions 5 and 44)', () => {
+describe('buildMonteCarloVerdict — the cut (The Binding-Clause Rule; the lock as the scope line)', () => {
   it('keeps the base run under the title, the bear, the bull and the bridge behind «Il perché»', () => {
     const verdict = buildMonteCarloVerdict({ runnable: true, run: makeRun(), scenarios: makeComparison(), lock: ACTIVE_LOCK });
     const { lead, rest } = splitVerdict(verdict);

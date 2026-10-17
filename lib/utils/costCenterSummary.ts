@@ -37,7 +37,7 @@ import { MONTH_NAMES_SHORT } from '@/lib/utils/period';
 /**
  * The tiles of Centri di Costo below `desktop:` — the list's three and the detail's five — in the
  * DOM's order; `cdc-` keeps them unique among the five `forceMount` tabs. No strip on either view
- * (doc/mobile/README.md § 9, decision 30): Totale's three figures each name their own window.
+ * (doc/guide/centri-di-costo.md § Composizione mobile): Totale's three figures each name their own window.
  */
 export const COST_CENTER_SECTION_IDS = {
   totale: 'cdc-totale',

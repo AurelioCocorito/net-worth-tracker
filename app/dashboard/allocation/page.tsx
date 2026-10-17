@@ -18,7 +18,7 @@
  *                     Per classe(5)    |
  *                     Esposizione(12)
  *                     Previdenza(12, only with a pension fund)
- *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11,
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule,
  *                     since 2026-10-15): the verdict's title → the first sentence → the strip of
  *                     two figures («Fuori posizione», the largest drift) → «Il perché» →
  *                     Bilanciamento open, its KPI value lifted into the strip → «Il resto della
@@ -539,7 +539,7 @@ export default function AllocationPage() {
           (AGENTS.md → a tile stretched beside a taller neighbour is cured in the GRID). Per classe
           rises under Bilanciamento, which closes the void to ~110px, and Esposizione takes the full
           width below. Below `desktop:` the tiles are items of the grid in the DOM's order — ONE
-          sequence, no `order-*` (decision 11): Bilanciamento, «Il resto della pagina», Per classe,
+          sequence, no `order-*` (The First-Screen Rule): Bilanciamento, «Il resto della pagina», Per classe,
           Piano, Esposizione, Previdenza.
           At 768 Bilanciamento on two columns, the closed rows two by two, an open row on the whole
           grid row; on a tablet in landscape the index beside the verdict and Bilanciamento. */}

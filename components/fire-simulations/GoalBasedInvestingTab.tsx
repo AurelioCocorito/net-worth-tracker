@@ -11,8 +11,8 @@
  *   Desktop (12 col): Obiettivi(5, 2 rows) | Traiettoria(7)
  *                                          | Milestone(4) | Allocazione derivata(3)
  *                     Assegnazioni(12)
- *   Below desktop:    ONE sequence, the DOM above (doc/mobile/README.md § 9, decisions 1 and 11,
- *                     since 2026-10-15): the verdict (whole: no strip, decision 47) → Obiettivi
+ *   Below desktop:    ONE sequence, the DOM above (DESIGN.md → The First-Screen Rule,
+ *                     since 2026-10-15): the verdict (whole: no strip) → Obiettivi
  *                     open → «Il resto della pagina» → Traiettoria, Milestone, Allocazione
  *                     derivata, Assegnazioni as closed rows (`useMobileSections` with `tab:
  *                     'goals'`, doc/guide/fire-obiettivi.md § Composizione mobile) → Dettaglio.
@@ -113,7 +113,7 @@ const EMPTY_ASSETS: Asset[] = [];
 
 /**
  * The rows below `desktop:`, in the DOM's order (The Closed-Row Rule): every tile but Obiettivi,
- * THE tile (decision 21). Module-level; the tab hands the controller the rows PRESENT through
+ * THE tile (The First-Screen Rule). Module-level; the tab hands the controller the rows PRESENT through
  * `resolveGoalsSections` (none without goals, Allocazione derivata only with goal-driven targets).
  */
 const GOALS_SECTIONS: readonly SectionSpec[] = [
@@ -199,7 +199,7 @@ export function GoalBasedInvestingTab() {
   const verdict = useMemo(() => buildGoalsVerdict({ enabled: isEnabled, overview: isEnabled ? overview : null }), [isEnabled, overview]);
 
   // ─── The phone composition (2026-10-15) ──────────────────────────────────────
-  // No strip (decision 47): the verdict is whole. Choosing a goal opens the Traiettoria row where
+  // No strip: the verdict is whole. Choosing a goal opens the Traiettoria row where
   // it stands — no scroll, no focus move: the list is where the reader is (`reveal` is the cells').
   const hasGoalRows = isEnabled && overview.counts.total > 0;
   const hasDerived = derivedAllocation !== null;
@@ -330,7 +330,7 @@ export function GoalBasedInvestingTab() {
         <PageVerdict verdict={verdict} ariaLabel="Verdetto sugli obiettivi" />
       </div>
 
-      {/* ONE sequence, no `order-*` (decision 11). Tablet: Obiettivi on two columns, the closed
+      {/* ONE sequence, no `order-*` (The First-Screen Rule). Tablet: Obiettivi on two columns, the closed
           rows two by two at 768, an open row on the whole grid row; in landscape the rows in the
           index beside the verdict and Obiettivi. Without a goal, Obiettivi alone on the grid of
           before, on both columns at 768 (not THE tile's cell: there is no stage). */}

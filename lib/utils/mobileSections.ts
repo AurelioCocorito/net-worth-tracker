@@ -1,12 +1,12 @@
 /**
  * The rows of a page below `desktop:` — which are open, what is remembered, and the ids the DOM
- * uses — as pure functions and ONE store per browser (The Closed-Row Rule, proposed in
- * doc/mobile/MOB-09; the contract is this module's exports and `useMobileSections`, since 2026-10-10).
+ * uses — as pure functions and ONE store per browser (DESIGN.md → The Closed-Row Rule, written there
+ * on 2026-10-17; the contract is this module's exports and `useMobileSections`, since 2026-10-10).
  *
  * `useMobileSections` (lib/hooks) is the controller; everything it decides is decided here, so
  * `__tests__/mobileSections.test.ts` pins the memory without a DOM.
  *
- * THE MEMORY is per device, not per account (doc/mobile/README.md § 9): the key names the route
+ * THE MEMORY is per device, not per account (owner, 2026-09-26; The Closed-Row Rule): the key names the route
  * (and the tab), never the owner, so a co-owner or the demo on the same browser inherits the
  * rows the reader opened — wanted. It is read through `useSyncExternalStore` as a RAW string
  * (the snapshot must be referentially stable between reads) and parsed by the caller; a storage

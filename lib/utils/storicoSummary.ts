@@ -486,10 +486,10 @@ export function summarizeLaborMetrics(
 
 // ─── The phone composition (2026-10-14) ───────────────────────────────────────
 
-/** THE tile of the page (Evoluzione): open at every width, never a row (decision 21). */
+/** THE tile of the page (Evoluzione): open at every width, never a row (The First-Screen Rule). */
 export const STORICO_EVOLUZIONE_ID = 'storico-evoluzione';
 
-/** The rows below `desktop:`, in the DOM's order (decision 11: the `order-*` of a phone are gone). */
+/** The rows below `desktop:`, in the DOM's order (The First-Screen Rule: the `order-*` of a phone are gone). */
 export const STORICO_SECTION_IDS = {
   composizione: 'storico-composizione',
   raddoppi: 'storico-raddoppi',
@@ -501,8 +501,8 @@ export const STORICO_SECTION_IDS = {
 export const STORICO_TRAILING_BLOCK = 'trailing';
 
 /**
- * The phone's strip of Storico (The First-Screen Rule; decisions 15 and 39): the last twelve
- * months in euro — the euro of Evoluzione's third chip, lifted (its percentage stays, decision 17),
+ * The phone's strip of Storico (The First-Screen and Lifted-Figure Rules): the last twelve
+ * months in euro — the euro of Evoluzione's third chip, lifted (its percentage stays),
  * opening «Il perché», whose sentence names the pace — and ONE cell of the Driver, the featured
  * year's savings exactly as its ledger row prints it (whole euros, signed, uncoloured: a flow;
  * «0 €» unsigned), opening the Driver. The ledger itself is never lifted: it adds up to the euro

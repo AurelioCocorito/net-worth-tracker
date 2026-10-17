@@ -14,8 +14,8 @@ export interface NarrativeSegment {
   /**
    * A clause that changes the meaning of a figure already printed (the tax on a sale, the base
    * a return was measured on, a scheduled amount inside a total): it never goes behind a tap on
-   * a phone, so a `binding` segment past the verdict's cut cancels the cut (The Binding-Clause
-   * Rule, doc/mobile/README.md § 9).
+   * a phone, so a `binding` segment past the verdict's cut cancels the cut (DESIGN.md → The Binding-Clause
+   * Rule).
    */
   binding?: boolean;
 }

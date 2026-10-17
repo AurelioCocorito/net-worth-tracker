@@ -479,7 +479,7 @@ describe('describeSensitivity', () => {
 // printed the note with no line in sight); the direction words typed in the selector instead of
 // read from the sentence («cala» against «scende»).
 
-describe('buildWhatIfVerdict — the cut (doc/mobile/README.md § 9, decisions 5 and 44)', () => {
+describe('buildWhatIfVerdict — the cut (a full stop where it falls; the pension lock as the scope line)', () => {
   it('keeps the event and its clauses under the title, the Coast and the bridge behind «Il perché»', () => {
     const verdict = jobLossVerdict();
     const { lead, rest } = splitVerdict(verdict);

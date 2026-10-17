@@ -475,9 +475,9 @@ describe('summarizeExpenseSplit — income left «in comune»', () => {
 /**
  * The phone's strip (since 2026-10-12): one cell per person on the residual of money that has
  * MOVED. The identity is the tile's (`formatBookedResidual`: the compact euro, the «−» U+2212 on a
- * deficit — decision 32). Seen red on 2026-10-12 with the cell reading `remaining` (the period's
- * residual: Nibbio's «−100 €» for his «+500 €» of today), and with the identity compared against
- * `Intl`'s own hyphen-minus on the negative case.
+ * deficit, at 1440 too — doc/guide/cashflow-divisione.md). Seen red on 2026-10-12 with the cell
+ * reading `remaining` (the period's residual: Nibbio's «−100 €» for his «+500 €» of today), and with
+ * the identity compared against `Intl`'s own hyphen-minus on the negative case.
  */
 describe('selectSplitStrip', () => {
   const plain = (text: string) => text.replace(/[  ]/g, ' ');
@@ -521,8 +521,8 @@ describe('selectSplitStrip', () => {
 
   it('prints a residual that rounds to zero as the unsigned, untoned zero — in the cell and in the tile alike', () => {
     // Seen red on 2026-10-12, in the spec's retirement: the tile printed «−0 €» in the loss colour
-    // for −0,3 while the cell printed «0 €» (decision 20: a printed zero takes no sign anywhere),
-    // and the cell still carried the loss tone the strip then dropped.
+    // for −0,3 while the cell printed «0 €» (a printed zero takes no sign anywhere: AGENTS.md
+    // § Layout and Color Tokens), and the cell still carried the loss tone the strip then dropped.
     const strip = selectSplitStrip(summaryOf([person('Ghiandaia', 2200), person('Pulcino', -0.3)]));
     expect(cellText(strip[1])).toBe('0 €');
     expect(cellText(strip[1])).toBe(plain(formatBookedResidual(-0.3)));

@@ -278,7 +278,7 @@ describe('buildSplitVerdict', () => {
     expect(plain(verdict.sentence)).not.toContain('%');
   });
 
-  // The scheduled part of the pool is the verdict's SCOPE since 2026-10-12 (decision 14):
+  // The scheduled part of the pool is the verdict's SCOPE since 2026-10-12 (The Scheduled-Is-Not-Spent Rule):
   // the same clause Tracciamento and Analisi print, for the same reason — the amount is INSIDE the
   // total just printed — but as a caption under the cells, out of the sentence. Seen red on
   // 2026-10-12 with the clause left in the `sentence`.
@@ -394,7 +394,7 @@ describe('buildSplitVerdict', () => {
     expect(plain([{ text: formatBookedResidual(-83) }])).toBe('−83 €');
     expect(plain([{ text: formatBookedResidual(1300) }])).toBe('1300 €');
     expect(plain([{ text: formatBookedResidual(0) }])).toBe('0 €');
-    // A residual that PRINTS as zero takes no sign either (decision 20): the strip's cell prints
+    // A residual that PRINTS as zero takes no sign either (the printed-zero rule): the strip's cell prints
     // «0 €» for −0,3 and the tile must print the same. Seen red on 2026-10-12, in the spec's
     // retirement, with the sign decided on the value («−0 €»).
     expect(plain([{ text: formatBookedResidual(-0.3) }])).toBe('0 €');

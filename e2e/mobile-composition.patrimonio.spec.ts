@@ -1,8 +1,8 @@
 /**
  * Patrimonio at 1440 after its phone composition (2026-10-14): the page of every width,
  * with the three changes the composition brought to the desktop too — the market a sentence of its
- * own, the year's variation in the verdict (decision 81) and Movimenti as a notice when the ledger
- * is not read (decision 41; a client-SDK read cannot be failed from a spec, and Vitest holds only the
+ * own, the year's variation in the verdict and Movimenti as a notice when the ledger
+ * is not read (a client-SDK read cannot be failed from a spec, and Vitest holds only the
  * generic open-on-failure, `resolveOpenSections`: the notice itself has no automated proof). Here:
  * no row trigger in the grid, neither the strip nor «Il resto della pagina», one `<p>` verdict, the
  * hero's count a link to `#strumenti`. `aria-expanded` exists at 1440 too (Strumenti's group

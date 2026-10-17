@@ -9,7 +9,7 @@ import { NarrativeText } from '@/components/ui/narrative-text';
 import { CenterStackBars } from './CenterStackBars';
 
 interface TotaleTileProps {
-  /** THE tile's anchor (`cdc-totale`): open at every width, never a row (decision 21). */
+  /** THE tile's anchor (`cdc-totale`): open at every width, never a row (The First-Screen Rule). */
   id?: string;
   summary: CostCentersSummary;
   stack: CenterMonthStack;

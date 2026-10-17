@@ -10,7 +10,7 @@
  *   Desktop (12 col): Costo (5, 2 rows) | Per categoria (4) | Ciclo di vita (3)
  *                                       | Per sottocategoria (7)
  *                     Movimenti collegati (12)
- *   Below desktop:    ONE sequence, the desktop DOM (decisions 1 and 11; composed since
+ *   Below desktop:    ONE sequence, the desktop DOM (The First-Screen Rule; composed since
  *                     2026-10-12): ← Centri di costo → verdict (whole, no strip) →
  *                     [Collega · Modifica · Archivia · Elimina] at 44px → Costo, open → «Il resto
  *                     della pagina» → Per categoria, Ciclo di vita, Per sottocategoria, Movimenti
@@ -113,7 +113,7 @@ import { ExpenseDialog } from '@/components/expenses/ExpenseDialog';
 const EMPTY_KEYS: ReadonlySet<string> = new Set();
 const TRAILING_MONTHS = 12;
 
-/** The detail's rows below `desktop:`, in the DOM's order: every tile but Costo, THE tile (decision 21). */
+/** The detail's rows below `desktop:`, in the DOM's order: every tile but Costo, THE tile, which never closes. */
 const DETAIL_SECTIONS: readonly SectionSpec[] = [
   { id: COST_CENTER_SECTION_IDS.centroCategorie, eyebrow: 'Per categoria' },
   { id: COST_CENTER_SECTION_IDS.centroCiclo, eyebrow: 'Ciclo di vita' },
@@ -390,7 +390,7 @@ export function CostCenterDetail({
 
       {/* ── Tile grid — the rows arrived with the list, which already waited and gated on
           the two reads (loading and failure are the list's states, not the detail's) ── */}
-      {/* ONE sequence, the DOM order is the reading order at every width (decision 11; the
+      {/* ONE sequence, the DOM order is the reading order at every width (The First-Screen Rule; the
           `order-*` went on 2026-10-12): THE tile, «Il resto della pagina», then the rows (inside
           the index). */}
       {(

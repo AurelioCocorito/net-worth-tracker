@@ -1,5 +1,5 @@
 /**
- * `doc/mobile/budget.json` lists the surfaces the first-screen census measures; the shell lists its
+ * `perf/mobile-budget.json` lists the surfaces the first-screen census measures; the shell lists its
  * routes in `lib/constants/navigation.ts`. The census is plain `.mjs` and reads the JSON, so the two
  * are held equal here (as `perfRoutes.test.ts` holds `perf/routes.json`): a page added to the shell
  * and not to the census, or a surface the shell no longer has (`/dashboard/dividends` never
@@ -15,10 +15,10 @@ import { resolve } from 'path';
 import { primaryNav, secondaryHrefs, assistantNavItem } from '@/lib/constants/navigation';
 import { MOBILE_VIEWPORTS, type MobileBudget } from '@/lib/utils/mobileBudget';
 
-const budget: MobileBudget = JSON.parse(readFileSync(resolve(__dirname, '../doc/mobile/budget.json'), 'utf-8'));
+const budget: MobileBudget = JSON.parse(readFileSync(resolve(__dirname, '../perf/mobile-budget.json'), 'utf-8'));
 const sorted = (xs: Iterable<string>) => [...xs].sort();
 
-describe('doc/mobile/budget.json — surfaces', () => {
+describe('perf/mobile-budget.json — surfaces', () => {
   it('covers every route of the shell but the assistant, and no other', () => {
     const routes = new Set(Object.values(budget.surfaces).map((surface) => surface.path.split('?')[0]));
     const shell = new Set([...primaryNav.map((item) => item.href), ...secondaryHrefs].filter((href) => href !== assistantNavItem.href));
@@ -39,7 +39,7 @@ describe('doc/mobile/budget.json — surfaces', () => {
   });
 });
 
-describe('doc/mobile/budget.json — budget entries', () => {
+describe('perf/mobile-budget.json — budget entries', () => {
   it('has an entry at 390, 768 and 1024 for every surface', () => {
     for (const key of Object.keys(budget.surfaces)) {
       expect(sorted(Object.keys(budget.budget[key] ?? {})), key).toEqual(sorted(MOBILE_VIEWPORTS));
