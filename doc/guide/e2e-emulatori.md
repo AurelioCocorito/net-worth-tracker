@@ -362,6 +362,12 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   `>= 44` — the sub-pixel shape of the pill's «Dividendi» of 2026-10-11, so the assertion now takes half a pixel of tolerance,
   as that entry said; and `overview.mobile.spec.ts` «a cell with a six-figure variation…», the two cells of the strip's second
   row 1,6 px apart where they share a line (first time; if it returns, read the boxes after the count-up settles).
+- **The Intestatari «Valore | Carico» switch** (2026-10-18, the reference machine, 7 specs: `mobile-composition.patrimonio` ×2, `overview` ×3,
+  `assets.rows`, `patrimonio.tablet`): 38 green + 1 skip in 2,9 min, one red and green alone right after: `mobile-composition.patrimonio.mobile.spec.ts`
+  «the DOM order is the vertical order…» ended while `patchOverview`'s route callback still had the overview refetch in flight
+  (`route.fetch: Test ended` at `overviewFixture.ts:73` — a harness race of a 2,6 s test, not a page fact; if it returns, end
+  that test with `page.unrouteAll({ behavior: 'ignoreErrors' })`). The new 1440 case of `mobile-composition.patrimonio.spec.ts`
+  seen red with the `localStorage` write taken out of `IntestatariTile` (the reload came back on «Valore»).
 - **The full run retiring the Allocazione, Previdenza and FIRE composition** (2026-10-16, the reference machine, 264 tests incl. 6 setups, +2: the failed «Aggiorna» of
   the Esposizione and the Calcolatore's `order-*` probe): 264 green in 11,4 min, no flake; before it, seven E2E falsifications
   seen red one at a time (the headers of `allocation.mobile`, `fire.mobile`, `coast.mobile`, `allocation`, `pension`, `fire`,

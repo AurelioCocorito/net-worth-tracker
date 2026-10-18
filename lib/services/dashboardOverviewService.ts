@@ -54,6 +54,7 @@ import { calculateMonthlyChange, calculateYearlyChange } from '@/lib/services/sn
 import { getItalyDateIso, getItalyMonthYear, ITALY_TIMEZONE, toDate } from '@/lib/utils/dateHelpers';
 import { costBasisPerUnitEur } from '@/lib/utils/costBasisEur';
 import { summarizeOwnership } from '@/lib/utils/assetOwnership';
+import { costBasisOf } from '@/lib/utils/patrimonioSummary';
 import {
   DASHBOARD_OVERVIEW_SOURCE_VERSION,
   DASHBOARD_OVERVIEW_SUMMARY_COLLECTION,
@@ -407,8 +408,9 @@ function buildLiveOverviewPayload(
       : [];
   const goalProgress = goalProgressList[0] ?? null;
   const costDrivers = rankCostDrivers(assets);
-  // The net worth by «Intestatario»: null when no held asset names a person (the tile is absent).
-  const ownershipSummary = summarizeOwnership(assets, settings?.familyMembers ?? [], calculateAssetValue);
+  // The net worth by «Intestatario», on the value and on the price of carry (the tile's switch):
+  // null when no held asset names a person (the tile is absent).
+  const ownershipSummary = summarizeOwnership(assets, settings?.familyMembers ?? [], calculateAssetValue, costBasisOf);
   const ownership = ownershipSummary.hasOwners ? ownershipSummary : null;
 
   // Top assets for the portfolio list card — a property NET of its mortgage (rankTopAssets, 2026-10-17).

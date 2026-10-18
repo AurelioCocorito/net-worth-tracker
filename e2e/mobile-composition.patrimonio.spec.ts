@@ -35,3 +35,34 @@ test('Patrimonio at 1440: no row, no strip, no «Il resto»; the market and the 
   await expect(page.getByRole('region', { name: 'Patrimonio' }).getByText('questo mese')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Rendimento' }).getByText('G/P non realizzato')).toBeVisible();
 });
+
+/**
+ * Intestatari's «Valore | Carico» switch (owner, 2026-10-18): the tile exists on the base account
+ * through its pension fund's member, the switch sits in its aside, and «Carico» rewrites the
+ * reading («Al prezzo di carico, …») and the rows' aria-label; the choice is remembered per
+ * browser (`localStorage`, one key for the Panoramica too), so it survives a reload — what only a
+ * browser knows; the figures of the two splits are Vitest's (`__tests__/assetOwnership.test.ts`).
+ * Seen red on 2026-10-18 with the write to the storage taken out (the reload came back on «Valore»).
+ */
+test('Intestatari at 1440: «Carico» rewrites the reading and is remembered across a reload', async ({ page }) => {
+  await page.goto('/dashboard/assets');
+  const tile = page.getByRole('region', { name: 'Intestatari' });
+  await tile.waitFor({ timeout: 60_000 });
+  const basis = tile.getByRole('group', { name: 'Base delle quote' });
+  await expect(basis.getByRole('button', { name: 'Valore' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(tile.getByText(/^Al prezzo di carico/)).toHaveCount(0);
+  await expect(tile.getByRole('list', { name: 'Patrimonio per intestatario' })).toBeVisible();
+
+  await basis.getByRole('button', { name: 'Carico' }).click();
+  await expect(basis.getByRole('button', { name: 'Carico' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(tile.getByText(/^Al prezzo di carico, /)).toBeVisible();
+  await expect(tile.getByRole('list', { name: 'Prezzo di carico per intestatario' })).toBeVisible();
+
+  await page.reload();
+  await tile.waitFor({ timeout: 60_000 });
+  await expect(tile.getByRole('group', { name: 'Base delle quote' }).getByRole('button', { name: 'Carico' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(tile.getByText(/^Al prezzo di carico, /)).toBeVisible();
+  // Back to the default, so the memory this test leaves is the one every other spec expects.
+  await tile.getByRole('group', { name: 'Base delle quote' }).getByRole('button', { name: 'Valore' }).click();
+  await expect(tile.getByText(/^Al prezzo di carico/)).toHaveCount(0);
+});
