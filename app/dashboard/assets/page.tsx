@@ -76,6 +76,7 @@ import { VERDICT_REST_SECTION } from '@/lib/utils/mobileSections';
 import { liftedBlocks } from '@/lib/utils/verdictStrip';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import {
+  costBasisOf,
   describePatrimonioClosedAnswers,
   isCashAccount,
   isHeld,
@@ -323,10 +324,11 @@ export default function AssetsPage() {
   const liquidityRows = useMemo(() => assets.filter(isLiquidityRow), [assets]);
   const instruments = useMemo(() => assets.filter((a) => !isCashAccount(a)), [assets]);
   // The net worth by «Intestatario» (lib/utils/assetOwnership.ts, 2026-10-17), on the live assets
-  // and the settings' members; null when no held asset names a person — then no tile, no row.
+  // and the settings' members, measured on the value and on the price of carry (the tile's
+  // switch, 2026-10-18); null when no held asset names a person — then no tile, no row.
   const familyMembers = settings?.familyMembers ?? EMPTY_MEMBERS;
   const ownership = useMemo(() => {
-    const summary = summarizeOwnership(assets, familyMembers, calculateAssetValue);
+    const summary = summarizeOwnership(assets, familyMembers, calculateAssetValue, costBasisOf);
     return summary.hasOwners ? summary : null;
   }, [assets, familyMembers]);
   // Sold-out positions stay in the table («Azzerato») but are not owned: every count runs on these.

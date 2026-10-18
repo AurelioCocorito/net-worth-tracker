@@ -28,6 +28,15 @@
  *  - A credit card in the red is a debt its owner holds: the gate is «balance ≠ 0», not
  *    «quantity > 0» (the owner's P.S. of 2026-10-17: a card named to a person did not lower
  *    their share).
+ *  - Every group is measured TWICE (owner, 2026-10-18): on today's value — who owns what — and
+ *    on the PRICE OF CARRY — who put the money in —, `costOf` injected beside `valueOf`
+ *    (`costBasisOf` of patrimonioSummary.ts: quantity × the fiscal PMC in euro). The gains sit
+ *    with whoever holds the instruments that made them, so the two splits differ by exactly that;
+ *    the tile's «Valore | Carico» switch reads one or the other. An asset with no PMC to read
+ *    counts at its value on both: by nature for an account, a property, a loan or a pension fund
+ *    (the carry IS the value), by necessity for a quoted instrument without a EUR PMC, which is
+ *    DECLARED (`withoutCostBasis`, the tile's footer in the Carico view) — never left out, or the
+ *    carry total would stop being comparable with the net worth.
  */
 
 import { isLoanAsset, type Asset, type AssetOwnerShare, type FamilyMember } from '@/types/assets';
@@ -174,8 +183,29 @@ export interface OwnershipRow {
   value: number;
   /** Share of the net total, 0-100 (negative when the group is a net debt); `null` without a positive total. */
   sharePct: number | null;
+  /** The same parts at their price of carry (`costOf`, an asset without one at its value) — the «Carico» view (2026-10-18). */
+  costValue: number;
+  /** Share of `costTotal`, the same rule as `sharePct`. */
+  costSharePct: number | null;
   /** Assets the group holds a part of — a split asset counts in every row that has a quota of it (owner, 2026-10-17). */
   assetCount: number;
+}
+
+/** What the tile's rows and reading are measured on: today's value, or the price of carry (2026-10-18). */
+export type OwnershipBasis = 'value' | 'cost';
+
+/** A row's amount and share on the chosen basis — the rows, the reading and the answer read ONE rule. */
+export function ownershipRowOn(row: OwnershipRow, basis: OwnershipBasis): { value: number; sharePct: number | null } {
+  return basis === 'cost' ? { value: row.costValue, sharePct: row.costSharePct } : { value: row.value, sharePct: row.sharePct };
+}
+
+/**
+ * Whether the summary carries the carry figures at all: a Panoramica payload cached before source
+ * version 25 has rows without `costValue`, and the tile offers no switch on it (the day's first
+ * read recomputes). Typed as required, read defensively — the `reassign` precedent.
+ */
+export function hasCostFigures(summary: Pick<OwnershipSummary, 'rows'>): boolean {
+  return summary.rows.every((row) => typeof row.costValue === 'number' && 'costSharePct' in row);
 }
 
 export interface OwnershipSummary {
@@ -183,52 +213,80 @@ export interface OwnershipSummary {
   rows: OwnershipRow[];
   /** The net total every share is measured on: the held assets' values, debts included. */
   total: number;
+  /** The net total at the price of carry — the held assets' `costOf`, an asset without one at its value. */
+  costTotal: number;
   /** Distinct held assets, every group counted once. */
   assetCount: number;
   /** Whether any held asset names a person — the tile exists only then (a household with no owner set sees nothing new). */
   hasOwners: boolean;
   /** The held assets whose stored quotas no longer fit their quantity — the tile's warning footer. */
   reassign: { assetId: string; name: string }[];
+  /** The held QUOTED instruments with no PMC in euro to read, counted at their value in the Carico view — declared in its footer. */
+  withoutCostBasis: { assetId: string; name: string }[];
 }
 
 /**
  * The household's wealth by owner. Held assets only (`isOwnedHolding`; a repaid loan or a sold
  * position is nobody's), each split by the parts `resolveAssetOwnership` names; the shares are
- * of the NET total, so the rows add up to the Panoramica's net worth.
+ * of the NET total, so the rows add up to the Panoramica's net worth. Every group is measured on
+ * the value AND on the price of carry (`costOf`: null where there is no PMC to read — then the
+ * value stands in, declared for a quoted instrument), so the tile switches between the two
+ * without a second pass.
  */
 export function summarizeOwnership(
   assets: readonly Asset[],
   members: readonly FamilyMember[],
   valueOf: (asset: Asset) => number,
+  costOf: (asset: Asset) => number | null,
 ): OwnershipSummary {
-  const groups = new Map<string, { value: number; assetCount: number }>();
+  const groups = new Map<string, { value: number; costValue: number; assetCount: number }>();
   const known = new Map(members.map((member) => [member.id, member.name]));
   const reassign: OwnershipSummary['reassign'] = [];
+  const withoutCostBasis: OwnershipSummary['withoutCostBasis'] = [];
   let total = 0;
+  let costTotal = 0;
   let assetCount = 0;
 
   for (const asset of assets) {
     if (!isOwnedHolding(asset)) continue;
     const ownership = resolveAssetOwnership(asset, assets);
     const value = valueOf(asset);
+    const basis = costOf(asset);
+    const cost = basis ?? value;
+    // A quoted instrument is the only asset whose carry could differ from its value: without a
+    // EUR PMC it stands at the value and says so. An account, a property, a loan or a fund is at
+    // its value by nature (the slice unit says which is which — lib/utils/assetSlice.ts).
+    if (basis === null && sliceUnit(asset).kind === 'units') withoutCostBasis.push({ assetId: asset.id, name: asset.name });
     for (const slice of ownership.slices) {
       if (!(slice.fraction > 0)) continue;
       const key = slice.memberId === null ? OWNER_FILTER_COMMON : known.has(slice.memberId) ? slice.memberId : OWNER_FILTER_UNASSIGNED;
-      const group = groups.get(key) ?? { value: 0, assetCount: 0 };
+      const group = groups.get(key) ?? { value: 0, costValue: 0, assetCount: 0 };
       group.value += value * slice.fraction;
+      group.costValue += cost * slice.fraction;
       group.assetCount += 1;
       groups.set(key, group);
     }
     if (ownership.needsReassignment) reassign.push({ assetId: asset.id, name: asset.name });
     total += value;
+    costTotal += cost;
     assetCount += 1;
   }
 
-  const share = (value: number) => (total > 0 ? (value / total) * 100 : null);
+  const share = (value: number, of: number) => (of > 0 ? (value / of) * 100 : null);
   const row = (key: string, kind: OwnershipRowKind, memberId: string | null, label: string): OwnershipRow | null => {
     const group = groups.get(key);
     if (!group || group.assetCount === 0) return null;
-    return { key, kind, memberId, label, value: group.value, sharePct: share(group.value), assetCount: group.assetCount };
+    return {
+      key,
+      kind,
+      memberId,
+      label,
+      value: group.value,
+      sharePct: share(group.value, total),
+      costValue: group.costValue,
+      costSharePct: share(group.costValue, costTotal),
+      assetCount: group.assetCount,
+    };
   };
 
   const memberRows = members
@@ -239,7 +297,7 @@ export function summarizeOwnership(
   const unassigned = row(OWNER_FILTER_UNASSIGNED, 'unassigned', null, OWNER_UNASSIGNED_LABEL);
   const rows = [...memberRows, ...(common ? [common] : []), ...(unassigned ? [unassigned] : [])];
 
-  return { rows, total, assetCount, hasOwners: rows.some((r) => r.kind !== 'common'), reassign };
+  return { rows, total, costTotal, assetCount, hasOwners: rows.some((r) => r.kind !== 'common'), reassign, withoutCostBasis };
 }
 
 // ─── The Strumenti filter ─────────────────────────────────────────────────────
