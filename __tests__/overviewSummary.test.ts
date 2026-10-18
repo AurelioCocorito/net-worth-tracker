@@ -320,13 +320,15 @@ describe('describeOverviewClosedAnswers (the landscape index)', () => {
     const withOwners = makeOverview({
       ownership: {
         rows: [
-          { key: 'marco', kind: 'member', memberId: 'marco', label: 'Marco', value: 120000, sharePct: 53.3, assetCount: 2 },
-          { key: 'common', kind: 'common', memberId: null, label: 'In comune', value: 105000, sharePct: 46.7, assetCount: 3 },
+          { key: 'marco', kind: 'member', memberId: 'marco', label: 'Marco', value: 120000, sharePct: 53.3, costValue: 100000, costSharePct: 48.8, assetCount: 2 },
+          { key: 'common', kind: 'common', memberId: null, label: 'In comune', value: 105000, sharePct: 46.7, costValue: 105000, costSharePct: 51.2, assetCount: 3 },
         ],
         total: 225000,
+        costTotal: 205000,
         assetCount: 5,
         hasOwners: true,
         reassign: [],
+        withoutCostBasis: [],
       },
     });
     expect(text(describeOverviewClosedAnswers(withOwners, CALENDAR)[OVERVIEW_SECTION_IDS.intestatari])).toBe('Marco 53%');

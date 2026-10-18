@@ -57,7 +57,10 @@ export const DASHBOARD_OVERVIEW_SUMMARY_COLLECTION = 'dashboardOverviewSummaries
 // Bumped from 23→24: ownership splits an asset by its quotas (`Asset.ownerShares`, lib/utils/assetSlice.ts),
 // counts a card in the red against its owner and carries `reassign` — a stored summary would keep
 // the whole asset on one person and no declaration.
-export const DASHBOARD_OVERVIEW_SOURCE_VERSION = 24;
+// Bumped from 24→25: ownership measures every group on the price of carry too (`costValue`,
+// `costSharePct`, `costTotal`, `withoutCostBasis` — the Intestatari tile's «Valore | Carico» switch,
+// 2026-10-18); a stored summary would offer no switch until its next recompute.
+export const DASHBOARD_OVERVIEW_SOURCE_VERSION = 25;
 // The materialized summary is stale when invalidated, of another source version, computed on an
 // earlier Italian DAY (the payload is the day's: the current/previous month and the month-end
 // projection are read from «today»), or older than this. Every mutation of an input already

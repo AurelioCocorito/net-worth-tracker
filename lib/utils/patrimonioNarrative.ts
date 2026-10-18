@@ -30,7 +30,7 @@ import {
 } from '@/lib/utils/salesNarrative';
 import type { Narrative, NarrativeSegment, PageVerdictModel, VerdictTone } from '@/lib/utils/narrative';
 import type { MonthFlows } from '@/lib/utils/marketEffect';
-import type { OwnershipSummary } from '@/lib/utils/assetOwnership';
+import { ownershipRowOn, type OwnershipBasis, type OwnershipSummary } from '@/lib/utils/assetOwnership';
 import type { MortgageSummary, MortgageYear } from '@/lib/utils/mortgageSummary';
 
 export interface PatrimonioVerdictInput {
@@ -610,37 +610,50 @@ export function describeMortgageYearScope(entry: MortgageYear, currentYear: numb
  * «il 5% senza intestatario»; one member and nothing else is «Tutto è intestato a Marco.»; a
  * group that is a net debt is named as such («Giulia è in negativo»). Null with no owner set —
  * the tile does not exist then (`OwnershipSummary.hasOwners`).
+ *
+ * On the Carico basis (the tile's switch, owner 2026-10-18) the same sentence opens by naming
+ * it, so the reader never mistakes one split for the other: «Al prezzo di carico, il 55% è
+ * intestato a Marco, il 31% a Giulia, il resto in comune.», «Al prezzo di carico, tutto è
+ * intestato a Marco.» The page's verdict never follows the switch (DESIGN.md → The
+ * Scope-Is-Not-An-Axis Rule): this reading is the tile's own.
  */
-export function describeOwnership(summary: OwnershipSummary): Narrative | null {
+export function describeOwnership(summary: OwnershipSummary, basis: OwnershipBasis = 'value'): Narrative | null {
   if (!summary.hasOwners || summary.rows.length === 0) return null;
   const members = summary.rows.filter((row) => row.kind === 'member');
   const common = summary.rows.find((row) => row.kind === 'common');
   const unassigned = summary.rows.find((row) => row.kind === 'unassigned');
+  const opening = basis === 'cost' ? [prose('Al prezzo di carico, ')] : [];
 
   if (members.length === 1 && !common && !unassigned) {
-    return [prose('Tutto è intestato a '), prose(members[0].label), prose('.')];
+    return capitalised([...opening, prose('tutto è intestato a '), prose(members[0].label), prose('.')]);
   }
 
   const clauses: Narrative[] = [];
   members.forEach((row, index) => {
-    if (row.sharePct === null || row.sharePct < 0) {
-      clauses.push([prose(`${row.label} è in negativo (`), figure(cachedFormatCurrencyEUR(Math.abs(row.value), true)), prose(' di debiti)')]);
+    const { value, sharePct } = ownershipRowOn(row, basis);
+    if (sharePct === null || sharePct < 0) {
+      clauses.push([prose(`${row.label} è in negativo (`), figure(cachedFormatCurrencyEUR(Math.abs(value), true)), prose(' di debiti)')]);
       return;
     }
-    const pct = Math.round(row.sharePct);
+    const pct = Math.round(sharePct);
     const verb = index === 0 ? 'è intestato a ' : 'a ';
     clauses.push([prose(`${articleForPercent(pct, 0)}`), figure(`${pct}%`), prose(` ${verb}${row.label}`)]);
   });
   if (common) clauses.push([prose('il resto in comune')]);
-  if (unassigned && unassigned.sharePct !== null) {
-    const pct = Math.round(unassigned.sharePct);
+  const unassignedShare = unassigned ? ownershipRowOn(unassigned, basis).sharePct : null;
+  if (unassigned && unassignedShare !== null) {
+    const pct = Math.round(unassignedShare);
     clauses.push([prose(`${articleForPercent(pct, 0)}`), figure(`${pct}%`), prose(' senza intestatario')]);
   }
 
   const sentence = clauses.flatMap((clause, index) => (index === 0 ? clause : [prose(', '), ...clause]));
-  // The first word capitalised: «Il 54%…», «L'8%…», «Marco è in negativo…».
+  return capitalised([...opening, ...sentence, prose('.')]);
+}
+
+/** The first word capitalised: «Il 54%…», «L'8%…», «Marco è in negativo…», «Al prezzo di carico, il 55%…». */
+function capitalised(sentence: Narrative): Narrative {
   const [first, ...rest] = sentence;
-  return [prose(first.text.charAt(0).toUpperCase() + first.text.slice(1)), ...rest, prose('.')];
+  return [{ ...first, text: first.text.charAt(0).toUpperCase() + first.text.slice(1) }, ...rest];
 }
 
 /** The tile's aside: how many held assets the shares are made of («su 12 asset»). */
@@ -660,18 +673,35 @@ export const OWNERSHIP_FOOTER =
   'Le quote per persona si scrivono nel form di ogni asset; un fondo pensione segue il membro di Previdenza, un mutuo le quote del suo immobile.';
 
 /**
- * The footer of the Intestatari tile: the neutral note, or — in the warning tone — the assets
- * whose stored quotas no longer fit their quantity («1 asset ha quote da riassegnare: VWCE.»),
- * since a sale or a value typed lower leaves the units as written (lib/utils/assetSlice.ts).
- * `reassign` may be missing on a payload cached before the quotas: read as none.
+ * The footer of the Intestatari tile, ONE line (AGENTS.md § Hierarchy, Density and Disclosure):
+ * in the warning tone the assets whose stored quotas no longer fit their quantity («1 asset ha
+ * quote da riassegnare: VWCE.»), since a sale or a value typed lower leaves the units as written
+ * (lib/utils/assetSlice.ts) — on either basis, a datum to fix comes first; else, on the Carico
+ * basis, the quoted instruments with no PMC in euro, which count at their value there («2 asset
+ * senza prezzo di carico contano al valore attuale: X e Y.», owner 2026-10-18); else the neutral
+ * note. `reassign` and `withoutCostBasis` may be missing on a payload cached before them: read
+ * as none.
  */
-export function describeOwnershipFooter(summary: Pick<OwnershipSummary, 'reassign'>): { text: string; tone: 'neutral' | 'warning' } {
+export function describeOwnershipFooter(
+  summary: Pick<OwnershipSummary, 'reassign' | 'withoutCostBasis'>,
+  basis: OwnershipBasis = 'value',
+): { text: string; tone: 'neutral' | 'warning' } {
   const reassign = summary.reassign ?? [];
-  if (reassign.length === 0) return { text: OWNERSHIP_FOOTER, tone: 'neutral' };
-  const names = reassign.map((entry) => entry.name);
-  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
-  const verb = names.length === 1 ? 'ha' : 'hanno';
-  return { text: `${names.length} asset ${verb} quote da riassegnare: ${list}.`, tone: 'warning' };
+  if (reassign.length > 0) {
+    const names = reassign.map((entry) => entry.name);
+    return { text: `${names.length} asset ${names.length === 1 ? 'ha' : 'hanno'} quote da riassegnare: ${joinNames(names)}.`, tone: 'warning' };
+  }
+  const withoutCostBasis = summary.withoutCostBasis ?? [];
+  if (basis === 'cost' && withoutCostBasis.length > 0) {
+    const names = withoutCostBasis.map((entry) => entry.name);
+    return { text: `${names.length} asset senza prezzo di carico ${names.length === 1 ? 'conta' : 'contano'} al valore attuale: ${joinNames(names)}.`, tone: 'neutral' };
+  }
+  return { text: OWNERSHIP_FOOTER, tone: 'neutral' };
+}
+
+/** «VWCE», «VWCE e SWDA», «VWCE, SWDA e AGGH». */
+function joinNames(names: string[]): string {
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
 }
 
 /** The caption under a property listed net of its mortgage («Asset principali», 2026-10-17): «netto del mutuo di 95.000 €». */

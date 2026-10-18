@@ -7,7 +7,9 @@
  * member wins); the mortgage answering its own field (the property's fractions win); a deleted
  * member folded into «In comune» (it is «Senza intestatario»); a loan counted positive (net);
  * units past the quantity rescaled in silence (declared, `reassign`); a card in the red skipped
- * (`quantity !== 0` is the gate); a split asset counted once (every row that has a quota).
+ * (`quantity !== 0` is the gate); a split asset counted once (every row that has a quota); the
+ * carry split read off the value (2026-10-18: `cost * fraction` swapped for `value * fraction`);
+ * an account declared «senza prezzo di carico» (the slice-unit guard taken off).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -20,10 +22,13 @@ import {
   matchesAssetOwnerFilter,
   OWNER_COMMON_LABEL,
   OWNER_UNASSIGNED_LABEL,
+  hasCostFigures,
+  ownershipRowOn,
   resolveAssetOwnership,
   summarizeOwnership,
+  type OwnershipRow,
 } from '@/lib/utils/assetOwnership';
-import { describeOwnership, describeOwnershipAnswer, describeOwnershipAside, describeOwnershipFooter } from '@/lib/utils/patrimonioNarrative';
+import { describeOwnership, describeOwnershipAnswer, describeOwnershipAside, describeOwnershipFooter, OWNERSHIP_FOOTER } from '@/lib/utils/patrimonioNarrative';
 import { narrativeToText } from '@/lib/utils/narrative';
 
 const asset = (overrides: Partial<Asset> & { id: string }): Asset =>
@@ -51,6 +56,8 @@ const KNOWN = new Set(MEMBERS.map((member) => member.id));
 
 /** A loan is minus its principal, everything else quantity × price — `calculateAssetValue`'s rule. */
 const valueOf = (a: Asset) => (a.type === 'loan' ? -a.quantity : a.quantity * a.currentPrice);
+/** quantity × the EUR PMC where the ledger has one, null where there is no PMC to read — `costBasisOf`'s rule, SDK-free. */
+const costOf = (a: Asset) => (a.averageCostEur !== undefined && a.averageCostEur > 0 ? a.quantity * a.averageCostEur : null);
 /** Intl puts a no-break space before «€»; the comparisons read plain spaces. */
 const plain = (text: string | null) => (text ? text.replace(/[  ]/g, ' ') : null);
 const words = (narrative: ReturnType<typeof describeOwnership>) => (narrative ? plain(narrativeToText(narrative)) : null);
@@ -143,7 +150,7 @@ describe('resolveAssetOwnership — the ONE resolution', () => {
     // A member named twice in one form is summed; the summary splits the value by the fractions.
     const twice = asset({ ...joint, id: 'twice', ownerShares: [{ memberId: 'marco', percent: 20 }, { memberId: 'marco', percent: 30 }] });
     expect(resolveAssetOwnership(twice, [twice]).slices[0]).toEqual({ memberId: 'marco', fraction: 0.5, slice: { percent: 50 } });
-    expect(summarizeOwnership([joint], MEMBERS, valueOf).rows.map((row) => [row.label, row.value])).toEqual([['Marco', 4000], ['Giulia', 2400], [OWNER_COMMON_LABEL, 1600]]);
+    expect(summarizeOwnership([joint], MEMBERS, valueOf, costOf).rows.map((row) => [row.label, row.value])).toEqual([['Marco', 4000], ['Giulia', 2400], [OWNER_COMMON_LABEL, 1600]]);
   });
 
   it('gives a mortgage the fractions of its property, whatever its own fields say', () => {
@@ -162,7 +169,7 @@ describe('resolveAssetOwnership — the ONE resolution', () => {
 
 describe('summarizeOwnership — the net worth by owner', () => {
   it('groups the held assets by owner, net of the debts, members first then the shared and the orphaned', () => {
-    const summary = summarizeOwnership(ALL, MEMBERS, valueOf);
+    const summary = summarizeOwnership(ALL, MEMBERS, valueOf, costOf);
     // 200.000 − 80.000 (Marco) + 30.000 + 20.000 (Giulia) + 50.000 (common) + 5.000 (ghost) = 225.000
     expect(summary.total).toBe(225_000);
     expect(summary.assetCount).toBe(6);
@@ -178,7 +185,7 @@ describe('summarizeOwnership — the net worth by owner', () => {
   });
 
   it('splits an asset by its quotas: the value by fraction, the asset counted in every row that has one', () => {
-    const summary = summarizeOwnership([SPLIT, CASH], MEMBERS, valueOf);
+    const summary = summarizeOwnership([SPLIT, CASH], MEMBERS, valueOf, costOf);
     // VWCE 100.000: 40.000 Marco, 20.000 Giulia, 40.000 in comune; the account 20.000 Giulia
     // (a tie keeps the settings' order).
     expect(summary.rows.map((row) => [row.label, row.value, row.assetCount])).toEqual([
@@ -193,25 +200,25 @@ describe('summarizeOwnership — the net worth by owner', () => {
     const card = asset({ id: 'card', type: 'cash', assetClass: 'cash', quantity: -500, ownerMemberId: 'giulia' });
     expect(isOwnedHolding(card)).toBe(true);
     expect(isOwnedHolding(SOLD)).toBe(false);
-    const summary = summarizeOwnership([CASH, card], MEMBERS, valueOf);
-    expect(summary.rows).toEqual([{ key: 'giulia', kind: 'member', memberId: 'giulia', label: 'Giulia', value: 19_500, sharePct: 100, assetCount: 2 }]);
+    const summary = summarizeOwnership([CASH, card], MEMBERS, valueOf, costOf);
+    expect(summary.rows).toEqual([{ key: 'giulia', kind: 'member', memberId: 'giulia', label: 'Giulia', value: 19_500, sharePct: 100, costValue: 19_500, costSharePct: 100, assetCount: 2 }]);
     // Its debt split by units: 300 € of the 500 to Marco.
     const splitCard = asset({ id: 'card2', type: 'cash', assetClass: 'cash', quantity: -500, ownerShares: [{ memberId: 'marco', units: 300 }] });
-    const split = summarizeOwnership([CASH, splitCard], MEMBERS, valueOf);
+    const split = summarizeOwnership([CASH, splitCard], MEMBERS, valueOf, costOf);
     expect(split.rows.map((row) => [row.label, row.value])).toEqual([['Giulia', 20_000], ['Marco', -300], [OWNER_COMMON_LABEL, -200]]);
   });
 
   it('declares the assets whose quotas no longer fit, and still adds up', () => {
-    const summary = summarizeOwnership([OVER, CASH], MEMBERS, valueOf);
+    const summary = summarizeOwnership([OVER, CASH], MEMBERS, valueOf, costOf);
     expect(summary.reassign).toEqual([{ assetId: 'over', name: 'Over ETF' }]);
     expect(summary.rows.reduce((sum, row) => sum + row.value, 0)).toBeCloseTo(summary.total, 6);
   });
 
   it('has no owners when every held asset is shared, and no shares without a positive total', () => {
-    const shared = summarizeOwnership([ETF, SOLD], MEMBERS, valueOf);
+    const shared = summarizeOwnership([ETF, SOLD], MEMBERS, valueOf, costOf);
     expect(shared.hasOwners).toBe(false);
     expect(shared.rows.map((row) => row.kind)).toEqual(['common']);
-    const underwater = summarizeOwnership([asset({ id: 'car', type: 'loan', assetClass: 'cash', quantity: 100, ownerMemberId: 'marco' })], MEMBERS, valueOf);
+    const underwater = summarizeOwnership([asset({ id: 'car', type: 'loan', assetClass: 'cash', quantity: 100, ownerMemberId: 'marco' })], MEMBERS, valueOf, costOf);
     expect(underwater.total).toBe(-100);
     expect(underwater.rows[0].sharePct).toBeNull();
   });
@@ -251,30 +258,90 @@ describe('the Strumenti filter', () => {
 
 describe('the words of the Intestatari tile', () => {
   it('names each owner with the share the row prints, then the rest in common and the orphans', () => {
-    const summary = summarizeOwnership(ALL, MEMBERS, valueOf);
+    const summary = summarizeOwnership(ALL, MEMBERS, valueOf, costOf);
     expect(words(describeOwnership(summary))).toBe('Il 53% è intestato a Marco, il 22% a Giulia, il resto in comune, il 2% senza intestatario.');
     expect(describeOwnershipAside(summary)).toBe('su 6 asset');
     expect(words(describeOwnershipAnswer(summary))).toBe('Marco 53%');
   });
 
   it('articulates on the printed integer and says «Tutto» for a single owner', () => {
-    const eight = summarizeOwnership([asset({ id: 'a', quantity: 8, currentPrice: 1, ownerMemberId: 'marco' }), asset({ id: 'b', quantity: 92, currentPrice: 1 })], MEMBERS, valueOf);
+    const eight = summarizeOwnership([asset({ id: 'a', quantity: 8, currentPrice: 1, ownerMemberId: 'marco' }), asset({ id: 'b', quantity: 92, currentPrice: 1 })], MEMBERS, valueOf, costOf);
     expect(words(describeOwnership(eight))).toBe("L'8% è intestato a Marco, il resto in comune.");
-    const alone = summarizeOwnership([HOUSE], MEMBERS, valueOf);
+    const alone = summarizeOwnership([HOUSE], MEMBERS, valueOf, costOf);
     expect(words(describeOwnership(alone))).toBe('Tutto è intestato a Marco.');
-    expect(describeOwnership(summarizeOwnership([ETF], MEMBERS, valueOf))).toBeNull();
+    expect(describeOwnership(summarizeOwnership([ETF], MEMBERS, valueOf, costOf))).toBeNull();
   });
 
   it('names a group that is a net debt instead of printing a negative share', () => {
-    const summary = summarizeOwnership([HOUSE, asset({ id: 'car', type: 'loan', assetClass: 'cash', quantity: 3000, ownerMemberId: 'giulia' })], MEMBERS, valueOf);
+    const summary = summarizeOwnership([HOUSE, asset({ id: 'car', type: 'loan', assetClass: 'cash', quantity: 3000, ownerMemberId: 'giulia' })], MEMBERS, valueOf, costOf);
     expect(words(describeOwnership(summary))).toBe('Il 102% è intestato a Marco, Giulia è in negativo (3000 € di debiti).');
     expect(words(describeOwnershipAnswer(summary))).toBe('Marco 102%');
   });
 
   it('turns the footer to the warning tone naming the assets with quotas to reassign', () => {
-    expect(describeOwnershipFooter({ reassign: [] }).tone).toBe('neutral');
-    expect(describeOwnershipFooter({ reassign: undefined as unknown as [] }).tone).toBe('neutral');
-    expect(describeOwnershipFooter({ reassign: [{ assetId: 'a', name: 'VWCE' }] })).toEqual({ text: '1 asset ha quote da riassegnare: VWCE.', tone: 'warning' });
-    expect(describeOwnershipFooter({ reassign: [{ assetId: 'a', name: 'VWCE' }, { assetId: 'b', name: 'Casa' }] }).text).toBe('2 asset hanno quote da riassegnare: VWCE e Casa.');
+    expect(describeOwnershipFooter({ reassign: [], withoutCostBasis: [] }).tone).toBe('neutral');
+    expect(describeOwnershipFooter({ reassign: undefined as unknown as [], withoutCostBasis: undefined as unknown as [] }).tone).toBe('neutral');
+    expect(describeOwnershipFooter({ reassign: [{ assetId: 'a', name: 'VWCE' }], withoutCostBasis: [] })).toEqual({ text: '1 asset ha quote da riassegnare: VWCE.', tone: 'warning' });
+    expect(describeOwnershipFooter({ reassign: [{ assetId: 'a', name: 'VWCE' }, { assetId: 'b', name: 'Casa' }], withoutCostBasis: [] }).text).toBe('2 asset hanno quote da riassegnare: VWCE e Casa.');
+  });
+});
+
+// ─── The price of carry (owner, 2026-10-18) ───────────────────────────────────
+
+/** 100 quote bought at 500 €, worth 1000 € today: 40 to Marco, 20 to Giulia, the rest in comune. */
+const SPLIT_WITH_COST = asset({ ...SPLIT, id: 'split-cost', averageCostEur: 500 });
+/** A quoted instrument the ledger has not costed: it stands at its value in the Carico view, declared. */
+const UNCOSTED = asset({ id: 'uncosted', name: 'Senza PMC', quantity: 10, currentPrice: 1000, ownerMemberId: 'marco' });
+
+describe('summarizeOwnership — the same groups at the price of carry', () => {
+  it('measures every group on the value AND on the carry, the shares of each total', () => {
+    const summary = summarizeOwnership([SPLIT_WITH_COST, CASH], MEMBERS, valueOf, costOf);
+    // Value: VWCE 100.000 → 40.000 Marco, 20.000 Giulia, 40.000 common; the account 20.000 Giulia.
+    // Carry: VWCE 50.000 → 20.000 Marco, 10.000 Giulia, 20.000 common; the account at its value.
+    expect(summary.total).toBe(120_000);
+    expect(summary.costTotal).toBe(70_000);
+    expect(summary.rows.map((row) => [row.label, row.value, row.costValue])).toEqual([
+      ['Marco', 40_000, 20_000],
+      ['Giulia', 40_000, 30_000],
+      [OWNER_COMMON_LABEL, 40_000, 20_000],
+    ]);
+    expect(summary.rows.map((row) => Math.round(row.costSharePct ?? -1))).toEqual([29, 43, 29]);
+    // The carry adds up to its own total as the value does to the net worth.
+    expect(summary.rows.reduce((sum, row) => sum + row.costValue, 0)).toBeCloseTo(summary.costTotal, 6);
+    expect(summary.withoutCostBasis).toEqual([]);
+    expect(ownershipRowOn(summary.rows[0], 'value')).toEqual({ value: 40_000, sharePct: summary.rows[0].sharePct });
+    expect(ownershipRowOn(summary.rows[0], 'cost')).toEqual({ value: 20_000, sharePct: summary.rows[0].costSharePct });
+  });
+
+  it('counts a quoted instrument without a PMC at its value and declares it; an account, a property, a fund or a loan never', () => {
+    const summary = summarizeOwnership([UNCOSTED, CASH, HOUSE, FUND, MORTGAGE], MEMBERS, valueOf, costOf);
+    expect(summary.withoutCostBasis).toEqual([{ assetId: 'uncosted', name: 'Senza PMC' }]);
+    expect(summary.costTotal).toBe(summary.total);
+    expect(summary.rows.map((row) => row.costValue)).toEqual(summary.rows.map((row) => row.value));
+  });
+
+  it('reads the carry figures only when the summary carries them (a payload cached before source version 25)', () => {
+    const summary = summarizeOwnership([SPLIT_WITH_COST], MEMBERS, valueOf, costOf);
+    expect(hasCostFigures(summary)).toBe(true);
+    const cached = { rows: summary.rows.map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'costValue' && key !== 'costSharePct')) as unknown as OwnershipRow) };
+    expect(hasCostFigures(cached)).toBe(false);
+  });
+
+  it('opens the reading by naming the carry, the shares of the carry total', () => {
+    const summary = summarizeOwnership([SPLIT_WITH_COST, CASH], MEMBERS, valueOf, costOf);
+    expect(words(describeOwnership(summary))).toBe('Il 33% è intestato a Marco, il 33% a Giulia, il resto in comune.');
+    expect(words(describeOwnership(summary, 'cost'))).toBe('Al prezzo di carico, il 29% è intestato a Marco, il 43% a Giulia, il resto in comune.');
+    expect(words(describeOwnership(summarizeOwnership([HOUSE], MEMBERS, valueOf, costOf), 'cost'))).toBe('Al prezzo di carico, tutto è intestato a Marco.');
+    // The closed row's answer stays on the value (the switch is not visible there).
+    expect(words(describeOwnershipAnswer(summary))).toBe('Marco 33%');
+  });
+
+  it('declares the uncosted instruments in the footer of the Carico view only, after a datum to fix', () => {
+    const one = { reassign: [], withoutCostBasis: [{ assetId: 'u', name: 'Senza PMC' }] };
+    expect(describeOwnershipFooter(one, 'value')).toEqual({ text: OWNERSHIP_FOOTER, tone: 'neutral' });
+    expect(describeOwnershipFooter(one, 'cost')).toEqual({ text: '1 asset senza prezzo di carico conta al valore attuale: Senza PMC.', tone: 'neutral' });
+    const two = { reassign: [], withoutCostBasis: [{ assetId: 'u', name: 'Senza PMC' }, { assetId: 'v', name: 'Altro' }] };
+    expect(describeOwnershipFooter(two, 'cost').text).toBe('2 asset senza prezzo di carico contano al valore attuale: Senza PMC e Altro.');
+    expect(describeOwnershipFooter({ reassign: [{ assetId: 'a', name: 'VWCE' }], withoutCostBasis: one.withoutCostBasis }, 'cost').tone).toBe('warning');
   });
 });

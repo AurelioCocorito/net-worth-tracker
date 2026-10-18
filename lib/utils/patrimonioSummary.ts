@@ -205,10 +205,22 @@ export function hasCostBasis(asset: Asset): boolean {
  * there is no PMC to measure against.
  */
 export function computeUnrealizedGain(asset: Asset): { gainLoss: number; gainPercent: number } | null {
-  if (!hasCostBasis(asset)) return null;
-  const basis = asset.quantity * (costBasisPerUnitEur(asset) as number);
+  const basis = costBasisOf(asset);
+  if (basis === null) return null;
   const gainLoss = calculateAssetValue(asset) - basis;
   return { gainLoss, gainPercent: basis > 0 ? (gainLoss / basis) * 100 : 0 };
+}
+
+/**
+ * The position's cost in EUR — quantity × the fiscal PMC (`costBasisPerUnitEur`, fees included) —
+ * the ONE figure the G/P, the Rendimento tile and the Intestatari tile's «Carico» view stand
+ * against `calculateAssetValue`. Null exactly when `hasCostBasis` says there is no PMC to read:
+ * an account, a hand-valued holding or a pension fund (their value IS what was put in), a foreign
+ * position before its EUR backfill, a sold-out one.
+ */
+export function costBasisOf(asset: Asset): number | null {
+  if (!hasCostBasis(asset)) return null;
+  return asset.quantity * (costBasisPerUnitEur(asset) as number);
 }
 
 export function summarizeUnrealizedGains(assets: Asset[]): UnrealizedGainsSummary {
@@ -219,7 +231,7 @@ export function summarizeUnrealizedGains(assets: Asset[]): UnrealizedGainsSummar
     const gain = computeUnrealizedGain(asset);
     if (!gain) continue;
     gainLoss += gain.gainLoss;
-    costBasis += asset.quantity * (costBasisPerUnitEur(asset) as number);
+    costBasis += costBasisOf(asset) as number;
     count += 1;
   }
   return {
