@@ -121,6 +121,42 @@ rules below name.
   portrait-only**, so an in-page button duplicating the FAB must be hidden **only in portrait** — in landscape the FAB
   is gone and it is the only add affordance.
 
+## The landscape stage
+
+From AGENTS.md § Tailwind Breakpoints (moved 2026-10-19, when AGENTS.md passed its ~1000 lines). Since 2026-10-16; DESIGN.md → The First-Screen and Closed-Row Rules.
+
+the tablet composition's
+classes live in `lib/utils/tabletComposition.ts` alone, as literals (`__tests__/tabletComposition.test.ts` holds the rules
+over its constants and the nineteen composed grids: the verdict's box `VERDICT_CELL_CLASS`, the 768 grid
+`COMPACT_GRID_WRAPPER_CLASS`/`COMPACT_GRID_CLASS` with `WIDE_CELL_CLASS` placed by `layoutTabletSections`, «Il resto»
+`REST_CELL_CLASS`, the scope aside yielding to the answer `ASIDE_YIELDS_TO_ANSWER_CLASS`, the measured heights through
+`stageCustomProperties` and `leftStackSticks`). A page wraps its verdict and its grid in a NEW `div`
+(`STAGE_WRAPPER_CLASS` = `@container`; never `PageContainer`, `container-type` would anchor a `fixed` descendant) around
+`STAGE_CLASS`, with `useTabletStage()`'s ref; the verdict's box `data-stage="verdict"`, THE tile's cell
+`data-stage="lead"`, «Il resto» and the rows inside ONE `INDEX_CLASS` box (a box of several rows inside it,
+`INDEX_GROUP_CLASS`). Below a content box of 880px nothing moves (the wrapper and the grid are what they were, the index
+`contents`); from it, below 1440, the grid turns `contents` and the stage is a `1fr | 360px` grid — the answer on the left,
+sticky when it fits the screen (`data-stick`, measured), the index on the right at least as tall (`--left-h`); the heights
+CSS cannot know are measured by the hook into custom properties. A grid composed in some states only takes THE tile's
+cell through `leadCellClass(composed)` and the rest-less states `PLAIN_GRID_CLASS`, never a bare `LEAD_CELL_CLASS` — on a
+plain grid its landscape classes still answer the stage's container and leave the right column empty (Obiettivi with no
+goal, 2026-10-16). A page hands `useTabletComposition` the rows it RENDERS, in DOM order (768's pairing). The closed
+rows ANSWER in the index (2026-10-16, DESIGN.md → The Closed-Row Rule): ONE pure `describe*ClosedAnswers` per page in
+its narrative/summary module, given by context (`RowAnswers`, `components/ui/row-answers.tsx`) and read by `TileRowShell`
+through `useRowAnswer` — never a prop through the
+tiles, never on an open or failed row, `null` to keep the scope aside; each guide's § Composizione mobile lists them. **A tile that
+can be a row lays out its inside by its CONTAINER, never by the viewport** (2026-10-16): in landscape every row opens in a
+360px index, a phone's width at a tablet's viewport — a `tablet:` inside such a tile draws the wide layout in 320px
+(Mutuo's KPIs, Coast's Afflussi timeline, Storico's Composizione legend: `@container` + `@[480|560px]:`; Analisi's Flusso
+picks bar-and-rows by its cell width, `useElementWidth` < 608). **And a container on a row tile's own `section` answers
+the page's queries too**: it becomes the nearest container of the trigger, so the index's `@[880px]:` answer measured the
+360px row and stayed hidden (`BaseDiCalcoloTile`, 2026-10-16) — put `@container` on an inner box. Checked by opening every
+row in landscape and at 768 on every surface and measuring each tile's right edge, not only `main`'s. **The SHELL keys
+on a named viewport variant, the content on its container**: `tablet-landscape:` (`@custom-variant` in `app/globals.css`,
+`orientation: landscape` and 1000–1439px) is for the shell only — the icon rail, the one-row header, the tab bars with
+labels (doc/guide/shell.md § Navigation) — because the shell has no container; it is declared after the core variants so it
+is emitted after `max-desktop:landscape:` and beats it on the same property. A composed page's content never uses it.
+
 ## Motion — the page scene and view transitions
 - **Page transitions use `template.tsx`, NOT `layout.tsx` + `AnimatePresence`** (it re-mounts on every navigation);
   remove page-level `motion.div variants` wrappers once it is in place (compounded opacity: t²). **Since 2026-09-12 a
