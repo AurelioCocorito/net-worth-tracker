@@ -7,7 +7,9 @@
 > install, so the same rules drift into different versions on each machine and in a cloud
 > session. A tracked file travels with the clone and can be reviewed in a diff. If you are an agent
 > with persistent memory, do **not** re-save these rules there — save one pointer to this file. If
-> the owner states a new rule, it is added *here*, in that session's commit.
+> the owner states a new rule, it is added *here*, in that session's commit: to section 3 if it holds
+> for this repo only; if it holds for every repo, ask the owner, because it enters the standard
+> first (`claude-config/prompts/WORKFLOW_STANDARD.md`) and reaches the repos from there.
 >
 > Sections 1-2 are the portable standard, identical across every repo that adopts it. Section 3 is
 > the only project-specific part: it says what "automate it yourself" and "show me the app"
@@ -38,10 +40,20 @@
    wording through the free-text answer («hai pagato», not «pagherai», for a tax the broker
    withholds at the sale).
 
-6. **Figures in tests are invented and round, never the mirror's** (2026-10-12). A Vitest fixture,
-   an E2E decoy or a seed carries amounts like 2500, 1120, 50: the owner's real figures never
-   enter the repo, not even as an expected value. The mirror is for the guided tour only
-   (§ 3, phase G removes it).
+6. **Figures in tests are invented and round, never the owner's** (2026-10-12). A unit-test
+   fixture, an E2E decoy or a seed carries amounts like 2500, 1120, 50: the owner's real data never
+   enters the repo, not even as an expected value. If § 3 provides a copy of real data for the
+   guided tour, it serves the tour only and phase G removes it.
+   **Nothing of the owner's real data in a tracked file** (2026-09-20, 2026-10-15): a draft, a
+   critique, a screenshot, a fixture or an example sentence takes invented figures and generic
+   names, never an amount, an account or a family detail copied from the real data. In a public
+   repo this has no exception. A private repo may waive it, or narrow it, only by saying so in § 3
+   with the owner's decision and its date; public data that is not the owner's (a listed company's
+   published accounts) is not the owner's data.
+
+7. **After an audit or an analysis, stop and wait for the owner's go-ahead** (2026-10-19). An audit,
+   a review or an analysis ends with the findings; no file changes until the owner has chosen which
+   fixes to apply and in what order (through rule 5).
 
 ---
 
@@ -78,7 +90,13 @@ disappear. The verification is done together, in chat, one phase at a time.
 5. **Before dismantling, let the owner look.** When the session touched something visible, ask for
    the OK and then walk the owner onto the dev server **with the fixtures still alive**: exact URLs,
    under which identity, and at most **five** things to look at — for each one, what must happen and
-   what would be the bug. Only what a probe cannot say: layout, whether the screen says what it must
+   what would be the bug. **The tour starts at the owner's go, not when the work is ready**
+   (2026-10-05): finish everything that needs no eyes, say it is ready, and wait. Where obligation 4
+   allows it, **open the page for the owner, already authenticated** — but one item per message and
+   one page at a time, waiting for the outcome before opening the next; two pages together only
+   when the item is a comparison (the same URL under two identities), saying which window is which.
+   The windows of a driven browser have no name: five at once turn the tour into working out which
+   belongs to which item. Only what a probe cannot say: layout, whether the screen says what it must
    say, the words, whether an action gives feedback that it happened. State also **what that tour
    does not cover**, and never ask the owner to redo by hand something already verified. Whatever
    the tour finds becomes an assertion before the session ends, or it will come back: the tour
@@ -106,6 +124,13 @@ resource** (the test — must fail), with the same identical file or record.
 Restore any configuration that was changed, remove fixtures and test attachments, delete the script,
 and **record the outcome somewhere that survives the session** (`CLAUDE.md` or equivalent).
 *A verification that was not recorded counts as not done.*
+
+**The outcome is one line, the signals are not** (2026-10-19). In `CLAUDE.md` the session's status
+entry says what was done, where it is documented, what is still open and what comes next; it
+replaces the previous one. The session's signals — type-check, test counts, E2E runs, flakes,
+skipped phases — go in the commit message and, where they teach something, in the area's guide,
+never in `CLAUDE.md`: that file is injected into every turn, and a status entry that collects them
+grows back into a diary after every trim.
 
 ---
 
@@ -149,9 +174,9 @@ The app **is** locally runnable; there is no fallback to declare.
 
 - **The tour server**: `npm run dev:emulator` → `http://localhost:3000`. It reads the emulators, so
   nothing seen there can touch production data.
-- **The tour starts at the owner's go, not when the work is ready** (owner, 2026-10-05): finish everything that needs
-  no eyes, say «pronto», and wait — the owner starts it when they can give it at least 20 minutes, because a session
-  left idle mid-tour is what the memory watchdog kills, emulators and dev server with it.
+- **The owner's go** (§ 2, obligation 5; owner, 2026-10-05): say «pronto» and wait — here the owner starts the tour
+  when they can give it at least 20 minutes, because a session left idle mid-tour is what the memory watchdog kills,
+  emulators and dev server with it.
 - **One `next dev` at a time.** Stop the :3100 server before the tour: it exists for the suite only.
   On 2026-09-07 three background processes (the emulators and two `next dev`) plus Playwright and
   Vitest exhausted the machine's memory and the system killed all three; an emulator killed that
@@ -185,7 +210,8 @@ The app **is** locally runnable; there is no fallback to declare.
   ACCOUNT is the standard, the DATA is not: it is re-read on every seed because a month later it has changed, and
   `npm run mirror:remove` takes it out at the end of the session (phase G). It is the right tour when the change moves
   the owner's own figures (Rendimenti, Storico): a fixture proves the mechanism, the mirror shows what the owner will
-  see tomorrow.
+  see tomorrow. It is rule 6's copy of real data: it serves the tour only, and none of its figures enters a test, a
+  draft or any other tracked file (this repo is public, so rule 6 has no exception here).
 - **A reading the owner cannot open with their own account**: this app has a role split — *viewer*
   (`user.uid`) vs *owner* (`ownerId`), grants in `account-access/{ownerUid}`. To show the delegated
   view, seed a grant for the second identity and log in as *that* identity (SETUP.md → Step 5b);
@@ -208,8 +234,7 @@ The app **is** locally runnable; there is no fallback to declare.
   in-page detector's count before quoting it** (2026-09-18, Centri di Costo: 71 and 110 findings, the CLI on the same
   files 0): every Cashflow tab stays mounted and hidden (`forceMount`), so ~36 hits per scan were Tracciamento's; the
   9–11px «undersized text» is the enumerated ramp; the shell, the sidebar and the overlay's own yellow (`dark-glow
-  #ffba00` on a second injection) are in there too. Count what belongs to the surface, say the rest is not its. **A probe never opens a control that SPENDS** (2026-09-20): «Analizza con AI» starts its analysis on open, and an evidence pass told to «open and press Escape» made five real Anthropic calls. Read what a control does before scripting a click on it; on Rendimenti that dialog is opened once, to check the abort, or not at all. **The session's background tasks die with it**: a restart of the Claude Code session, or its memory watchdog (on the
-  on both of the owner's machines, even with memory free and even mid-suite), kills the emulators and the dev
+  #ffba00` on a second injection) are in there too. Count what belongs to the surface, say the rest is not its. **A probe never opens a control that SPENDS** (2026-09-20): «Analizza con AI» starts its analysis on open, and an evidence pass told to «open and press Escape» made five real Anthropic calls. Read what a control does before scripting a click on it; on Rendimenti that dialog is opened once, to check the abort, or not at all. **The session's background tasks die with it**: a restart of the Claude Code session, or its memory watchdog (on both of the owner's machines, even with memory free and even mid-suite), kills the emulators and the dev
   server alike, and an emulator killed that way exports nothing. The safe default for the owner's tour: the emulators and
   the dev server run in the OWNER's terminals, which the watchdog does not touch; the agent re-seeds the mirror, checks
   the ports and reports the URLs, and does not restart a killed process on its own. When the owner asks the agent to
@@ -224,9 +249,10 @@ The app **is** locally runnable; there is no fallback to declare.
   the session scratchpad, where `firebase-admin` does not resolve. `.mts`, never `.ts`: a `.ts` script
   is CJS under tsx and has no top-level await (doc/guide/e2e-emulatori.md § Emulator Exercise Scripts).
 - **The authenticated browser already exists.** The Playwright projects park an authenticated
-  `storageState` per fixture account (`e2e/.auth/{user,analisi,degraded}.json`, minted by the three
-  `auth*.setup.ts` projects), so a script does not have to reproduce the login:
-  `npx playwright test --project=<desktop|mobile|analisi|analisi-mobile|degraded>`. A throwaway spec
+  `storageState` per fixture account (`e2e/.auth/<account>.json`, minted by the six `auth*.setup.ts`
+  projects), so a script does not have to reproduce the login: `npx playwright test --project=<name>`,
+  one of the fourteen projects of `playwright.config.ts` (SETUP.md § What it covers; the full table in
+  doc/guide/e2e-emulatori.md). A throwaway spec
   must match that project's `testMatch` to be collected, and must be deleted at the end.
 - **Automated suites are yours to run, always**: `npx tsc --noEmit`, `TZ=Europe/Rome npx vitest run`
   and `npx playwright test`.
@@ -266,12 +292,13 @@ The app **is** locally runnable; there is no fallback to declare.
   the document that numbered it), and the series' history goes to README.md § Documentation. A text-only defect found there is fixed in the retirement with `tsc`, lint
   and Vitest, no Playwright; a runtime one only on the owner's call, with the area suite and the full Playwright; a
   deferral nobody wrote goes where its theme lives (a guide's blind spots, the speed manual); a tour done in the
-  implementation session is recorded by the dossier's index. **`Draft Release Temp.md` never says a spec was retired**
+  implementation session is recorded by the dossier's index (outside a series: one line of CLAUDE.md «Latest»). **`Draft Release Temp.md` never says a spec was retired**
   (owner, 2026-10-08): its § Documentation line names what the guides now say, surface by surface. **The draft carries
   user-visible changes only** (owner, 2026-10-10): a developer tool — a census, a budget, a seed, a script — gets no
-  row, not even a «dev» one; its home is the guide and CLAUDE.md «Latest».
+  row, not even a «dev» one; its home is the guide (and one line of CLAUDE.md «Latest» when it is the session's work).
 - **The outcome of a verification**: `SESSION_NOTES.md` during the session (untracked — delete it
-  before the commit); it is folded into `CLAUDE.md` (the "Latest" entry) and `Draft Release Temp.md`
+  before the commit); its outcome goes into `CLAUDE.md`'s "Latest" entry as one line (§ 2, Closing a verification: the
+  signals go in the commit message and the guide) and, when the user sees it, into `Draft Release Temp.md`,
   before the PR. **Before the closing prompt it ends with one block** (owner, 2026-09-27): *Cosa* (what
   was implemented), *Perché* (the decision behind it), *Nota* (gotchas and measures, each with its date),
   *Dove va a fine sessione* (AGENTS.md if repo-wide · `doc/guide/<tema>.md` if a domain lesson ·
@@ -295,7 +322,8 @@ The app **is** locally runnable; there is no fallback to declare.
   on the fixture, never on the mirror** (2026-10-15): the sixteen written «live sul mirror» printed the real account's
   figures and accounts in a public repo and were redacted — amounts «x.xxx €», the account «Banca X», a family surname replaced by an invented name in the fixtures that
   had copied it. The same rule as for the draft above: nothing of the real account in a tracked file — nor the owner's
-  machines by model or name: «the reference machine» and «the other» (2026-10-15).
+  machines by model or hostname: «the reference machine» and «the other» (2026-10-15); the operating system may be
+  named («Windows», «the Mac»), because the line-ending rules depend on it (owner, 2026-10-19).
   `.impeccable/hook.cache.json` stays local (`.git/info/exclude`). **A snapshot closes only through
   `polish`, never by fixing the code** (2026-09-13): `critique-storage latest` judges it current from the
   fingerprint of the ONE target file (`page.tsx`, a 32-line wrapper), so corrections made in the
