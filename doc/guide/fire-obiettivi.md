@@ -19,6 +19,12 @@
 - **The goal's hex is identity** (dot, track, milestone, projection, the Panoramica's ObiettivoTile); the classes of Allocazione derivata take
   `ASSET_CLASS_CHART_INDEX` through `useChartColors` — the deleted `AllocationComparisonBar` carried a map of its own. Its «assigned» bar aggregates
   every goal's quotas by euro (reached included) while the derived target excludes the reached goals: the footer says the reached do not weigh.
+- **A property is worth to a goal its value NET of the loans that finance it, a loan nothing** (owner, 2026-10-20;
+  `lib/utils/goalAssetValue.ts`, wrapped by `goalMath.goalAssetValueOf`): until then the «Quota libera» row printed the
+  home GROSS of its mortgage while the «Non assegnato» total already netted the loan's negative value — a row and a total
+  that did not add up. Every reader takes the ONE value: `calculateGoalProgress`, `getUnassignedValue`,
+  `summarizeAssignments` (a loan is no row and no count), `sumAssetValues`, the Panoramica's `rankGoalProgress`, the
+  assignment dialog (which no longer offers a loan), the assistant's «libero». Real estate stays assignable.
 - **The free shares are the residual**: `summarizeAssignments` lists an instrument with more than 0,5% and 0,50 € free, sums `freeTotal` over EVERY
   instrument so the «Non assegnato» row adds up, and names an instrument assigned past 100% in the footer's warning tone (the amber card is gone). Orphaned
   quotas are skipped as `goalMath` does; the tab still runs `cleanOrphanedAssignments` before every write, and every write rewrites the document whole.

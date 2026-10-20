@@ -244,11 +244,18 @@ export const ALLOCAZIONE_CLOSED_ASIDES = {
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 /** «245.000 € allocati · 5 classi · target dalle impostazioni» — the compact header's description. */
-export function describeAllocazioneHeader(input: { marketValue: number; classCount: number; targetSource: 'settings' | 'goals' }): string | undefined {
+export function describeAllocazioneHeader(input: {
+  marketValue: number;
+  classCount: number;
+  targetSource: 'settings' | 'goals';
+  /** The Consulente's line when its plan was applied (`describeReviewBy`, 2026-10-20); absent otherwise. */
+  reviewBy?: string | null;
+}): string | undefined {
   if (input.classCount === 0) return undefined;
   const classes = input.classCount === 1 ? '1 classe' : `${input.classCount} classi`;
   const source = input.targetSource === 'goals' ? 'target dagli obiettivi' : 'target dalle impostazioni';
-  return `${cachedFormatCurrencyEUR(input.marketValue, true)} allocati · ${classes} · ${source}`;
+  const base = `${cachedFormatCurrencyEUR(input.marketValue, true)} allocati · ${classes} · ${source}`;
+  return input.reviewBy ? `${base} · ${input.reviewBy}` : base;
 }
 
 // ─── Bilanciamento ────────────────────────────────────────────────────────────

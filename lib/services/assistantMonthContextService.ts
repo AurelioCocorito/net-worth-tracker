@@ -19,8 +19,11 @@
  * Design decisions:
  * - Never uses Date.getMonth() / getFullYear() for domain grouping — snapshots
  *   are identified by their stored `year`/`month` integer fields.
- * - Month-end date includes the full last day (23:59:59) so Firestore range
- *   queries capture every transaction recorded that day.
+ * - Every expense window is an ITALIAN calendar window (`getItalyMonthBoundsUtc`,
+ *   `getItalyMonthRangeBoundsUtc`, 2026-10-20): the rows are dated at Italian midnight and the
+ *   process runs in UTC on Vercel, so a window built with `new Date(year, month - 1, 1)` filed
+ *   the 1st of a month under the month before — Cashflow › Tracciamento never did. The end bound
+ *   is the last millisecond of the last day, so a range query keeps everything recorded that day.
  * - Dummy snapshots are excluded by default because they are synthetic test
  *   fixtures that would distort real portfolio numbers. They can be included by
  *   passing includeDummySnapshots = true, intended for test accounts only.
@@ -36,8 +39,8 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import { MONTH_NAMES } from '@/lib/constants/months';
-import { getItalyMonthYear, toDate } from '@/lib/utils/dateHelpers';
-import { AssistantMonthContextBundle, AssistantMonthSelectorValue } from '@/types/assistant';
+import { getItalyMonthBoundsUtc, getItalyMonthRangeBoundsUtc, getItalyMonthYear, toDate } from '@/lib/utils/dateHelpers';
+import { AssistantMonthContextBundle, AssistantMonthSelectorValue, AssistantTodayContext } from '@/types/assistant';
 import { Asset, AssetAllocationSettings, MonthlySnapshot } from '@/types/assets';
 import { CashflowBreakdown, Expense, ExpenseCategory } from '@/types/expenses';
 import { GoalBasedInvestingData } from '@/types/goals';
@@ -45,6 +48,14 @@ import { buildCashflowBreakdown } from '@/lib/utils/expenseBreakdown';
 import { calculateGoalProgress, deriveTargetAllocationFromGoals } from '@/lib/utils/goalMath';
 import { computeGoalTrajectory } from '@/lib/utils/goalTrajectory';
 import { getGoalDataAdmin } from '@/lib/server/goalData';
+import { AssetTransaction } from '@/types/assetTransactions';
+import { Dividend } from '@/types/dividend';
+import { PensionContribution } from '@/types/pension';
+import { calculateAssetValue } from '@/lib/services/assetService';
+import { assignmentFraction, assignmentSlice } from '@/lib/utils/goalMath';
+import { formatOwnerSlice } from '@/lib/utils/assetOwnership';
+import { sliceUnit } from '@/lib/utils/assetSlice';
+import { buildAssistantPortfolioContext } from '@/lib/utils/assistantPortfolioContext';
 
 const MAX_ALLOCATION_CHANGES = 5;
 
@@ -57,16 +68,6 @@ const TOP_INDIVIDUAL_EXPENSES_HISTORY = 15;
 
 // Above this share of spending without a subcategory, the bundle declares the gap.
 const UNCLASSIFIED_SUBCATEGORY_NOTE_THRESHOLD = 0.3;
-
-/**
- * Returns the first and last moment of the given year/month as Date objects.
- * Day 0 of the next month = last day of the current month, pushed to 23:59:59.
- */
-function getMonthDateRange(year: number, month: number): { startDate: Date; endDate: Date } {
-  const startDate = new Date(year, month - 1, 1, 0, 0, 0);
-  const endDate = new Date(year, month, 0, 23, 59, 59);
-  return { startDate, endDate };
-}
 
 /**
  * Finds a snapshot for the exact year/month.
@@ -184,7 +185,87 @@ async function fetchSettings(userId: string): Promise<AssetAllocationSettings | 
     targets: data.targets ?? null,
     goalBasedInvestingEnabled: data.goalBasedInvestingEnabled,
     goalDrivenAllocationEnabled: data.goalDrivenAllocationEnabled,
+    // The household and the owner's age, for the portfolio block (2026-10-20).
+    familyMembers: data.familyMembers ?? [],
+    userAge: data.userAge,
   } as AssetAllocationSettings;
+}
+
+/** The three registers the portfolio block reads beside the assets (2026-10-20). */
+interface PortfolioDocuments {
+  transactions: AssetTransaction[];
+  dividends: Dividend[];
+  pensionContributions: PensionContribution[];
+}
+
+async function fetchPortfolioDocuments(userId: string): Promise<PortfolioDocuments> {
+  const [transactions, dividends, pensionContributions] = await Promise.all([
+    adminDb.collection('assetTransactions').where('userId', '==', userId).get(),
+    adminDb.collection('dividends').where('userId', '==', userId).get(),
+    adminDb.collection('pensionContributions').where('userId', '==', userId).get(),
+  ]);
+  const withDates = <T>(doc: { id: string; data: () => Record<string, unknown> }, dateFields: string[]): T => {
+    const data = doc.data();
+    const converted: Record<string, unknown> = { id: doc.id, ...data };
+    for (const field of dateFields) if (data[field] !== undefined) converted[field] = toDate(data[field] as never);
+    return converted as T;
+  };
+  return {
+    transactions: transactions.docs.map((doc) => withDates<AssetTransaction>(doc, ['date', 'createdAt', 'updatedAt'])),
+    dividends: dividends.docs.map((doc) => withDates<Dividend>(doc, ['exDate', 'paymentDate', 'createdAt', 'updatedAt'])),
+    pensionContributions: pensionContributions.docs.map((doc) => withDates<PensionContribution>(doc, ['date', 'createdAt'])),
+  };
+}
+
+/**
+ * The portfolio block of every builder: the same documents, the same pure function, so the five
+ * periods can never describe five different portfolios. The expenses are the PERIOD's rows (for
+ * the last instalment of a loan); everything else is today's.
+ */
+function buildPortfolioFields(
+  assets: Asset[],
+  documents: PortfolioDocuments,
+  expenses: Expense[],
+  settings: AssetAllocationSettings | null,
+  goalData: GoalBasedInvestingData | null,
+  now: Date
+): Pick<AssistantMonthContextBundle, 'portfolio'> {
+  return {
+    portfolio: buildAssistantPortfolioContext({
+      assets,
+      transactions: documents.transactions,
+      dividends: documents.dividends,
+      pensionContributions: documents.pensionContributions,
+      expenses,
+      targets: settings?.targets ?? null,
+      // The quotas only with the feature on: off, the holdings carry no «libero» (not a zero).
+      goalAssignments: settings?.goalBasedInvestingEnabled === true && goalData ? goalData.assignments : null,
+      familyMembers: settings?.familyMembers ?? [],
+      ownerAge: settings?.userAge ?? null,
+      assetValueOf: calculateAssetValue,
+      now,
+    }),
+  };
+}
+
+/**
+ * The context of a free question with NO period (2026-10-20): the portfolio of today and the goals,
+ * from the same documents and the same pure functions as the five period builders — never a sixth
+ * portfolio. No expenses are read (the loans' «ultima rata nel periodo» needs a period), no snapshot,
+ * no cashflow: those are a period's, and the prompt says so.
+ */
+export async function buildAssistantTodayContext(userId: string): Promise<AssistantTodayContext> {
+  const now = new Date();
+  const [settings, assets, goalData, portfolioDocuments] = await Promise.all([
+    fetchSettings(userId),
+    fetchAssets(userId),
+    getGoalDataAdmin(userId),
+    fetchPortfolioDocuments(userId),
+  ]);
+  return {
+    ...buildGoalFields(settings, goalData, assets, now),
+    ...buildPortfolioFields(assets, portfolioDocuments, [], settings, goalData, now),
+  };
 }
 
 /**
@@ -367,8 +448,25 @@ function buildGoalFields(
     };
   }
 
+  const assetById = new Map(assets.map((asset) => [asset.id, asset]));
   const items = goalData.goals.map((goal) => {
     const progress = calculateGoalProgress(goal, goalData.assignments, assets);
+    // The instruments behind the goal, each with its quota as written and its euro today.
+    const assignments = goalData.assignments
+      .filter((assignment) => assignment.goalId === goal.id)
+      .flatMap((assignment) => {
+        const asset = assetById.get(assignment.assetId);
+        if (!asset) return [];
+        const ticker = asset.ticker?.trim();
+        return [
+          {
+            assetName: asset.name.trim(),
+            ...(ticker && ticker !== asset.name ? { ticker } : {}),
+            quota: formatOwnerSlice(assignmentSlice(assignment), sliceUnit(asset)),
+            valueEur: calculateAssetValue(asset) * assignmentFraction(assignment, asset),
+          },
+        ];
+      });
     const trajectory = computeGoalTrajectory({
       currentValue: progress.currentValue,
       targetAmount: goal.targetAmount,
@@ -379,10 +477,12 @@ function buildGoalFields(
     });
 
     return {
+      id: goal.id,
       name: goal.name,
       priority: goal.priority,
       currentValue: progress.currentValue,
       verdict: trajectory.verdict,
+      assignments,
       // Only dated goals with a target have a trajectory to project. Carrying the
       // required pace is what lets the assistant answer "di quanto sono in ritardo"
       // with a number instead of computing one itself — which the data rules forbid.
@@ -542,17 +642,19 @@ export async function buildAssistantMonthContext(
   includeDummySnapshots = false
 ): Promise<AssistantMonthContextBundle> {
   const { year, month } = selector;
-  const { startDate, endDate } = getMonthDateRange(year, month);
+  const monthBounds = getItalyMonthBoundsUtc(year, month);
   const { year: prevYear, month: prevMonth } = getPreviousMonth(year, month);
 
   // Fetch snapshots, transactions, settings, and asset metadata in parallel
-  const [allSnapshots, monthExpenses, settings, assets, categories, goalData] = await Promise.all([
+  const [allSnapshots, monthExpenses, settings, assets, categories, goalData, portfolioDocuments] = await Promise.all([
     fetchSnapshots(userId),
-    fetchExpenses(userId, startDate, endDate),
+    fetchExpenses(userId, monthBounds.start, monthBounds.end),
     fetchSettings(userId),
     fetchAssets(userId),
     fetchExpenseCategories(userId),
     getGoalDataAdmin(userId),
+
+    fetchPortfolioDocuments(userId),
   ]);
 
   const currentSnapshot = findSnapshot(allSnapshots, year, month, includeDummySnapshots);
@@ -596,6 +698,8 @@ export async function buildAssistantMonthContext(
   const bySubCategoryAllocation = buildSubCategoryAllocation(currentSnapshot, assets);
   const goalFields = buildGoalFields(settings, goalData, assets, now);
 
+  const portfolioFields = buildPortfolioFields(assets, portfolioDocuments, monthExpenses, settings, goalData, now);
+
   return {
     selector,
     currentSnapshot,
@@ -605,6 +709,8 @@ export async function buildAssistantMonthContext(
     allocationChanges,
     bySubCategoryAllocation,
     ...goalFields,
+
+    ...portfolioFields,
     expenseCategories: buildCategoryTaxonomy(categories),
     dataQuality: {
       hasSnapshot,
@@ -639,17 +745,19 @@ export async function buildAssistantYearContext(
   const { year: italyCurrentYear } = getItalyMonthYear(now);
   const isCurrentYear = year === italyCurrentYear;
 
-  const yearStart = new Date(year, 0, 1, 0, 0, 0);
-  // For current year: cap at end of today's month; for completed years: full Dec 31
-  const yearEnd = new Date(year, 11, 31, 23, 59, 59);
+  // The whole calendar year, Italian days: a running year keeps its future-dated rows, as
+  // Tracciamento's «Anno corrente» does.
+  const yearBounds = getItalyMonthRangeBoundsUtc(year, 1, 12);
 
-  const [allSnapshots, yearExpenses, settings, assets, categories, goalData] = await Promise.all([
+  const [allSnapshots, yearExpenses, settings, assets, categories, goalData, portfolioDocuments] = await Promise.all([
     fetchSnapshots(userId),
-    fetchExpenses(userId, yearStart, yearEnd),
+    fetchExpenses(userId, yearBounds.start, yearBounds.end),
     fetchSettings(userId),
     fetchAssets(userId),
     fetchExpenseCategories(userId),
     getGoalDataAdmin(userId),
+
+    fetchPortfolioDocuments(userId),
   ]);
 
   // Baseline = December of previous year
@@ -688,6 +796,8 @@ export async function buildAssistantYearContext(
   const bySubCategoryAllocation = buildSubCategoryAllocation(currentSnapshot, assets);
   const goalFields = buildGoalFields(settings, goalData, assets, now);
 
+  const portfolioFields = buildPortfolioFields(assets, portfolioDocuments, yearExpenses, settings, goalData, now);
+
   // selector.month = 0 signals "year-level" period to prompt builders and the context card
   return {
     selector: { year, month: 0 },
@@ -698,6 +808,8 @@ export async function buildAssistantYearContext(
     allocationChanges,
     bySubCategoryAllocation,
     ...goalFields,
+
+    ...portfolioFields,
     expenseCategories: buildCategoryTaxonomy(categories),
     dataQuality: {
       hasSnapshot,
@@ -728,17 +840,18 @@ export async function buildAssistantYtdContext(
   const now = new Date();
   const { year: currentYear, month: currentMonth } = getItalyMonthYear(now);
 
-  const ytdStart = new Date(currentYear, 0, 1, 0, 0, 0);
-  // Include up to end of today's month so all tracked transactions are captured
-  const ytdEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+  // January 1st → the end of today's Italian month, so every tracked row of the month is in.
+  const ytdBounds = getItalyMonthRangeBoundsUtc(currentYear, 1, currentMonth);
 
-  const [allSnapshots, ytdExpenses, settings, assets, categories, goalData] = await Promise.all([
+  const [allSnapshots, ytdExpenses, settings, assets, categories, goalData, portfolioDocuments] = await Promise.all([
     fetchSnapshots(userId),
-    fetchExpenses(userId, ytdStart, ytdEnd),
+    fetchExpenses(userId, ytdBounds.start, ytdBounds.end),
     fetchSettings(userId),
     fetchAssets(userId),
     fetchExpenseCategories(userId),
     getGoalDataAdmin(userId),
+
+    fetchPortfolioDocuments(userId),
   ]);
 
   // Baseline = December of previous year (same as year builder)
@@ -771,6 +884,8 @@ export async function buildAssistantYtdContext(
   const bySubCategoryAllocation = buildSubCategoryAllocation(currentSnapshot, assets);
   const goalFields = buildGoalFields(settings, goalData, assets, now);
 
+  const portfolioFields = buildPortfolioFields(assets, portfolioDocuments, ytdExpenses, settings, goalData, now);
+
   // selector.month = -1 signals "YTD" period
   return {
     selector: { year: currentYear, month: -1 },
@@ -781,6 +896,8 @@ export async function buildAssistantYtdContext(
     allocationChanges,
     bySubCategoryAllocation,
     ...goalFields,
+
+    ...portfolioFields,
     expenseCategories: buildCategoryTaxonomy(categories),
     dataQuality: {
       hasSnapshot,
@@ -852,17 +969,18 @@ export async function buildAssistantPeriodRangeContext(
     );
   }
 
-  const windowStart = new Date(year, startMonth - 1, 1, 0, 0, 0);
-  const windowEnd = new Date(year, endMonth, 0, 23, 59, 59);
+  const windowBounds = getItalyMonthRangeBoundsUtc(year, startMonth, endMonth);
   const baseline = getPreviousMonth(year, startMonth);
 
-  const [allSnapshots, windowExpenses, settings, assets, categories, goalData] = await Promise.all([
+  const [allSnapshots, windowExpenses, settings, assets, categories, goalData, portfolioDocuments] = await Promise.all([
     fetchSnapshots(userId),
-    fetchExpenses(userId, windowStart, windowEnd),
+    fetchExpenses(userId, windowBounds.start, windowBounds.end),
     fetchSettings(userId),
     fetchAssets(userId),
     fetchExpenseCategories(userId),
     getGoalDataAdmin(userId),
+
+    fetchPortfolioDocuments(userId),
   ]);
 
   const currentSnapshot = findSnapshot(allSnapshots, year, endMonth, includeDummySnapshots);
@@ -944,6 +1062,8 @@ export async function buildAssistantPeriodRangeContext(
     allocationChanges: buildAllocationChanges(currentSnapshot, previousSnapshot),
     bySubCategoryAllocation: buildSubCategoryAllocation(currentSnapshot, assets),
     ...buildGoalFields(settings, goalData, assets, now),
+
+    ...buildPortfolioFields(assets, portfolioDocuments, windowExpenses, settings, goalData, now),
     expenseCategories: buildCategoryTaxonomy(categories),
     dataQuality: {
       hasSnapshot,
@@ -978,16 +1098,19 @@ export async function buildAssistantHistoryContext(
   const now = new Date();
   const { year: currentYear, month: currentMonth } = getItalyMonthYear(now);
 
-  const historyStart = new Date(startYear, 0, 1, 0, 0, 0);
-  const historyEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+  // January 1st of the start year → the end of today's Italian month, across the years.
+  const historyStart = getItalyMonthBoundsUtc(startYear, 1).start;
+  const historyEnd = getItalyMonthBoundsUtc(currentYear, currentMonth).end;
 
-  const [allSnapshots, historyExpenses, settings, assets, categories, goalData] = await Promise.all([
+  const [allSnapshots, historyExpenses, settings, assets, categories, goalData, portfolioDocuments] = await Promise.all([
     fetchSnapshots(userId),
     fetchExpenses(userId, historyStart, historyEnd),
     fetchSettings(userId),
     fetchAssets(userId),
     fetchExpenseCategories(userId),
     getGoalDataAdmin(userId),
+
+    fetchPortfolioDocuments(userId),
   ]);
 
   // Filter to snapshots within the history window
@@ -1023,6 +1146,8 @@ export async function buildAssistantHistoryContext(
   const bySubCategoryAllocation = buildSubCategoryAllocation(currentSnapshot, assets);
   const goalFields = buildGoalFields(settings, goalData, assets, now);
 
+  const portfolioFields = buildPortfolioFields(assets, portfolioDocuments, historyExpenses, settings, goalData, now);
+
   // selector.month = -2 signals "total history" period
   return {
     selector: { year: startYear, month: -2 },
@@ -1033,6 +1158,8 @@ export async function buildAssistantHistoryContext(
     allocationChanges,
     bySubCategoryAllocation,
     ...goalFields,
+
+    ...portfolioFields,
     expenseCategories: buildCategoryTaxonomy(categories),
     dataQuality: {
       hasSnapshot,

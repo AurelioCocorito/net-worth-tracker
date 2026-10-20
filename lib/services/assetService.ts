@@ -20,7 +20,7 @@ import { suggestIsLiquid } from '@/lib/utils/assetLiquidity';
 import { costBasisPerUnitEur, unitPriceEur } from '@/lib/utils/costBasisEur';
 import { CHECKING_ACCOUNT_STAMP_DUTY_EUR, CHECKING_ACCOUNT_STAMP_DUTY_THRESHOLD_EUR } from '@/lib/constants/stampDuty';
 import { invalidateDashboardOverviewSummary } from '@/lib/services/dashboardOverviewInvalidation';
-import { Asset, AssetFormData, BondDetails, isLoanAsset } from '@/types/assets';
+import { AllocationRole, Asset, AssetFormData, BondDetails, isLoanAsset } from '@/types/assets';
 
 const ASSETS_COLLECTION = 'assets';
 
@@ -374,6 +374,32 @@ export async function updateAssetMetadata(
       error: getErrorMessage(error),
     });
     throw new Error(`Failed to update asset metadata ${assetId}`, { cause: error });
+  }
+}
+
+/**
+ * Updates ONLY an asset's `allocationRole` (and updatedAt) — the Consulente's «Applica»
+ * (2026-10-20). Why a dedicated path: `updateAsset` and `updateAssetMetadata` read an absent
+ * `taxRate`/`displayTicker` in their partial as a request to DELETE those fields, so a role
+ * change through them would strip the instrument of its tax rate. The role is the one field
+ * this write touches; the allocation and the overview reread.
+ */
+export async function updateAssetAllocationRole(assetId: string, allocationRole: AllocationRole): Promise<void> {
+  try {
+    const assetRef = doc(db, ASSETS_COLLECTION, assetId);
+    const existingAsset = await getDoc(assetRef);
+    await updateDoc(assetRef, { allocationRole, updatedAt: new Date() });
+    const userId = existingAsset.data()?.userId;
+    if (userId) {
+      await invalidateDashboardOverviewSummary(userId, 'asset_updated');
+    }
+  } catch (error) {
+    console.error('Failed to update asset allocation role', {
+      assetId,
+      operation: 'updateAssetAllocationRole',
+      error: getErrorMessage(error),
+    });
+    throw new Error(`Failed to update asset allocation role ${assetId}`, { cause: error });
   }
 }
 

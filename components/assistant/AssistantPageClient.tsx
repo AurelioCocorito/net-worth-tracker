@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { describeWriteError } from '@/lib/utils/dialogNarrative';
 import { AssistantComeFunziona } from '@/components/assistant/AssistantComeFunziona';
+import { LinkBanner } from '@/components/ui/link-banner';
 import { AssistantComposer } from '@/components/assistant/AssistantComposer';
 import { AssistantConversazioneTile } from '@/components/assistant/AssistantConversazioneTile';
 import { AssistantHeader } from '@/components/assistant/AssistantHeader';
@@ -188,7 +189,8 @@ export function AssistantPageClient({ assistantConfigured }: AssistantPageClient
 
   // Fetch the context bundle whenever a period is selected and no SSE bundle is active.
   // SSE bundle always takes priority over the fetched one. Free (chat) mode has no
-  // numeric period, so it never fetches — «Patrimonio oggi» stands in instead.
+  // numeric period, so it never fetches — «Patrimonio oggi» stands in instead (the prompt still
+  // gets the portfolio of today from the route, 2026-10-20; no bundle travels back on the stream).
   const shouldFetchContext =
     streamingMessages.length === 0 &&
     contextBundle === null &&
@@ -599,6 +601,12 @@ export function AssistantPageClient({ assistantConfigured }: AssistantPageClient
               </div>
             </div>
 
+            {/* The Consulente: the one path that writes the allocation, a page of its own (2026-10-20). */}
+            <LinkBanner
+              href="/dashboard/allocation/consulente"
+              title="Imposta la tua allocazione con il Consulente"
+              description="Un percorso guidato: le tue risposte, due agenti, una proposta da applicare con un tasto."
+            />
             <AssistantComeFunziona />
           </>
         )}

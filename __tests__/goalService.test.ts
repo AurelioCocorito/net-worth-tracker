@@ -9,9 +9,12 @@ import type { Asset } from '@/types/assets';
 
 // Mock Firebase-dependent modules before importing goalService
 vi.mock('@/lib/firebase/config', () => ({ db: {} }));
+// A loan is worth minus its principal (the real rule): «Non assegnato» nets a property of it.
 vi.mock('@/lib/services/assetService', () => ({
   calculateAssetValue: (asset: Asset) => {
     const base = asset.quantity * asset.currentPrice;
+    // A loan is worth minus its principal, as the real rule says (2026-10-10).
+    if (asset.type === 'loan') return -base || 0;
     return asset.outstandingDebt ? Math.max(0, base - asset.outstandingDebt) : base;
   },
 }));
@@ -245,5 +248,14 @@ describe('getAvailablePercentage', () => {
     expect(getUnassignedValue(mockAssets, assignments)).toBe(19500);
     // 80 + 30 quote on 100: over, in the same words.
     expect(validateAssignments([{ goalId: 'goal1', assetId: 'asset1', units: 80 }, { goalId: 'goal2', assetId: 'asset1', units: 30 }], mockAssets)).toEqual(['Vanguard FTSE All-World: assegnato 110.0% (max 100%)']);
+  });
+});
+
+describe('getUnassignedValue — a property and its loan (2026-10-20)', () => {
+  it('counts the home net of its mortgage and the loan not at all', () => {
+    const home = { ...mockAssets[0], id: 'home', name: 'Casa', type: 'realestate' as const, assetClass: 'realestate' as const, quantity: 200000, currentPrice: 1 };
+    const mortgage = { ...mockAssets[0], id: 'loan', name: 'Mutuo', type: 'loan' as const, assetClass: 'realestate' as const, quantity: 80000, currentPrice: 1, financedAssetId: 'home' };
+    expect(getUnassignedValue([home, mortgage], [])).toBe(120000);
+    expect(getUnassignedValue([home, mortgage], [{ goalId: 'g', assetId: 'home', percentage: 50 }])).toBe(60000);
   });
 });

@@ -225,7 +225,7 @@ vi.mock('@/lib/utils/dateHelpers', async () => {
   };
 });
 
-import { POST as createGoalRoute } from '@/app/api/goals/route';
+import { POST as createGoalRoute, PATCH as updateGoalRoute } from '@/app/api/goals/route';
 import { GET as getDividendsRoute } from '@/app/api/dividends/route';
 import { DELETE as deleteDividendRoute } from '@/app/api/dividends/[dividendId]/route';
 import { POST as updatePricesRoute } from '@/app/api/prices/update/route';
@@ -421,6 +421,115 @@ describe('Private API route auth', () => {
     expect(written.assignments).toHaveLength(1);
     // A colour already in use is skipped, or two goals would be the same hue everywhere.
     expect(written.goals[1].color).not.toBe(written.goals[0].color);
+  });
+
+  // ── The quotas on a creation, and PATCH /api/goals (the «Modifica» card, 2026-10-20) ─────
+
+  it('writes the quotas a creation carries beside the new goal', async () => {
+    goalBasedInvestingDocGetMock.mockResolvedValue({ exists: false });
+    const response = await createGoalRoute(
+      createJsonRequest('http://localhost/api/goals', {
+        method: 'POST',
+        body: { userId: 'user-1', goal: { name: 'Auto', priority: 'bassa' }, assignments: [{ assetId: 'asset-1', percentage: 40 }] },
+        headers: { Authorization: 'Bearer valid-token' },
+      })
+    );
+    expect(response.status).toBe(200);
+    const written = goalBasedInvestingDocSetMock.mock.calls[0][0] as { goals: { id: string }[]; assignments: { goalId: string; assetId: string; percentage: number }[] };
+    expect(written.assignments).toEqual([{ goalId: written.goals[0].id, assetId: 'asset-1', percentage: 40 }]);
+  });
+
+  it('refuses quotas that pass the whole of one instrument', async () => {
+    const response = await createGoalRoute(
+      createJsonRequest('http://localhost/api/goals', {
+        method: 'POST',
+        body: { userId: 'user-1', goal: { name: 'Auto', priority: 'bassa' }, assignments: [{ assetId: 'asset-1', percentage: 70 }, { assetId: 'asset-1', percentage: 40 }] },
+        headers: { Authorization: 'Bearer valid-token' },
+      })
+    );
+    expect(response.status).toBe(400);
+    expect(goalBasedInvestingDocSetMock).not.toHaveBeenCalled();
+  });
+
+  it('rewrites one goal in place, keeps its colour, replaces its quotas and leaves the others', async () => {
+    goalBasedInvestingDocGetMock.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        goals: [
+          { id: 'g-casa', name: 'Casa', priority: 'media', color: '#3B82F6', targetAmount: 50000, targetDate: '2031-06-01' },
+          { id: 'g-auto', name: 'Auto', priority: 'bassa', color: '#EF4444' },
+        ],
+        assignments: [
+          { goalId: 'g-casa', assetId: 'asset-1', percentage: 50 },
+          { goalId: 'g-auto', assetId: 'asset-2', percentage: 20 },
+        ],
+      }),
+    });
+
+    const response = await updateGoalRoute(
+      createJsonRequest('http://localhost/api/goals', {
+        method: 'PATCH',
+        body: {
+          userId: 'user-1',
+          goalId: 'g-casa',
+          goal: { name: 'Casa nuova', priority: 'alta', targetAmount: 60000 },
+          assignments: [{ assetId: 'asset-3', percentage: 100 }],
+        },
+        headers: { Authorization: 'Bearer valid-token' },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ goal: { id: 'g-casa', name: 'Casa nuova', priority: 'alta', targetAmount: 60000, color: '#3B82F6' } });
+    const written = goalBasedInvestingDocSetMock.mock.calls[0][0] as {
+      goals: { id: string; name: string; targetDate?: string }[];
+      assignments: { goalId: string; assetId: string }[];
+    };
+    expect(written.goals.map((g) => g.name)).toEqual(['Casa nuova', 'Auto']);
+    // The proposal replaces the goal's fields: the deadline it dropped is gone.
+    expect(written.goals[0].targetDate).toBeUndefined();
+    expect(written.assignments).toEqual([
+      { goalId: 'g-auto', assetId: 'asset-2', percentage: 20 },
+      { goalId: 'g-casa', assetId: 'asset-3', percentage: 100 },
+    ]);
+  });
+
+  it('leaves the quotas alone when the update carries none, and answers 404 for a goal that is gone', async () => {
+    goalBasedInvestingDocGetMock.mockResolvedValue({
+      exists: true,
+      data: () => ({ goals: [{ id: 'g-casa', name: 'Casa', priority: 'media', color: '#3B82F6' }], assignments: [{ goalId: 'g-casa', assetId: 'asset-1', percentage: 50 }] }),
+    });
+    const kept = await updateGoalRoute(
+      createJsonRequest('http://localhost/api/goals', {
+        method: 'PATCH',
+        body: { userId: 'user-1', goalId: 'g-casa', goal: { name: 'Casa', priority: 'alta' } },
+        headers: { Authorization: 'Bearer valid-token' },
+      })
+    );
+    expect(kept.status).toBe(200);
+    const written = goalBasedInvestingDocSetMock.mock.calls[0][0] as { assignments: unknown[] };
+    expect(written.assignments).toEqual([{ goalId: 'g-casa', assetId: 'asset-1', percentage: 50 }]);
+
+    const gone = await updateGoalRoute(
+      createJsonRequest('http://localhost/api/goals', {
+        method: 'PATCH',
+        body: { userId: 'user-1', goalId: 'g-nope', goal: { name: 'X', priority: 'alta' } },
+        headers: { Authorization: 'Bearer valid-token' },
+      })
+    );
+    expect(gone.status).toBe(404);
+  });
+
+  it("refuses an update on another user's account", async () => {
+    const response = await updateGoalRoute(
+      createJsonRequest('http://localhost/api/goals', {
+        method: 'PATCH',
+        body: { userId: 'user-2', goalId: 'g-casa', goal: { name: 'Casa', priority: 'alta' } },
+        headers: { Authorization: 'Bearer valid-token' },
+      })
+    );
+    expect(response.status).toBe(403);
+    expect(goalBasedInvestingDocSetMock).not.toHaveBeenCalled();
   });
 
   it('returns 401 for private dividends route without Authorization header', async () => {

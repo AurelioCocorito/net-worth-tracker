@@ -18,8 +18,8 @@ import { useState, useMemo } from 'react';
 import { Asset } from '@/types/assets';
 import { GoalAssetAssignment, InvestmentGoal } from '@/types/goals';
 import { getAvailablePercentage } from '@/lib/services/goalService';
-import { assignmentSlice } from '@/lib/utils/goalMath';
-import { calculateAssetValue } from '@/lib/services/assetService';
+import { assignmentSlice, goalAssetValueOf } from '@/lib/utils/goalMath';
+import { isGoalAsset } from '@/lib/utils/goalAssetValue';
 import { sliceBase, sliceFraction, sliceUnit, sliceUnitLabel, sliceUnits, summarizeSlices, type AssetSlice } from '@/lib/utils/assetSlice';
 import { describeModalStatus, type ModalStatus } from '@/lib/utils/dialogNarrative';
 import { ResponsiveModal } from '@/components/ui/responsive-modal';
@@ -93,7 +93,8 @@ export function AssetAssignmentDialog({
 
   const filteredAssets = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    return assets.filter(
+    // A loan is never offered: a goal holds what it finances, net of it (lib/utils/goalAssetValue.ts).
+    return assets.filter(isGoalAsset).filter(
       (a) =>
         a.name.toLowerCase().includes(term) ||
         a.ticker.toLowerCase().includes(term) ||
@@ -196,7 +197,7 @@ export function AssetAssignmentDialog({
               </p>
             ) : (
               filteredAssets.map((asset) => {
-                const value = calculateAssetValue(asset);
+                const value = goalAssetValueOf(asset, assets);
                 // trueAvail: truly free space across ALL goals (no exclusion)
                 const trueAvail = getAvailablePercentage(asset, assignments);
                 const isSelected = selectedAssetId === asset.id;
@@ -290,7 +291,7 @@ export function AssetAssignmentDialog({
                   <div className="ml-auto text-right">
                     <p className="text-xs text-muted-foreground">Equivale a</p>
                     <p className="text-sm font-semibold font-mono tabular-nums text-foreground">
-                      {formatCurrency(calculateAssetValue(selectedAsset) * sliceFraction(typedSlice, quantity))}
+                      {formatCurrency(goalAssetValueOf(selectedAsset, assets) * sliceFraction(typedSlice, quantity))}
                       <span className="ml-1 text-xs font-normal text-muted-foreground">
                         {mode === 'units' ? formatPercentageIt(sliceFraction(typedSlice, quantity) * 100, 1) : unitsText(sliceUnits(typedSlice, quantity), selectedAsset)}
                       </span>

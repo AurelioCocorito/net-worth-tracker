@@ -79,6 +79,7 @@ vi.mock('server-only', () => ({}));
 import {
   buildAssistantMonthContext,
   buildAssistantPeriodRangeContext,
+  buildAssistantTodayContext,
   buildAssistantYearContext,
 } from '@/lib/services/assistantMonthContextService';
 import { MonthlySnapshot } from '@/types/assets';
@@ -451,31 +452,42 @@ describe('buildAssistantMonthContext', () => {
 
   // ── Month boundary: end date covers full last day ─────────────────────────
 
-  it('passes the end-of-month date with time 23:59:59 to the expenses query', async () => {
+  it('queries the ITALIAN calendar month, not the process zone\'s (the 1st at Italian midnight is in)', async () => {
     mockSnapshots([]);
     mockExpenses([]);
+    expenseWhereCalls.length = 0;
 
     await buildAssistantMonthContext('user1', { year: 2025, month: 3 });
 
-    // The Timestamp.fromDate call uses the endDate we computed — verify via the
-    // raw Date that would produce it by re-deriving the boundary (March has 31 days)
-    const endDate = new Date(2025, 3, 0, 23, 59, 59); // March 31
-    expect(endDate.getDate()).toBe(31);
-    expect(endDate.getHours()).toBe(23);
-    expect(endDate.getSeconds()).toBe(59);
+    // March 2025 in Italy: CET (+01:00) on the 1st, CEST (+02:00) on the 31st. Read as ISO
+    // instants so the assertion holds under TZ=UTC and TZ=Europe/Rome alike. Until 2026-10-20 the
+    // window was `new Date(2025, 2, 1)` — UTC midnight on Vercel — and a row the form dated
+    // «1 marzo» (stored 2025-02-28T23:00:00Z) was filed under February.
+    const [start, end] = queriedExpenseBounds();
+    expect(start.toISOString()).toBe('2025-02-28T23:00:00.000Z');
+    expect(end.toISOString()).toBe('2025-03-31T21:59:59.999Z');
   });
 
-  it('end date is correct for February in a leap year (29 days)', async () => {
+  it('end date is the last millisecond of February 29 in a leap year, in Italy', async () => {
     mockSnapshots([]);
     mockExpenses([]);
+    expenseWhereCalls.length = 0;
 
     await buildAssistantMonthContext('user1', { year: 2024, month: 2 });
 
-    // 2024 is a leap year; February has 29 days
-    const endDate = new Date(2024, 2, 0, 23, 59, 59); // Feb 29 in leap year
-    expect(endDate.getDate()).toBe(29);
+    const [, end] = queriedExpenseBounds();
+    expect(end.toISOString()).toBe('2024-02-29T22:59:59.999Z');
   });
 });
+
+/** The two `date` bounds the last expenses query carried, as Dates, start first. */
+function queriedExpenseBounds(): [Date, Date] {
+  const bounds = expenseWhereCalls
+    .filter((call) => call.field === 'date')
+    .map((call) => (call.value as { toDate: () => Date }).toDate());
+  expect(bounds).toHaveLength(2);
+  return [bounds[0], bounds[1]];
+}
 
 // ─── Arbitrary month-window builder (quarters, semesters, and the email periods) ──
 
@@ -496,17 +508,11 @@ describe('buildAssistantPeriodRangeContext', () => {
 
     await buildAssistantPeriodRangeContext('user1', Q3_2026);
 
-    const bounds = expenseWhereCalls
-      .filter((call) => call.field === 'date')
-      .map((call) => (call.value as { toDate: () => Date }).toDate());
-    expect(bounds).toHaveLength(2);
-    const [start, end] = bounds;
-    expect(start.getMonth()).toBe(6); // July
-    expect(start.getDate()).toBe(1);
-    expect(end.getMonth()).toBe(8); // September
-    expect(end.getDate()).toBe(30);
-    expect(end.getHours()).toBe(23);
-    expect(end.getSeconds()).toBe(59);
+    // Italian calendar bounds (CEST, +02:00), as ISO instants so the suite reads the same under
+    // TZ=UTC: 1 July 00:00 Rome → 30 September 23:59:59.999 Rome.
+    const [start, end] = queriedExpenseBounds();
+    expect(start.toISOString()).toBe('2026-06-30T22:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-09-30T21:59:59.999Z');
   });
 
   it('takes the closing snapshot of the window and the one before it opens as the baseline', async () => {
@@ -685,6 +691,32 @@ describe('buildAssistantYearContext', () => {
 });
 
 // ─── Goal-Based Investing block ──────────────────────────────────────────────
+
+// ── The portfolio of today, for a free question with no period (2026-10-20) ─────────────
+describe('buildAssistantTodayContext', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns the portfolio, the goals and the targets from the documents of today, reading no expenses or snapshots', async () => {
+    mockSettings(undefined, { goalBasedInvestingEnabled: true, targets: { equity: 60, bonds: 40 } });
+    mockAssets([makeAssetDoc('asset1', 'equity', 10_000)]);
+    mockGoalData({
+      goals: [{ id: 'casa', name: 'Casa', priority: 'alta', color: '#3B82F6', createdAt: new Date(2025, 0, 1), updatedAt: new Date(2025, 0, 1) }],
+      assignments: [{ goalId: 'casa', assetId: 'asset1', percentage: 50 }],
+    });
+
+    const context = await buildAssistantTodayContext('user1');
+
+    expect(context.portfolio.holdings.map((h) => h.name)).toEqual(['asset1']);
+    expect(context.portfolio.holdings[0]).toMatchObject({ goalAssignedPct: 50, goalFreeEur: 5000 });
+    expect(context.portfolio.goalCoverage).toEqual({ totalEur: 10_000, assignedEur: 5000, freeEur: 5000 });
+    expect(context.goals?.items.map((g) => g.id)).toEqual(['casa']);
+    expect(context.targetAllocationSource).toBe('manual');
+    expect(expensesGetMock).not.toHaveBeenCalled();
+    expect(snapshotsGetMock).not.toHaveBeenCalled();
+  });
+});
 
 describe('goals block', () => {
   // asset1 is €10.000 of equity; the goal below has all of it assigned.

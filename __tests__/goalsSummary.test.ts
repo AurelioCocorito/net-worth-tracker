@@ -11,7 +11,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/firebase/config', () => ({ db: {} }));
 vi.mock('@/lib/services/assetService', () => ({
-  calculateAssetValue: (asset: { quantity: number; currentPrice: number }) => asset.quantity * asset.currentPrice,
+  // A loan is worth minus its principal, as the real rule says: the free list nets a property of it.
+  calculateAssetValue: (asset: { type?: string; quantity: number; currentPrice: number }) => (asset.type === 'loan' ? -asset.quantity * asset.currentPrice : asset.quantity * asset.currentPrice),
 }));
 
 import type { Asset } from '@/types/assets';
@@ -346,5 +347,22 @@ describe('summarizeAssignments', () => {
 
   it('sumAssetValues is the portfolio total on the same basis as every quota', () => {
     expect(sumAssetValues(ASSETS)).toBe(188_000);
+  });
+});
+
+describe('summarizeAssignments — a property and its loan (2026-10-20)', () => {
+  it('lists the home net of its mortgage, never the loan, and totals on the same basis', () => {
+    const home = { ...asset('home', 'Casa', 200000, 'realestate', 'Casa'), type: 'realestate' as const };
+    const mortgage = { ...asset('loan', 'Mutuo', 80000, 'realestate', 'Mutuo'), type: 'loan' as const, financedAssetId: 'home' };
+    const etf = asset('etf', 'ETF', 1000);
+    const view = summarizeAssignments([], [], [home, mortgage, etf]);
+    expect(view.free.map((row) => [row.name, row.freeValue])).toEqual([
+      ['Casa', 120000],
+      ['ETF', 1000],
+    ]);
+    expect(view.freeTotal).toBe(121000);
+    expect(view.totalInstrumentCount).toBe(2);
+    expect(sumAssetValues([home, mortgage, etf])).toBe(121000);
+    expect(view.freeShare).toBeCloseTo(100, 6);
   });
 });

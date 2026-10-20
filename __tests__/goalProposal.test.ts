@@ -101,3 +101,28 @@ describe('goalProposalSchema', () => {
     expect(result.name).toBe('Casa');
   });
 });
+
+describe('the proposal that MODIFIES a goal and names its instruments (2026-10-20)', () => {
+  it('accepts a goalId and quotas by instrument name, in percent of the instrument', () => {
+    const proposal = parseGoalProposal(
+      JSON.stringify({ ...VALID, goalId: 'g-1', assignments: [{ assetName: 'ETF Mondo', percentage: 50 }, { assetName: 'BTP Esempio', percentage: 100 }] })
+    );
+    expect(proposal?.goalId).toBe('g-1');
+    expect(proposal?.assignments).toEqual([
+      { assetName: 'ETF Mondo', percentage: 50 },
+      { assetName: 'BTP Esempio', percentage: 100 },
+    ]);
+  });
+
+  it('refuses a quota past the whole instrument, an empty name and an empty goalId', () => {
+    expect(parseGoalProposal(JSON.stringify({ ...VALID, assignments: [{ assetName: 'ETF Mondo', percentage: 120 }] }))).toBeNull();
+    expect(parseGoalProposal(JSON.stringify({ ...VALID, assignments: [{ assetName: ' ', percentage: 10 }] }))).toBeNull();
+    expect(goalProposalSchema.safeParse({ ...VALID, goalId: '' }).success).toBe(false);
+  });
+
+  it('keeps a proposal without them a plain creation', () => {
+    const proposal = parseGoalProposal(JSON.stringify(VALID));
+    expect(proposal?.goalId).toBeUndefined();
+    expect(proposal?.assignments).toBeUndefined();
+  });
+});

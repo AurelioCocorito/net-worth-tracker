@@ -13,7 +13,8 @@
 Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
 - **Assistant**: `app/dashboard/assistant/page.tsx`, `components/assistant/AssistantPageClient.tsx` + `tiles/*`, pure `lib/utils/{assistantNarrative,assistantPeriodOptions}.ts`; `app/api/ai/assistant/*`, `lib/server/assistant/*` (`goalEvaluation.ts` pure, `goalEvaluationService.ts` I/O, `memoryExtraction.ts`, `store.ts` → `mergeMemoryItem`), `components/assistant/AssistantModals.tsx` (Conversazioni · Memoria), `lib/hooks/useAssistantStreaming.ts`, `lib/services/assistantMonthContextService.ts` over `lib/utils/expenseBreakdown.ts` (`buildCashflowBreakdown`); goals `lib/server/goalData.ts`, `lib/utils/goalProposal.ts` (ONE zod schema), `app/api/goals/route.ts`, `components/assistant/GoalProposalCard.tsx`
-- **Suites to run after a change here — Assistant** (moved from `AGENTS.md` § Commands on 2026-09-30): `assistantRoutes`, `assistantThreadsStore` (the pages and the cursor), `assistantWebSearchPolicy`, `assistantMonthContextService` · **Verdetto e letture** `assistantNarrative` (+ `overviewNarrative` for the no-context verdict) · **Obiettivi** `assistantGoalEvaluation`, `assistantGoalEvaluationService`, `assistantMemoryExtraction`, `assistantMemoryStore` · **Goal-Based** `goalMath`, `goalProposal`, `apiAuthRoutes`
+- **The portfolio block** (2026-10-20): pure `lib/utils/assistantPortfolioContext.ts` (`buildAssistantPortfolioContext`, `emptyAssistantPortfolioContext` for the fixtures), printed by `formatPortfolioForPrompt` in `prompts.ts`; the Italian month bounds `getItalyMonthBoundsUtc`/`getItalyMonthRangeBoundsUtc` in `lib/utils/dateHelpers.ts`. The Consulente of Allocazione is its own guide: doc/guide/consulente.md.
+- **Suites to run after a change here — Assistant** (moved from `AGENTS.md` § Commands on 2026-09-30): `assistantRoutes`, `assistantThreadsStore` (the pages and the cursor), `assistantWebSearchPolicy`, `assistantMonthContextService`, `assistantPortfolioContext`, `assistantPromptBundle`, `dateHelpers` · **Verdetto e letture** `assistantNarrative` (+ `overviewNarrative` for the no-context verdict) · **Obiettivi** `assistantGoalEvaluation`, `assistantGoalEvaluationService`, `assistantMemoryExtraction`, `assistantMemoryStore` · **Goal-Based** `goalMath`, `goalProposal`, `apiAuthRoutes` · **Email** `monthlyEmailService` (the same block)
 
 ## Assistant
 
@@ -49,7 +50,64 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   conditional: **check every consumer before extending the core unconditionally**, or a surface starts talking about
   data it was never given.
 
+### The portfolio block — the assistant sees everything (2026-10-20)
+- **`bundle.portfolio` is REQUIRED and built by ONE pure function**, `buildAssistantPortfolioContext`
+  (`lib/utils/assistantPortfolioContext.ts`), from the documents every builder fetches beside the assets
+  (`fetchPortfolioDocuments`: `assetTransactions`, `dividends`, `pensionContributions`) and the period's expenses:
+  every held instrument with class, sub-category, ROLE, quantity, value, fiscal PMC and G/P in euro, owner
+  (`describeAssetOwnerLabel`), liquidity; the allocation on the Allocazione page's base; the ledger; the dividend
+  registry in its two halves and the coupon of every bond held; the pension funds with their contributions by tax
+  year and nature; the loans; the household (`familyMembers`, `userAge`). `formatPortfolioForPrompt` prints every
+  list whole or declares the cut (`PORTFOLIO_LEDGER_ROW_CAP` 300, `PORTFOLIO_DIVIDEND_ROW_CAP` 150, the oldest rows
+  dropped, the omission written) — the silent-cap rule above. The owner's account measured ~3700 tokens.
+- **A free question with NO context still gets the portfolio of today** (owner's run, 2026-10-20: with «Nessuno» the
+  assistant answered «non c'è il blocco STRUMENTI» to «quali strumenti ho liberi da obiettivi?», because the route built
+  a bundle only for a chosen period). `buildAssistantTodayContext(userId)` returns `AssistantTodayContext` — the
+  bundle's `portfolio`, `goals`, `targetAllocation`, `targetAllocationSource`, from the same documents and the
+  same pure functions as the five period builders (no expenses: the loans' «ultima rata nel periodo» needs a period;
+  no snapshot, no cashflow). `formatTodayContextForPrompt` prints it under «=== DATI FINANZIARI: PORTAFOGLIO DI OGGI
+  (nessun periodo selezionato) ===» with a line naming what is NOT there (entrate, uscite, snapshot, confronto tra
+  date: «chiedi all'utente di selezionare il periodo, non stimare»); `buildChatPrompt` takes it as its sixth argument
+  and uses it only when there is no bundle. The route passes it as `todayContext` to `streamAssistantResponse` and
+  sends NO `context` SSE event: the page's tiles are a period's, and «Patrimonio oggi» already stands in.
+- **The allocation the model reads is the PAGE's base, never the snapshot's whole patrimony** (owner's decision):
+  `partitionByAllocationRole` + `buildHoldings` with the debts (`includeDebts`), tradable + frozen as the base,
+  the excluded group listed apart, the fixed cash amount carved out before the other targets apply
+  (`toLegacyAllocationResult`'s reading, rebuilt in `buildTargetRows`). Until then the prompt stood the manual
+  targets against `currentSnapshot.byAssetClass` — the home, the mortgage and the pension funds included — and
+  the model saw «Immobili 22%» on a page that shows no real estate. The snapshot's block stays, renamed
+  «PATRIMONIO PER CLASSE A FINE PERIODO», and the system core tells the model which is which; the old
+  «ALLOCAZIONE TARGET vs CORRENTE» block on the snapshot is gone.
+- **A goal carries its instruments** (`goals.items[].assignments`: name, ticker, the quota as written — «50%»,
+  «273 quote» through `formatOwnerSlice` — and its euro today) **and its id** (`[id …]` on the goal's line: the handle a
+  ```goal-proposal block names to MODIFY it). **Every holding says what the goals hold of it** (owner, same day: «vede
+  anche gli asset liberi?»): with Goal-Based Investing on, `goalAssignedPct`/`goalFreeEur` on each row («obiettivi:
+  assegnato 50,0%, libero 6000 €» / «libero da obiettivi») and `portfolio.goalCoverage` closing the OBIETTIVI block
+  («Non assegnato a nessun obiettivo: X € su Y €») — FIRE › Obiettivi' own arithmetic, a property NET of the loan that
+  finances it (`lib/utils/goalAssetValue.ts`), a loan never a holding a goal can take; with the feature off nothing of
+  it is printed (a feature not in use, never a zero). The free figure is printed EVEN when no goal touches the
+  instrument («libero da obiettivi (64.392 €)»): without it the model summed the gross values, found the total short
+  of the mortgage and called the data inconsistent (the owner's run, 2026-10-20); the coverage line says the property
+  is net and tells it to sum the rows' free figures, not the values.
+- **The email gets the block too** (owner's decision): `buildEmailAiPrompt` reuses `formatBundleForPrompt`, so the
+  periodic comment reads the instruments and the ledger; `__tests__/monthlyEmailService.test.ts` pins it.
+- **Every expense window is an ITALIAN calendar window** (`getItalyMonthBoundsUtc`, `getItalyMonthRangeBoundsUtc`,
+  `lib/utils/dateHelpers.ts`): the rows are dated at Italian midnight and Vercel runs in UTC, so
+  `new Date(year, month - 1, 1)` filed the 1st of a month under the month before — on the owner's account 30 rows
+  of 1793 sat in the wrong month for the assistant while Tracciamento had them right. Pinned by
+  `__tests__/assistantMonthContextService.test.ts` on ISO instants (green under `TZ=UTC` too).
+- **«Entrate» is Tracciamento's figure** (owner's decision): the prompt prints
+  `Entrate: X (di cui dividendi e cedole Y; è lo stesso totale della pagina Cashflow)` and the Cashflow tile prints
+  Entrate = `totalIncome + totalDividends` with a «di cui dividendi» row — until then the tile printed the income
+  WITHOUT the coupons under the same label as the page, and the two disagreed by the month's coupons.
+  `cashflow.totalIncome` itself keeps excluding dividends (Σ incomeByCategory === totalIncome).
+
 ### Streaming, threads, memory
+- **The waiting chip rotates a phrase, it never apologises** (owner, 2026-10-20: «Sta impiegando più del previsto»
+  read as a complaint): after `SLOW_RESPONSE_MS` with no text, `StreamStatusChip` shows `SLOW_PHRASES` one at a time
+  («Ci sto ragionando…», «Sto facendo i conti…», …), the next every 8 s, from a tick counter the hook resets when the
+  stream ends (`useSlowPhrase`, called before the early return — a hook after it is a conditional hook); a web search
+  keeps its own «Sto cercando sul web…».
 - **The thread list is read 50 at a time** (2026-10-05; it was read whole and grew forever):
   `listAssistantThreads(userId, { limit = ASSISTANT_THREADS_PAGE_SIZE, after })` asks for ONE more than the page,
   so `nextCursor` (the page's last id) is `null` on a list of exactly 50, and the next page starts with
@@ -78,9 +136,11 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 - `deleteAssistantThread` must delete the `messages` subcollection in ≤400-doc batches first (no cascade in the Admin
   SDK). Never clear `streamingMessages` in a `useEffect([selectedThreadId])` — the SSE `meta` event sets the id
   mid-stream and wipes the buffer; post-stream invalidation uses a local `resolvedThreadId` updated from `meta`.
-- **`max_tokens` budgets thinking AND text together** (chat 12000, chat+web 16000, structured 18000) — re-check whenever
-  the data block grows. **Read `stop_reason` from the terminal `message_delta`** and append `TRUNCATION_NOTICE`: a limit
-  either does not exist or announces itself.
+- **`max_tokens` budgets thinking AND text together** (`ASSISTANT_CHAT_MAX_TOKENS` 64 000, `ASSISTANT_STRUCTURED_MAX_TOKENS`
+  32 000 since 2026-10-20, owner's decision: a consultative question on the allocation ended on TRUNCATION_NOTICE at
+  12 000 with Sonnet 5.5 at effort `high`; the route declares `maxDuration = 300`) — re-check whenever the data block
+  grows. **Read `stop_reason` from the terminal `message_delta`** and append `TRUNCATION_NOTICE`: a limit either does
+  not exist or announces itself.
 - **The stream runs with the server-side fallback** (2026-10-12, owner's decision): `anthropic.beta.messages.create` with
   `betas: [SERVER_SIDE_FALLBACK_BETA]` + `fallbacks: 'default'` (`lib/constants/aiModels.ts`, sdk ≥ 0.115). A `cyber` or
   `frontier_llm` decline is re-run on Sonnet 5 inside the same stream — the text already streamed stays, the answer goes
@@ -145,7 +205,18 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   its return assumption cannot be audited, and a model without them multiplies contribution × months, ignoring
   compounding. Present only for goals with BOTH a target and a deadline; absent otherwise, never zero.
 - **THE PROPOSAL PROTOCOL: the AI never writes.** It emits ONE fenced ```goal-proposal block of pure JSON; the write
-  happens only on the user's Conferma, through `POST /api/goals`. `lib/utils/goalProposal.ts` owns the ONE zod schema
+  happens only on the user's Conferma, through `POST /api/goals` — or, since 2026-10-20, `PATCH /api/goals` when the
+  block carries `goalId` (the id the OBIETTIVI block prints): the card reads «Modifica di un obiettivo», every row
+  before → after, and the route rewrites that goal in place (`updateInvestmentGoal`, transactional, colour and creation
+  date kept, the optional fields REPLACED — a proposal that drops the deadline removes it; 404 when the goal is gone).
+  `assignments` names instruments by their EXACT name from the STRUMENTI block with a percent of each; the CARD resolves
+  the names to asset ids (`findAssetByName`, lib/utils/allocationAdviceApply.ts: the exact name, the printed «name
+  (TICKER)» form, or the ticker alone with or without its exchange — the owner's run of 2026-10-20 had the model write
+  «… (SWDA)» for «SWDA.MI») and the route takes `{ assetId, percentage }` through `goalWriteAssignmentsSchema`,
+  refusing a sum past 100% on one asset. On an update present quotas replace the goal's, absent ones leave them, and
+  **one unmatched name keeps EVERY quota of today** (`keepQuotas`: the card sends no `assignments` and its eyebrow
+  says so) — the first version wrote the resolved list, which was empty, and wiped Eleonora's 50% of SWDA on the
+  mirror. On a creation an unmatched name is shown in amber and left out. `lib/utils/goalProposal.ts` owns the ONE zod schema
   for both the block and the route body (client-safe, since the card validates before rendering). In zod 4 use
   **`z.partialRecord`** for `recommendedAllocation` — `z.record` with an enum key demands every key.
 - **Intercept the block on `pre`, not on `code`** (a card inside `<pre>` is invalid nesting), and a malformed payload
@@ -207,7 +278,8 @@ No composition, by design: the page's content is a conversation (DESIGN.md → T
 ## Per-page blind spots
 
 - **Assistente**: no Playwright spec (the throwaway specs were deleted); the Cashflow tile is absent for a period without cashflow rows; the savings rate is `netCashFlow / (income + dividends)`; «Patrimonio oggi» prints the GROSS total (the verdict's figure), the old card printed the net; the Conversazione count includes the user's messages; starter rows prefill the composer, follow-up rows submit; the thread rows and the memory rows both use `useArmedDelete` (the threads' 3 s auto-disarm went on 2026-09-18, with the sheet); a companion taller than the viewport is reachable only at the end of the scroll (sticky, by design); the «goal reached» tile and the sheet's row are two surfaces of ONE suggestion.
-- **The Assistant's cashflow figures changed on 2026-07-29**; saved threads are prose and are not regenerated (moved here from CLAUDE.md → Known Issues on 2026-09-18: it is this page's blind spot, not a cross-cutting one).
+- **The Assistant's cashflow figures changed on 2026-07-29 and again on 2026-10-20** (the Italian month bounds, «Entrate» with the coupons inside); saved threads are prose and are not regenerated (moved here from CLAUDE.md → Known Issues on 2026-09-18: it is this page's blind spot, not a cross-cutting one).
+- **The portfolio block is TODAY's, whatever the period** (2026-10-20): the instruments, the allocation on the base, the ledger and the registers describe the portfolio at the time of the question; only the snapshot blocks and the cashflow are the period's. A question about a past month reads today's holdings beside that month's figures — the system core says so.
 - **A period's own thread older than the pages read is not found** (owner's call, 2026-10-05): switching period
   re-opens the existing thread for it by scanning the LOADED threads (`findThreadForPeriod`), so with more than 50
   conversations one older than the 50 most recent is not resumed and the next question opens a new one — until

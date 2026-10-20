@@ -15,6 +15,8 @@ vi.mock('@/lib/firebase/config', () => ({ db: {} }));
 vi.mock('@/lib/services/assetService', () => ({
   calculateAssetValue: (asset: Asset) => {
     const base = asset.quantity * asset.currentPrice;
+    // A loan is worth minus its principal, as the real rule says (2026-10-10).
+    if (asset.type === 'loan') return -base || 0;
     return asset.outstandingDebt ? Math.max(0, base - asset.outstandingDebt) : base;
   },
 }));
@@ -354,5 +356,15 @@ describe('serializeAssignmentForFirestore', () => {
     expect(serializeAssignmentForFirestore({ goalId: 'g', assetId: 'a', units: 12.5 })).toEqual({ goalId: 'g', assetId: 'a', units: 12.5 });
     const stray = { goalId: 'g', assetId: 'a', units: 3, note: 'x' } as unknown as Parameters<typeof serializeAssignmentForFirestore>[0];
     expect(serializeAssignmentForFirestore(stray)).not.toHaveProperty('note');
+  });
+});
+
+describe('calculateGoalProgress — a property and its loan (2026-10-20)', () => {
+  it('values a quota of the home net of the mortgage that finances it', () => {
+    const home = { ...mockAssets[0], id: 'home', name: 'Casa', type: 'realestate' as const, assetClass: 'realestate' as const, quantity: 200000, currentPrice: 1 };
+    const mortgage = { ...mockAssets[0], id: 'loan', name: 'Mutuo', type: 'loan' as const, assetClass: 'realestate' as const, quantity: 80000, currentPrice: 1, financedAssetId: 'home' };
+    const result = calculateGoalProgress(mockGoal, [{ goalId: mockGoal.id, assetId: 'home', percentage: 50 }], [home, mortgage]);
+    expect(result.currentValue).toBe(60000);
+    expect(result.actualAllocation.realestate).toBe(100);
   });
 });

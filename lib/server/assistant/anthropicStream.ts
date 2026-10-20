@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ASSISTANT_MODEL, SERVER_SIDE_FALLBACK_BETA } from '@/lib/constants/aiModels';
-import { AssistantMemoryItem, AssistantMessage, AssistantMode, AssistantMonthContextBundle, AssistantMonthSelectorValue, AssistantPreferences } from '@/types/assistant';
+import { AssistantMemoryItem, AssistantMessage, AssistantMode, AssistantMonthContextBundle, AssistantMonthSelectorValue, AssistantPreferences, AssistantTodayContext } from '@/types/assistant';
 import {
   AssistantPromptParts,
   buildChatPrompt,
@@ -14,12 +14,21 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
+/**
+ * The output budgets (thinking AND text together under adaptive thinking), in ONE place so the
+ * route's `maxDuration` and the tests read the same numbers. See the note at the call site.
+ */
+export const ASSISTANT_CHAT_MAX_TOKENS = 64000;
+export const ASSISTANT_STRUCTURED_MAX_TOKENS = 32000;
+
 interface StreamAssistantResponseArgs {
   mode: AssistantMode;
   prompt: string;
   // Context bundle is required for month_analysis mode; null for chat mode.
   // Built server-side so the prompt always reflects authoritative Firestore data.
   contextBundle: AssistantMonthContextBundle | null;
+  // A free question with no period: the portfolio of today (2026-10-20). Null elsewhere.
+  todayContext?: AssistantTodayContext | null;
   month?: AssistantMonthSelectorValue | null;
   preferences: AssistantPreferences;
   // Active memory items for this user, injected into the prompt so Claude can
@@ -50,7 +59,8 @@ function buildPrompt(
   contextBundle: AssistantMonthContextBundle | null,
   month: AssistantMonthSelectorValue | null | undefined,
   preferences: AssistantPreferences,
-  memoryItems: AssistantMemoryItem[] = []
+  memoryItems: AssistantMemoryItem[] = [],
+  todayContext: AssistantTodayContext | null = null
 ): AssistantPromptParts {
   const MONTH_NAMES = [
     'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -80,7 +90,7 @@ function buildPrompt(
 
   // Chat mode: pass the bundle when available so Claude has real numbers.
   // The prompt builder uses it without forcing a fixed response structure.
-  return buildChatPrompt(prompt, preferences, monthLabel, memoryItems, contextBundle);
+  return buildChatPrompt(prompt, preferences, monthLabel, memoryItems, contextBundle, todayContext);
 }
 
 /**
@@ -161,6 +171,7 @@ export async function streamAssistantResponse({
   mode,
   prompt,
   contextBundle,
+  todayContext = null,
   month,
   preferences,
   memoryItems = [],
@@ -181,22 +192,25 @@ export async function streamAssistantResponse({
     // answer. A cap sized for the prose alone truncates mid-sentence.
     //
     // Raised on 2026-07-29 after the data block became exhaustive (chat was at 3000 and
-    // started cutting real answers off), then doubled again on request to leave room for
-    // long consultative replies. Note the ceiling is not purely free headroom: unused
-    // tokens are never billed, but a larger budget also lets adaptive thinking reason
-    // longer, which is billed and adds latency. These values stay well inside the
-    // model's output limit and inside Vercel's 300s default function duration; if a
-    // future bump goes materially higher, set an explicit `maxDuration` on the route.
+    // started cutting real answers off), doubled again on request, and on 2026-10-20 the
+    // chat went to 64 000 (owner's decision): a consultative question on the allocation
+    // («cosa miglioreresti?») made Sonnet 5.5 at effort `high` reason AND write past 12 000
+    // and the answer ended on TRUNCATION_NOTICE. The structured modes went to 32 000 the
+    // same day, because the data block now carries every instrument, the ledger and the
+    // registers. Note the ceiling is not purely free headroom: unused tokens are never
+    // billed, but a larger budget also lets adaptive thinking reason longer, which is
+    // billed and adds latency. Both values sit inside the model's 128K output limit; the
+    // route declares `maxDuration = 300` so a long answer is not cut by the platform.
     const isStructuredAnalysis = ['month_analysis', 'year_analysis', 'ytd_analysis', 'history_analysis'].includes(mode);
-    const chatMaxTokens = enableWebSearch ? 16000 : 12000;
-    const { system, userContent } = buildPrompt(mode, prompt, contextBundle, month, preferences, memoryItems);
+    const chatMaxTokens = ASSISTANT_CHAT_MAX_TOKENS;
+    const { system, userContent } = buildPrompt(mode, prompt, contextBundle, month, preferences, memoryItems, todayContext);
     const stream = await anthropic.beta.messages.create({
       model: ASSISTANT_MODEL,
       // A policy decline is re-run on the fallback model inside this stream (aiModels.ts). The
       // history replayed below is text only, so a fallback turn needs no block stripping.
       betas: [SERVER_SIDE_FALLBACK_BETA],
       fallbacks: 'default',
-      max_tokens: isStructuredAnalysis ? 18000 : chatMaxTokens,
+      max_tokens: isStructuredAnalysis ? ASSISTANT_STRUCTURED_MAX_TOKENS : chatMaxTokens,
       // Static role/domain/guardrail/format instructions, identical for every user and
       // every request of this mode. No cache_control: this app's traffic pattern
       // (sporadic single-user requests) rarely lands two calls within the 5-minute
