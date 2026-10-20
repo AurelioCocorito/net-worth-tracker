@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { mapAllocationAdviceData, priorPlanOf } from '@/lib/utils/allocationAdviceDocument';
+import { isRunStale, mapAllocationAdviceData, pageShowsReport, priorPlanOf, RUN_STALE_AFTER_MS } from '@/lib/utils/allocationAdviceDocument';
 
 const AT = new Date('2026-10-20T10:00:00.000Z');
 
@@ -54,5 +54,30 @@ describe('priorPlanOf', () => {
       revisions: [{ request: 'meno cripto', at: AT }],
     });
     expect(priorPlanOf(ready)).toEqual({ reportMarkdown: 'r', revisions: ['meno cripto'], finishedAt: AT, appliedAt: null, reviewByIso: '2028-01-15', reviewReason: 'perché' });
+  });
+});
+
+describe('pageShowsReport (2026-10-20)', () => {
+  const doc = (status: string, startedAt: Date | null = AT) =>
+    mapAllocationAdviceData('u1', { status, answers: {}, stage: 'strategy', createdAt: AT, updatedAt: AT, startedAt });
+  const now = AT.getTime() + 60_000;
+
+  it('shows a ready, applied, failed or fresh running document, never while a run of this page is going or failed', () => {
+    for (const status of ['ready', 'applied', 'failed', 'running']) {
+      expect(pageShowsReport({ document: doc(status), redoAt: null, openedAt: now, runActive: false })).toBe(true);
+      expect(pageShowsReport({ document: doc(status), redoAt: null, openedAt: now, runActive: true })).toBe(false);
+    }
+    expect(pageShowsReport({ document: null, redoAt: null, openedAt: now, runActive: false })).toBe(false);
+  });
+
+  it('treats a running document older than the stale window, or without a start, as no report', () => {
+    expect(pageShowsReport({ document: doc('running'), redoAt: null, openedAt: AT.getTime() + RUN_STALE_AFTER_MS + 1, runActive: false })).toBe(false);
+    expect(pageShowsReport({ document: doc('running', null), redoAt: null, openedAt: now, runActive: false })).toBe(false);
+    expect(isRunStale(doc('ready'), AT.getTime() + RUN_STALE_AFTER_MS + 1)).toBe(false);
+  });
+
+  it('hides the document «Rifai il percorso» was pressed on, and shows a newer one', () => {
+    expect(pageShowsReport({ document: doc('ready'), redoAt: AT.getTime(), openedAt: now, runActive: false })).toBe(false);
+    expect(pageShowsReport({ document: doc('ready'), redoAt: AT.getTime() - 1, openedAt: now, runActive: false })).toBe(true);
   });
 });

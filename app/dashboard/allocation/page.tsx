@@ -58,7 +58,8 @@ import { useGoalData } from '@/lib/hooks/useGoalData';
 import { useFreshness } from '@/lib/hooks/useFreshness';
 import { useInstrumentProfilesState } from '@/lib/hooks/usePortfolioExposure';
 import { useAllocationAdvice } from '@/lib/hooks/useAllocationAdvice';
-import { describeReviewBy } from '@/lib/utils/allocationAdviceNarrative';
+import { describeReviewBy, REVIEW_INVITE_LABEL, reviewDueState } from '@/lib/utils/allocationAdviceNarrative';
+import { getItalyDateIso } from '@/lib/utils/dateHelpers';
 import { useMobileSections } from '@/lib/hooks/useMobileSections';
 import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
 import {
@@ -180,6 +181,13 @@ export default function AllocationPage() {
   // beside the page's data, never a reason for the page to wait or fail.
   const adviceQuery = useAllocationAdvice(ownerId);
   const showConsulente = process.env.NEXT_PUBLIC_ASSISTANT_AI_ENABLED !== 'false';
+  // Today's Italian day, read once per mount: near or past the plan's review date the Consulente
+  // button becomes the invite to review (2026-10-20), and the path then starts from the plan in force.
+  const [todayIso] = useState(() => getItalyDateIso());
+  const reviewDue = reviewDueState(adviceQuery.data, todayIso);
+  const reviewInvited = reviewDue.state === 'soon' || reviewDue.state === 'due';
+  const consulenteHref = reviewInvited ? '/dashboard/allocation/consulente?rivedi=1' : '/dashboard/allocation/consulente';
+  const consulenteLabel = reviewInvited ? REVIEW_INVITE_LABEL : 'Consulente';
   const { data: assetsData, isLoading: assetsLoading, isError: assetsError } = assetsQuery;
   const { data: settings, isLoading: settingsLoading, isError: settingsError } = settingsQuery;
   const { data: goalData, isLoading: goalsLoading, isError: goalsError } = goalsQuery;
@@ -458,10 +466,10 @@ export default function AllocationPage() {
       actions={
         <div className="hidden items-center gap-2 desktop:flex">
           {showConsulente && (
-            <Button asChild variant="outline" className="h-8 gap-1.5 px-2.5 text-xs">
-              <Link href="/dashboard/allocation/consulente">
+            <Button asChild variant={reviewInvited ? 'default' : 'outline'} className="h-8 gap-1.5 px-2.5 text-xs">
+              <Link href={consulenteHref}>
                 <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                Consulente
+                {consulenteLabel}
               </Link>
             </Button>
           )}
@@ -482,10 +490,10 @@ export default function AllocationPage() {
   const mobileAction = (
     <div className="flex flex-col gap-2 desktop:hidden">
       {showConsulente && (
-        <Button asChild variant="outline" className="h-11 w-full gap-1.5">
-          <Link href="/dashboard/allocation/consulente">
+        <Button asChild variant={reviewInvited ? 'default' : 'outline'} className="h-11 w-full gap-1.5">
+          <Link href={consulenteHref}>
             <Sparkles className="h-4 w-4" aria-hidden="true" />
-            Consulente
+            {consulenteLabel}
           </Link>
         </Button>
       )}

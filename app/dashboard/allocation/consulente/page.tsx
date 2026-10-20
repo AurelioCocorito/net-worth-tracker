@@ -7,9 +7,12 @@ import { ConsulenteClient } from '@/components/allocation/consulente/ConsulenteC
  * — and by the key the run needs, read here on the server so the page can say «non
  * configurato» instead of failing at the first run.
  */
-export default function ConsulentePage() {
+export default async function ConsulentePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NEXT_PUBLIC_ASSISTANT_AI_ENABLED === 'false') {
     notFound();
   }
-  return <ConsulenteClient configured={Boolean(process.env.ANTHROPIC_API_KEY)} />;
+  // `?rivedi=1` (the review invite of Allocazione, 2026-10-20): the screens open over the applied
+  // plan instead of its report, as «Rifai il percorso» would.
+  const params = await searchParams;
+  return <ConsulenteClient configured={Boolean(process.env.ANTHROPIC_API_KEY)} startFresh={params.rivedi === '1'} />;
 }

@@ -109,7 +109,7 @@ export function describeRunHeadline(stage: AllocationAdviceStage | null): string
 // ─── The report ───────────────────────────────────────────────────────────────
 
 /** The report page's verdict: the proposal's summary as the sentence, the headline by status. */
-export function buildConsulenteVerdict(document: AllocationAdviceDocument): PageVerdictModel {
+export function buildConsulenteVerdict(document: AllocationAdviceDocument, todayIso?: string): PageVerdictModel {
   const proposal = document.report?.proposal ?? document.strategy?.proposal ?? null;
   if (document.status === 'failed') {
     return {
@@ -119,12 +119,17 @@ export function buildConsulenteVerdict(document: AllocationAdviceDocument): Page
     };
   }
   if (document.status === 'applied' && document.applied) {
+    // Near or past the review date the verdict says so and points at «Rifai il percorso», which
+    // starts from the plan in force (2026-10-20).
+    const due = todayIso ? reviewDueState(document, todayIso) : ({ state: 'none' } as const);
+    const invite = describeReviewInvite(due);
     return {
       headline: 'Allocazione applicata.',
-      tone: 'positive',
+      tone: due.state === 'due' ? 'warning' : 'positive',
       sentence: [
         prose(`Scritta il ${formatDate(document.applied.at)}`),
         ...(proposal ? [prose('; da rivedere entro il '), figure(formatDate(new Date(proposal.reviewByIso))), prose('.')] : [prose('.')]),
+        ...(invite ? [prose(` ${invite} «Rifai il percorso», in fondo, riparte dal piano in vigore e dal suo perché.`)] : []),
       ],
     };
   }
@@ -199,6 +204,37 @@ export function describeApplySummary(input: { targets: boolean; roles: number; g
 }
 
 /** The Allocazione header's line when a plan has a review date («Piano applicato il 20/10/2026 · rivedi entro il 20/10/2028»). */
+/** How many days before the review date the invite appears. */
+export const REVIEW_SOON_DAYS = 30;
+
+export type ReviewDue = { state: 'none' } | { state: 'later' | 'soon' | 'due'; reviewByIso: string; daysLeft: number };
+
+/**
+ * Where today stands against the applied plan's review date (owner, 2026-10-20: «nei giorni
+ * vicino alla scadenza, un pulsante "revisione con il Consulente"»): `soon` within
+ * REVIEW_SOON_DAYS before it, `due` on the day and after, `later` before, `none` without an
+ * applied plan. Both dates are Italian calendar days (`getItalyDateIso`), compared in UTC.
+ */
+export function reviewDueState(document: AllocationAdviceDocument | null | undefined, todayIso: string): ReviewDue {
+  if (!document || document.status !== 'applied' || !document.applied) return { state: 'none' };
+  const proposal = document.report?.proposal ?? document.strategy?.proposal ?? null;
+  if (!proposal) return { state: 'none' };
+  const dayOf = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+  const daysLeft = Math.round((dayOf(proposal.reviewByIso) - dayOf(todayIso)) / 86_400_000);
+  return { state: daysLeft <= 0 ? 'due' : daysLeft <= REVIEW_SOON_DAYS ? 'soon' : 'later', reviewByIso: proposal.reviewByIso, daysLeft };
+}
+
+export const REVIEW_INVITE_LABEL = 'Rivedi con il Consulente';
+
+/** The invite's sentence when the review is near or due; null otherwise. */
+export function describeReviewInvite(due: ReviewDue): string | null {
+  if (due.state !== 'soon' && due.state !== 'due') return null;
+  const date = formatDate(new Date(due.reviewByIso));
+  if (due.state === 'soon') return `La revisione del piano è vicina: entro il ${date}, fra ${due.daysLeft} ${due.daysLeft === 1 ? 'giorno' : 'giorni'}.`;
+  if (due.daysLeft === 0) return `Oggi è il giorno della revisione del piano (${date}).`;
+  return `La data della revisione del piano, ${date}, è passata da ${-due.daysLeft} ${due.daysLeft === -1 ? 'giorno' : 'giorni'}.`;
+}
+
 export function describeReviewBy(document: AllocationAdviceDocument | null | undefined): string | null {
   if (!document || document.status !== 'applied' || !document.applied) return null;
   const proposal = document.report?.proposal ?? document.strategy?.proposal ?? null;
