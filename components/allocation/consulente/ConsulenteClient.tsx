@@ -15,7 +15,7 @@
  * `lib/utils/allocationAdvice{Draft,Apply}.ts`, the words `allocationAdviceNarrative.ts`.
  */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
@@ -33,26 +33,23 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
 import { Button } from '@/components/ui/button';
 import type { TileSkeletonCell } from '@/lib/utils/tileGridSkeleton';
-import type { AllocationAdviceDocument } from '@/types/allocationAdvice';
+import { pageShowsReport } from '@/lib/utils/allocationAdviceDocument';
+import { clearStoredDraft } from '@/lib/utils/allocationAdviceDraft';
 import { ConsulenteWizard } from './ConsulenteWizard';
+import { useConsulenteRun } from './useConsulenteRun';
 import { ConsulenteReport } from './ConsulenteReport';
 
 interface ConsulenteClientProps {
   /** Whether the server holds an Anthropic key: without it the path can be read but not run. */
   configured: boolean;
+  /** Open on the screens over the last document, as «Rifai il percorso» would (`?rivedi=1`). */
+  startFresh?: boolean;
 }
 
 /** One tall cell: the path's card. */
 const SKELETON_CELLS: TileSkeletonCell[] = [{ span: 12, rows: 2 }];
 
-/** How long a `running` document is believed before the page offers to start again. */
-const RUN_STALE_AFTER_MS = 20 * 60 * 1000;
-
-function isRunStale(document: AllocationAdviceDocument, now: number): boolean {
-  return document.status === 'running' && (document.startedAt === null || now - document.startedAt.getTime() > RUN_STALE_AFTER_MS);
-}
-
-export function ConsulenteClient({ configured }: ConsulenteClientProps) {
+export function ConsulenteClient({ configured, startFresh = false }: ConsulenteClientProps) {
   const { user } = useAuth();
   const { ownerId } = useActiveAccount();
   const isDemo = useDemoMode();
@@ -66,6 +63,11 @@ export function ConsulenteClient({ configured }: ConsulenteClientProps) {
   const [redo, setRedo] = useState<{ documentUpdatedAt: number } | null>(null);
   // The clock is read once, when the page opens: a render must not read it (react-hooks/purity).
   const [openedAt] = useState(() => Date.now());
+  // The run's state lives HERE, not in the wizard: while a run started on this page is going
+  // (or failed), the page keeps the run's screen even though the document is already `running`
+  // and the query rereads it after every stage (pageShowsReport). A finished run clears the draft.
+  const onFinished = useCallback(() => clearStoredDraft(typeof window !== 'undefined' ? window.localStorage : null, ownerId ?? ''), [ownerId]);
+  const run = useConsulenteRun(ownerId ?? '', onFinished);
 
   const { loading, loadFailed } = composeReadState([settingsQuery, assetsQuery, goalsQuery, adviceQuery]);
 
@@ -135,15 +137,18 @@ export function ConsulenteClient({ configured }: ConsulenteClientProps) {
   const settings = settingsQuery.data ?? null;
   const goalData = goalsQuery.data ?? null;
   const advice = adviceQuery.data ?? null;
-  const showReport =
-    advice !== null &&
-    (advice.status === 'ready' || advice.status === 'applied' || advice.status === 'failed' || (advice.status === 'running' && !isRunStale(advice, openedAt))) &&
-    (redo === null || redo.documentUpdatedAt !== advice.updatedAt.getTime());
+  const showReport = pageShowsReport({
+    document: advice,
+    // «Rifai» pressed here, or asked by the link: the document on screen at open is hidden; a newer one shows.
+    redoAt: redo?.documentUpdatedAt ?? (startFresh && advice ? advice.updatedAt.getTime() : null),
+    openedAt,
+    runActive: run.state.kind === 'running' || run.state.kind === 'failed',
+  });
 
   return (
     <PageContainer>
       {header}
-      {showReport ? (
+      {showReport && advice !== null ? (
         <ConsulenteReport
           ownerId={ownerId}
           document={advice}
@@ -152,7 +157,7 @@ export function ConsulenteClient({ configured }: ConsulenteClientProps) {
           onRedo={() => setRedo({ documentUpdatedAt: advice.updatedAt.getTime() })}
         />
       ) : (
-        <ConsulenteWizard ownerId={ownerId} configured={configured} settings={settings} goalData={goalData} assets={assets} lastDocument={advice} />
+        <ConsulenteWizard ownerId={ownerId} configured={configured} settings={settings} goalData={goalData} assets={assets} lastDocument={advice} run={run} />
       )}
     </PageContainer>
   );

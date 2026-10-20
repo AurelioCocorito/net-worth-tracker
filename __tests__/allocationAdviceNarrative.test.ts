@@ -15,6 +15,8 @@ import {
   describeLossScenario,
   describeProposalReading,
   describeReviewBy,
+  describeReviewInvite,
+  reviewDueState,
   describeRunHeadline,
   EXCHANGE_OPTIONS,
   EXCHANGE_OTHER,
@@ -98,6 +100,27 @@ describe('the small sentences', () => {
   it('summarises what «Applica» writes', () => {
     expect(describeApplySummary({ targets: true, roles: 2, goals: 1 })).toBe('Scrive i target in Impostazioni → Allocazione, 2 ruoli degli asset, 1 obiettivo. Puoi sempre cambiarli a mano dopo.');
     expect(describeApplySummary({ targets: false, roles: 0, goals: 0 })).toBe('Niente selezionato: scegli almeno una voce.');
+  });
+
+  it('knows where today stands against the review date, and says it near or past it (2026-10-20)', () => {
+    const applied = document({ status: 'applied', applied: { at: NOW, targetsWritten: true, rolesChanged: 0, goalsWritten: 0 } });
+    expect(reviewDueState(applied, '2027-01-01')).toEqual({ state: 'later', reviewByIso: '2028-10-20', daysLeft: 658 });
+    expect(reviewDueState(applied, '2028-09-21')).toEqual({ state: 'soon', reviewByIso: '2028-10-20', daysLeft: 29 });
+    expect(reviewDueState(applied, '2028-10-20')).toMatchObject({ state: 'due', daysLeft: 0 });
+    expect(reviewDueState(applied, '2028-11-03')).toMatchObject({ state: 'due', daysLeft: -14 });
+    expect(reviewDueState(document(), '2028-10-20')).toEqual({ state: 'none' });
+    expect(reviewDueState(null, '2028-10-20')).toEqual({ state: 'none' });
+
+    expect(describeReviewInvite(reviewDueState(applied, '2027-01-01'))).toBeNull();
+    expect(describeReviewInvite(reviewDueState(applied, '2028-10-19'))).toBe('La revisione del piano è vicina: entro il 20/10/2028, fra 1 giorno.');
+    expect(describeReviewInvite(reviewDueState(applied, '2028-10-20'))).toBe('Oggi è il giorno della revisione del piano (20/10/2028).');
+    expect(describeReviewInvite(reviewDueState(applied, '2028-11-03'))).toBe('La data della revisione del piano, 20/10/2028, è passata da 14 giorni.');
+
+    const verdict = buildConsulenteVerdict(applied, '2028-11-03');
+    expect(verdict.tone).toBe('warning');
+    expect(plain(verdict.sentence)).toContain('è passata da 14 giorni. «Rifai il percorso», in fondo, riparte dal piano in vigore');
+    expect(buildConsulenteVerdict(applied, '2027-01-01').tone).toBe('positive');
+    expect(plain(buildConsulenteVerdict(applied).sentence)).toBe('Scritta il 20/10/2026; da rivedere entro il 20/10/2028.');
   });
 
   it('prints the «rivedi entro» line only once applied', () => {

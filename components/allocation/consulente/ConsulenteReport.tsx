@@ -31,6 +31,7 @@ import { removedGoalIds } from '@/lib/utils/allocationAdviceDraft';
 import { buildConsulenteVerdict, buildProposalRows, describeApplySummary, describeProposalReading, describeRunHeadline, REVISION_COPY, STAGE_COPY } from '@/lib/utils/allocationAdviceNarrative';
 import { describeWriteError } from '@/lib/utils/dialogNarrative';
 import { formatDate, formatPercentageIt, formatSignedPoints, formatCurrency } from '@/lib/utils/formatters';
+import { getItalyDateIso } from '@/lib/utils/dateHelpers';
 import { PageVerdict } from '@/components/ui/page-verdict';
 import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
 import { Button } from '@/components/ui/button';
@@ -96,7 +97,9 @@ export function ConsulenteReport({ ownerId, document, assets, goalData, onRedo }
   const [revisionRequest, setRevisionRequest] = useState('');
   const revising = revision.state.kind === 'running';
   const proposal = document.report?.proposal ?? document.strategy?.proposal ?? null;
-  const verdict = useMemo(() => buildConsulenteVerdict(document), [document]);
+  // Today's Italian day once per mount: the applied verdict says when the review is near or due.
+  const [todayIso] = useState(() => getItalyDateIso());
+  const verdict = useMemo(() => buildConsulenteVerdict(document, todayIso), [document, todayIso]);
   const base = useMemo(() => currentAllocationOnBase(assets, calculateAssetValue), [assets]);
   const rows = useMemo(() => (proposal ? buildProposalRows(proposal, base.pctByClass) : []), [proposal, base.pctByClass]);
   const roles = useMemo(() => (proposal ? planRoleChanges(proposal, assets) : { changes: [], unmatched: [] }), [proposal, assets]);

@@ -11,7 +11,7 @@
  * The last screen hands the answers to `ConsulenteRun`.
  */
 
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { ALLOCATION_ADVICE_STEPS } from '@/types/allocationAdvice';
 import type { AllocationAdviceDocument } from '@/types/allocationAdvice';
@@ -20,7 +20,6 @@ import type { GoalBasedInvestingData } from '@/types/goals';
 import type { AllocationAdviceAnswers, AnswerGoal } from '@/lib/utils/allocationAdviceProposal';
 import {
   allocationAdviceDraftReducer,
-  clearStoredDraft,
   describeStepBlock,
   initialAnswers,
   reconcileDraftGoals,
@@ -53,7 +52,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { ConsulenteRun } from './ConsulenteRun';
-import { useConsulenteRun } from './useConsulenteRun';
+import type { useConsulenteRun } from './useConsulenteRun';
 
 interface ConsulenteWizardProps {
   ownerId: string;
@@ -62,6 +61,8 @@ interface ConsulenteWizardProps {
   goalData: GoalBasedInvestingData | null;
   assets: Asset[];
   lastDocument: AllocationAdviceDocument | null;
+  /** The page's run (ConsulenteClient owns it, so the page keeps this screen while it goes). */
+  run: ReturnType<typeof useConsulenteRun>;
 }
 
 const HEADLINE_CLASS = 'text-[24px] font-semibold leading-[1.15] tracking-[-0.025em] text-foreground desktop:text-[30px]';
@@ -157,7 +158,7 @@ function numberOrNull(value: string): number | null {
   return value.trim() === '' || !Number.isFinite(parsed) ? null : parsed;
 }
 
-export function ConsulenteWizard({ ownerId, configured, settings, goalData, assets, lastDocument }: ConsulenteWizardProps) {
+export function ConsulenteWizard({ ownerId, configured, settings, goalData, assets, lastDocument, run }: ConsulenteWizardProps) {
   const storage = typeof window !== 'undefined' ? window.localStorage : null;
   const [draft, dispatch] = useReducer(
     allocationAdviceDraftReducer,
@@ -165,10 +166,6 @@ export function ConsulenteWizard({ ownerId, configured, settings, goalData, asse
     // A draft that comes back follows FIRE › Obiettivi: goals added since are added, deleted ones dropped.
     () => reconcileDraftGoals(readStoredDraft(storage, ownerId) ?? initialDraft(lastDocument?.answers ?? initialAnswers(settings, goalData, assets)), goalData)
   );
-  // The run belongs to the click that starts it (useConsulenteRun): a finished run clears the draft.
-  const onFinished = useCallback(() => clearStoredDraft(storage, ownerId), [storage, ownerId]);
-  const run = useConsulenteRun(ownerId, onFinished);
-
   // The draft follows every change onto this browser; a finished run clears it.
   useEffect(() => {
     writeStoredDraft(storage, ownerId, draft);

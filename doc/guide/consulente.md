@@ -153,6 +153,20 @@ in `navigation.ts`: si raggiunge dal bottone «Consulente» di Allocazione, desk
 un telefono, e dalla riga sotto la conversazione dell'Assistente).
 
 ## Per-page blind spots
+- **The review invite** (owner, 2026-10-20, after applying the first production plan: «nei giorni vicino alla data,
+  un pulsante "revisione con il Consulente"»): `reviewDueState(document, todayIso)` (lib/utils/allocationAdviceNarrative.ts)
+  says `later · soon · due` against the applied plan's `reviewByIso` — `soon` within `REVIEW_SOON_DAYS` (30), `due`
+  on the day and after, `none` without an applied plan. On Allocazione the «Consulente» button becomes the primary
+  «Rivedi con il Consulente» (`REVIEW_INVITE_LABEL`) linking to `/consulente?rivedi=1`, which the page reads on the
+  server (`searchParams`) and hands to the client as `startFresh`: the screens open over the applied plan as «Rifai il
+  percorso» would, and the new run starts from the plan in force. The report's applied verdict carries
+  `describeReviewInvite` (tone `warning` once due). Before the date, «Rifai il percorso» at the bottom anticipates it.
+- **The run's state lives on the page, not in the wizard** (owner's first production run, 2026-10-20): the document
+  becomes `running` at the first stage and the query rereads it after every stage, so a `showReport` that looked only
+  at the document flipped the page to the report's «in corso» view after the strategy — spinners gone, «Ricomincia il
+  percorso» offered mid-run (the chain kept going in the unmounted hook's closure and the report did arrive).
+  `ConsulenteClient` owns `useConsulenteRun` and hands it to the wizard; `pageShowsReport` (lib/utils/
+  allocationAdviceDocument.ts, with `isRunStale`) keeps the run's screen while the run is `running` or `failed`.
 - **The E2E spec opens over a finished report** (2026-10-20: two real runs on the E2E account at :3100 left a `ready`
   document in the emulators, and the full Playwright run went red twice on «Passo 1 di 8»): `openConsulente` waits for
   step 1 OR «Rifai il percorso» and clicks the latter. The emulators keep `allocationAdvice/test-user-1` between runs;
