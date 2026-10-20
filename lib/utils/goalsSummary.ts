@@ -18,8 +18,8 @@
 
 import type { Asset, AssetClass } from '@/types/assets';
 import type { GoalAssetAssignment, GoalPriority, InvestmentGoal } from '@/types/goals';
-import { calculateAssetValue } from '@/lib/services/assetService';
-import { assignmentFraction, calculateGoalProgress, deriveTargetAllocationFromGoals } from '@/lib/utils/goalMath';
+import { assignmentFraction, calculateGoalProgress, deriveTargetAllocationFromGoals, goalAssetValueOf } from '@/lib/utils/goalMath';
+import { isGoalAsset } from '@/lib/utils/goalAssetValue';
 import { sliceBase, sliceUnit, sliceUnitLabel } from '@/lib/utils/assetSlice';
 import {
   buildGoalProjectionSeries,
@@ -421,9 +421,12 @@ function displayTicker(asset: Asset): string | null {
   return ticker && ticker !== asset.name ? ticker : null;
 }
 
-/** The portfolio total on the same basis as every quota: the sum of the asset values. */
+/**
+ * The portfolio total on the same basis as every quota: the sum of what each asset is worth to a
+ * goal — a property net of its loans, a loan nothing (2026-10-20).
+ */
 export function sumAssetValues(assets: Asset[]): number {
-  return assets.reduce((sum, asset) => sum + calculateAssetValue(asset), 0);
+  return assets.reduce((sum, asset) => sum + goalAssetValueOf(asset, assets), 0);
 }
 
 /**
@@ -432,7 +435,9 @@ export function sumAssetValues(assets: Asset[]): number {
  */
 export function summarizeAssignments(goals: InvestmentGoal[], assignments: GoalAssetAssignment[], assets: Asset[]): AssignmentsView {
   const assetMap = new Map(assets.map((asset) => [asset.id, asset]));
-  const valueOf = new Map(assets.map((asset) => [asset.id, calculateAssetValue(asset)]));
+  const valueOf = new Map(assets.map((asset) => [asset.id, goalAssetValueOf(asset, assets)]));
+  // A loan is no instrument a goal can hold: out of the free list and of its counts.
+  const goalAssets = assets.filter(isGoalAsset);
 
   const unitLabelOf = (asset: Asset) => sliceUnitLabel(sliceUnit(asset));
 
@@ -468,7 +473,7 @@ export function summarizeAssignments(goals: InvestmentGoal[], assignments: GoalA
   const free: FreeShareRow[] = [];
   const overAssigned: AssignmentsView['overAssigned'] = [];
   let freeTotal = 0;
-  for (const asset of assets) {
+  for (const asset of goalAssets) {
     const assignedPct = assignedPctByAsset.get(asset.id) ?? 0;
     if (assignedPct > 100 + 1e-9) {
       // With a units quota in the mix the declaration reads in units: «120 quote assegnate su 100».
@@ -497,7 +502,7 @@ export function summarizeAssignments(goals: InvestmentGoal[], assignments: GoalA
     freeTotal,
     freeShare: portfolioTotal > 0 ? (freeTotal / portfolioTotal) * 100 : null,
     freeInstrumentCount: free.length,
-    totalInstrumentCount: assets.length,
+    totalInstrumentCount: goalAssets.length,
     overAssigned,
   };
 }

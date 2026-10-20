@@ -150,6 +150,41 @@ export function getItalyDayBoundsUtc(date: Date = new Date()): { start: Date; en
 }
 
 /**
+ * The whole of an Italian calendar month, as UTC instants: Italian midnight of its 1st to the last
+ * millisecond of its last day in Italy.
+ *
+ * Why not `new Date(year, month - 1, 1)`: that is the PROCESS zone's midnight, and on Vercel the
+ * process runs in UTC. The expense form stores a row at Italian midnight (22:00 or 23:00 UTC of
+ * the day before), so a UTC month window filed a row dated «1 agosto» under July — on the owner's
+ * account 30 rows of 1793 sat in the wrong month for the assistant while Cashflow › Tracciamento,
+ * which slices by Italian calendar day, had them right (2026-10-20). Both ends inclusive, like
+ * `endOfMonthBound` and `getItalyDayBoundsUtc`.
+ *
+ * @param year  Full year
+ * @param month Month, 1-based (1 = January)
+ */
+export function getItalyMonthBoundsUtc(year: number, month: number): { start: Date; end: Date } {
+  return getItalyMonthRangeBoundsUtc(year, month, month);
+}
+
+/**
+ * Italian calendar bounds of a run of months inside one year (`startMonth`..`endMonth`, both
+ * 1-based and inclusive): Italian midnight of the first month's 1st to the last millisecond of the
+ * last month's last day. See `getItalyMonthBoundsUtc` for why the process zone is never used.
+ */
+export function getItalyMonthRangeBoundsUtc(
+  year: number,
+  startMonth: number,
+  endMonth: number
+): { start: Date; end: Date } {
+  const lastDay = new Date(Date.UTC(year, endMonth, 0)).getUTCDate();
+  const mm = (month: number) => String(month).padStart(2, '0');
+  const start = fromZonedTime(`${year}-${mm(startMonth)}-01T00:00:00.000`, ITALY_TIMEZONE);
+  const end = fromZonedTime(`${year}-${mm(endMonth)}-${mm(lastDay)}T23:59:59.999`, ITALY_TIMEZONE);
+  return { start, end };
+}
+
+/**
  * Compare two dates (ignoring time)
  * Returns true if date1 >= date2
  */

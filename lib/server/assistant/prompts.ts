@@ -14,10 +14,15 @@
  *   the numeric data bundle, memory, and the user's question.
  */
 
-import { AssistantMemoryItem, AssistantMonthContextBundle, AssistantPreferences } from '@/types/assistant';
+import { AssistantMemoryItem, AssistantMonthContextBundle, AssistantPreferences, AssistantTodayContext } from '@/types/assistant';
 import { getAssistantPeriodLabel } from '@/lib/utils/assistantPeriodLabel';
 import { GoalVerdict } from '@/lib/utils/goalTrajectory';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_SEQUENCE } from '@/lib/utils/allocationUtils';
+import {
+  HOLDING_ROLE_LABELS,
+  ledgerTypeLabel,
+  type AssistantPortfolioContext,
+} from '@/lib/utils/assistantPortfolioContext';
 
 /**
  * The class as the app names it on screen. The blocks below are quoted back to the user in
@@ -133,7 +138,7 @@ export function formatMemoryForPrompt(items: AssistantMemoryItem[]): string {
  *
  * Returns the lines to append, trailing blank line included.
  */
-function formatGoalsSection(goals: AssistantMonthContextBundle['goals']): string[] {
+function formatGoalsSection(goals: (AssistantMonthContextBundle['goals'] & { coverage?: AssistantPortfolioContext['goalCoverage'] }) | null): string[] {
   const lines: string[] = ['--- OBIETTIVI DI INVESTIMENTO (Goal-Based Investing) ---'];
 
   if (!goals || !goals.enabled) {
@@ -144,8 +149,15 @@ function formatGoalsSection(goals: AssistantMonthContextBundle['goals']): string
     return lines;
   }
 
+  // What no goal holds — the same figure FIRE › Obiettivi prints as «Non assegnato» (2026-10-20);
+  // with no goal yet it is the whole held portfolio, and saying so is the point.
+  const coverageLine = goals.coverage
+    ? `Non assegnato a nessun obiettivo: ${eur(goals.coverage.freeEur)} su ${eur(goals.coverage.totalEur)} di strumenti posseduti (un immobile al netto del mutuo che lo finanzia; mutui e prestiti non sono strumenti); assegnato ${eur(goals.coverage.assignedEur)}. Ogni riga del blocco STRUMENTI dice la sua quota libera: somma quelle, non i valori.`
+    : null;
+
   if (goals.items.length === 0) {
     lines.push('Funzionalità attiva ma nessun obiettivo ancora creato.');
+    if (coverageLine) lines.push(coverageLine);
     lines.push('');
     return lines;
   }
@@ -171,7 +183,7 @@ function formatGoalsSection(goals: AssistantMonthContextBundle['goals']): string
       parts.push(`contributo mensile pianificato ${eur(goal.monthlyContribution)}`);
     }
 
-    lines.push(`${goal.name}: ${parts.join(' | ')}`);
+    lines.push(`${goal.name} [id ${goal.id}]: ${parts.join(' | ')}`);
 
     if (goal.verdict) {
       lines.push(`  › stato: ${GOAL_VERDICT_PROMPT_LABELS[goal.verdict]}`);
@@ -205,6 +217,13 @@ function formatGoalsSection(goals: AssistantMonthContextBundle['goals']): string
         .join(', ');
       lines.push(`  › allocazione consigliata per questo obiettivo: ${mix}`);
     }
+
+    // What stands behind the goal, instrument by instrument (2026-10-20).
+    lines.push(
+      goal.assignments.length === 0
+        ? '  › strumenti assegnati: nessuno'
+        : `  › strumenti assegnati: ${goal.assignments.map((row) => `${row.assetName}${row.ticker ? ` (${row.ticker})` : ''} ${row.quota} = ${eur(row.valueEur)}`).join('; ')}`
+    );
   }
 
   if (goals.goalDrivenAllocationEnabled) {
@@ -212,8 +231,199 @@ function formatGoalsSection(goals: AssistantMonthContextBundle['goals']): string
       "Allocazione goal-driven ATTIVA: i target di allocazione del portafoglio sono derivati da questi obiettivi."
     );
   }
+  if (coverageLine) lines.push(coverageLine);
 
   lines.push('');
+  return lines;
+}
+
+function eurCents(value: number): string {
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(value);
+}
+
+function pp(value: number): string {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)} p.p.`;
+}
+
+function quantity(value: number): string {
+  return new Intl.NumberFormat('it-IT', { maximumFractionDigits: 4 }).format(value);
+}
+
+/** The unit a holding's quantity counts in: euro for a balance-like value, quote for an instrument. */
+function quantityUnit(type: string): string {
+  return type === 'cash' || type === 'realestate' || type === 'pensionFund' || type === 'loan' ? '€' : 'quote';
+}
+
+/**
+ * The portfolio block (2026-10-20): what the owner asked the assistant to SEE — every
+ * instrument, the allocation on the page's base, the ledger, the registers, the household.
+ * Each list is printed whole, or the text says how many rows were left out and which (the
+ * oldest), never a silent cap (the rule of this module's header).
+ */
+export function formatPortfolioForPrompt(portfolio: AssistantPortfolioContext): string[] {
+  const lines: string[] = [];
+  const { holdings, allocation, ledger, dividends, pension, loans, family } = portfolio;
+
+  // Every instrument, largest first, debts last.
+  lines.push(`--- STRUMENTI IN PORTAFOGLIO OGGI (elenco completo, ${holdings.length}) ---`);
+  if (holdings.length === 0) {
+    lines.push('Nessuno strumento registrato.');
+  }
+  for (const row of holdings) {
+    const parts: string[] = [];
+    parts.push(`${assetClassLabel(row.assetClass)}${row.subCategory ? ` › ${row.subCategory}` : ' (senza sottocategoria)'}`);
+    parts.push(HOLDING_ROLE_LABELS[row.role]);
+    parts.push(`${quantity(row.quantity)} ${quantityUnit(row.type)}`);
+    parts.push(`valore ${eur(row.valueEur)}`);
+    if (row.costPerUnitEur !== undefined) parts.push(`PMC ${eurCents(row.costPerUnitEur)}`);
+    if (row.gainEur !== undefined && row.gainPct !== undefined) parts.push(`G/P ${eur(row.gainEur)} (${pct(row.gainPct)})`);
+    if (row.owner) parts.push(`intestatario: ${row.owner}`);
+    parts.push(row.isLiquid ? 'liquido' : 'illiquido');
+    if (row.financedAssetName) parts.push(`finanzia: ${row.financedAssetName}`);
+    if (row.goalAssignedPct !== undefined && row.goalFreeEur !== undefined) {
+      // The free figure always, even with no goal on it: a property is free NET of its loan, and
+      // without the figure the model summed the gross values and called the total inconsistent
+      // (the owner's run, 2026-10-20).
+      parts.push(row.goalAssignedPct > 0 ? `obiettivi: assegnato ${share(row.goalAssignedPct)}, libero ${eur(row.goalFreeEur)}` : `libero da obiettivi (${eur(row.goalFreeEur)})`);
+    }
+    lines.push(`${row.name}${row.ticker ? ` (${row.ticker})` : ''}: ${parts.join(' | ')}`);
+  }
+  lines.push('');
+
+  // The allocation as the page measures it.
+  lines.push('--- ALLOCAZIONE OGGI (la base della pagina Allocazione: negoziabili + non negoziabili, al netto dei debiti che li seguono) ---');
+  lines.push(
+    `Base: ${eur(allocation.baseTotal)} (negoziabile ${eur(allocation.tradableTotal)}, non negoziabile ${eur(allocation.frozenTotal)}). Fuori dall'allocazione: ${eur(allocation.excludedTotal)}.`
+  );
+  for (const row of allocation.byClass) {
+    lines.push(`${row.label}: ${eur(row.value)} (${share(row.pct)} della base)${row.frozenValue > 0 ? ` — di cui non negoziabile ${eur(row.frozenValue)}` : ''}`);
+    for (const sub of row.subCategories) {
+      lines.push(`  › ${sub.subCategory}: ${eur(sub.value)} (${share(sub.pctOfClass)} della classe, ${share(sub.pctOfBase)} della base)`);
+    }
+  }
+  if (allocation.frozen.length > 0) {
+    lines.push(`Non negoziabili (nella base, mai nei piani): ${allocation.frozen.map((row) => `${row.name} ${eur(row.value)}`).join('; ')}.`);
+  }
+  if (allocation.excluded.length > 0) {
+    lines.push(`Esclusi dall'Allocazione (fuori dalla base, elencati per completezza): ${allocation.excluded.map((row) => `${row.name} ${eur(row.value)}`).join('; ')}.`);
+  }
+  lines.push('');
+
+  // Target vs current, on the same base.
+  if (allocation.targets) {
+    lines.push('--- ALLOCAZIONE TARGET vs ATTUALE (sulla base della pagina Allocazione) ---');
+    for (const row of allocation.targets) {
+      const target =
+        row.fixedAmount !== undefined
+          ? `target ${eur(row.fixedAmount)} fisso (${share(row.targetPct)} della base oggi)`
+          : `target ${share(row.targetPct)}`;
+      lines.push(`${row.label}: attuale ${share(row.currentPct)} (${eur(row.currentValue)}) | ${target} | gap ${pp(row.gapPp)}`);
+      for (const sub of row.subRows) {
+        lines.push(
+          `  › ${sub.subCategory}: attuale ${share(sub.currentPctOfClass)} della classe | target ${share(sub.targetPctOfClass)} della classe | gap ${pp(sub.gapPp)}`
+        );
+      }
+    }
+    lines.push('');
+  } else {
+    lines.push('--- ALLOCAZIONE TARGET vs ATTUALE ---');
+    lines.push("Nessun target di allocazione configurato: è una scelta dell'utente, non un dato mancante.");
+    lines.push('');
+  }
+
+  // The ledger.
+  lines.push(`--- REGISTRO OPERAZIONI (acquisti, vendite, rettifiche; ${ledger.totalRows} in tutto) ---`);
+  if (ledger.totalRows === 0) {
+    lines.push('Nessuna operazione registrata: gli strumenti sono stati inseriti con il loro PMC, senza registro.');
+  }
+  if (ledger.omittedRows > 0) {
+    lines.push(`(le ${ledger.omittedRows} operazioni più vecchie sono omesse; sotto le ${ledger.rows.length} più recenti)`);
+  }
+  for (const row of ledger.rows) {
+    lines.push(
+      `${row.dateIso} · ${ledgerTypeLabel(row.type)}${row.isBaseline ? ' (posizione iniziale di migrazione)' : ''} · ${row.assetName}${row.ticker ? ` (${row.ticker})` : ''}: ${quantity(row.quantity)} quote a ${eurCents(row.priceEur)} = ${eur(row.amountEur)}${row.feesEur > 0 ? `, commissioni ${eurCents(row.feesEur)}` : ''}`
+    );
+  }
+  lines.push('');
+
+  // Dividends: received and announced never one figure.
+  lines.push(
+    `--- DIVIDENDI E CEDOLE: REGISTRO (${dividends.received.length + dividends.omittedReceived} incassati, ${dividends.announced.length} annunciati) ---`
+  );
+  if (dividends.received.length === 0 && dividends.announced.length === 0) {
+    lines.push('Nessun dividendo o cedola nel registro.');
+  }
+  if (dividends.omittedReceived > 0) {
+    lines.push(`(i ${dividends.omittedReceived} incassi più vecchi sono omessi)`);
+  }
+  for (const row of dividends.received) {
+    lines.push(
+      `${row.paymentDateIso} · incassato · ${row.assetName}${row.ticker ? ` (${row.ticker})` : ''}: netto ${eurCents(row.netEur)} (lordo ${eurCents(row.grossEur)})${row.isProvisional ? ' — provvisorio' : ''}`
+    );
+  }
+  for (const row of dividends.announced) {
+    lines.push(
+      `${row.paymentDateIso} · annunciato, non ancora incassato · ${row.assetName}${row.ticker ? ` (${row.ticker})` : ''}: netto ${eurCents(row.netEur)} (lordo ${eurCents(row.grossEur)})${row.isProvisional ? ' — provvisorio' : ''}`
+    );
+  }
+  if (dividends.coupons.length > 0) {
+    lines.push('Cedole dei bond in portafoglio:');
+    for (const coupon of dividends.coupons) {
+      const parts = [
+        coupon.annualRatePct !== null ? `tasso annuo ${share(coupon.annualRatePct)}` : 'tasso non noto',
+        coupon.frequency,
+        `scadenza ${coupon.maturityIso}`,
+        coupon.nextCouponIso
+          ? `prossima cedola ${coupon.nextCouponIso}${coupon.nextCouponPerUnitEur !== null ? ` (${eurCents(coupon.nextCouponPerUnitEur)} per unità)` : ''}`
+          : 'nessuna cedola futura',
+      ];
+      if (coupon.indexation) parts.push(coupon.indexation);
+      lines.push(`  ${coupon.assetName}${coupon.ticker ? ` (${coupon.ticker})` : ''}: ${parts.join(' | ')}`);
+    }
+  }
+  lines.push('');
+
+  // Pension funds and their contributions.
+  lines.push(`--- PREVIDENZA (fondi pensione: ${pension.length}) ---`);
+  if (pension.length === 0) lines.push('Nessun fondo pensione registrato.');
+  for (const fund of pension) {
+    lines.push(`${fund.name}: valore ${eur(fund.valueEur)}${fund.memberName ? ` | di ${fund.memberName}` : ''} | ${HOLDING_ROLE_LABELS[fund.role]}`);
+    if (fund.byYear.length === 0) lines.push('  › nessun versamento registrato');
+    for (const year of fund.byYear) {
+      lines.push(`  › ${year.taxYear}: ${eur(year.total)} (TFR ${eur(year.tfr)}, volontari ${eur(year.voluntary)}, datoriali ${eur(year.employer)})`);
+    }
+  }
+  lines.push('');
+
+  // Loans.
+  lines.push(`--- MUTUI E PRESTITI (${loans.length}) ---`);
+  if (loans.length === 0) lines.push('Nessun debito registrato.');
+  for (const loan of loans) {
+    const parts = [`debito residuo ${eur(loan.residualDebtEur)}`];
+    parts.push(loan.financedAssetName ? `finanzia: ${loan.financedAssetName}` : 'prestito personale');
+    parts.push(loan.interestRatePct !== null ? `TAN ${share(loan.interestRatePct)}` : 'TAN non indicato');
+    if (loan.lastInstalmentEur !== null) parts.push(`ultima rata nel periodo ${eur(loan.lastInstalmentEur)}`);
+    parts.push(HOLDING_ROLE_LABELS[loan.role]);
+    lines.push(`${loan.name}: ${parts.join(' | ')}`);
+  }
+  lines.push('');
+
+  // The household.
+  lines.push('--- FAMIGLIA ---');
+  lines.push(
+    family.ownerAge !== null
+      ? `Età dell'intestatario del conto: ${family.ownerAge} anni.`
+      : "Età dell'intestatario del conto: non indicata nelle impostazioni."
+  );
+  if (family.members.length === 0) {
+    lines.push('Nessun membro della famiglia configurato: ogni strumento è in comune.');
+  } else {
+    lines.push(
+      `Membri: ${family.members.map((member) => `${member.name}${member.grossAnnualIncome !== null ? ` (RAL ${eur(member.grossAnnualIncome)})` : ''}`).join(', ')}.`
+    );
+  }
+  lines.push('');
+
   return lines;
 }
 
@@ -234,6 +444,30 @@ function formatGoalsSection(goals: AssistantMonthContextBundle['goals']): string
  *                     email passes its own window name rather than let the header claim
  *                     the closing month is the whole period.
  */
+/**
+ * The data block of a free question with NO period (2026-10-20): the portfolio of today, the
+ * origin of the targets and the goals — the same formatters as the period bundle, so the two
+ * blocks can never disagree — under a header that says what is NOT there (no cashflow, no
+ * snapshot, no comparison between dates), so the model never invents a period figure.
+ */
+export function formatTodayContextForPrompt(context: AssistantTodayContext): string {
+  const lines: string[] = [];
+  lines.push('=== DATI FINANZIARI: PORTAFOGLIO DI OGGI (nessun periodo selezionato) ===');
+  lines.push(
+    "Non c'è un periodo: niente entrate, uscite, snapshot o confronto tra date. Se la domanda riguarda un periodo, chiedi all'utente di selezionarlo nel contesto; non stimare quelle cifre."
+  );
+  lines.push('');
+  lines.push(
+    context.targetAllocationSource === 'goal_driven'
+      ? 'Origine dei target di allocazione: derivati dagli obiettivi di investimento (allocazione goal-driven attiva). Non sono i target manuali delle impostazioni.'
+      : "Origine dei target di allocazione: impostati manualmente dall'utente in Impostazioni → Allocazione."
+  );
+  lines.push('');
+  lines.push(...formatPortfolioForPrompt(context.portfolio));
+  lines.push(...formatGoalsSection(context.goals ? { ...context.goals, coverage: context.portfolio.goalCoverage } : null));
+  return lines.join('\n');
+}
+
 export function formatBundleForPrompt(
   bundle: AssistantMonthContextBundle,
   periodLabel: string = getAssistantPeriodLabel(bundle.selector)
@@ -257,10 +491,13 @@ export function formatBundleForPrompt(
   }
   lines.push('');
 
-  // Cashflow section
+  // Cashflow section. «Entrate» is the figure Cashflow › Tracciamento prints — every income
+  // row, dividends and coupons included — with the dividends named inside it (owner's decision,
+  // 2026-10-20: the two surfaces printed two different «Entrate» for the same month).
   lines.push('--- CASHFLOW ---');
-  lines.push(`Entrate (esclusi dividendi): ${eur(cashflow.totalIncome)}`);
-  lines.push(`Dividendi e cedole: ${eur(cashflow.totalDividends)}`);
+  lines.push(
+    `Entrate: ${eur(cashflow.totalIncome + cashflow.totalDividends)} (di cui dividendi e cedole ${eur(cashflow.totalDividends)}; è lo stesso totale della pagina Cashflow)`
+  );
   lines.push(`Uscite: ${eur(cashflow.totalExpenses)}`);
   lines.push(`Flusso netto: ${eur(cashflow.netCashFlow)}`);
   lines.push(
@@ -313,10 +550,10 @@ export function formatBundleForPrompt(
     lines.push('');
   }
 
-  // Income by category. Dividends are reported in the cashflow block above and excluded
-  // here, so these rows add up to "Entrate (esclusi dividendi)".
+  // Income by category. Dividends are named inside «Entrate» above and excluded here, so
+  // these rows add up to Entrate minus the dividends.
   if (bundle.incomeByCategory.length > 0) {
-    lines.push('--- ENTRATE PER CATEGORIA (esclusi i dividendi, riportati sopra) ---');
+    lines.push('--- ENTRATE PER CATEGORIA (esclusi i dividendi, già contati in Entrate) ---');
     for (const entry of bundle.incomeByCategory) {
       lines.push(`${entry.categoryName}: ${eur(entry.total)} (${txn(entry.transactionCount)})`);
     }
@@ -335,13 +572,13 @@ export function formatBundleForPrompt(
     lines.push('');
   }
 
-  // Full current allocation by asset class — includes all classes (e.g. real_estate, pension funds)
-  // even when they have zero monthly change. Without this, Claude only sees the top-5 movers
-  // and incorrectly labels stable classes (like real estate) as "unclassified" patrimony.
+  // The WHOLE patrimony by class at the period's end, from the snapshot — the home, the loans,
+  // the pension funds included. Named as such since 2026-10-20: the allocation the Allocazione
+  // page measures is the portfolio block's (`formatPortfolioForPrompt`), on a smaller base.
   const byAssetClass = currentSnapshot?.byAssetClass;
   if (byAssetClass && Object.keys(byAssetClass).length > 0) {
     const totalNetWorth = currentSnapshot?.totalNetWorth ?? 0;
-    lines.push('--- ALLOCAZIONE CORRENTE (tutte le classi) ---');
+    lines.push("--- PATRIMONIO PER CLASSE A FINE PERIODO (snapshot dell'intero patrimonio: casa, debiti e fondi pensione inclusi; NON è la base della pagina Allocazione) ---");
     const entries = Object.entries(byAssetClass).sort((a, b) => b[1] - a[1]);
     for (const [assetClass, value] of entries) {
       const pctOfTotal =
@@ -369,48 +606,23 @@ export function formatBundleForPrompt(
     lines.push('');
   }
 
-  // Target vs current allocation: gives Claude the gap for each asset class and
-  // sub-category so it can reason about rebalancing without doing the maths itself.
-  // Only rendered when targets are configured and a snapshot is available — otherwise
-  // the section is silently omitted to keep the prompt clean.
-  const targetAlloc = bundle.targetAllocation;
-  if (targetAlloc && byAssetClass && Object.keys(byAssetClass).length > 0) {
-    const totalNetWorth = currentSnapshot?.totalNetWorth ?? 0;
-    lines.push('--- ALLOCAZIONE TARGET vs CORRENTE ---');
-    // Naming the source matters: with goal-driven allocation on, these percentages are
-    // computed from the goals and the manual ones in Impostazioni are no longer what the
-    // app measures against. Quoting the wrong set is indistinguishable from a wrong number.
-    lines.push(
-      bundle.targetAllocationSource === 'goal_driven'
-        ? "Origine dei target: derivati dagli obiettivi di investimento (allocazione goal-driven attiva). Non sono i target manuali delle impostazioni."
-        : 'Origine dei target: impostati manualmente dall\'utente in Impostazioni → Allocazione.'
-    );
-    for (const [assetClass, target] of Object.entries(targetAlloc)) {
-      const currentValue = byAssetClass[assetClass] ?? 0;
-      const currentPct = totalNetWorth > 0 ? (currentValue / totalNetWorth) * 100 : 0;
-      const gap = currentPct - target.targetPercentage;
-      const gapStr = gap >= 0 ? `+${gap.toFixed(1)} p.p.` : `${gap.toFixed(1)} p.p.`;
-      lines.push(`${assetClassLabel(assetClass)}: attuale ${currentPct.toFixed(1)}% | target ${target.targetPercentage}% | gap ${gapStr}`);
-
-      if (target.subTargets) {
-        for (const [sub, subTargetPct] of Object.entries(target.subTargets)) {
-          // subTargetPct is relative to the asset class; convert to portfolio-level for comparison
-          const subTargetOfPortfolio = (subTargetPct / 100) * target.targetPercentage;
-          const subCurrentValue = bundle.bySubCategoryAllocation?.[assetClass]?.[sub] ?? 0;
-          const subCurrentPct = totalNetWorth > 0 ? (subCurrentValue / totalNetWorth) * 100 : 0;
-          const subGap = subCurrentPct - subTargetOfPortfolio;
-          const subGapStr = subGap >= 0 ? `+${subGap.toFixed(1)} p.p.` : `${subGap.toFixed(1)} p.p.`;
-          lines.push(`  › ${sub}: attuale ${subCurrentPct.toFixed(1)}% | target ${subTargetOfPortfolio.toFixed(1)}% (${subTargetPct}% della classe ${assetClassLabel(assetClass)}) | gap ${subGapStr}`);
-        }
-      }
-    }
-    lines.push('');
-  }
+  // The portfolio as a whole — instruments, the allocation on the page's base with its targets,
+  // the ledger, the registers, the household (2026-10-20). The target-vs-current reading moved
+  // in here: until then it stood the manual targets against the snapshot's WHOLE patrimony, a
+  // base the Allocazione page never uses. Naming the source still matters: with goal-driven
+  // allocation on, the percentages the page measures against come from the goals.
+  lines.push(
+    bundle.targetAllocationSource === 'goal_driven'
+      ? 'Origine dei target di allocazione: derivati dagli obiettivi di investimento (allocazione goal-driven attiva). Non sono i target manuali delle impostazioni.'
+      : "Origine dei target di allocazione: impostati manualmente dall'utente in Impostazioni → Allocazione."
+  );
+  lines.push('');
+  lines.push(...formatPortfolioForPrompt(bundle.portfolio));
 
   // Goal-Based Investing. Always rendered, absence included: a missing section would
   // leave the model unable to tell "the feature is off" from "I was not sent the data",
   // and the data-integrity rules then push it toward an invented "N/D".
-  lines.push(...formatGoalsSection(bundle.goals));
+  lines.push(...formatGoalsSection(bundle.goals ? { ...bundle.goals, coverage: bundle.portfolio.goalCoverage } : null));
 
   // Top-5 movers section: shows which classes changed most this period.
   // allocationChanges is already capped at 5 by the context builder.
@@ -513,20 +725,26 @@ export const ASSISTANT_SYSTEM_CORE = [
   "Una sottocategoria che l'utente nomina e che NON compare in quel blocco ha avuto spesa zero nel periodo. Dillo così, \"nessuna spesa registrata\", e non come \"dato non disponibile\": sono due affermazioni diverse e solo la prima è vera. L'unica eccezione è la riga esplicita di omissione in coda al blocco, quando presente.",
   "Non elencare le sottocategorie quando non ti vengono chieste: l'elenco completo serve a rispondere nel dettaglio, non a riempire la risposta.",
   '',
+  '# Portafoglio: strumenti, allocazione, registri',
+  "Il blocco STRUMENTI IN PORTAFOGLIO OGGI è ESAUSTIVO: ogni strumento posseduto oggi con classe, sottocategoria, ruolo in allocazione, quantità, valore, PMC e G/P (dove misurabili), intestatario e, con il Goal-Based Investing attivo, la quota assegnata agli obiettivi e quella libera («libero da obiettivi» = nessun obiettivo lo tocca). Uno strumento che l'utente nomina e che non compare non è in portafoglio.",
+  "Il ruolo in allocazione ha tre valori e li devi usare con questo significato: «negoziabile» entra nella base e nei piani; «non negoziabile» entra nella base (conta nelle percentuali) ma i piani non possono muoverlo (un fondo pensione, un private equity); «escluso» è fuori dalla pagina Allocazione, base compresa (la casa in cui si vive). Un mutuo segue l'immobile che finanzia; un prestito personale è liquidità negativa.",
+  "Il blocco ALLOCAZIONE OGGI è la base che la pagina Allocazione misura (negoziabili + non negoziabili, netta dei debiti) e ALLOCAZIONE TARGET vs ATTUALE è calcolato su quella base: quando parli di allocazione, percentuali e scostamenti sono QUESTI. Il blocco PATRIMONIO PER CLASSE A FINE PERIODO è un'altra cosa: l'intero patrimonio fotografato dallo snapshot, casa, debiti e fondi pensione inclusi. Non confrontare mai i target con quest'ultimo.",
+  "Il REGISTRO OPERAZIONI e il REGISTRO DIVIDENDI sono esaustivi salvo la riga di omissione esplicita; incassato e annunciato sono due cifre e restano tali. PREVIDENZA, MUTUI E PRESTITI e FAMIGLIA descrivono la situazione di oggi.",
+  '',
   '# Obiettivi di investimento (Goal-Based Investing), quando i dati li includono',
   "Quando il messaggio contiene un blocco OBIETTIVI DI INVESTIMENTO, quello elenca gli obiettivi che l'utente ha configurato nella pagina FIRE e Simulazioni: nome, importo target, scadenza, valore già assegnato, contributo mensile pianificato, allocazione consigliata e stato della traiettoria. Sono una cosa diversa dagli obiettivi della memoria persistente: questi hanno numeri e una quota di portafoglio assegnata, quelli sono frasi che l'utente ti ha detto.",
   "L'elenco è ESAUSTIVO. Se il blocco dice che la funzionalità non è attiva, dillo come tale — è una funzionalità opzionale che l'utente non usa, non un dato che ti manca.",
   "Quando un obiettivo è in ritardo, cita il versamento mensile necessario e il valore proiettato alla scadenza che trovi nel blocco: sono già calcolati con la matematica dell'annualità sull'ipotesi di rendimento indicata lì. Non ricavarli moltiplicando contributo per mesi — quel conto ignora i rendimenti e dà un numero più pessimista del vero. Presentali per quello che sono, proiezioni basate su un rendimento ipotizzato, non misure.",
   "Quando consigli un'allocazione per un obiettivo, ragiona su orizzonte temporale e priorità: più la scadenza è vicina, più la quota di strumenti volatili va ridotta a favore di obbligazioni e liquidità; un obiettivo senza scadenza e a bassa priorità tollera molto più rischio. Motiva sempre la proposta con la scadenza e la priorità di QUELL'obiettivo, non con massime generali.",
   '',
-  '## Proporre la creazione di un obiettivo',
-  "Non puoi creare, modificare o eliminare obiettivi: puoi solo proporne uno, e la scrittura avviene unicamente quando l'utente preme Conferma sulla card che la tua proposta genera.",
-  "Quando — e SOLO quando — l'utente ti chiede di creare un obiettivo, introducilo con una frase che spiega le scelte fatte e poi emetti UN blocco di codice delimitato con linguaggio `goal-proposal` che contenga SOLO JSON valido, senza commenti e senza testo attorno, con questo schema:",
+  '## Proporre la creazione o la modifica di un obiettivo',
+  "Non puoi creare, modificare o eliminare obiettivi da solo: puoi solo PROPORRE, e la scrittura avviene unicamente quando l'utente preme Conferma sulla card che la tua proposta genera.",
+  "Quando — e SOLO quando — l'utente ti chiede di creare un obiettivo, o di cambiare uno di quelli esistenti (scadenza, importo, priorità, strumenti e quote), introducilo con una frase che spiega le scelte fatte e poi emetti UN blocco di codice delimitato con linguaggio `goal-proposal` che contenga SOLO JSON valido, senza commenti e senza testo attorno, con questo schema:",
   // The allocation keys come from ASSET_CLASS_SEQUENCE, the app-wide enumeration: a hand-written
   // list is how the model stopped being told trendFollowing and carry exist, while
   // `goalProposal.ts` had been accepting all eight all along.
-  `{ "name": string, "targetAmount"?: number, "targetDateIso"?: "YYYY-MM-DD", "priority": "alta" | "media" | "bassa", "monthlyContribution"?: number, "recommendedAllocation"?: { ${ASSET_CLASS_SEQUENCE.map((cls) => `"${cls}"?: number`).join(', ')} }, "notes"?: string }`,
-  "Vincoli: `name` e `priority` sono obbligatori; gli importi sono in euro, senza separatori né simbolo di valuta; le percentuali di `recommendedAllocation` devono sommare esattamente a 100. Un solo blocco per risposta. Non emetterlo mai se l'utente non ha chiesto di creare un obiettivo: per discutere un obiettivo esistente o ipotizzarne uno basta il testo.",
+  `{ "goalId"?: string, "name": string, "targetAmount"?: number, "targetDateIso"?: "YYYY-MM-DD", "priority": "alta" | "media" | "bassa", "monthlyContribution"?: number, "recommendedAllocation"?: { ${ASSET_CLASS_SEQUENCE.map((cls) => `"${cls}"?: number`).join(', ')} }, "assignments"?: [ { "assetName": string, "percentage": number } ], "notes"?: string }`,
+  "Vincoli: `name` e `priority` sono obbligatori; gli importi sono in euro, senza separatori né simbolo di valuta; le percentuali di `recommendedAllocation` devono sommare esattamente a 100. Per MODIFICARE un obiettivo esistente metti in `goalId` l'id che il blocco OBIETTIVI stampa accanto al suo nome e ricopia nei campi i valori nuovi E quelli che restano (il blocco sostituisce l'obiettivo intero); senza `goalId` la card crea un obiettivo nuovo. `assignments` lega strumenti POSSEDUTI al nome ESATTO del blocco STRUMENTI, ciascuno con la quota in percento dello strumento (la quota libera di ogni strumento è scritta nella sua riga: non superarla); su una modifica sostituisce le quote dell'obiettivo, se lo ometti restano quelle di oggi. Un solo blocco per risposta. Non emetterlo mai se l'utente non ha chiesto di creare o cambiare un obiettivo: per discuterne basta il testo.",
   '',
   '# Casi limite',
   "- Periodo ancora in corso (mese/anno corrente, YTD): i dati sono parziali per definizione — evidenzia le tendenze osservate finora, non presentarle come il risultato finale del periodo",
@@ -808,7 +1026,8 @@ export function buildChatPrompt(
   preferences: AssistantPreferences,
   monthLabel: string | undefined,
   memoryItems: AssistantMemoryItem[] = [],
-  contextBundle?: AssistantMonthContextBundle | null
+  contextBundle?: AssistantMonthContextBundle | null,
+  todayContext?: AssistantTodayContext | null
 ): AssistantPromptParts {
   const memoryBlock = preferences.memoryEnabled
     ? formatMemoryForPrompt(memoryItems)
@@ -827,6 +1046,13 @@ export function buildChatPrompt(
       'Di seguito trovi i dati finanziari del periodo selezionato. Usali per rispondere alla domanda dell\'utente — non è richiesta una struttura fissa.',
       '',
       numericBlock,
+    );
+  } else if (todayContext) {
+    // No period, but the portfolio of today (2026-10-20): instruments, allocation, registers, goals.
+    userSections.push(
+      "Di seguito trovi il portafoglio di oggi dell'utente, senza un periodo selezionato. Usalo per rispondere alla domanda — non è richiesta una struttura fissa.",
+      '',
+      formatTodayContextForPrompt(todayContext),
     );
   } else {
     // No month selected: remind Claude it has no portfolio numbers

@@ -6,8 +6,8 @@ import {
   GoalAssetAssignment,
   InvestmentGoal,
 } from '@/types/goals';
-import { calculateAssetValue } from './assetService';
-import { assignmentFraction, serializeAssignmentForFirestore, serializeGoalForFirestore } from '@/lib/utils/goalMath';
+import { assignmentFraction, goalAssetValueOf, serializeAssignmentForFirestore, serializeGoalForFirestore } from '@/lib/utils/goalMath';
+import { isGoalAsset } from '@/lib/utils/goalAssetValue';
 import { invalidateDashboardOverviewSummary } from './dashboardOverviewInvalidation';
 
 // Goal-Based Investing Service
@@ -106,7 +106,8 @@ export function getUnassignedValue(
 ): number {
   let unassigned = 0;
   for (const asset of assets) {
-    const assetValue = calculateAssetValue(asset);
+    if (!isGoalAsset(asset)) continue;
+    const assetValue = goalAssetValueOf(asset, assets);
     const unassignedFraction = Math.max(0, 1 - assignedFractionOf(asset, assignments));
     unassigned += assetValue * unassignedFraction;
   }

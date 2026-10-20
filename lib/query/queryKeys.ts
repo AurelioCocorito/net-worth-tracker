@@ -25,6 +25,12 @@ export const queryKeys = {
     all: (userId: string) => ['goal-data', userId] as const,
   },
 
+  // The Consulente's last run (allocationAdvice/{uid}, 2026-10-20): the report, the proposal
+  // and the date to review it by. Not persisted to IndexedDB: a run is read on the page.
+  allocationAdvice: {
+    all: (userId: string) => ['allocation-advice', userId] as const,
+  },
+
   // Dividend receipts — the owner's dividend records as receipts (Rendimenti's attribution).
   dividendReceipts: {
     all: (userId: string) => ['dividend-receipts', userId] as const,

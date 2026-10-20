@@ -257,6 +257,8 @@ export interface AssistantMonthContextBundle {
     goalDrivenAllocationEnabled: boolean;
     // EXHAUSTIVE: every configured goal, never a top-N.
     items: {
+      // The goal's id (2026-10-20): what a ```goal-proposal block names in `goalId` to MODIFY it.
+      id: string;
       name: string;
       targetAmount?: number;
       targetDateIso?: string;
@@ -273,8 +275,18 @@ export interface AssistantMonthContextBundle {
       requiredMonthlyContribution?: number;
       projectedValueAtDeadline?: number;
       assumedAnnualReturn?: number; // % nominal, derived from recommendedAllocation
+      // What stands behind the goal (2026-10-20): each assigned instrument with its quota as the
+      // user wrote it («50%», «273 quote») and the euro that quota is worth today. The model
+      // reads what a goal is made of, never only its total.
+      assignments: { assetName: string; ticker?: string; quota: string; valueEur: number }[];
     }[];
   } | null;
+  // The portfolio as a whole, today (2026-10-20; lib/utils/assistantPortfolioContext.ts): every
+  // instrument with its role, PMC and owner; the allocation on the Allocazione page's base;
+  // the trade ledger; the dividend registry and the bonds' coupons; the pension funds and their
+  // contributions; the loans; the household. REQUIRED, like `goals`: every builder fills it
+  // from the same documents, and the prompt prints each list whole or says what it cut.
+  portfolio: import('@/lib/utils/assistantPortfolioContext').AssistantPortfolioContext;
   // Full category/subcategory taxonomy configured by the user (Settings → Categorie),
   // independent of the analysis period. Lets Claude suggest where to file a new
   // expense or whether a new category is warranted, instead of only seeing the
@@ -294,8 +306,19 @@ export interface AssistantMonthContextBundle {
   };
 }
 
+/**
+ * What a free question with NO period still receives (2026-10-20): the portfolio of today, the
+ * goals and the targets they are measured against — the slice of the bundle that does not depend
+ * on a period. Until then «Nessuno» sent nothing at all, and the assistant answered «non vedo il
+ * blocco STRUMENTI» to «quali strumenti ho liberi da obiettivi?» (the owner's run).
+ */
+export type AssistantTodayContext = Pick<
+  AssistantMonthContextBundle,
+  'portfolio' | 'goals' | 'targetAllocation' | 'targetAllocationSource'
+>;
+
 // Context type for chat mode. Determines which period bundle is built server-side.
-// 'none' → no numeric context; 'month' → monthly bundle; 'year/ytd/history' → respective builders.
+// 'none' → the portfolio of today only (AssistantTodayContext); 'month' → monthly bundle; 'year/ytd/history' → respective builders.
 export type AssistantChatContextType = 'none' | 'month' | 'year' | 'ytd' | 'history';
 
 export interface AssistantStreamRequest {

@@ -28,16 +28,26 @@ import {
   buildAssistantYearContext,
   buildAssistantYtdContext,
   buildAssistantHistoryContext,
+  buildAssistantTodayContext,
 } from '@/lib/services/assistantMonthContextService';
 import {
   AssistantMemoryItem,
   AssistantMonthContextBundle,
   AssistantStreamEvent,
+  AssistantTodayContext,
   AssistantStreamRequest,
 } from '@/types/assistant';
 import { evaluateActiveGoals } from '@/lib/server/assistant/goalEvaluationService';
 import { adminDb } from '@/lib/firebase/admin';
 import { checkRateLimit } from '@/lib/server/rateLimit';
+
+/**
+ * The platform's ceiling on this function, in seconds. The chat answers with up to 64 000
+ * output tokens (anthropicStream.ts) and Sonnet 5.5 reasons before it writes, so a long
+ * consultative answer can run minutes: Vercel's default duration would cut the stream before
+ * `stop_reason` arrives and the reader would see a broken answer, not TRUNCATION_NOTICE.
+ */
+export const maxDuration = 300;
 
 const STREAM_RATE_LIMIT_MAX = 30;
 const STREAM_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -203,6 +213,7 @@ export async function POST(request: NextRequest) {
     const includeDummy = preferences.includeDummySnapshots ?? false;
 
     let contextBundle: AssistantMonthContextBundle | null = null;
+    let todayContext: AssistantTodayContext | null = null;
     if (body.mode === 'year_analysis' && body.year) {
       contextBundle = await buildAssistantYearContext(body.userId, body.year, includeDummy);
     } else if (body.mode === 'ytd_analysis') {
@@ -222,6 +233,11 @@ export async function POST(request: NextRequest) {
       } else if (!body.chatContext && body.month) {
         // Backwards-compat: old clients that send month without chatContext
         contextBundle = await buildAssistantMonthContext(body.userId, body.month, includeDummy);
+      } else {
+        // No context chosen («Nessuno»): the portfolio of today still goes (2026-10-20) —
+        // instruments, allocation, registers, goals do not depend on a period. No 'context'
+        // SSE event: the page's tiles are a period's, and «Patrimonio oggi» already stands in.
+        todayContext = await buildAssistantTodayContext(body.userId);
       }
     } else if (body.month) {
       // month_analysis: always use month context
@@ -296,6 +312,7 @@ export async function POST(request: NextRequest) {
             mode: body.mode,
             prompt: body.prompt.trim(),
             contextBundle,
+            todayContext,
             month: body.month ?? null,
             preferences,
             memoryItems: activeMemoryItems,

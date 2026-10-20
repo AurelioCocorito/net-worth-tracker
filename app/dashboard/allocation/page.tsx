@@ -47,7 +47,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
@@ -57,6 +57,8 @@ import { useSettings } from '@/lib/hooks/useSettings';
 import { useGoalData } from '@/lib/hooks/useGoalData';
 import { useFreshness } from '@/lib/hooks/useFreshness';
 import { useInstrumentProfilesState } from '@/lib/hooks/usePortfolioExposure';
+import { useAllocationAdvice } from '@/lib/hooks/useAllocationAdvice';
+import { describeReviewBy } from '@/lib/utils/allocationAdviceNarrative';
 import { useMobileSections } from '@/lib/hooks/useMobileSections';
 import { useTabletComposition, useTabletStage } from '@/lib/hooks/useTabletComposition';
 import {
@@ -174,6 +176,10 @@ export default function AllocationPage() {
   const assetsQuery = useAssets(ownerId);
   const settingsQuery = useSettings(ownerId);
   const goalsQuery = useGoalData(ownerId);
+  // The Consulente's last run, for the «rivedi entro» line and its button (2026-10-20): read
+  // beside the page's data, never a reason for the page to wait or fail.
+  const adviceQuery = useAllocationAdvice(ownerId);
+  const showConsulente = process.env.NEXT_PUBLIC_ASSISTANT_AI_ENABLED !== 'false';
   const { data: assetsData, isLoading: assetsLoading, isError: assetsError } = assetsQuery;
   const { data: settings, isLoading: settingsLoading, isError: settingsError } = settingsQuery;
   const { data: goalData, isLoading: goalsLoading, isError: goalsError } = goalsQuery;
@@ -438,6 +444,9 @@ export default function AllocationPage() {
     marketValue: bandedAllocation?.marketValue ?? 0,
     classCount,
     targetSource: usingGoalTargets ? 'goals' : 'settings',
+    // The Consulente's «rivedi entro» once its plan was applied (2026-10-20); a failed read of
+    // that document drops the clause, never the header.
+    reviewBy: describeReviewBy(adviceQuery.data),
   });
 
   const header = (
@@ -447,12 +456,22 @@ export default function AllocationPage() {
       description={headerDescription}
       freshness={freshness}
       actions={
-        <Button asChild variant="outline" className="hidden h-8 gap-1.5 px-2.5 text-xs desktop:inline-flex">
-          <Link href="/dashboard/settings">
-            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-            Modifica target
-          </Link>
-        </Button>
+        <div className="hidden items-center gap-2 desktop:flex">
+          {showConsulente && (
+            <Button asChild variant="outline" className="h-8 gap-1.5 px-2.5 text-xs">
+              <Link href="/dashboard/allocation/consulente">
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                Consulente
+              </Link>
+            </Button>
+          )}
+          <Button asChild variant="outline" className="h-8 gap-1.5 px-2.5 text-xs">
+            <Link href="/dashboard/settings">
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+              Modifica target
+            </Link>
+          </Button>
+        </div>
       }
     />
   );
@@ -461,12 +480,22 @@ export default function AllocationPage() {
   // what you do once you have read the plan, and above the grid it outranked reading it. It is
   // `asChild` so the DOM is one <a>, never the <a><button> pair that costs two Tab stops.
   const mobileAction = (
-    <Button asChild variant="outline" className="h-11 w-full gap-1.5 desktop:hidden">
-      <Link href="/dashboard/settings">
-        <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-        Modifica target
-      </Link>
-    </Button>
+    <div className="flex flex-col gap-2 desktop:hidden">
+      {showConsulente && (
+        <Button asChild variant="outline" className="h-11 w-full gap-1.5">
+          <Link href="/dashboard/allocation/consulente">
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Consulente
+          </Link>
+        </Button>
+      )}
+      <Button asChild variant="outline" className="h-11 w-full gap-1.5">
+        <Link href="/dashboard/settings">
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+          Modifica target
+        </Link>
+      </Button>
+    </div>
   );
 
   // ─── Loading and empty states ───────────────────────────────────────────────

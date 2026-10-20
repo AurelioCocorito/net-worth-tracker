@@ -52,7 +52,16 @@ const recommendedAllocationSchema = z
  * (`InvestmentGoal.targetDate`) and read back with `new Date(...)` by the trajectory
  * math, so parsing it into a Date here would only invite a timezone round-trip.
  */
+/** A quota the model proposes: the instrument by its EXACT name from the STRUMENTI block, a percent of it. */
+export const goalProposalAssignmentSchema = z.object({
+  assetName: z.string().trim().min(1).max(160),
+  percentage: z.number().finite().positive().max(100),
+});
+
 export const goalProposalSchema = z.object({
+  // Set when the proposal MODIFIES an existing goal (2026-10-20): the id the OBIETTIVI block
+  // prints. Absent, the card creates a goal.
+  goalId: z.string().trim().min(1).max(80).optional(),
   name: z.string().trim().min(1).max(80),
   targetAmount: z.number().finite().positive().optional(),
   targetDateIso: z
@@ -64,9 +73,26 @@ export const goalProposalSchema = z.object({
   monthlyContribution: z.number().finite().nonnegative().optional(),
   recommendedAllocation: recommendedAllocationSchema.optional(),
   notes: z.string().max(500).optional(),
+  // The instruments behind the goal, by name; on an update they REPLACE the goal's quotas.
+  // Absent on an update = the quotas stay as they are.
+  assignments: z.array(goalProposalAssignmentSchema).max(20).optional(),
 });
 
 export type GoalProposal = z.infer<typeof goalProposalSchema>;
+export type GoalProposalAssignment = z.infer<typeof goalProposalAssignmentSchema>;
+
+/**
+ * A quota as the route writes it — resolved to an asset id by the card, which holds the assets;
+ * the server never guesses a name. Percent of the asset, the only form a proposal carries.
+ */
+export const goalWriteAssignmentSchema = z.object({
+  assetId: z.string().trim().min(1).max(80),
+  percentage: z.number().finite().positive().max(100),
+});
+
+export const goalWriteAssignmentsSchema = z.array(goalWriteAssignmentSchema).max(20);
+
+export type GoalWriteAssignment = z.infer<typeof goalWriteAssignmentSchema>;
 
 /**
  * Parses the body of a ```goal-proposal block.

@@ -17,7 +17,7 @@ import {
   DashboardOverviewTopAsset,
 } from '@/types/dashboardOverview';
 import { calculateAssetValue } from '@/lib/services/assetService';
-import { assignmentFraction } from '@/lib/utils/goalMath';
+import { assignmentFraction, goalAssetValueOf } from '@/lib/utils/goalMath';
 import { getAssetDisplayTicker } from '@/lib/utils/assetDisplay';
 import { costBasisPerUnitEur } from '@/lib/utils/costBasisEur';
 import { ASSET_CLASS_LABELS } from '@/lib/utils/allocationUtils';
@@ -356,7 +356,8 @@ export function rankGoalProgress(
         if (assignment.goalId !== goal.id) continue;
         const asset = assetMap.get(assignment.assetId);
         if (!asset) continue; // Skip orphaned assignments (asset deleted from portfolio)
-        currentValue += calculateAssetValue(asset) * assignmentFraction(assignment, asset);
+        // A property net of its loans, as every goal reader values it (lib/utils/goalAssetValue.ts).
+        currentValue += goalAssetValueOf(asset, assets) * assignmentFraction(assignment, asset);
       }
       const progressPercentage = (currentValue / goal.targetAmount!) * 100;
       return { goal, currentValue, progressPercentage };

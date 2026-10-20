@@ -345,41 +345,28 @@ the rules permitting the writes, real `Timestamp` values surviving `removeUndefi
   filter (both header copies, `toHaveText(['', ''])`). The sign-out test reads the record back through IndexedDB
   itself (`indexedDB.open` + `get`), the way «assert on data» means here.
 - **Prove the test can fail before trusting it** (the 1440px assertions were re-run at 1200px, where they must fail).
-- **The full run closing the DESIGN.md write-up of the composition** (2026-10-16, no app code touched, 290 tests incl. 6 setups, as the landscape tablet's retirement): 288 green
-  and one skipped in 12,1 min, one red and green ×3 alone right after (`--repeat-each=3`, both tablet projects, 31 green):
-  `cashflow.tablet.spec.ts` «the tabs are 44×44…» [tablet] counted 0 visible tabs 1,3 s after the verdict showed — the tab bar
-  not yet painted when `open()` returned on the verdict and THE tile (first time; if it returns, `open()` waits for the
-  tablist too).
-- **The full run retiring the landscape tablet's spec** (2026-10-16, the reference machine, 290 tests incl. 6 setups, +2: `patrimonio.tablet.spec.ts`
-  in the two tablet projects; the landscape stage rewrote both tablet specs and `e2e/tabletLayout.ts`): 288 green in 12,0 min,
-  one skipped (the 768 rule in landscape) and one red — «a cell with a six-figure variation…» again, the second row 1,3 px apart:
-  it returned, so the test now polls until the two cells share their line before reading the boxes (green ×3 alone). A second full run had one red, Patrimonio's «remembered across a reload» (the disposed response, closed below); the final one, on the fixed fixture, 289 green and one skipped in 12,0 min, no red. The 11
-  red of the first run of the day were the pill's selector: the landscape `TabletRail` is the same landmark «Navigazione
-  principale» and comes first in the DOM, so every tool that means THE PILL reads `nav[data-nav="pill"]` (the census included).
-- **The full run implementing the landscape stage** (2026-10-16, the reference machine, 288 tests incl. 6 setups, +24: the two tablet
-  specs in two projects): 286 green in 12,3 min, two red and both green ×3 alone right after (`--repeat-each=3`):
-  `mobile-composition.performance.degraded.mobile.spec.ts` «Analizza con AI … a thumb's target» read 43,999996 px against
-  `>= 44` — the sub-pixel shape of the pill's «Dividendi» of 2026-10-11, so the assertion now takes half a pixel of tolerance,
-  as that entry said; and `overview.mobile.spec.ts` «a cell with a six-figure variation…», the two cells of the strip's second
-  row 1,6 px apart where they share a line (first time; if it returns, read the boxes after the count-up settles).
-- **The Intestatari «Valore | Carico» switch** (2026-10-18, the reference machine, 7 specs: `mobile-composition.patrimonio` ×2, `overview` ×3,
-  `assets.rows`, `patrimonio.tablet`): 38 green + 1 skip in 2,9 min, one red and green alone right after: `mobile-composition.patrimonio.mobile.spec.ts`
-  «the DOM order is the vertical order…» ended while `patchOverview`'s route callback still had the overview refetch in flight
-  (`route.fetch: Test ended` at `overviewFixture.ts:73` — a harness race of a 2,6 s test, not a page fact; if it returns, end
-  that test with `page.unrouteAll({ behavior: 'ignoreErrors' })`). The new 1440 case of `mobile-composition.patrimonio.spec.ts`
-  seen red with the `localStorage` write taken out of `IntestatariTile` (the reload came back on «Valore»).
-- **The full run retiring the Allocazione, Previdenza and FIRE composition** (2026-10-16, the reference machine, 264 tests incl. 6 setups, +2: the failed «Aggiorna» of
-  the Esposizione and the Calcolatore's `order-*` probe): 264 green in 11,4 min, no flake; before it, seven E2E falsifications
-  seen red one at a time (the headers of `allocation.mobile`, `fire.mobile`, `coast.mobile`, `allocation`, `pension`, `fire`,
-  `coast` `.spec.ts`), `useCompactLayout` forced true among them — 16 red across the four 1440 specs.
-- **The full run closing the Allocazione, Previdenza and FIRE composition** (2026-10-15, the reference machine, 262 tests incl. 6 setups): 259 green in 9,9 min, three red
-  and all three green alone and in their own spec: `mobile-composition.analisi.mobile.spec.ts` «a category row opens the
-  Scheda…» (`#analisi-scheda-trigger` counted 1 where 0 was expected — the Scheda's row trigger survived the Escape in
-  that run), and the two «remembered across a reload» of `mobile-composition.patrimonio.mobile.spec.ts` and
-  `overview.mobile.spec.ts` on `apiResponse.json: Response has been disposed` — the response a probe holds across
-  `page.reload()` disposed before `.json()`, the shape of the `holdChunks` entry below. None of the three pages
-  was composed that day. **Closed on 2026-10-16** (it returned on Patrimonio in the final run retiring the landscape tablet's spec): `patchOverview` reads the body in a `try` and lets a disposed response go with `route.continue()` — the reload's own request is patched — green ×5 on both tests. The 15 new cases (`allocation`, `pension` and `fire` `.mobile.spec.ts` + one at 1440 in each of the four pages' desktop specs; `coast.mobile.spec.ts` only adapted — the commit and the series' index (`git log -- doc/mobile/`) said 16 in eight specs, corrected in the retirement of 2026-10-16) were green
-  in the suite and alone, twelve falsifications seen red one at a time (their headers; «nine» until 2026-10-16).
+- **The full run and its known flakes** (the record of each run is in its commit message since 2026-10-19; before
+  that, in `git log -- doc/guide/e2e-emulatori.md`). A full run is ~290 tests incl. 6 setups in ~12 min on the reference
+  machine (2026-10-16). Each flake below was red once or twice in a full run and green alone right after
+  (`--repeat-each=3`); a second red of the same test is a pattern, not noise:
+  - `cashflow.tablet.spec.ts` «the tabs are 44×44…» [tablet] (2026-10-16): 0 visible tabs 1,3 s after the verdict — the tab
+    bar not yet painted when `open()` returned on the verdict and THE tile. If it returns, `open()` waits for the tablist too.
+  - `overview.mobile.spec.ts` «a cell with a six-figure variation…» (2026-10-16, twice): the strip's second row 1,3–1,6 px
+    apart where the cells share a line. Fixed: the test polls until the two cells share their line before reading the boxes.
+  - The «remembered across a reload» tests of `mobile-composition.patrimonio.mobile.spec.ts` and `overview.mobile.spec.ts`
+    (2026-10-15/16): `apiResponse.json: Response has been disposed` — the response a probe holds across `page.reload()`,
+    the shape of the `holdChunks` entry below. Closed on 2026-10-16: `patchOverview` reads the body in a `try` and lets a
+    disposed response go with `route.continue()` (green ×5 on both).
+  - `mobile-composition.performance.degraded.mobile.spec.ts` «Analizza con AI … a thumb's target» (2026-10-16): 43,999996 px
+    against `>= 44`, the sub-pixel shape of the pill's «Dividendi» below; the assertion takes half a pixel of tolerance.
+  - The pill's selector (2026-10-16): the landscape `TabletRail` is the same landmark «Navigazione principale» and comes
+    first in the DOM, so every tool that means THE PILL reads `nav[data-nav="pill"]` (the census included).
+  - `mobile-composition.analisi.mobile.spec.ts` «a category row opens the Scheda…» (2026-10-15): `#analisi-scheda-trigger`
+    counted 1 where 0 was expected — the row's trigger survived the Escape in that run; cause not traced.
+  - `mobile-composition.patrimonio.mobile.spec.ts` «the DOM order is the vertical order…» (2026-10-18): the test ended while
+    `patchOverview`'s route callback still had the overview refetch in flight (`route.fetch: Test ended` at
+    `overviewFixture.ts:73`) — a harness race of a 2,6 s test, not a page fact. If it returns, end that test with
+    `page.unrouteAll({ behavior: 'ignoreErrors' })`.
 - **`e2e/cashflow.transfer-fee.spec.ts` was red ONCE in a full run** (2026-10-07, Windows machine, the second full run
   of PR #434, which did not touch transfers): green alone and in the suite's order, cause not traced. A second red
   there is a pattern, not noise — note the run before re-running it. **`e2e/cashflow.mobile.spec.ts` › «every tab of the

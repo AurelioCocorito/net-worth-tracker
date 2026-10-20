@@ -5,7 +5,7 @@ import {
   GoalBasedInvestingData,
   InvestmentGoal,
 } from '@/types/goals';
-import { pickNextGoalColor, serializeGoalForFirestore } from '@/lib/utils/goalMath';
+import { pickNextGoalColor, serializeAssignmentForFirestore, serializeGoalForFirestore } from '@/lib/utils/goalMath';
 import { invalidateDashboardOverviewSummaryServer } from '@/lib/services/dashboardOverviewInvalidation.server';
 
 /**
@@ -63,7 +63,9 @@ export async function getGoalDataAdmin(
  */
 export async function appendInvestmentGoal(
   userId: string,
-  goal: Omit<InvestmentGoal, 'color'>
+  goal: Omit<InvestmentGoal, 'color'>,
+  // The quotas the proposal names (2026-10-20), percent of the asset; appended beside the goal.
+  assignments: Omit<GoalAssetAssignment, 'goalId'>[] = []
 ): Promise<InvestmentGoal> {
   const docRef = adminDb.collection(GOALS_COLLECTION).doc(userId);
 
@@ -74,10 +76,11 @@ export async function appendInvestmentGoal(
     const storedAssignments = (data?.assignments ?? []) as GoalAssetAssignment[];
 
     const created: InvestmentGoal = { ...goal, color: pickNextGoalColor(storedGoals) };
+    const createdAssignments = assignments.map((assignment) => ({ ...assignment, goalId: created.id }) as GoalAssetAssignment);
 
     tx.set(docRef, {
       goals: [...storedGoals, serializeGoalForFirestore(created)],
-      assignments: storedAssignments,
+      assignments: [...storedAssignments, ...createdAssignments.map(serializeAssignmentForFirestore)],
       userId,
       updatedAt: new Date(),
     });
@@ -87,4 +90,61 @@ export async function appendInvestmentGoal(
   // The Panoramica's Obiettivo tile reads this document.
   await invalidateDashboardOverviewSummaryServer(userId, 'goal_created');
   return stored;
+}
+
+/** The goal an update names is not in the document. */
+export class GoalNotFoundError extends Error {
+  constructor(goalId: string) {
+    super(`Obiettivo ${goalId} non trovato`);
+    this.name = 'GoalNotFoundError';
+  }
+}
+
+/**
+ * Rewrite one goal in place inside a transaction (the assistant's «Modifica» card, 2026-10-20):
+ * the fields the proposal carries replace the goal's, its id, colour and creation date stay;
+ * `assignments`, when given, REPLACE that goal's quotas (the other goals' survive the rewrite);
+ * undefined leaves them as they are. The same whole-document rewrite as the append, for the
+ * same reason: the FIRE page saves the same document.
+ */
+export async function updateInvestmentGoal(
+  userId: string,
+  goalId: string,
+  fields: Omit<InvestmentGoal, 'id' | 'color' | 'createdAt' | 'updatedAt'>,
+  assignments: Omit<GoalAssetAssignment, 'goalId'>[] | undefined
+): Promise<InvestmentGoal> {
+  const docRef = adminDb.collection(GOALS_COLLECTION).doc(userId);
+
+  const updated = await adminDb.runTransaction(async (tx) => {
+    const snap = await tx.get(docRef);
+    const data = snap.exists ? snap.data() : undefined;
+    const storedGoals = (data?.goals ?? []) as InvestmentGoal[];
+    const storedAssignments = (data?.assignments ?? []) as GoalAssetAssignment[];
+    const current = storedGoals.find((goal) => goal.id === goalId);
+    if (!current) throw new GoalNotFoundError(goalId);
+
+    // The optional fields are REPLACED, not merged: a proposal that drops the deadline removes it.
+    const next: InvestmentGoal = {
+      id: current.id,
+      color: current.color,
+      createdAt: current.createdAt,
+      updatedAt: new Date(),
+      ...fields,
+    };
+    const nextAssignments =
+      assignments === undefined
+        ? storedAssignments
+        : [...storedAssignments.filter((assignment) => assignment.goalId !== goalId), ...assignments.map((assignment) => ({ ...assignment, goalId }) as GoalAssetAssignment)];
+
+    tx.set(docRef, {
+      goals: storedGoals.map((goal) => serializeGoalForFirestore(goal.id === goalId ? next : goal)),
+      assignments: nextAssignments.map(serializeAssignmentForFirestore),
+      userId,
+      updatedAt: new Date(),
+    });
+
+    return next;
+  });
+  await invalidateDashboardOverviewSummaryServer(userId, 'goal_updated');
+  return updated;
 }

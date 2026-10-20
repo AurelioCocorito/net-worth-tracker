@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 /**
  * The width of an element, kept current by a `ResizeObserver` — for a choice that belongs to the
  * box something is drawn in, not to the viewport (since 2026-10-16: a tile that can be a row of the
- * landscape index is a phone's width at a tablet's viewport; AGENTS.md § Tailwind Breakpoints).
+ * landscape index is a phone's width at a tablet's viewport; doc/guide/shell.md § The landscape stage).
  * `null` until the element is measured: the caller falls back to its viewport guess for that frame.
  */
 export function useElementWidth(): [ref: (node: HTMLElement | null) => void, width: number | null] {

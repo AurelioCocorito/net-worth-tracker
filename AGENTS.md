@@ -84,37 +84,7 @@ holds it): how it was learned is `git log`'s.
   a container query on a property that also has a `desktop:` class (columns, spans, grid rows, `display`) carries
   `max-desktop:` — the landscape stage's `max-desktop:@[880px]:contents` on a grid that is `desktop:grid-cols-12` —, or it
   wins at 1440 (the cascade, not the width, decides); one inside a tile that holds at every width on purpose
-  (`@[760px]:table-cell`) does not. **The landscape stage** (2026-10-16; DESIGN.md → The First-Screen and Closed-Row Rules): the tablet composition's
-  classes live in `lib/utils/tabletComposition.ts` alone, as literals (`__tests__/tabletComposition.test.ts` holds the rules
-  over its constants and the nineteen composed grids: the verdict's box `VERDICT_CELL_CLASS`, the 768 grid
-  `COMPACT_GRID_WRAPPER_CLASS`/`COMPACT_GRID_CLASS` with `WIDE_CELL_CLASS` placed by `layoutTabletSections`, «Il resto»
-  `REST_CELL_CLASS`, the scope aside yielding to the answer `ASIDE_YIELDS_TO_ANSWER_CLASS`, the measured heights through
-  `stageCustomProperties` and `leftStackSticks`). A page wraps its verdict and its grid in a NEW `div`
-  (`STAGE_WRAPPER_CLASS` = `@container`; never `PageContainer`, `container-type` would anchor a `fixed` descendant) around
-  `STAGE_CLASS`, with `useTabletStage()`'s ref; the verdict's box `data-stage="verdict"`, THE tile's cell
-  `data-stage="lead"`, «Il resto» and the rows inside ONE `INDEX_CLASS` box (a box of several rows inside it,
-  `INDEX_GROUP_CLASS`). Below a content box of 880px nothing moves (the wrapper and the grid are what they were, the index
-  `contents`); from it, below 1440, the grid turns `contents` and the stage is a `1fr | 360px` grid — the answer on the left,
-  sticky when it fits the screen (`data-stick`, measured), the index on the right at least as tall (`--left-h`); the heights
-  CSS cannot know are measured by the hook into custom properties. A grid composed in some states only takes THE tile's
-  cell through `leadCellClass(composed)` and the rest-less states `PLAIN_GRID_CLASS`, never a bare `LEAD_CELL_CLASS` — on a
-  plain grid its landscape classes still answer the stage's container and leave the right column empty (Obiettivi with no
-  goal, 2026-10-16). A page hands `useTabletComposition` the rows it RENDERS, in DOM order (768's pairing). The closed
-  rows ANSWER in the index (2026-10-16, DESIGN.md → The Closed-Row Rule): ONE pure `describe*ClosedAnswers` per page in
-  its narrative/summary module, given by context (`RowAnswers`, `components/ui/row-answers.tsx`) and read by `TileRowShell`
-  through `useRowAnswer` — never a prop through the
-  tiles, never on an open or failed row, `null` to keep the scope aside; each guide's § Composizione mobile lists them. **A tile that
-  can be a row lays out its inside by its CONTAINER, never by the viewport** (2026-10-16): in landscape every row opens in a
-  360px index, a phone's width at a tablet's viewport — a `tablet:` inside such a tile draws the wide layout in 320px
-  (Mutuo's KPIs, Coast's Afflussi timeline, Storico's Composizione legend: `@container` + `@[480|560px]:`; Analisi's Flusso
-  picks bar-and-rows by its cell width, `useElementWidth` < 608). **And a container on a row tile's own `section` answers
-  the page's queries too**: it becomes the nearest container of the trigger, so the index's `@[880px]:` answer measured the
-  360px row and stayed hidden (`BaseDiCalcoloTile`, 2026-10-16) — put `@container` on an inner box. Checked by opening every
-  row in landscape and at 768 on every surface and measuring each tile's right edge, not only `main`'s. **The SHELL keys
-  on a named viewport variant, the content on its container**: `tablet-landscape:` (`@custom-variant` in `app/globals.css`,
-  `orientation: landscape` and 1000–1439px) is for the shell only — the icon rail, the one-row header, the tab bars with
-  labels (doc/guide/shell.md § Navigation) — because the shell has no container; it is declared after the core variants so it
-  is emitted after `max-desktop:landscape:` and beats it on the same property. A composed page's content never uses it.
+  (`@[760px]:table-cell`) does not. **The landscape stage**, the closed rows that answer in its index and the row tiles that lay out by their container (2026-10-16): doc/guide/shell.md § The landscape stage — read it before touching a composed page's grid, a row tile or a `tablet-landscape:` class.
 - **A grid item stretches to the row height, a normal-flow child does not inherit it without its own `h-full`**: both
   the grid-item wrapper and the card `div`.
 - **`sticky`, three rules**: it travels only inside its containing block — put it on the box whose PARENT is the tall
@@ -470,6 +440,14 @@ file used to carry.
 - Esposizione (2026-09-28): the engine runs in the BROWSER on the page's assets; the route answers only Yahoo's profiles from ONE cache per ticker, owner-scoped (`assertCanAccessAccount`), and nothing of the user's goes in a profile. Every euro of the Allocazione base has ONE of four destinies and the list adds up to 100 on screen.
 - Il resto — the mobile composition (§ Composizione mobile), THE ASYMMETRY of the two plans and the band-independent score, the dormant class (`isDormantClass`, `activeClassGaps` and never the raw `summarizeClassGaps`), `collapseRepeatedLevels` and the node's own `isInstrument`, the leverage engine and its tree, what Titoli, Settori and Emittenti weigh (`hasMarketPrice` + a ticker), the per-ticker cache and Yahoo's two modules, the Bull's formula, the six label maps, the action colours' measured lightness band and the `lab()` trap that made the old clamp dead code, the verdict-over-tiles rules — in `doc/guide/allocazione.md`.
 
+### Allocazione › Consulente → `doc/guide/consulente.md`
+- A guided path (one question per screen, the draft on the browser) whose answers and the whole portfolio go to THREE model calls in series — the strategy on Opus 5.5, the instruments on Sonnet 5.5 with web search, the review on Opus 5.5 — persisted after every stage in `allocationAdvice/{uid}` (Admin writes only, `rules: write false`); ONE request per stage (`runAllocationAdviceStage`, `maxDuration = 300`: Vercel Hobby's ceiling, a whole run is six to seven minutes), chained by the client, a failed stage retried from itself.
+- STRUCTURE IS NEVER PARSED FROM PROSE: ONE fenced ```allocation-proposal block validated by the zod schema of `lib/utils/allocationAdviceProposal.ts` (classes without a fixed amount sum to 100, sleeves sum to 100 or are empty, names copied EXACTLY from the STRUMENTI block); a malformed strategy fails the run, a malformed review keeps the strategy's proposal.
+- «Applica» shows its plans before writing, one checkbox each (`allocationAdviceApply.ts`): the targets through `setSettings`, a role through `updateAssetAllocationRole` (the ONE field; the other asset writers delete absent fields), the goals as a whole document through `saveGoalData` with over-100% quotas reduced and SAID; the «applied» route records it; the review date lives in the document and reaches the Allocazione header through `describeReviewBy`.
+- «Chiedi una modifica» on the report is a `revise` request (`runRevise`, `buildRevisionPrompt`): the review again with the previous report and every request so far, `document.revisions` appended, the status back to `ready`; never a new strategy or search.
+- A probe never runs the Consulente: the E2E spec walks the screens and stops at «Avvia la ricerca».
+- Il resto — the reducer and its sub-screens, the stale run, the demo gate, the prompts' contract — in `doc/guide/consulente.md`.
+
 ### Previdenza · Fondo Pensione → `doc/guide/previdenza.md`
 - `pensionFund` is an `AssetType`, never an `AssetClass`, never a ledger type; its value is statement-driven, held in `quantity` at price 1 (`assertFundValueLivesInQuantity`).
 - «Aggiorna valore» (`updatePensionFundValue`, 2026-09-13) overwrites the asset only, never a contribution; the value's age is ONE rule, `isPensionValueStale` — never re-derive it in a component.
@@ -482,15 +460,17 @@ file used to carry.
 - `respectPensionLockInFire` governs the WHOLE FIRE page: each tab subtracts the locked total AND passes the inflows (subtraction alone reintroduces "sottratto per sempre"). Pension unlock is ONE rule in `pensionUnlock.ts` (explicit `now`); the bridge model reuses the Coast walk, never a second formula.
 - **The requirement is ONE rule, `resolveFireRequirement`** (2026-09-24): the walk's `*FireNumber` rows ARE it, the fan's targets are those rows, What If and Coast read the same inputs. **Year 0 is a year in both walks** (2026-09-22): a target already cleared today is `yearsToFIRE = 0`, rendered as a word («già raggiunto»), never «tra 1 anno».
 - The Ventaglio engine mirrors the deterministic walk BY CONSTRUCTION — at zero volatility every path collapses onto the base scenario (the coherence test pins that WITHOUT inflows) — and **the fan is seeded** (2026-09-24, `createSeededRandom`: every lever comparison runs on the same shocks). What If = perturbation + diff, no new projection math; `deriveMonteCarloAllocation` is the ONE allocation→4-class normalizer.
-- Goal math the server needs lives in `goalMath.ts` (imports `calculateAssetValue` directly); `serializeGoalForFirestore` IS the persistence allowlist (`serializeAssignmentForFirestore` the quotas'); the goal document is rewritten WHOLE, never patched. **A quota is a percent OR units of its asset** (2026-10-17, `GoalAssetAssignment` union): every formula reads it through `assignmentFraction` (lib/utils/assetSlice.ts), never `.percentage` directly.
+- Goal math the server needs lives in `goalMath.ts` (imports `calculateAssetValue` directly); `serializeGoalForFirestore` IS the persistence allowlist (`serializeAssignmentForFirestore` the quotas'); the goal document is rewritten WHOLE, never patched. **A quota is a percent OR units of its asset** (2026-10-17, `GoalAssetAssignment` union): every formula reads it through `assignmentFraction` (lib/utils/assetSlice.ts), never `.percentage` directly. **A property is worth to a goal its value NET of the loans that finance it, a loan nothing** (2026-10-20, `lib/utils/goalAssetValue.ts` → `goalMath.goalAssetValueOf`): every goal reader takes that value, never `calculateAssetValue` alone.
 - Il resto — the mobile composition (§ Composizione mobile), what the requirement takes off and grosses up (the Coast pensions by the saved age, the tax of `lib/utils/withdrawalTax.ts` and its `null` without any PMC, the fund at its unlock), the fan's second ledger (`retirements`, which never touches `paths`), the Distribuzione's nearest-rank percentiles (`fireYears`, `fireDistribution.ts`, never the fan's `floor`), the category-agnostic pure layer, each tab computing nothing (numbers from `*Summary`, words from `*Narrative`), config-first collapse, the five verdict-over-tiles sections, Playwright locators — in `doc/guide/fire.md` (pagina e Calcolatore), `fire-coast.md`, `fire-what-if.md`, `fire-monte-carlo.md`, `fire-obiettivi.md`.
 
 ### Assistant · Assistente → `doc/guide/assistente.md`
 - The context service runs server-side (`adminDb` directly); every mode maps to its own builder in `stream/route.ts` (a missing branch silently falls through to monthly); `buildAssistantPeriodRangeContext` is the FIFTH builder.
 - ONE aggregator (`buildCashflowBreakdown`) per builder; a new required bundle field means updating ALL 4 builders. `system` is byte-identical per mode — never interpolate per-request data; `cache_control` deliberately NOT used.
 - A silent cap in a context builder becomes a hallucinated "N/D": a cap either does not exist or is stated in the text the model reads. `ASSISTANT_SYSTEM_CORE` is shared with `buildEmailAiPrompt`.
-- THE PROPOSAL PROTOCOL: the AI never writes — it emits ONE fenced ```goal-proposal block, the write happens on the user's Conferma via `POST /api/goals`; `goalProposal.ts` owns the ONE zod schema.
-- Il resto — memory merge rules, `deleteAssistantThread` batching, the verdict-is-the-context rules, streaming traps — in `doc/guide/assistente.md`.
+- A free question with NO context still gets the portfolio of today (`buildAssistantTodayContext` → `AssistantTodayContext`, the sixth argument of `buildChatPrompt`, 2026-10-20): the period bundle is a chosen period's, never a substitute for the portfolio.
+- THE PROPOSAL PROTOCOL: the AI never writes — it emits ONE fenced ```goal-proposal block, the write happens on the user's Conferma via `POST /api/goals` (a new goal) or `PATCH /api/goals` (`goalId`, a rewrite in place, 2026-10-20); `goalProposal.ts` owns the ONE zod schema, quotas travel by instrument NAME and the card resolves them to ids.
+- **The portfolio block is REQUIRED and the allocation it reads is the Allocazione PAGE's base** (2026-10-20, `lib/utils/assistantPortfolioContext.ts`): every instrument with its role, the ledger, the registers, the household — printed whole or with the cut declared; never the snapshot's whole patrimony against the targets. **Every expense window is an Italian calendar window** (`getItalyMonthBoundsUtc`): the rows sit at Italian midnight and Vercel runs in UTC.
+- Il resto — memory merge rules, `deleteAssistantThread` batching, the verdict-is-the-context rules, streaming traps, the 64 000-token chat budget — in `doc/guide/assistente.md`.
 
 ### Periodic Emails · PDF Export → `doc/guide/email-pdf.md`
 - Both render OUTSIDE the DOM: every hex comes from `lib/constants/printTokens.ts` and nothing else; every email layout is a nested table (Outlook = Word). Verify by RENDERING — no check is in the suite.

@@ -38,6 +38,7 @@ vi.mock('@/lib/services/assistantMonthContextService', () => ({
 }));
 
 import { evaluateActiveGoals } from '@/lib/server/assistant/goalEvaluationService';
+import { emptyAssistantPortfolioContext } from '@/lib/utils/assistantPortfolioContext';
 
 const NOW = new Date(2026, 7, 15, 12, 0, 0); // 15 August 2026, noon
 
@@ -74,6 +75,7 @@ function makeBundle(overrides?: Partial<AssistantMonthContextBundle>): Assistant
     bySubCategoryAllocation: {},
     targetAllocation: null,
     targetAllocationSource: 'manual',
+    portfolio: emptyAssistantPortfolioContext(),
     goals: null,
     expenseCategories: [],
     dataQuality: {

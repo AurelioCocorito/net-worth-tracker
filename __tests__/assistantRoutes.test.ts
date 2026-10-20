@@ -9,6 +9,7 @@ const {
   buildAssistantYearContextMock,
   buildAssistantYtdContextMock,
   buildAssistantHistoryContextMock,
+  buildAssistantTodayContextMock,
   listAssistantThreadsMock,
   createAssistantThreadMock,
   getAssistantThreadDetailMock,
@@ -30,6 +31,7 @@ const {
   buildAssistantYearContextMock: vi.fn(),
   buildAssistantYtdContextMock: vi.fn(),
   buildAssistantHistoryContextMock: vi.fn(),
+  buildAssistantTodayContextMock: vi.fn(),
   listAssistantThreadsMock: vi.fn(),
   createAssistantThreadMock: vi.fn(),
   getAssistantThreadDetailMock: vi.fn(),
@@ -75,6 +77,7 @@ vi.mock('@/lib/services/assistantMonthContextService', () => ({
   buildAssistantYearContext: buildAssistantYearContextMock,
   buildAssistantYtdContext: buildAssistantYtdContextMock,
   buildAssistantHistoryContext: buildAssistantHistoryContextMock,
+  buildAssistantTodayContext: buildAssistantTodayContextMock,
 }));
 
 vi.mock('@/lib/server/assistant/store', () => ({
@@ -114,6 +117,7 @@ import {
 } from '@/app/api/ai/assistant/memory/route';
 import { POST as streamRoute } from '@/app/api/ai/assistant/stream/route';
 import { GET as getContextRoute } from '@/app/api/ai/assistant/context/route';
+import { emptyAssistantPortfolioContext } from '@/lib/utils/assistantPortfolioContext';
 
 function createJsonRequest(
   url: string,
@@ -174,6 +178,7 @@ describe('Assistant private API routes', () => {
       bySubCategoryAllocation: {},
       targetAllocation: null,
       targetAllocationSource: 'manual',
+      portfolio: emptyAssistantPortfolioContext(),
       goals: null,
       expenseCategories: [],
       dataQuality: {
@@ -187,6 +192,7 @@ describe('Assistant private API routes', () => {
     buildAssistantYearContextMock.mockResolvedValue(null);
     buildAssistantYtdContextMock.mockResolvedValue(null);
     buildAssistantHistoryContextMock.mockResolvedValue(null);
+    buildAssistantTodayContextMock.mockResolvedValue({ portfolio: 'today-portfolio' });
     listAssistantThreadsMock.mockResolvedValue({ threads: [], nextCursor: null });
     createAssistantThreadMock.mockResolvedValue({
       id: 'thread-1',
@@ -672,6 +678,44 @@ describe('Assistant private API routes', () => {
     expect(streamText).toContain('"type":"text"');
     expect(streamText).toContain('"type":"done"');
     expect(streamAssistantResponseMock).toHaveBeenCalled();
+  });
+
+  // ── A free question with NO context still gets the portfolio of today (2026-10-20) ──────
+
+  it('builds the portfolio of today for a free question with no context, and sends no context event', async () => {
+    const response = await streamRoute(
+      createJsonRequest('http://localhost/api/ai/assistant/stream', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer valid-token' },
+        body: { userId: 'user-1', mode: 'chat', chatContext: 'none', prompt: 'Quali strumenti ho liberi da obiettivi?' },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const streamText = await response.text();
+    expect(buildAssistantTodayContextMock).toHaveBeenCalledWith('user-1');
+    expect(buildAssistantMonthContextMock).not.toHaveBeenCalled();
+    // The page's tiles are a period's: no bundle travels on the stream.
+    expect(streamText).not.toContain('"type":"context"');
+    expect(streamAssistantResponseMock).toHaveBeenCalledWith(
+      expect.objectContaining({ contextBundle: null, todayContext: { portfolio: 'today-portfolio' } })
+    );
+  });
+
+  it('builds the period bundle, not the portfolio of today, when a context is chosen', async () => {
+    const response = await streamRoute(
+      createJsonRequest('http://localhost/api/ai/assistant/stream', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer valid-token' },
+        body: { userId: 'user-1', mode: 'chat', chatContext: 'month', month: { year: 2026, month: 3 }, prompt: 'Come è andato marzo?' },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(buildAssistantMonthContextMock).toHaveBeenCalledWith('user-1', { year: 2026, month: 3 }, false);
+    expect(buildAssistantTodayContextMock).not.toHaveBeenCalled();
+    expect(streamAssistantResponseMock).toHaveBeenCalledWith(expect.objectContaining({ todayContext: null }));
   });
 
   it('returns 403 on stream route when token and userId do not match', async () => {

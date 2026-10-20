@@ -123,6 +123,7 @@ import { MAX_CATEGORY_DELTAS, type PeriodComparison } from '@/lib/server/emailPe
 import type { AssistantMemoryItem, AssistantMonthContextBundle, AssistantPreferences } from '@/types/assistant';
 import type { MonthlySnapshot } from '@/types/assets';
 import type { BudgetAlert } from '@/types/budget';
+import { emptyAssistantPortfolioContext } from '@/lib/utils/assistantPortfolioContext';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -206,6 +207,7 @@ function makeBundle(overrides: Partial<AssistantMonthContextBundle> = {}): Assis
     bySubCategoryAllocation: {},
     targetAllocation: null,
     targetAllocationSource: 'manual',
+    portfolio: emptyAssistantPortfolioContext(),
     goals: null,
     expenseCategories: [{ name: 'Casa', type: 'fixed', subCategories: ['Affitto'] }],
     dataQuality: {
@@ -348,7 +350,10 @@ describe('buildEmailAiPrompt', () => {
     // true if these sections are actually in the message.
     expect(userContent).toContain('--- SPESE PER CATEGORIA E SOTTOCATEGORIA');
     expect(userContent).toContain('--- ENTRATE PER CATEGORIA');
-    expect(userContent).toContain('--- ALLOCAZIONE CORRENTE');
+    expect(userContent).toContain('--- PATRIMONIO PER CLASSE A FINE PERIODO');
+    // The portfolio block reaches the email too (owner's decision, 2026-10-20).
+    expect(userContent).toContain('--- STRUMENTI IN PORTAFOGLIO OGGI');
+    expect(userContent).toContain('--- REGISTRO OPERAZIONI');
     expect(userContent).toContain('--- CATEGORIE DI SPESA CONFIGURATE ---');
     expect(userContent).toContain('--- OBIETTIVI DI INVESTIMENTO');
     expect(userContent).toContain('--- NOTE QUALITÀ DATI ---');

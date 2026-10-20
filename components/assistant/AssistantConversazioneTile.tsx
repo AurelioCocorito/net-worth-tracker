@@ -2,6 +2,35 @@
 
 import { CornerDownRight, Globe, Loader2 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+
+/**
+ * What the chip says while a long answer is still thinking (owner, 2026-10-20: «Sta impiegando più
+ * del previsto» read as an apology). One phrase at a time, the next every SLOW_PHRASE_MS, in order.
+ */
+export const SLOW_PHRASES = [
+  'Ci sto ragionando…',
+  'Sto facendo i conti…',
+  'Sto rileggendo il portafoglio…',
+  'Sto mettendo in fila i numeri…',
+  'Ancora un momento…',
+] as const;
+const SLOW_PHRASE_MS = 8_000;
+
+function useSlowPhrase(active: boolean): string | null {
+  // Counts the ticks since the phrase became active; the index is derived, so no setState on
+  // activation (the first phrase is tick 0) and the counter resets by the key below.
+  const [ticks, setTicks] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => setTicks((n) => n + 1), SLOW_PHRASE_MS);
+    return () => {
+      clearInterval(timer);
+      setTicks(0);
+    };
+  }, [active]);
+  return active ? SLOW_PHRASES[ticks % SLOW_PHRASES.length] : null;
+}
 import { AssistantPromptRows, type PromptRow } from '@/components/assistant/AssistantPromptRows';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AssistantStreamingResponse } from '@/components/assistant/AssistantStreamingResponse';
@@ -42,10 +71,11 @@ function StreamStatusChip({
   isSlowResponse,
 }: Pick<AssistantConversazioneTileProps, 'isStreaming' | 'streamStatus' | 'isSlowResponse'>) {
   const prefersReducedMotion = useReducedMotion();
+  const searching = streamStatus === 'searching';
+  const slowPhrase = useSlowPhrase(isStreaming && isSlowResponse && !searching);
   if (!isStreaming) return null;
 
-  const searching = streamStatus === 'searching';
-  const label = searching ? 'Sto cercando sul web…' : isSlowResponse ? 'Sta impiegando più del previsto…' : 'In scrittura…';
+  const label = searching ? 'Sto cercando sul web…' : slowPhrase ?? 'In scrittura…';
   const Icon = searching ? Globe : Loader2;
 
   return (

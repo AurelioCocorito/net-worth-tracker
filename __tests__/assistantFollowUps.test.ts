@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildFollowUpSuggestions } from '@/lib/utils/assistantFollowUps';
 import { AssistantMonthContextBundle } from '@/types/assistant';
+import { emptyAssistantPortfolioContext } from '@/lib/utils/assistantPortfolioContext';
 
 function makeBundle(overrides?: Partial<AssistantMonthContextBundle>): AssistantMonthContextBundle {
   return {
@@ -24,6 +25,7 @@ function makeBundle(overrides?: Partial<AssistantMonthContextBundle>): Assistant
     bySubCategoryAllocation: {},
     targetAllocation: null,
     targetAllocationSource: 'manual',
+    portfolio: emptyAssistantPortfolioContext(),
     goals: null,
     expenseCategories: [],
     dataQuality: {

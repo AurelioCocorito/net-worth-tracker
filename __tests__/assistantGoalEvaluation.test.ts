@@ -18,6 +18,7 @@ import {
   AssistantMonthContextBundle,
   AssistantStructuredGoal,
 } from '@/types/assistant';
+import { emptyAssistantPortfolioContext } from '@/lib/utils/assistantPortfolioContext';
 
 const NOW = new Date(2026, 7, 15, 12, 0, 0); // 15 August 2026, noon
 
@@ -71,6 +72,7 @@ function makeBundle(overrides?: Partial<AssistantMonthContextBundle>): Assistant
     },
     targetAllocation: null,
     targetAllocationSource: 'manual',
+    portfolio: emptyAssistantPortfolioContext(),
     goals: null,
     expenseCategories: [],
     dataQuality: {

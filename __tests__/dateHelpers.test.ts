@@ -9,6 +9,8 @@ import {
   formatItalianDate,
   isDateOnOrAfter,
   getItalyDayBoundsUtc,
+  getItalyMonthBoundsUtc,
+  getItalyMonthRangeBoundsUtc,
 } from '@/lib/utils/dateHelpers'
 
 describe('toDate', () => {
@@ -166,5 +168,44 @@ describe('getItalyDayBoundsUtc', () => {
     const { start, end } = getItalyDayBoundsUtc(new Date('2026-06-10T18:00:00.000Z')) // cron at 18:00Z
     expect(couponPaymentMs).toBeGreaterThanOrEqual(start.getTime())
     expect(couponPaymentMs).toBeLessThanOrEqual(end.getTime())
+  })
+})
+
+describe('getItalyMonthBoundsUtc', () => {
+  it('spans an Italian summer month from its Italian midnight to its last millisecond (CEST = +02:00)', () => {
+    const { start, end } = getItalyMonthBoundsUtc(2026, 8)
+    expect(start.toISOString()).toBe('2026-07-31T22:00:00.000Z')
+    expect(end.toISOString()).toBe('2026-08-31T21:59:59.999Z')
+  })
+
+  it('spans a winter month and knows how many days it has (CET = +01:00, leap February)', () => {
+    const { start, end } = getItalyMonthBoundsUtc(2024, 2)
+    expect(start.toISOString()).toBe('2024-01-31T23:00:00.000Z')
+    expect(end.toISOString()).toBe('2024-02-29T22:59:59.999Z')
+  })
+
+  it('files a row dated «1 agosto» at Italian midnight under August, where a UTC month window put it in July', () => {
+    // The expense form stores the 1st of August as 2026-07-31T22:00:00Z (Italian midnight).
+    const firstOfAugust = new Date('2026-07-31T22:00:00.000Z').getTime()
+    const august = getItalyMonthBoundsUtc(2026, 8)
+    const july = getItalyMonthBoundsUtc(2026, 7)
+    expect(firstOfAugust).toBeGreaterThanOrEqual(august.start.getTime())
+    expect(firstOfAugust).toBeGreaterThan(july.end.getTime())
+    // The process zone's window (what the assistant used until 2026-10-20) read it as July.
+    expect(firstOfAugust).toBeLessThan(Date.UTC(2026, 7, 1))
+  })
+})
+
+describe('getItalyMonthRangeBoundsUtc', () => {
+  it('spans a quarter from the first month\'s Italian midnight to the last month\'s last millisecond', () => {
+    const { start, end } = getItalyMonthRangeBoundsUtc(2026, 7, 9)
+    expect(start.toISOString()).toBe('2026-06-30T22:00:00.000Z')
+    expect(end.toISOString()).toBe('2026-09-30T21:59:59.999Z')
+  })
+
+  it('spans a whole year across the DST change', () => {
+    const { start, end } = getItalyMonthRangeBoundsUtc(2025, 1, 12)
+    expect(start.toISOString()).toBe('2024-12-31T23:00:00.000Z')
+    expect(end.toISOString()).toBe('2025-12-31T22:59:59.999Z')
   })
 })

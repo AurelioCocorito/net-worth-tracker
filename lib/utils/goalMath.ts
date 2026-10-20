@@ -24,6 +24,16 @@ import {
 } from '@/types/goals';
 import { calculateAssetValue } from '@/lib/services/assetService';
 import { sliceFraction, type AssetSlice } from '@/lib/utils/assetSlice';
+import { goalAssetValue } from '@/lib/utils/goalAssetValue';
+
+/**
+ * What an asset is worth to a goal (lib/utils/goalAssetValue.ts, 2026-10-20): a property net of
+ * the loans that finance it, a loan nothing. The ONE value every goal reader takes — the
+ * progress, the free shares, the Panoramica's ranking, the assignment dialog.
+ */
+export function goalAssetValueOf(asset: Asset, assets: readonly Asset[]): number {
+  return goalAssetValue(asset, assets, calculateAssetValue);
+}
 
 /**
  * A quota as a slice of its asset (lib/utils/assetSlice.ts): the two forms of
@@ -81,7 +91,7 @@ export function calculateGoalProgress(
     const asset = assetMap.get(assignment.assetId);
     if (!asset) continue; // Skip orphaned assignments
 
-    const assetValue = calculateAssetValue(asset);
+    const assetValue = goalAssetValueOf(asset, assets);
     const assignedValue = assetValue * assignmentFraction(assignment, asset);
     currentValue += assignedValue;
 
