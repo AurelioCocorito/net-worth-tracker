@@ -424,7 +424,7 @@ export function ExpenseTrackingTab({
   // ALL categories of a type are selected (covers deleted-category edge case).
   const handleSelectCategories = (values: string[]) => {
     forgetSavedRow();
-    const ORDER: ExpenseType[] = ['income', 'fixed', 'variable', 'debt'];
+    const ORDER: ExpenseType[] = ['income', 'fixed', 'variable', 'debt', 'transfer'];
     const newTypes: ExpenseType[] = [];
     const newCatIds: string[] = [];
     for (const type of ORDER) {
