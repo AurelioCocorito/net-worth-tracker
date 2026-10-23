@@ -680,7 +680,7 @@ export function SpeseTab({
             <p className="mt-3 text-[13px] text-muted-foreground">Caricamento delle categorie…</p>
           ) : (
             <div className="mt-1">
-              {(['income', 'fixed', 'variable', 'debt'] as ExpenseType[]).map((type) => {
+              {(['income', 'fixed', 'variable', 'debt', 'transfer'] as ExpenseType[]).map((type) => {
                 const categories = getCategoriesByType(type);
                 if (categories.length === 0) return null;
                 return (
