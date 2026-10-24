@@ -480,7 +480,7 @@ async function writeExpenseRows(
 }
 
 /**
- * Create a recurring expense series (fixed, variable or debt).
+ * Create a recurring series (fixed, variable, debt or transfer).
  *
  * The series is MATERIALISED: one real, future-dated document per occurrence, all sharing a
  * `recurringParentId` so they can be deleted together. Nothing downstream evaluates a rule —
@@ -515,10 +515,9 @@ async function createRecurringExpenses(
     // Create parent expense ID for reference
     const parentId = `recurring-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Sign convention: only spending types can recur (canTypeRecur), so the amount is always
-    // negative here. Kept as an explicit statement rather than an implicit one — if the set of
-    // recurring types ever widens to income or transfers, this line is the one that breaks.
-    const amount = -Math.abs(expenseData.amount);
+    // Sign convention: spending types negative, a transfer positive (as `buildSingleExpenseDoc`).
+    // Income cannot recur (canTypeRecur); if it ever does, this line is the one to widen.
+    const amount = expenseData.type === 'transfer' ? Math.abs(expenseData.amount) : -Math.abs(expenseData.amount);
 
     const recurringFrequency = resolveRecurrenceFrequency(expenseData.recurringFrequency);
     const recurringDay = expenseData.recurringDay || expenseData.date.getDate();
@@ -532,11 +531,13 @@ async function createRecurringExpenses(
     dates.forEach((expenseDate, index) => {
       const docRef = doc(expensesRef);
       const linkedCashAssetId = settleNow || index === 0 ? expenseData.linkedCashAssetId : undefined;
+      // A transfer's destination follows its origin: both legs on every occurrence, on its own date.
+      const transferCashAssetId = expenseData.type === 'transfer' && linkedCashAssetId ? expenseData.transferCashAssetId : undefined;
       // Like the account, every occurrence carries the loan it repays, each on its own date.
       const debtAssetId = settleNow ? expenseData.debtAssetId : undefined;
       // Each occurrence's own fee, on its own date and account (lib/utils/expenseFee.ts).
       const feeDoc = fee ? buildFeeDoc(userId, docRef, { date: expenseDate, currency: expenseData.currency, linkedCashAssetId }, fee, settleNow, now) : null;
-      const row: WrittenRow = { type: expenseData.type, amount, date: expenseDate, linkedCashAssetId, debtAssetId };
+      const row: WrittenRow = { type: expenseData.type, amount, date: expenseDate, linkedCashAssetId, transferCashAssetId, debtAssetId };
       const settlement = settlementFieldsOf(row, settleNow);
       const cleanedData = removeUndefinedFields({
         userId,
@@ -555,6 +556,7 @@ async function createRecurringExpenses(
         recurringDay,
         recurringParentId: parentId,
         linkedCashAssetId,
+        transferCashAssetId,
         debtAssetId,
         ...settlement,
         costCenterId: expenseData.costCenterId,

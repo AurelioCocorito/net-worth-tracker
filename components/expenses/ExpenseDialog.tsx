@@ -1292,7 +1292,7 @@ function ExpenseFormBody({
             </div>
           )}
 
-          {/* ---- Ricorrenza (spese fisse/variabili/debiti, solo creazione) ----
+          {/* ---- Ricorrenza (spese fisse/variabili/debiti e trasferimenti, solo creazione) ----
                One toggle, not one per cadence: the two are mutually exclusive, and two
                switches kept out of sync by hand are a state machine the user has to run.
                `canTypeRecur` is the single source on which types may recur. */}
@@ -2138,7 +2138,11 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
         const parentCount = newFee ? result.length / 2 : result.length;
         const withFee = newFee ? ' con commissione' : '';
         if (data.type === 'transfer') {
-          toast.success(newFee ? 'Trasferimento e commissione creati con successo' : 'Trasferimento creato con successo');
+          if (expenseData.isRecurring) {
+            toast.success(`${parentCount} trasferimenti ricorrenti${withFee} creati con successo`);
+          } else {
+            toast.success(newFee ? 'Trasferimento e commissione creati con successo' : 'Trasferimento creato con successo');
+          }
         } else {
           if (expenseData.isInstallment || expenseData.isRecurring) {
             if (expenseData.isInstallment) {
@@ -2232,7 +2236,7 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
    * Goes through `handleTypeChange` rather than setting the type alone: the picker can be
    * re-opened from "Cambia tipo" with a category already selected, and that category belongs to
    * the type the user is leaving. The `isRecurring` reset mirrors the edit-mode Select —
-   * recurrence exists only for the spending types (`canTypeRecur`).
+   * recurrence exists only for the spending types and transfers (`canTypeRecur`).
    */
   const handleTypeSelect = useCallback(
     (nextType: ExpenseType) => {

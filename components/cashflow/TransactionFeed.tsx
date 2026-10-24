@@ -321,7 +321,8 @@ function TransactionDetailModal({
           </div>
         ))}
       </dl>
-      {isSeries && onLinkSeries && !isDemo && (
+      {/* A transfer series is born with both its accounts: re-pointing the origin alone would split the pair. */}
+      {isSeries && expense.type !== 'transfer' && onLinkSeries && !isDemo && (
         <Button type="button" variant="outline" size="sm" className="mt-3 h-11 w-full desktop:h-8" onClick={() => onLinkSeries(expense, 'account')}>
           <Link2 className="mr-2 h-4 w-4" aria-hidden="true" />
           {expense.isInstallment ? 'Collega il piano a un conto…' : 'Collega la serie a un conto…'}

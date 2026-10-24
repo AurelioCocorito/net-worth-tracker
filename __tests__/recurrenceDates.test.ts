@@ -36,16 +36,12 @@ function localMidnight(iso: string): Date {
 
 describe('recurrenceDates', () => {
   describe('canTypeRecur', () => {
-    it.each<ExpenseType>(['fixed', 'variable', 'debt'])('should allow %s to recur', (type) => {
+    it.each<ExpenseType>(['fixed', 'variable', 'debt', 'transfer'])('should allow %s to recur', (type) => {
       expect(canTypeRecur(type)).toBe(true);
     });
 
     it('should refuse income, which the product excludes by decision', () => {
       expect(canTypeRecur('income')).toBe(false);
-    });
-
-    it('should refuse transfer, whose occurrences would each move two cash accounts', () => {
-      expect(canTypeRecur('transfer')).toBe(false);
     });
   });
 
