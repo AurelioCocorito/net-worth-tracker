@@ -15,7 +15,7 @@
  * the recurring rows are deleted directly because deleting them through the app would ALSO
  * reverse the balance the test restores.
  *
- * An income cannot recur (`canTypeRecur` = fixed · variable · debt), which is why the recurring
+ * An income cannot recur (`canTypeRecur` = fixed · variable · debt · transfer), which is why the recurring
  * case is a variable expense: the sign rule is pinned on the type that can actually reach it.
  */
 import { test, expect, type Page } from '@playwright/test';

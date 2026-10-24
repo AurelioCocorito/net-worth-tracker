@@ -30,12 +30,12 @@ export const RECURRENCE_FREQUENCY_LABELS: Record<RecurrenceFrequency, string> = 
 /**
  * Expense types that can carry a recurrence.
  *
- * `income` is excluded by product decision. `transfer` is excluded for a structural reason:
- * every occurrence moves money between TWO cash accounts, while the series reconciles balances
- * only on its first entry (see createRecurringExpenses) — a recurring transfer would need a
- * two-legged reconciliation per occurrence, which does not exist.
+ * `income` is excluded by product decision. `transfer` recurs since 2026-10-24 (owner request): every
+ * occurrence carries BOTH accounts and settles them on its own date like any row
+ * (`balanceEffectsOf` in lib/utils/cashSettlement.ts is two-legged, and so is the server's
+ * `settleDueBalances`).
  */
-export const RECURRING_EXPENSE_TYPES: readonly ExpenseType[] = ['fixed', 'variable', 'debt'];
+export const RECURRING_EXPENSE_TYPES: readonly ExpenseType[] = ['fixed', 'variable', 'debt', 'transfer'];
 
 export function canTypeRecur(type: ExpenseType): boolean {
   return RECURRING_EXPENSE_TYPES.includes(type);

@@ -110,6 +110,26 @@ describe('createExpenseSettledOnDate → parents', () => {
     expect(result.parents.map((row) => row.balancePending ?? false)).toEqual([false, true, true]);
   });
 
+  it('writes a recurring transfer with both accounts and a positive amount on every occurrence', async () => {
+    const result = await createExpenseSettledOnDate(
+      'owner',
+      form({ type: 'transfer', categoryId: 'cat-transfers', amount: 500, transferCashAssetId: 'acct-2', isRecurring: true, recurringFrequency: 'monthly', recurringCount: 3, recurringDay: 12 }),
+      'Trasferimenti',
+      undefined,
+      NOW,
+    );
+
+    expect(result.parents).toHaveLength(3);
+    expect(result.parents.map((row) => row.amount)).toEqual([500, 500, 500]);
+    expect(result.parents.every((row) => row.linkedCashAssetId === 'acct-1' && row.transferCashAssetId === 'acct-2')).toBe(true);
+    expect(result.parents.map((row) => row.balancePending ?? false)).toEqual([false, true, true]);
+    // Only the occurrence already due moves the two accounts now; the others wait for their date.
+    expect(result.appliedEffects).toEqual([
+      { assetId: 'acct-1', delta: -500 },
+      { assetId: 'acct-2', delta: 500 },
+    ]);
+  });
+
   it('returns every instalment of a plan, dated one month apart', async () => {
     const result = await createExpenseSettledOnDate(
       'owner',
