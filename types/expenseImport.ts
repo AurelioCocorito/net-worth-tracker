@@ -4,10 +4,10 @@
 
 import { ExpenseType } from '@/types/expenses';
 
-// The importable subset of ExpenseType. `transfer` is intentionally excluded:
-// a transfer needs origin/destination cash asset IDs to reconcile balances,
-// which historical CSV rows cannot provide (it would be a net-zero inert row).
-export type ImportableExpenseType = Exclude<ExpenseType, 'transfer'>;
+// Every ExpenseType is importable. A `transfer` (2026-10-25) names its two accounts:
+// «conto» the origin, «conto_destinazione» the destination — a transfer without both
+// would be a net-zero inert row, so the plan rejects it.
+export type ImportableExpenseType = ExpenseType;
 
 /**
  * A single raw CSV row after header normalization (IT/EN aliases → canonical keys),
@@ -23,8 +23,10 @@ export interface RawRow {
   sottocategoria: string;
   note: string;
   valuta: string;
-  /** Optional account name (column «conto»); empty = the row is linked to no account. */
+  /** Optional account name (column «conto»); empty = the row is linked to no account. On a transfer, the origin. */
   conto: string;
+  /** Destination account name (column «conto_destinazione»), on a transfer only. */
+  contoDestinazione: string;
 }
 
 /**
@@ -63,6 +65,8 @@ export interface PlannedExpenseRow {
    * (lib/utils/cashSettlement.ts); undefined = no account, nothing moves.
    */
   linkedCashAssetId?: string;
+  /** On a transfer: the destination account (column «conto_destinazione»); origin = linkedCashAssetId. */
+  transferCashAssetId?: string;
 }
 
 /** A row that failed validation (or was intentionally skipped, e.g. transfer). */
@@ -99,7 +103,9 @@ export interface ImportSummary {
   skippedCount: number;
   newCategoriesCount: number;
   totalIncome: number;
-  totalExpense: number; // positive magnitude of all expense rows
+  totalExpense: number; // positive magnitude of all expense rows (transfers excluded)
+  transferCount: number;
+  totalTransfer: number; // positive magnitude of all transfer rows
   dateFrom?: Date;
   dateTo?: Date;
   /** Per linked account: how many rows and their signed net (income +, spending −), for the preview. */
@@ -110,7 +116,7 @@ export interface ImportAccountSummary {
   assetId: string;
   name: string;
   count: number;
-  /** Signed sum of the account's rows: what its balance moves by once every row's date has come. */
+  /** Signed sum of the account's rows (a transfer − on its origin, + on its destination): what its balance moves by once every row's date has come. */
   net: number;
 }
 

@@ -14,7 +14,9 @@
  *   ONE settlement rule (lib/utils/cashSettlement.ts): a row dated today or earlier moves
  *   the account at once, a later one is written `balancePending` and settled by the server
  *   on its day. The undo gives back exactly what the batch applied, so an import and its
- *   undo leave the balances where they were. `transfer` rows are excluded upstream.
+ *   undo leave the balances where they were.
+ * - A `transfer` row (2026-10-25) is written as the form writes it: positive, origin in
+ *   `linkedCashAssetId`, destination in `transferCashAssetId`; both legs settle on its date.
  * - `existingCategories` is the same array the caller already fetched via
  *   `getAllCategories` to build the plan (never `getCategoriesByType`, which
  *   needs a composite index that isn't deployed). New categories/subcategories
@@ -76,7 +78,12 @@ export async function commitImportPlan(
   // 1. Create brand-new categories, capturing their Firestore ID directly from createCategory.
   for (const c of plan.categoriesToCreate) {
     const subCategories: ExpenseSubCategory[] = c.subCategories.map((name) => ({ id: genSubId(), name }));
-    const categoryId = await createCategory(userId, { name: c.name, type: c.type, subCategories });
+    const categoryId = await createCategory(userId, {
+      name: c.name,
+      type: c.type,
+      subCategories,
+      ...(c.type === 'transfer' ? { icon: 'ArrowLeftRight' } : {}), // as ensureTransferCategory
+    });
     const created: ExpenseCategory = {
       id: categoryId,
       userId,
@@ -128,10 +135,19 @@ export async function commitImportPlan(
       ? category.subCategories.find((sc) => norm(sc.name) === norm(row.subCategoryName!))
       : undefined;
 
-    // Sign convention: income positive, all other importable types (fixed/variable/debt) negative.
-    const amount = row.type === 'income' ? row.amount : -row.amount;
-    const balancePending = row.linkedCashAssetId && settlesLater(row.date, now) ? true : undefined;
-    effects.push(...appliedBalanceEffectsOf({ type: row.type, amount, linkedCashAssetId: row.linkedCashAssetId, balancePending }));
+    // Sign convention: income and transfers positive, fixed/variable/debt negative.
+    const amount = row.type === 'income' || row.type === 'transfer' ? row.amount : -row.amount;
+    const balancePending =
+      (row.linkedCashAssetId || row.transferCashAssetId) && settlesLater(row.date, now) ? true : undefined;
+    effects.push(
+      ...appliedBalanceEffectsOf({
+        type: row.type,
+        amount,
+        linkedCashAssetId: row.linkedCashAssetId,
+        transferCashAssetId: row.transferCashAssetId,
+        balancePending,
+      })
+    );
 
     const data = removeUndefinedFields({
       userId,
@@ -146,6 +162,7 @@ export async function commitImportPlan(
       notes: row.notes,
       isRecurring: false,
       linkedCashAssetId: row.linkedCashAssetId,
+      transferCashAssetId: row.transferCashAssetId,
       balancePending,
       importBatchId,
       createdAt: now,
@@ -190,7 +207,13 @@ export async function deleteExpensesByImportBatch(userId: string, importBatchId:
   await reverseAppliedBalances(
     snapshot.docs.map((d) => {
       const data = d.data();
-      return { type: data.type, amount: data.amount, linkedCashAssetId: data.linkedCashAssetId, balancePending: data.balancePending };
+      return {
+        type: data.type,
+        amount: data.amount,
+        linkedCashAssetId: data.linkedCashAssetId,
+        transferCashAssetId: data.transferCashAssetId,
+        balancePending: data.balancePending,
+      };
     })
   );
 

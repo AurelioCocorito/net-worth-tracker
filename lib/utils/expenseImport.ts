@@ -11,9 +11,12 @@
  * - Headers accepted in Italian (canonical) or English (alias), case-insensitive.
  * - `type` optional → inherits the type of the single existing same-named category
  *   when there is exactly one, falls back to `variable` when there is none, and is
- *   rejected as ambiguous when same-named categories of different types exist;
- *   `transfer` rows are skipped (a transfer needs origin/destination cash assets
- *   that a CSV cannot provide).
+ *   rejected as ambiguous when same-named categories of different types exist.
+ * - Transfers (2026-10-25): `tipo` = `transfer`, or an empty `tipo` beside a filled
+ *   «conto_destinazione». «conto» is the origin, «conto_destinazione» the destination
+ *   (cash accounts only); «categoria» may be empty and then falls on the user's transfer
+ *   category (the oldest, or a new «Trasferimenti»). Written like the form's transfer:
+ *   positive, both accounts on the row, each leg settled on the row's date.
  * - Category identity is (name, type) — the same rule as the rest of the app
  *   (lib/utils/expenseGrouping.ts): "Casa" fissa and "Casa" variabile are two
  *   distinct categories, resolvable and creatable side by side. When two existing
@@ -41,7 +44,10 @@ import {
   ImportableExpenseType,
 } from '@/types/expenseImport';
 
-const IMPORTABLE_TYPES: ImportableExpenseType[] = ['fixed', 'variable', 'debt', 'income'];
+const IMPORTABLE_TYPES: ImportableExpenseType[] = ['fixed', 'variable', 'debt', 'income', 'transfer'];
+
+/** The category a transfer row with an empty «categoria» lands in when the user has none (as ensureTransferCategory). */
+export const DEFAULT_TRANSFER_CATEGORY_NAME = 'Trasferimenti';
 
 // Header aliases → canonical Italian key. Matching is case-insensitive and trimmed.
 const HEADER_ALIASES: Record<string, keyof Omit<RawRow, 'line'>> = {
@@ -65,14 +71,21 @@ const HEADER_ALIASES: Record<string, keyof Omit<RawRow, 'line'>> = {
   conto: 'conto',
   'conto corrente': 'conto',
   account: 'conto',
+  conto_destinazione: 'contoDestinazione',
+  'conto destinazione': 'contoDestinazione',
+  'conto di destinazione': 'contoDestinazione',
+  destinazione: 'contoDestinazione',
+  destination: 'contoDestinazione',
+  'to account': 'contoDestinazione',
 };
 
 /** Template shown/downloaded to guide users. Excel-IT friendly (`;` + BOM). */
-const TEMPLATE_HEADERS = ['data', 'importo', 'tipo', 'categoria', 'sottocategoria', 'note', 'valuta', 'conto'] as const;
+const TEMPLATE_HEADERS = ['data', 'importo', 'tipo', 'categoria', 'sottocategoria', 'note', 'valuta', 'conto', 'conto_destinazione'] as const;
 const TEMPLATE_EXAMPLE_ROWS: string[][] = [
-  ['2024-01-15', '1200,00', 'fixed', 'Casa', 'Affitto', 'Canone gennaio', 'EUR', ''],
-  ['2024-01-27', '2500,00', 'income', 'Stipendio', '', 'Busta paga', 'EUR', ''],
-  ['2024-02-03', '54,90', 'variable', 'Spesa', 'Supermercato', '', 'EUR', ''],
+  ['2024-01-15', '1200,00', 'fixed', 'Casa', 'Affitto', 'Canone gennaio', 'EUR', '', ''],
+  ['2024-01-27', '2500,00', 'income', 'Stipendio', '', 'Busta paga', 'EUR', '', ''],
+  ['2024-02-03', '54,90', 'variable', 'Spesa', 'Supermercato', '', 'EUR', '', ''],
+  ['2024-02-05', '500,00', 'transfer', '', '', 'Bonifico per investimento', 'EUR', 'Conto corrente', 'Conto deposito'],
 ];
 
 /** Build the downloadable CSV template as a string (with UTF-8 BOM + `;` delimiter). */
@@ -175,6 +188,7 @@ export function parseImportCsv(raw: string): RawRow[] {
     if (key && colIndex[key] === undefined) colIndex[key] = idx;
   });
 
+  // «categoria» is required as a COLUMN (a transfer row may leave its cell empty).
   const missing = (['data', 'importo', 'categoria'] as const).filter((k) => colIndex[k] === undefined);
   if (missing.length > 0) {
     throw new Error(
@@ -201,6 +215,7 @@ export function parseImportCsv(raw: string): RawRow[] {
       note: get(row, 'note'),
       valuta: get(row, 'valuta'),
       conto: get(row, 'conto'),
+      contoDestinazione: get(row, 'contoDestinazione'),
     });
   }
   return rows;
@@ -233,7 +248,7 @@ export function categoryMatchKey(name: string, type: string): string {
  * never land as an unlinked row that silently leaves the balance where it was.
  * `defaultAccountId` (the preview's «Conto per le righe senza conto») links every
  * row whose «conto» cell is empty — a whole bank statement lands on its account
- * without the column at all.
+ * without the column at all; on a transfer it is the origin.
  */
 export function buildImportPlan(
   rows: RawRow[],
@@ -252,7 +267,7 @@ export function buildImportPlan(
   // name → importable types it exists under, for the untyped-row inheritance rule.
   const existingTypesByName = new Map<string, Set<ImportableExpenseType>>();
   for (const c of existingCategories) {
-    if (!(IMPORTABLE_TYPES as string[]).includes(c.type)) continue; // transfer categories are not importable targets
+    if (!(IMPORTABLE_TYPES as string[]).includes(c.type)) continue;
     const key = categoryMatchKey(c.name, c.type);
     existingByKey.set(key, [...(existingByKey.get(key) ?? []), c]);
     const nameKey = norm(c.name);
@@ -262,12 +277,31 @@ export function buildImportPlan(
   for (const list of existingByKey.values()) {
     list.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }
+  // Where a transfer row with an empty «categoria» lands: the oldest transfer category,
+  // the same one the form picks (ExpenseDialog, ensureTransferCategory).
+  const defaultTransferCategoryName =
+    existingCategories
+      .filter((c) => c.type === 'transfer')
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0]?.name ?? DEFAULT_TRANSFER_CATEGORY_NAME;
+
+  const resolveAccount = (name: string): { id: string } | { error: string } => {
+    const matches = accountsByName.get(norm(name)) ?? [];
+    if (matches.length === 1) return { id: matches[0].id };
+    return {
+      error:
+        matches.length === 0
+          ? `Conto "${name}" non trovato. Conti disponibili: ${accountNames}.`
+          : `Conto "${name}" ambiguo: ${matches.length} conti hanno questo nome.`,
+    };
+  };
 
   const errors: RowError[] = [];
   const validRows: PlannedExpenseRow[] = [];
 
   for (const row of rows) {
-    if (!row.categoria) {
+    const rawType = norm(row.tipo);
+    const isTransfer = rawType === 'transfer' || (rawType === '' && row.contoDestinazione !== '');
+    if (!row.categoria && !isTransfer) {
       errors.push({ line: row.line, reason: 'Categoria mancante.', raw: row });
       continue;
     }
@@ -284,13 +318,10 @@ export function buildImportPlan(
       continue;
     }
 
-    const rawType = norm(row.tipo);
-    if (rawType === 'transfer') {
-      errors.push({ line: row.line, reason: "Tipo 'transfer' non supportato dall'import (riga saltata).", raw: row });
-      continue;
-    }
     let type: ImportableExpenseType;
-    if (rawType === '') {
+    if (isTransfer) {
+      type = 'transfer';
+    } else if (rawType === '') {
       // Untyped row: inherit the type of the single existing namesake — defaulting
       // blindly to 'variable' beside an existing fixed "Casa" would silently create
       // a same-named duplicate. Ambiguous namesakes need the user to say which.
@@ -314,33 +345,58 @@ export function buildImportPlan(
 
     let linkedCashAssetId: string | undefined = defaultAccountId;
     if (row.conto) {
-      const matches = accountsByName.get(norm(row.conto)) ?? [];
-      if (matches.length !== 1) {
-        errors.push({
-          line: row.line,
-          reason:
-            matches.length === 0
-              ? `Conto "${row.conto}" non trovato. Conti disponibili: ${accountNames}.`
-              : `Conto "${row.conto}" ambiguo: ${matches.length} conti hanno questo nome.`,
-          raw: row,
-        });
+      const account = resolveAccount(row.conto);
+      if ('error' in account) {
+        errors.push({ line: row.line, reason: account.error, raw: row });
         continue;
       }
-      linkedCashAssetId = matches[0].id;
+      linkedCashAssetId = account.id;
     }
 
-    const resolved = existingByKey.get(categoryMatchKey(row.categoria, type))?.[0];
+    let transferCashAssetId: string | undefined;
+    if (type === 'transfer') {
+      // A transfer IS its pair of accounts: without both it would move no money.
+      if (!linkedCashAssetId) {
+        errors.push({ line: row.line, reason: 'Trasferimento senza conto di partenza (colonna "conto").', raw: row });
+        continue;
+      }
+      if (!row.contoDestinazione) {
+        errors.push({ line: row.line, reason: 'Trasferimento senza conto di destinazione (colonna "conto_destinazione").', raw: row });
+        continue;
+      }
+      const destination = resolveAccount(row.contoDestinazione);
+      if ('error' in destination) {
+        errors.push({ line: row.line, reason: destination.error, raw: row });
+        continue;
+      }
+      if (destination.id === linkedCashAssetId) {
+        errors.push({ line: row.line, reason: 'Origine e destinazione del trasferimento sono lo stesso conto.', raw: row });
+        continue;
+      }
+      transferCashAssetId = destination.id;
+    } else if (row.contoDestinazione) {
+      errors.push({
+        line: row.line,
+        reason: `"conto_destinazione" vale solo per i trasferimenti (tipo "transfer"), non per ${EXPENSE_TYPE_LABELS[type]}.`,
+        raw: row,
+      });
+      continue;
+    }
+
+    const categoryName = row.categoria.trim() || defaultTransferCategoryName;
+    const resolved = existingByKey.get(categoryMatchKey(categoryName, type))?.[0];
     validRows.push({
       line: row.line,
       date,
       amount,
       type,
-      categoryName: row.categoria.trim(),
+      categoryName,
       categoryId: resolved?.id,
       subCategoryName: row.sottocategoria ? row.sottocategoria.trim() : undefined,
       notes: row.note || undefined,
       currency: (row.valuta || 'EUR').toUpperCase(),
       linkedCashAssetId,
+      transferCashAssetId,
     });
   }
 
@@ -411,25 +467,32 @@ function buildSummary(
   const byAccount = new Map<string, ImportAccountSummary>();
   let totalIncome = 0;
   let totalExpense = 0;
+  let transferCount = 0;
+  let totalTransfer = 0;
   let dateFrom: Date | undefined;
   let dateTo: Date | undefined;
 
   for (const r of validRows) {
     if (r.type === 'income') totalIncome += r.amount;
-    else totalExpense += r.amount;
+    else if (r.type === 'transfer') {
+      transferCount++;
+      totalTransfer += r.amount;
+    } else totalExpense += r.amount;
     if (!dateFrom || r.date < dateFrom) dateFrom = r.date;
     if (!dateTo || r.date > dateTo) dateTo = r.date;
-    if (r.linkedCashAssetId) {
-      const entry = byAccount.get(r.linkedCashAssetId) ?? {
-        assetId: r.linkedCashAssetId,
-        name: accountName.get(r.linkedCashAssetId) ?? r.linkedCashAssetId,
+    const move = (assetId: string, delta: number) => {
+      const entry = byAccount.get(assetId) ?? {
+        assetId,
+        name: accountName.get(assetId) ?? assetId,
         count: 0,
         net: 0,
       };
       entry.count++;
-      entry.net = roundToCents(entry.net + (r.type === 'income' ? r.amount : -r.amount));
-      byAccount.set(r.linkedCashAssetId, entry);
-    }
+      entry.net = roundToCents(entry.net + delta);
+      byAccount.set(assetId, entry);
+    };
+    if (r.linkedCashAssetId) move(r.linkedCashAssetId, r.type === 'income' ? r.amount : -r.amount);
+    if (r.transferCashAssetId) move(r.transferCashAssetId, r.amount);
   }
 
   return {
@@ -438,6 +501,8 @@ function buildSummary(
     newCategoriesCount,
     totalIncome,
     totalExpense,
+    transferCount,
+    totalTransfer: roundToCents(totalTransfer),
     dateFrom,
     dateTo,
     accounts: [...byAccount.values()],

@@ -12,7 +12,9 @@
  *      subcategory creation, summary totals.
  *   5. the «conto» column — rows linked by account name, unknown/ambiguous names
  *      rejected, the per-account net in the summary.
- *   6. summarizeImportBatches — the past imports listed for a later undo.
+ *   6. transfers — «conto» origin + «conto_destinazione» destination, the default
+ *      transfer category, rejections, the summary's per-account legs.
+ *   7. summarizeImportBatches — the past imports listed for a later undo.
  *
  * No React, no Firebase — the module imports only papaparse + types.
  */
@@ -129,10 +131,10 @@ describe('buildImportPlan', () => {
     expect(plan.validRows[0].type).toBe('variable');
   });
 
-  it('skips transfer rows with a dedicated reason', () => {
+  it('rejects a transfer row without its accounts', () => {
     const plan = buildImportPlan(rowsCsv('2024-01-15;50,00;transfer;Giroconto;;;'), []);
     expect(plan.validRows).toHaveLength(0);
-    expect(plan.errors[0].reason).toMatch(/transfer/i);
+    expect(plan.errors[0].reason).toMatch(/conto di partenza/);
   });
 
   it('treats a name used with two types in the file as two distinct categories', () => {
@@ -324,5 +326,80 @@ describe('summarizeImportBatches', () => {
 
   it('is empty when nothing was imported', () => {
     expect(summarizeImportBatches([row(undefined, '2024-01-10', '2024-05-01')])).toEqual([]);
+  });
+});
+
+describe('buildImportPlan — transfers', () => {
+  const header = 'data;importo;tipo;categoria;sottocategoria;note;valuta;conto;conto_destinazione\n';
+  const rows = (body: string) => parseImportCsv(header + body);
+  const accounts = [
+    { id: 'poste', name: 'Poste Italiane' },
+    { id: 'fineco', name: 'Fineco' },
+  ];
+
+  it('plans a transfer with both accounts and a new «Trasferimenti» category', () => {
+    const plan = buildImportPlan(rows('2026-05-12;5.000,00;transfer;;;Bonifico per investimento;EUR;poste italiane;FINECO'), [], accounts);
+    expect(plan.errors).toEqual([]);
+    expect(plan.validRows[0]).toMatchObject({
+      type: 'transfer',
+      amount: 5000,
+      categoryName: 'Trasferimenti',
+      linkedCashAssetId: 'poste',
+      transferCashAssetId: 'fineco',
+      notes: 'Bonifico per investimento',
+    });
+    expect(plan.categoriesToCreate).toEqual([{ name: 'Trasferimenti', type: 'transfer', subCategories: [] }]);
+    expect(plan.summary).toMatchObject({ totalIncome: 0, totalExpense: 0, transferCount: 1, totalTransfer: 5000 });
+    expect(plan.summary.accounts).toEqual([
+      { assetId: 'poste', name: 'Poste Italiane', count: 1, net: -5000 },
+      { assetId: 'fineco', name: 'Fineco', count: 1, net: 5000 },
+    ]);
+  });
+
+  it('lands an empty «categoria» on the oldest existing transfer category', () => {
+    const existing = [
+      cat({ id: 't2', name: 'Giroconti', type: 'transfer', createdAt: new Date('2025-01-01') }),
+      cat({ id: 't1', name: 'Trasferimenti', type: 'transfer', createdAt: new Date('2024-01-01') }),
+    ];
+    const plan = buildImportPlan(rows('2026-05-12;100;transfer;;;;;Poste Italiane;Fineco'), existing, accounts);
+    expect(plan.validRows[0]).toMatchObject({ categoryName: 'Trasferimenti', categoryId: 't1' });
+    expect(plan.categoriesToCreate).toEqual([]);
+  });
+
+  it('reads an untyped row with a destination as a transfer', () => {
+    const plan = buildImportPlan(rows('2026-05-12;100;;;;;;Poste Italiane;Fineco'), [], accounts);
+    expect(plan.validRows[0].type).toBe('transfer');
+  });
+
+  it('takes the origin from the default account', () => {
+    const plan = buildImportPlan(rows('2026-05-12;100;transfer;;;;;;Fineco'), [], accounts, 'poste');
+    expect(plan.validRows[0]).toMatchObject({ linkedCashAssetId: 'poste', transferCashAssetId: 'fineco' });
+  });
+
+  it('rejects a missing, unknown or identical destination, and a destination on a spending row', () => {
+    const plan = buildImportPlan(
+      rows(
+        [
+          '2026-05-12;100;transfer;;;;;Poste Italiane;',
+          '2026-05-12;100;transfer;;;;;Poste Italiane;Banca X',
+          '2026-05-12;100;transfer;;;;;Poste Italiane;poste italiane',
+          '2026-05-12;100;variable;Spesa;;;;Poste Italiane;Fineco',
+        ].join('\n')
+      ),
+      [],
+      accounts
+    );
+    expect(plan.validRows).toEqual([]);
+    expect(plan.errors.map((e) => e.reason)).toEqual([
+      expect.stringMatching(/conto di destinazione/),
+      expect.stringMatching(/Banca X.*non trovato/),
+      expect.stringMatching(/stesso conto/),
+      expect.stringMatching(/vale solo per i trasferimenti/),
+    ]);
+  });
+
+  it('accepts the destination column under its aliases', () => {
+    const parsed = parseImportCsv('data;importo;categoria;conto;Conto destinazione\n2026-05-12;100;;Poste Italiane;Fineco');
+    expect(parsed[0].contoDestinazione).toBe('Fineco');
   });
 });
