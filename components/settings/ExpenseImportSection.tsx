@@ -10,7 +10,8 @@
  * right after it, or later from «Import precedenti» (2026-10-24), which lists the
  * batches still in the data. The optional «conto» column links rows to a cash account
  * and moves its balance on each row's date; the preview names the accounts and the
- * net they move by, and an undo gives it back.
+ * net they move by, and an undo gives it back. A `transfer` row (2026-10-25) names its
+ * destination in «conto_destinazione» and moves both accounts.
  *
  * The tile's reading line states the phase (settingsNarrative.describeImport): the
  * idle promise, the preview's three counts (import/skip/create — nothing moves
@@ -67,6 +68,7 @@ const TYPE_LABELS: Record<string, string> = {
   variable: 'Spese Variabili',
   debt: 'Debiti',
   income: 'Entrate',
+  transfer: 'Trasferimenti',
 };
 
 /** A flat KPI of the preview: sub-eyebrow, 18px mono figure, muted caption. */
@@ -273,6 +275,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
           <div className="mt-auto border-t border-border pt-3 text-[11px] leading-[1.45] text-muted-foreground">
             Una riga per transazione; le categorie mancanti vengono create. Senza la colonna «conto» i saldi non si
             muovono; con «conto», ogni riga muove il saldo di quel conto alla sua data, come una voce inserita a mano.
+            Un trasferimento ha tipo «transfer», «conto» di partenza e «conto_destinazione» di arrivo.
           </div>
           <Collapsible
             className="mt-3 border-t border-border pt-3"
@@ -338,7 +341,12 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
             <PreviewKpi
               label="Da importare"
               value={String(plan.summary.validCount)}
-              caption={`${cachedFormatCurrencyEUR(plan.summary.totalIncome, true)} entrate · ${cachedFormatCurrencyEUR(plan.summary.totalExpense, true)} uscite`}
+              caption={
+                `${cachedFormatCurrencyEUR(plan.summary.totalIncome, true)} entrate · ${cachedFormatCurrencyEUR(plan.summary.totalExpense, true)} uscite` +
+                (plan.summary.transferCount > 0
+                  ? ` · ${plan.summary.transferCount} ${plan.summary.transferCount === 1 ? 'trasferimento' : 'trasferimenti'} (${cachedFormatCurrencyEUR(plan.summary.totalTransfer, true)})`
+                  : '')
+              }
             />
             <PreviewKpi
               label="Scartate"
