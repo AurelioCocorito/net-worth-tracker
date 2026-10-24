@@ -403,3 +403,54 @@ describe('buildImportPlan — transfers', () => {
     expect(parsed[0].contoDestinazione).toBe('Fineco');
   });
 });
+
+describe('buildImportPlan — transfers into a fondo pensione', () => {
+  const header = 'data;importo;tipo;categoria;sottocategoria;note;valuta;conto;conto_destinazione\n';
+  const rows = (body: string) => parseImportCsv(header + body);
+  const accounts = [
+    { id: 'poste', name: 'Poste Italiane' },
+    { id: 'fondo', name: 'Fondo X', kind: 'pensionFund' as const },
+  ];
+  const now = new Date(2026, 9, 25, 12);
+
+  it('marks a transfer into a fund as a pension contribution', () => {
+    const plan = buildImportPlan(rows('2026-09-30;400,00;transfer;;;Versamento;EUR;Poste Italiane;Fondo X'), [], accounts, undefined, now);
+    expect(plan.errors).toEqual([]);
+    expect(plan.validRows[0]).toMatchObject({ linkedCashAssetId: 'poste', transferCashAssetId: 'fondo', pensionContribution: true });
+    expect(plan.summary).toMatchObject({ transferCount: 1, pensionContributionCount: 1, totalTransfer: 400 });
+  });
+
+  it('leaves a transfer between two accounts unmarked', () => {
+    const plan = buildImportPlan(
+      rows('2026-09-30;400;transfer;;;;;Poste Italiane;Conto B'),
+      [],
+      [...accounts, { id: 'b', name: 'Conto B' }],
+      undefined,
+      now
+    );
+    expect(plan.validRows[0].pensionContribution).toBeUndefined();
+    expect(plan.summary.pensionContributionCount).toBe(0);
+  });
+
+  it('refuses a fund as origin, as a spending account, and a future contribution', () => {
+    const plan = buildImportPlan(
+      rows(
+        [
+          '2026-09-30;400;transfer;;;;;Fondo X;Poste Italiane',
+          '2026-09-30;400;variable;Spesa;;;;Fondo X;',
+          '2026-10-26;400;transfer;;;;;Poste Italiane;Fondo X',
+        ].join('\n')
+      ),
+      [],
+      accounts,
+      undefined,
+      now
+    );
+    expect(plan.validRows).toEqual([]);
+    expect(plan.errors.map((e) => e.reason)).toEqual([
+      expect.stringMatching(/fondo pensione/),
+      expect.stringMatching(/fondo pensione/),
+      expect.stringMatching(/data futura/),
+    ]);
+  });
+});

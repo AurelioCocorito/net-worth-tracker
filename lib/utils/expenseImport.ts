@@ -17,6 +17,10 @@
  *   (cash accounts only); «categoria» may be empty and then falls on the user's transfer
  *   category (the oldest, or a new «Trasferimenti»). Written like the form's transfer:
  *   positive, both accounts on the row, each leg settled on the row's date.
+ * - A transfer whose destination is a fondo pensione (2026-10-25) is a VOLUNTARY contribution:
+ *   the commit records it in Previdenza (recordPensionContribution), which writes its own transfer
+ *   entry and moves both values at once — so a future date is rejected, and a fund is never an
+ *   origin nor the account of a spending/income row.
  * - Category identity is (name, type) — the same rule as the rest of the app
  *   (lib/utils/expenseGrouping.ts): "Casa" fissa and "Casa" variabile are two
  *   distinct categories, resolvable and creatable side by side. When two existing
@@ -29,6 +33,7 @@
 
 import Papa from 'papaparse';
 import { roundToCents } from '@/lib/utils/cents';
+import { settlesLater } from '@/lib/utils/cashSettlement';
 import { Expense, ExpenseCategory, EXPENSE_TYPE_LABELS } from '@/types/expenses';
 import {
   RawRow,
@@ -249,18 +254,22 @@ export function categoryMatchKey(name: string, type: string): string {
  * `defaultAccountId` (the preview's «Conto per le righe senza conto») links every
  * row whose «conto» cell is empty — a whole bank statement lands on its account
  * without the column at all; on a transfer it is the origin.
+ * An account of kind `pensionFund` is accepted only as a transfer's destination; `now` decides
+ * which contribution dates are in the future (refused: the contribution moves the values at once).
  */
 export function buildImportPlan(
   rows: RawRow[],
   existingCategories: ExpenseCategory[],
   cashAccounts: ImportCashAccount[] = [],
-  defaultAccountId?: string
+  defaultAccountId?: string,
+  now: Date = new Date()
 ): ImportPlan {
   const accountsByName = new Map<string, ImportCashAccount[]>();
   for (const a of cashAccounts) {
     accountsByName.set(norm(a.name), [...(accountsByName.get(norm(a.name)) ?? []), a]);
   }
   const accountNames = cashAccounts.map((a) => a.name).join(', ') || 'nessuno';
+  const pensionFundIds = new Set(cashAccounts.filter((a) => a.kind === 'pensionFund').map((a) => a.id));
 
   // (name, type) → existing categories, oldest first: [0] is the resolution target.
   const existingByKey = new Map<string, ExpenseCategory[]>();
@@ -352,6 +361,14 @@ export function buildImportPlan(
       }
       linkedCashAssetId = account.id;
     }
+    if (linkedCashAssetId && pensionFundIds.has(linkedCashAssetId)) {
+      errors.push({
+        line: row.line,
+        reason: `"${row.conto}" è un fondo pensione: può essere solo la destinazione di un trasferimento ("conto_destinazione").`,
+        raw: row,
+      });
+      continue;
+    }
 
     let transferCashAssetId: string | undefined;
     if (type === 'transfer') {
@@ -371,6 +388,14 @@ export function buildImportPlan(
       }
       if (destination.id === linkedCashAssetId) {
         errors.push({ line: row.line, reason: 'Origine e destinazione del trasferimento sono lo stesso conto.', raw: row });
+        continue;
+      }
+      if (pensionFundIds.has(destination.id) && settlesLater(date, now)) {
+        errors.push({
+          line: row.line,
+          reason: 'Versamento al fondo pensione con data futura: registralo quando è avvenuto.',
+          raw: row,
+        });
         continue;
       }
       transferCashAssetId = destination.id;
@@ -397,6 +422,7 @@ export function buildImportPlan(
       currency: (row.valuta || 'EUR').toUpperCase(),
       linkedCashAssetId,
       transferCashAssetId,
+      pensionContribution: transferCashAssetId && pensionFundIds.has(transferCashAssetId) ? true : undefined,
     });
   }
 
@@ -469,6 +495,7 @@ function buildSummary(
   let totalExpense = 0;
   let transferCount = 0;
   let totalTransfer = 0;
+  let pensionContributionCount = 0;
   let dateFrom: Date | undefined;
   let dateTo: Date | undefined;
 
@@ -477,6 +504,7 @@ function buildSummary(
     else if (r.type === 'transfer') {
       transferCount++;
       totalTransfer += r.amount;
+      if (r.pensionContribution) pensionContributionCount++;
     } else totalExpense += r.amount;
     if (!dateFrom || r.date < dateFrom) dateFrom = r.date;
     if (!dateTo || r.date > dateTo) dateTo = r.date;
@@ -503,6 +531,7 @@ function buildSummary(
     totalExpense,
     transferCount,
     totalTransfer: roundToCents(totalTransfer),
+    pensionContributionCount,
     dateFrom,
     dateTo,
     accounts: [...byAccount.values()],

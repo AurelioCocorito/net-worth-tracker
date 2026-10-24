@@ -11,7 +11,8 @@
  * batches still in the data. The optional «conto» column links rows to a cash account
  * and moves its balance on each row's date; the preview names the accounts and the
  * net they move by, and an undo gives it back. A `transfer` row (2026-10-25) names its
- * destination in «conto_destinazione» and moves both accounts.
+ * destination in «conto_destinazione» and moves both accounts; into a fondo pensione it is
+ * recorded as a voluntary contribution in Previdenza.
  *
  * The tile's reading line states the phase (settingsNarrative.describeImport): the
  * idle promise, the preview's three counts (import/skip/create — nothing moves
@@ -166,9 +167,12 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
       const categories = await queryClient.fetchQuery(categoriesQueryOptions(ownerId));
       // The accounts the «conto» column can name — the same filter as the expense form's.
       const assets = await queryClient.fetchQuery(assetsQueryOptions(ownerId));
-      const cashAccounts = assets
-        .filter((a) => a.type === 'cash' && a.assetClass === 'cash')
-        .map((a) => ({ id: a.id, name: a.name }));
+      // Plus the pension funds (2026-10-25), a transfer's destination only: the row becomes a
+      // voluntary contribution in Previdenza.
+      const cashAccounts: ImportCashAccount[] = [
+        ...assets.filter((a) => a.type === 'cash' && a.assetClass === 'cash').map((a) => ({ id: a.id, name: a.name })),
+        ...assets.filter((a) => a.type === 'pensionFund').map((a) => ({ id: a.id, name: a.name, kind: 'pensionFund' as const })),
+      ];
       const built = buildImportPlan(rows, categories, cashAccounts);
       setSource({ rows, categories, cashAccounts });
       setDefaultAccountId(NO_DEFAULT_ACCOUNT);
@@ -275,7 +279,8 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
           <div className="mt-auto border-t border-border pt-3 text-[11px] leading-[1.45] text-muted-foreground">
             Una riga per transazione; le categorie mancanti vengono create. Senza la colonna «conto» i saldi non si
             muovono; con «conto», ogni riga muove il saldo di quel conto alla sua data, come una voce inserita a mano.
-            Un trasferimento ha tipo «transfer», «conto» di partenza e «conto_destinazione» di arrivo.
+            Un trasferimento ha tipo «transfer», «conto» di partenza e «conto_destinazione» di arrivo; verso un fondo
+            pensione diventa un versamento volontario in Previdenza.
           </div>
           <Collapsible
             className="mt-3 border-t border-border pt-3"
@@ -345,6 +350,9 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
                 `${cachedFormatCurrencyEUR(plan.summary.totalIncome, true)} entrate · ${cachedFormatCurrencyEUR(plan.summary.totalExpense, true)} uscite` +
                 (plan.summary.transferCount > 0
                   ? ` · ${plan.summary.transferCount} ${plan.summary.transferCount === 1 ? 'trasferimento' : 'trasferimenti'} (${cachedFormatCurrencyEUR(plan.summary.totalTransfer, true)})`
+                  : '') +
+                (plan.summary.pensionContributionCount > 0
+                  ? `, di cui ${plan.summary.pensionContributionCount} ${plan.summary.pensionContributionCount === 1 ? 'versamento' : 'versamenti'} alla previdenza`
                   : '')
               }
             />
@@ -375,7 +383,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NO_DEFAULT_ACCOUNT}>Nessuno: i saldi non si muovono</SelectItem>
-                  {source.cashAccounts.map((a) => (
+                  {source.cashAccounts.filter((a) => a.kind !== 'pensionFund').map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.name}
                     </SelectItem>

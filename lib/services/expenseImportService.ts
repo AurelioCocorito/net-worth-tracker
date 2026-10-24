@@ -17,6 +17,10 @@
  *   undo leave the balances where they were.
  * - A `transfer` row (2026-10-25) is written as the form writes it: positive, origin in
  *   `linkedCashAssetId`, destination in `transferCashAssetId`; both legs settle on its date.
+ * - A transfer INTO a fondo pensione (`pensionContribution`) is recorded through
+ *   recordPensionContribution as a voluntary contribution, after the batch: the service writes the
+ *   Previdenza record, its own transfer entry and both values. Both carry the `importBatchId`, and
+ *   the undo deletes them through deletePensionContribution BEFORE the plain rows.
  * - `existingCategories` is the same array the caller already fetched via
  *   `getAllCategories` to build the plan (never `getCategoriesByType`, which
  *   needs a composite index that isn't deployed). New categories/subcategories
@@ -40,6 +44,10 @@ import { createCategory, updateCategory } from '@/lib/services/expenseCategorySe
 import { categoryMatchKey } from '@/lib/utils/expenseImport';
 import { appliedBalanceEffectsOf, settlesLater, type BalanceEffect } from '@/lib/utils/cashSettlement';
 import { applyBalanceEffects, reverseAppliedBalances } from '@/lib/services/cashBalanceReconciliation';
+import {
+  recordPensionContribution,
+  deletePensionContributionsByImportBatch,
+} from '@/lib/services/pensionContributionService';
 import { ImportPlan } from '@/types/expenseImport';
 import { ExpenseCategory, ExpenseSubCategory } from '@/types/expenses';
 
@@ -125,6 +133,7 @@ export async function commitImportPlan(
   let created = 0;
 
   for (const row of plan.validRows) {
+    if (row.pensionContribution) continue; // recorded in Previdenza below
     // Id resolved by the plan when the category pre-existed; (name, type) key for
     // the ones created in step 1.
     const category =
@@ -184,6 +193,21 @@ export async function commitImportPlan(
   // The balances move only once the rows exist, in one transaction for every account the
   // batch touched — the same order as the expense form (write, then apply).
   await applyBalanceEffects(effects);
+
+  // One at a time: each contribution moves the same account, and its service is not batched.
+  for (const row of plan.validRows) {
+    if (!row.pensionContribution || !row.transferCashAssetId) continue;
+    await recordPensionContribution(userId, {
+      assetId: row.transferCashAssetId,
+      source: 'voluntary',
+      amount: row.amount,
+      date: row.date,
+      notes: row.notes,
+      sourceCashAssetId: row.linkedCashAssetId,
+      importBatchId,
+    });
+    created++;
+  }
   await invalidateDashboardOverviewSummary(userId, 'expense_created');
 
   return { importBatchId, created };
@@ -196,13 +220,16 @@ export async function commitImportPlan(
  * gave nothing and gets nothing back). Returns the number of expenses deleted.
  */
 export async function deleteExpensesByImportBatch(userId: string, importBatchId: string): Promise<number> {
+  // First the pension contributions: deleting one also deletes its transfer entry and gives back
+  // both values, so the query below no longer sees (and never reverses twice) those entries.
+  const contributions = await deletePensionContributionsByImportBatch(userId, importBatchId);
   const q = query(
     collection(db, EXPENSES_COLLECTION),
     where('userId', '==', userId),
     where('importBatchId', '==', importBatchId)
   );
   const snapshot = await getDocs(q);
-  if (snapshot.empty) return 0;
+  if (snapshot.empty) return contributions;
 
   await reverseAppliedBalances(
     snapshot.docs.map((d) => {
@@ -235,5 +262,5 @@ export async function deleteExpensesByImportBatch(userId: string, importBatchId:
   await Promise.all(batches.map((b) => b.commit()));
   await invalidateDashboardOverviewSummary(userId, 'expense_deleted');
 
-  return snapshot.size;
+  return contributions + snapshot.size;
 }

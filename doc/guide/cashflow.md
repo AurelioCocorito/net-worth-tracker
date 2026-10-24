@@ -247,6 +247,11 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   the form writes it: positive, `linkedCashAssetId` + `transferCashAssetId`, both legs on the row's date (pending if
   later); the undo gives back both. Rejected: no origin, no destination, the same account twice, a destination on a
   non-transfer row. The preview counts transfers apart from income and spending; no fee column (a fee is its own row).
+- **Into a fondo pensione (2026-10-25)**: a `pensionFund` asset named in «conto_destinazione» turns the row into a
+  VOLUNTARY contribution, recorded after the batch by `recordPensionContribution` (the Previdenza record, its own
+  transfer entry, both values at once; tax year = the date's year). Both carry the `importBatchId`; the undo deletes
+  them first through `deletePensionContributionsByImportBatch` → `deletePensionContribution`. A fund is never an origin
+  nor a spending/income account, and a future-dated contribution is refused (it would move the values today).
 - **Tracciamento's account filter** closes with «Conto non specificato» (rows with no `linkedCashAssetId`) when the
   listed rows hold any.
 
