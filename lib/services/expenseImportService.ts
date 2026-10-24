@@ -9,9 +9,12 @@
  *   import can be undone in one call (deleteExpensesByImportBatch).
  * - Amount sign convention is applied here (expenses negative, income positive) —
  *   the plan carries positive magnitudes.
- * - We DELIBERATELY do not set `linkedCashAssetId` / touch cash-asset balances:
- *   historical rows must not mutate current balances (`transfer` rows are
- *   already excluded upstream by buildImportPlan).
+ * - A row WITHOUT «conto» is linked to no account and moves no balance (the historical
+ *   default). A row WITH «conto» (2026-10-24) carries `linkedCashAssetId` and follows the
+ *   ONE settlement rule (lib/utils/cashSettlement.ts): a row dated today or earlier moves
+ *   the account at once, a later one is written `balancePending` and settled by the server
+ *   on its day. The undo gives back exactly what the batch applied, so an import and its
+ *   undo leave the balances where they were. `transfer` rows are excluded upstream.
  * - `existingCategories` is the same array the caller already fetched via
  *   `getAllCategories` to build the plan (never `getCategoriesByType`, which
  *   needs a composite index that isn't deployed). New categories/subcategories
@@ -33,6 +36,8 @@ import { removeUndefinedDeep as removeUndefinedFields } from '@/lib/utils/firest
 import { invalidateDashboardOverviewSummary } from '@/lib/services/dashboardOverviewInvalidation';
 import { createCategory, updateCategory } from '@/lib/services/expenseCategoryService';
 import { categoryMatchKey } from '@/lib/utils/expenseImport';
+import { appliedBalanceEffectsOf, settlesLater, type BalanceEffect } from '@/lib/utils/cashSettlement';
+import { applyBalanceEffects, reverseAppliedBalances } from '@/lib/services/cashBalanceReconciliation';
 import { ImportPlan } from '@/types/expenseImport';
 import { ExpenseCategory, ExpenseSubCategory } from '@/types/expenses';
 
@@ -104,6 +109,7 @@ export async function commitImportPlan(
 
   const importBatchId = genImportBatchId();
   const now = new Date();
+  const effects: BalanceEffect[] = [];
 
   // 3. Bulk-write the expenses in chunks (Firestore hard limit is 500 ops/batch).
   const batches: ReturnType<typeof writeBatch>[] = [];
@@ -124,6 +130,8 @@ export async function commitImportPlan(
 
     // Sign convention: income positive, all other importable types (fixed/variable/debt) negative.
     const amount = row.type === 'income' ? row.amount : -row.amount;
+    const balancePending = row.linkedCashAssetId && settlesLater(row.date, now) ? true : undefined;
+    effects.push(...appliedBalanceEffectsOf({ type: row.type, amount, linkedCashAssetId: row.linkedCashAssetId, balancePending }));
 
     const data = removeUndefinedFields({
       userId,
@@ -137,7 +145,8 @@ export async function commitImportPlan(
       date: Timestamp.fromDate(row.date),
       notes: row.notes,
       isRecurring: false,
-      // No linkedCashAssetId on purpose — historical import must not reconcile balances.
+      linkedCashAssetId: row.linkedCashAssetId,
+      balancePending,
       importBatchId,
       createdAt: now,
       updatedAt: now,
@@ -155,6 +164,9 @@ export async function commitImportPlan(
   if (opCount > 0) batches.push(currentBatch);
 
   await Promise.all(batches.map((b) => b.commit()));
+  // The balances move only once the rows exist, in one transaction for every account the
+  // batch touched — the same order as the expense form (write, then apply).
+  await applyBalanceEffects(effects);
   await invalidateDashboardOverviewSummary(userId, 'expense_created');
 
   return { importBatchId, created };
@@ -162,7 +174,9 @@ export async function commitImportPlan(
 
 /**
  * Delete every expense written by a given import batch. Used by the "Annulla import"
- * action. Returns the number of expenses deleted.
+ * action, right after the import or later from the list of past imports. Gives back
+ * first what the batch's linked rows applied to their accounts (a row still pending
+ * gave nothing and gets nothing back). Returns the number of expenses deleted.
  */
 export async function deleteExpensesByImportBatch(userId: string, importBatchId: string): Promise<number> {
   const q = query(
@@ -172,6 +186,13 @@ export async function deleteExpensesByImportBatch(userId: string, importBatchId:
   );
   const snapshot = await getDocs(q);
   if (snapshot.empty) return 0;
+
+  await reverseAppliedBalances(
+    snapshot.docs.map((d) => {
+      const data = d.data();
+      return { type: data.type, amount: data.amount, linkedCashAssetId: data.linkedCashAssetId, balancePending: data.balancePending };
+    })
+  );
 
   const batches: ReturnType<typeof writeBatch>[] = [];
   let currentBatch = writeBatch(db);

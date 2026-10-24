@@ -233,7 +233,16 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 ## Expense CSV Import (`lib/utils/expenseImport.ts`, `lib/services/expenseImportService.ts`)
 - Impostazioni → Spese. A pure parse → validate → plan layer with a MANDATORY preview before any write; every row of
   one import shares an `importBatchId`, which is what the one-tap undo deletes by. Category identity is **(name,
-  type)**, never the name alone. `transfer` rows are rejected and cash balances are never touched by an import.
+  type)**, never the name alone. `transfer` rows are rejected.
+- **Accounts (2026-10-24)**: a row is linked to a cash account by the optional «conto» column (the account's name,
+  case-insensitive; an unknown or ambiguous name rejects the row) or, when the cell is empty, by the preview's «Conto per
+  le righe senza conto». A linked row follows the ONE settlement rule (`lib/utils/cashSettlement.ts`): past rows move
+  the balance at commit, later ones are written `balancePending`; the preview names each account and its signed net.
+  A row with neither stays linked to nothing and moves nothing (the behaviour before 2026-10-24). The undo gives back
+  what the batch applied before deleting it, and «Import precedenti» (`summarizeImportBatches`) lists every batch still
+  in the data, so an import is undoable after leaving the page too (before, only in the wizard's «done» phase).
+- **Tracciamento's account filter** closes with «Conto non specificato» (rows with no `linkedCashAssetId`) when the
+  listed rows hold any.
 
 ## Cashflow Drill-Down: One Landing Path
 - **There is ONE drill destination and ONE transaction list**: every entity entry point on Analisi (a category row, a

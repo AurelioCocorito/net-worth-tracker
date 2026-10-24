@@ -6,7 +6,11 @@
  * A 4-phase wizard (idle → preview → committing → done) to migrate historical
  * expense/income data from a standardized CSV. Parsing/validation is delegated to
  * the pure lib/utils/expenseImport.ts layer; the Firestore commit/undo to
- * lib/services/expenseImportService.ts. Every import is undoable via its batch id.
+ * lib/services/expenseImportService.ts. Every import is undoable via its batch id —
+ * right after it, or later from «Import precedenti» (2026-10-24), which lists the
+ * batches still in the data. The optional «conto» column links rows to a cash account
+ * and moves its balance on each row's date; the preview names the accounts and the
+ * net they move by, and an undo gives it back.
  *
  * The tile's reading line states the phase (settingsNarrative.describeImport): the
  * idle promise, the preview's three counts (import/skip/create — nothing moves
@@ -28,15 +32,28 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Tile, TILE_SUB_EYEBROW_CLASS } from '@/components/ui/tile';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { cachedFormatCurrencyEUR, formatDate } from '@/lib/utils/formatters';
 import { describeImport } from '@/lib/utils/settingsNarrative';
 import { useQueryClient } from '@tanstack/react-query';
 import { categoriesQueryOptions } from '@/lib/hooks/useExpenses';
-import { buildImportPlan, parseImportCsv, buildTemplateCsv } from '@/lib/utils/expenseImport';
+import { assetsQueryOptions } from '@/lib/hooks/useAssets';
+import {
+  buildImportPlan,
+  parseImportCsv,
+  buildTemplateCsv,
+  summarizeImportBatches,
+  type ImportBatchSummary,
+} from '@/lib/utils/expenseImport';
 import { commitImportPlan, deleteExpensesByImportBatch } from '@/lib/services/expenseImportService';
-import { ImportPlan } from '@/types/expenseImport';
+import { getAllExpenses } from '@/lib/services/expenseService';
+import { ImportCashAccount, ImportPlan, RawRow } from '@/types/expenseImport';
+import type { ExpenseCategory } from '@/types/expenses';
+
+/** The default-account select's value for «no account». */
+const NO_DEFAULT_ACCOUNT = '__none__';
 
 type Phase = 'idle' | 'preview' | 'committing' | 'done';
 
@@ -71,12 +88,56 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
   const [phase, setPhase] = useState<Phase>('idle');
   const [fileName, setFileName] = useState<string>('');
   const [plan, setPlan] = useState<ImportPlan | null>(null);
+  // What the preview re-plans from when the default account changes: the parsed rows and
+  // the categories / accounts read with them.
+  const [source, setSource] = useState<{ rows: RawRow[]; categories: ExpenseCategory[]; cashAccounts: ImportCashAccount[] } | null>(null);
+  const [defaultAccountId, setDefaultAccountId] = useState<string>(NO_DEFAULT_ACCOUNT);
   const [lastBatch, setLastBatch] = useState<{ importBatchId: string; created: number } | null>(null);
   const [undoing, setUndoing] = useState(false);
+  // «Import precedenti»: read on demand, never on mount (it reads every expense).
+  const [pastBatches, setPastBatches] = useState<ImportBatchSummary[] | null>(null);
+  const [loadingPast, setLoadingPast] = useState(false);
+  const [armedBatchId, setArmedBatchId] = useState<string | null>(null);
+  const [undoingBatchId, setUndoingBatchId] = useState<string | null>(null);
+
+  const loadPastBatches = async () => {
+    if (!ownerId) return;
+    setLoadingPast(true);
+    try {
+      setPastBatches(summarizeImportBatches(await getAllExpenses(ownerId)));
+    } catch (err) {
+      console.error('Past imports read error:', err);
+      toast.error('Impossibile leggere gli import precedenti.');
+    }
+    setLoadingPast(false);
+  };
+
+  const handleUndoPast = async (batch: ImportBatchSummary) => {
+    if (!ownerId) return;
+    // Two taps: the first arms the row, the second deletes — the rows cannot be restored.
+    if (armedBatchId !== batch.importBatchId) {
+      setArmedBatchId(batch.importBatchId);
+      return;
+    }
+    setUndoingBatchId(batch.importBatchId);
+    try {
+      const deleted = await deleteExpensesByImportBatch(ownerId, batch.importBatchId);
+      toast.success(`Import annullato: ${deleted} transazioni rimosse.`);
+      setPastBatches((list) => (list ?? []).filter((b) => b.importBatchId !== batch.importBatchId));
+      if (onImported) onImported();
+    } catch (err) {
+      console.error('Undo past import error:', err);
+      toast.error("Errore durante l'annullamento.");
+    }
+    setArmedBatchId(null);
+    setUndoingBatchId(null);
+  };
 
   const reset = () => {
     setPhase('idle');
     setPlan(null);
+    setSource(null);
+    setDefaultAccountId(NO_DEFAULT_ACCOUNT);
     setFileName('');
     setLastBatch(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -101,7 +162,14 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
       const rows = parseImportCsv(text);
       // The categories the preview plans against, through the key every reader shares.
       const categories = await queryClient.fetchQuery(categoriesQueryOptions(ownerId));
-      const built = buildImportPlan(rows, categories);
+      // The accounts the «conto» column can name — the same filter as the expense form's.
+      const assets = await queryClient.fetchQuery(assetsQueryOptions(ownerId));
+      const cashAccounts = assets
+        .filter((a) => a.type === 'cash' && a.assetClass === 'cash')
+        .map((a) => ({ id: a.id, name: a.name }));
+      const built = buildImportPlan(rows, categories, cashAccounts);
+      setSource({ rows, categories, cashAccounts });
+      setDefaultAccountId(NO_DEFAULT_ACCOUNT);
       setPlan(built);
       setPhase('preview');
       if (built.validRows.length === 0) {
@@ -112,6 +180,14 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
       toast.error(err instanceof Error ? err.message : 'Impossibile leggere il file CSV.');
       reset();
     }
+  };
+
+  const handleDefaultAccountChange = (value: string) => {
+    setDefaultAccountId(value);
+    if (!source) return;
+    setPlan(
+      buildImportPlan(source.rows, source.categories, source.cashAccounts, value === NO_DEFAULT_ACCOUNT ? undefined : value)
+    );
   };
 
   const handleConfirm = async () => {
@@ -195,8 +271,59 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
             </p>
           )}
           <div className="mt-auto border-t border-border pt-3 text-[11px] leading-[1.45] text-muted-foreground">
-            Una riga per transazione; le categorie mancanti vengono create; i saldi dei conti non vengono toccati.
+            Una riga per transazione; le categorie mancanti vengono create. Senza la colonna «conto» i saldi non si
+            muovono; con «conto», ogni riga muove il saldo di quel conto alla sua data, come una voce inserita a mano.
           </div>
+          <Collapsible
+            className="mt-3 border-t border-border pt-3"
+            onOpenChange={(open) => {
+              if (open && pastBatches === null) void loadPastBatches();
+            }}
+          >
+            <CollapsibleTrigger className="text-[13px] text-muted-foreground hover:underline">
+              Import precedenti
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              {loadingPast && (
+                <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Lettura in corso…
+                </p>
+              )}
+              {!loadingPast && pastBatches !== null && pastBatches.length === 0 && (
+                <p className="text-[13px] text-muted-foreground">Nessun import nei dati.</p>
+              )}
+              {!loadingPast && pastBatches !== null && pastBatches.length > 0 && (
+                <ul className="divide-y divide-border rounded-md border border-border text-[13px]">
+                  {pastBatches.map((b) => (
+                    <li key={b.importBatchId} className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                      <span>
+                        Importato il {formatDate(b.importedAt)}: {b.count} {b.count === 1 ? 'voce' : 'voci'} dal{' '}
+                        {formatDate(b.dateFrom)} al {formatDate(b.dateTo)}
+                        {b.linkedCount > 0 && (
+                          <span className="text-muted-foreground"> · {b.linkedCount} collegate a un conto</span>
+                        )}
+                      </span>
+                      <Button
+                        variant={armedBatchId === b.importBatchId ? 'destructive' : 'outline'}
+                        size="sm"
+                        onClick={() => void handleUndoPast(b)}
+                        disabled={isDemo || undoingBatchId !== null}
+                        className="w-full shrink-0 sm:w-auto"
+                      >
+                        {undoingBatchId === b.importBatchId ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Undo2 className="mr-2 h-4 w-4" />
+                        )}
+                        {armedBatchId === b.importBatchId ? `Conferma: elimina ${b.count} voci` : 'Annulla import'}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
         </>
       )}
 
@@ -228,6 +355,42 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
               }
             />
           </div>
+
+          {source && source.cashAccounts.length > 0 && (
+            <div className="mt-3.5 border-t border-border pt-3">
+              <label htmlFor="import-default-account" className={TILE_SUB_EYEBROW_CLASS}>
+                Conto per le righe senza conto
+              </label>
+              <Select value={defaultAccountId} onValueChange={handleDefaultAccountChange}>
+                <SelectTrigger id="import-default-account" className="mt-1.5 w-full sm:w-72">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_DEFAULT_ACCOUNT}>Nessuno: i saldi non si muovono</SelectItem>
+                  {source.cashAccounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {plan.summary.accounts.length > 0 && (
+            <div className="mt-3.5 border-t border-border pt-3">
+              <p className={TILE_SUB_EYEBROW_CLASS}>Saldi che si muovono</p>
+              <ul className="mt-1.5 space-y-0.5 text-[13px] text-muted-foreground">
+                {plan.summary.accounts.map((a) => (
+                  <li key={a.assetId}>
+                    • {a.name}: {a.count} {a.count === 1 ? 'voce' : 'voci'}, saldo{' '}
+                    {a.net >= 0 ? '+' : '−'}
+                    {cachedFormatCurrencyEUR(Math.abs(a.net), true)} (ogni voce alla sua data)
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {plan.categoriesToCreate.length > 0 && (
             <div className="mt-3.5 border-t border-border pt-3">

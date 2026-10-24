@@ -23,6 +23,17 @@ export interface RawRow {
   sottocategoria: string;
   note: string;
   valuta: string;
+  /** Optional account name (column «conto»); empty = the row is linked to no account. */
+  conto: string;
+}
+
+/**
+ * A cash account an imported row can be linked to (column «conto»), matched by name,
+ * case-insensitive. Only `type === 'cash' && assetClass === 'cash'` assets, as in the form.
+ */
+export interface ImportCashAccount {
+  id: string;
+  name: string;
 }
 
 /**
@@ -46,6 +57,12 @@ export interface PlannedExpenseRow {
   subCategoryName?: string;
   notes?: string;
   currency: string;
+  /**
+   * The cash account the row is linked to (column «conto»). A linked row moves that
+   * account's balance on its own date, exactly as the expense form does
+   * (lib/utils/cashSettlement.ts); undefined = no account, nothing moves.
+   */
+  linkedCashAssetId?: string;
 }
 
 /** A row that failed validation (or was intentionally skipped, e.g. transfer). */
@@ -85,6 +102,16 @@ export interface ImportSummary {
   totalExpense: number; // positive magnitude of all expense rows
   dateFrom?: Date;
   dateTo?: Date;
+  /** Per linked account: how many rows and their signed net (income +, spending −), for the preview. */
+  accounts: ImportAccountSummary[];
+}
+
+export interface ImportAccountSummary {
+  assetId: string;
+  name: string;
+  count: number;
+  /** Signed sum of the account's rows: what its balance moves by once every row's date has come. */
+  net: number;
 }
 
 /**

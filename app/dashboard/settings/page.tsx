@@ -211,6 +211,8 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all(ownerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.expenses.categories(ownerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(ownerId) });
+      // An import with «conto» (or its undo) moves account balances.
+      queryClient.invalidateQueries({ queryKey: queryKeys.assets.all(ownerId) });
     }
   };
 

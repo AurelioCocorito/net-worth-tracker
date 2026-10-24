@@ -10,6 +10,9 @@
  *      namesake's type (ambiguous → rejected), same-name-same-type duplicates
  *      attach to the oldest with a preview notice; plus transfer skip,
  *      subcategory creation, summary totals.
+ *   5. the «conto» column — rows linked by account name, unknown/ambiguous names
+ *      rejected, the per-account net in the summary.
+ *   6. summarizeImportBatches — the past imports listed for a later undo.
  *
  * No React, no Firebase — the module imports only papaparse + types.
  */
@@ -21,6 +24,7 @@ import {
   parseImportCsv,
   buildImportPlan,
   buildTemplateCsv,
+  summarizeImportBatches,
 } from '@/lib/utils/expenseImport';
 import { ExpenseCategory } from '@/types/expenses';
 
@@ -226,5 +230,99 @@ describe('buildImportPlan', () => {
     expect(plan.summary.newCategoriesCount).toBe(3);
     expect(plan.summary.dateFrom!.getMonth()).toBe(0);
     expect(plan.summary.dateTo!.getMonth()).toBe(2);
+  });
+});
+
+describe('the «conto» column', () => {
+  const accounts = [
+    { id: 'acc-a', name: 'Conto Alfa' },
+    { id: 'acc-b', name: 'Conto Beta' },
+  ];
+  const rowsCsv = (body: string) =>
+    parseImportCsv('data;importo;tipo;categoria;sottocategoria;note;valuta;conto\n' + body);
+
+  it('reads the column under its Italian and English names', () => {
+    expect(parseImportCsv('data;importo;categoria;conto\n2024-01-15;50;Spesa;Conto Alfa')[0].conto).toBe('Conto Alfa');
+    expect(parseImportCsv('date,amount,category,account\n2024-01-15,50,Spesa,Conto Alfa')[0].conto).toBe('Conto Alfa');
+  });
+
+  it('links a row to the account named, case-insensitive', () => {
+    const plan = buildImportPlan(rowsCsv('2024-01-15;50,00;variable;Spesa;;;;conto alfa'), [], accounts);
+    expect(plan.validRows[0].linkedCashAssetId).toBe('acc-a');
+  });
+
+  it('leaves a row without «conto» linked to nothing', () => {
+    const plan = buildImportPlan(rowsCsv('2024-01-15;50,00;variable;Spesa;;;;'), [], accounts);
+    expect(plan.validRows[0].linkedCashAssetId).toBeUndefined();
+    expect(plan.summary.accounts).toEqual([]);
+  });
+
+  it('links the rows without «conto» to the default account, the named ones to theirs', () => {
+    const plan = buildImportPlan(
+      rowsCsv('2024-01-15;50,00;variable;Spesa;;;;\n2024-01-16;20,00;variable;Spesa;;;;Conto Beta'),
+      [],
+      accounts,
+      'acc-a'
+    );
+    expect(plan.validRows.map((r) => r.linkedCashAssetId)).toEqual(['acc-a', 'acc-b']);
+  });
+
+  it('rejects an unknown account, naming the ones available', () => {
+    const plan = buildImportPlan(rowsCsv('2024-01-15;50,00;variable;Spesa;;;;Conto Gamma'), [], accounts);
+    expect(plan.validRows).toHaveLength(0);
+    expect(plan.errors[0].reason).toMatch(/Conto "Conto Gamma" non trovato/);
+    expect(plan.errors[0].reason).toMatch(/Conto Alfa, Conto Beta/);
+  });
+
+  it('rejects a name two accounts share', () => {
+    const twins = [...accounts, { id: 'acc-c', name: 'conto alfa' }];
+    const plan = buildImportPlan(rowsCsv('2024-01-15;50,00;variable;Spesa;;;;Conto Alfa'), [], twins);
+    expect(plan.validRows).toHaveLength(0);
+    expect(plan.errors[0].reason).toMatch(/ambiguo/);
+  });
+
+  it('sums the signed net per account for the preview', () => {
+    const plan = buildImportPlan(
+      rowsCsv(
+        '2024-01-15;2500,00;income;Stipendio;;;;Conto Alfa\n' +
+          '2024-01-20;120,50;variable;Spesa;;;;Conto Alfa\n' +
+          '2024-01-21;40,00;variable;Spesa;;;;Conto Beta\n' +
+          '2024-01-22;10,00;variable;Spesa;;;;'
+      ),
+      [],
+      accounts
+    );
+    expect(plan.summary.accounts).toEqual([
+      { assetId: 'acc-a', name: 'Conto Alfa', count: 2, net: 2379.5 },
+      { assetId: 'acc-b', name: 'Conto Beta', count: 1, net: -40 },
+    ]);
+  });
+});
+
+describe('summarizeImportBatches', () => {
+  const row = (batch: string | undefined, date: string, createdAt: string, linked?: string) => ({
+    importBatchId: batch,
+    date: new Date(`${date}T12:00:00`),
+    createdAt: new Date(`${createdAt}T12:00:00`),
+    linkedCashAssetId: linked,
+  });
+
+  it('groups the rows by batch, newest import first, ignoring rows typed by hand', () => {
+    const batches = summarizeImportBatches([
+      row('old', '2024-01-10', '2024-05-01'),
+      row('new', '2024-03-05', '2024-06-01', 'acc-a'),
+      row(undefined, '2024-03-06', '2024-06-02'),
+      row('new', '2024-02-01', '2024-06-01'),
+      row('old', '2024-01-31', '2024-05-01'),
+    ]);
+    expect(batches.map((b) => b.importBatchId)).toEqual(['new', 'old']);
+    expect(batches[0]).toMatchObject({ count: 2, linkedCount: 1 });
+    expect(batches[0].dateFrom.getMonth()).toBe(1);
+    expect(batches[0].dateTo.getMonth()).toBe(2);
+    expect(batches[1]).toMatchObject({ count: 2, linkedCount: 0 });
+  });
+
+  it('is empty when nothing was imported', () => {
+    expect(summarizeImportBatches([row(undefined, '2024-01-10', '2024-05-01')])).toEqual([]);
   });
 });

@@ -221,13 +221,16 @@ interface ExpenseTrackingTabProps {
   active: boolean;
 }
 
+/** The account filter's value for the rows linked to no account («Conto non specificato»). */
+const NO_ACCOUNT_FILTER = '__none__';
+
 interface ListFilters {
   selectedTypes: ExpenseType[];
   selectedCatIds: string[];
   /** 'all', or a subcategory id — only meaningful when ONE plain category is selected. */
   subCategoryId: string;
   searchQuery: string;
-  /** 'all', or an account id present in the period. */
+  /** 'all', an account id present in the period, or NO_ACCOUNT_FILTER. */
   accountId: string;
   /** 'all', 'common', 'unassigned' or a member id (movementsOwnerFilter.ts). */
   ownerId: string;
@@ -273,7 +276,9 @@ function applyListFilters(expenses: Expense[], filters: ListFilters): Expense[] 
     });
   }
 
-  if (filters.accountId !== 'all') {
+  if (filters.accountId === NO_ACCOUNT_FILTER) {
+    filtered = filtered.filter((e) => !e.linkedCashAssetId);
+  } else if (filters.accountId !== 'all') {
     filtered = filtered.filter((e) => e.linkedCashAssetId === filters.accountId);
   }
 
@@ -705,15 +710,20 @@ export function ExpenseTrackingTab({
   // Account options: accounts that appear in the LISTED rows — the filter narrows the list,
   // so an account that only a scheduled row touches must still be offered.
   // Only shown when at least 2 distinct accounts exist (otherwise the filter is useless).
+  // «Conto non specificato» (2026-10-24) closes the list when some listed row is linked to no account —
+  // the rows to find after a CSV import without the «conto» column.
   const accountOptions = useMemo(() => {
     const ids = new Set<string>();
+    let anyUnlinked = false;
     for (const e of expenses) {
       if (e.linkedCashAssetId) ids.add(e.linkedCashAssetId);
+      else anyUnlinked = true;
     }
-    return Array.from(ids).map((id) => ({
+    const options = Array.from(ids).map((id) => ({
       id,
       name: assetNameMap.get(id) ?? id,
     }));
+    return anyUnlinked && options.length > 0 ? [...options, { id: NO_ACCOUNT_FILTER, name: 'Conto non specificato' }] : options;
   }, [expenses, assetNameMap]);
 
   // A selected account that no longer appears in the period (the user moved to a month with
