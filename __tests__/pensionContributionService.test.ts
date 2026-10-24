@@ -12,6 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const addDocMock = vi.fn();
 const deleteDocMock = vi.fn();
 const getDocsMock = vi.fn();
+const updateDocMock = vi.fn();
 
 vi.mock('@/lib/firebase/config', () => ({ db: {} }));
 
@@ -21,6 +22,7 @@ vi.mock('firebase/firestore', () => ({
   addDoc: (...args: unknown[]) => addDocMock(...args),
   deleteDoc: (...args: unknown[]) => deleteDocMock(...args),
   getDocs: (...args: unknown[]) => getDocsMock(...args),
+  updateDoc: (...args: unknown[]) => updateDocMock(...args),
   query: (ref: unknown, ...constraints: unknown[]) => ({ ref, constraints }),
   where: (field: string, op: string, value: unknown) => ({ field, op, value }),
   Timestamp: {
@@ -67,6 +69,7 @@ import {
   getPensionContributions,
   recordPensionContribution,
   deletePensionContribution,
+  deletePensionContributionsByImportBatch,
   PENSION_CONTRIBUTIONS_COLLECTION,
 } from '@/lib/services/pensionContributionService';
 import type { PensionContribution } from '@/types/pension';
@@ -601,5 +604,67 @@ describe('recordPensionContribution — destination fund guard', () => {
     // The regression guard for the guard: price 1 with the value in quantity must still work.
     await expect(recordPensionContribution(USER_ID, tfrInput)).resolves.toBe('new-contribution');
     expect(updateCashAssetBalanceMock).toHaveBeenCalledWith(FUND_ID, 500);
+  });
+});
+
+// ─── CSV import batch (2026-10-25) ──────────────────────────────────────────
+
+describe('imported contributions', () => {
+  it('stamps the importBatchId on the record and on its transfer entry', async () => {
+    await recordPensionContribution(USER_ID, {
+      assetId: FUND_ID,
+      source: 'voluntary',
+      amount: 400,
+      date: CONTRIBUTION_DATE,
+      sourceCashAssetId: CASH_ID,
+      importBatchId: 'batch-1',
+    });
+    expect(lastWrittenPayload()).toMatchObject({ importBatchId: 'batch-1', linkedExpenseId: 'transfer-1' });
+    expect(updateDocMock).toHaveBeenCalledWith({ collectionName: 'expenses', id: 'transfer-1' }, { importBatchId: 'batch-1' });
+  });
+
+  it('writes no importBatchId outside an import', async () => {
+    await recordPensionContribution(USER_ID, {
+      assetId: FUND_ID,
+      source: 'voluntary',
+      amount: 400,
+      date: CONTRIBUTION_DATE,
+      sourceCashAssetId: CASH_ID,
+    });
+    expect(lastWrittenPayload()).not.toHaveProperty('importBatchId');
+    expect(updateDocMock).not.toHaveBeenCalled();
+  });
+
+  it('deletes a batch through the reversing delete', async () => {
+    getDocsMock.mockResolvedValue({
+      size: 1,
+      docs: [
+        {
+          id: 'c1',
+          data: () => ({
+            userId: USER_ID,
+            assetId: FUND_ID,
+            source: 'voluntary',
+            amount: 400,
+            date: CONTRIBUTION_DATE,
+            taxYear: 2026,
+            deductible: true,
+            linkedExpenseId: 'transfer-1',
+            sourceCashAssetId: CASH_ID,
+            importBatchId: 'batch-1',
+            createdAt: CONTRIBUTION_DATE,
+          }),
+        },
+      ],
+    });
+    const deleted = await deletePensionContributionsByImportBatch(USER_ID, 'batch-1');
+    expect(deleted).toBe(1);
+    expect(getDocsMock.mock.calls[0][0].constraints).toEqual([
+      { field: 'userId', op: '==', value: USER_ID },
+      { field: 'importBatchId', op: '==', value: 'batch-1' },
+    ]);
+    expect(reconcileTransferDeleteMock).toHaveBeenCalledWith({ originId: CASH_ID, destId: FUND_ID, amount: 400 });
+    expect(deleteExpenseMock).toHaveBeenCalledWith('transfer-1');
+    expect(deleteDocMock).toHaveBeenCalledWith({ collectionName: PENSION_CONTRIBUTIONS_COLLECTION, id: 'c1' });
   });
 });

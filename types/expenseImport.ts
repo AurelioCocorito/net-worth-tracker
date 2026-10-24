@@ -36,6 +36,11 @@ export interface RawRow {
 export interface ImportCashAccount {
   id: string;
   name: string;
+  /**
+   * `pensionFund` (2026-10-25): a fondo pensione, valid ONLY as a transfer's destination — the row
+   * becomes a voluntary contribution recorded in Previdenza. Absent = a cash account.
+   */
+  kind?: 'cash' | 'pensionFund';
 }
 
 /**
@@ -67,6 +72,12 @@ export interface PlannedExpenseRow {
   linkedCashAssetId?: string;
   /** On a transfer: the destination account (column «conto_destinazione»); origin = linkedCashAssetId. */
   transferCashAssetId?: string;
+  /**
+   * The destination is a fondo pensione: the commit records a VOLUNTARY contribution through
+   * recordPensionContribution (Previdenza record + its own transfer entry + both balances), never a
+   * plain expense document. Its category is the transfer category ensureTransferCategory picks.
+   */
+  pensionContribution?: boolean;
 }
 
 /** A row that failed validation (or was intentionally skipped, e.g. transfer). */
@@ -105,7 +116,9 @@ export interface ImportSummary {
   totalIncome: number;
   totalExpense: number; // positive magnitude of all expense rows (transfers excluded)
   transferCount: number;
-  totalTransfer: number; // positive magnitude of all transfer rows
+  totalTransfer: number; // positive magnitude of all transfer rows (pension contributions included)
+  /** Of the transfers, how many are contributions to a fondo pensione (recorded in Previdenza). */
+  pensionContributionCount: number;
   dateFrom?: Date;
   dateTo?: Date;
   /** Per linked account: how many rows and their signed net (income +, spending −), for the preview. */

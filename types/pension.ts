@@ -68,6 +68,8 @@ export interface PensionContribution {
   linkedExpenseId?: string;
   /** Origin cash account for a voluntary contribution — persisted so deletion can reverse the transfer. */
   sourceCashAssetId?: string;
+  /** Set only on a contribution written by the CSV importer: the batch «Annulla import» deletes. */
+  importBatchId?: string;
   createdAt: Date;
 }
 

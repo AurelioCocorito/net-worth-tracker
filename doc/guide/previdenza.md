@@ -44,6 +44,10 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 - **`taxYear` is validated as ±1 year from `date`** and both roll-ups group by `taxYear`, NEVER `date.getFullYear()`.
   **Contributions never touch spending or savings, by construction** — TFR/employer create no `Expense`, voluntary
   creates a net-zero `transfer`. A nature needing a non-transfer `Expense` means re-auditing every consumer.
+- **The CSV import records voluntary contributions too (2026-10-25)**: a transfer row whose «conto_destinazione» is a
+  fund goes through `recordPensionContribution` with an `importBatchId` (on the record AND its transfer entry);
+  «Annulla import» deletes them via `deletePensionContributionsByImportBatch`. Only voluntary: TFR/employer never
+  transit an account, so they never appear in a bank statement (doc/guide/cashflow.md § Expense CSV Import).
 - **The periodic statement (NAV overwrite) is NOT a contribution** — plain `updateAsset`. **Register the month's
   contributions FIRST, then overwrite "Valore attuale"**: the statement already includes them.
 - **Converting a pre-existing fund is a type EDIT, never delete + recreate** (`byAsset` is keyed by `assetId`): the submit

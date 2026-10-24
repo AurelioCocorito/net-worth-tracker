@@ -87,6 +87,7 @@ function docToPensionContribution(id: string, data: Record<string, unknown>): Pe
     notes: data.notes as string | undefined,
     linkedExpenseId: data.linkedExpenseId as string | undefined,
     sourceCashAssetId: data.sourceCashAssetId as string | undefined,
+    importBatchId: data.importBatchId as string | undefined,
     createdAt: toDate(data.createdAt as never),
   };
 }
@@ -134,6 +135,11 @@ export interface PensionContributionInput {
    * actually leaves the user's account.
    */
   sourceCashAssetId?: string;
+  /**
+   * Set only by the CSV importer (2026-10-25): stamped on the record AND on its transfer entry, so
+   * «Annulla import» finds the contribution and deletes it through deletePensionContribution.
+   */
+  importBatchId?: string;
 }
 
 /**
@@ -235,6 +241,7 @@ async function writePensionContribution(
     notes: input.notes,
     linkedExpenseId,
     sourceCashAssetId: input.source === 'voluntary' ? input.sourceCashAssetId : undefined,
+    importBatchId: input.importBatchId,
     createdAt: Timestamp.now(),
   });
 
@@ -275,7 +282,10 @@ async function createVoluntaryTransferEntry(
   );
 
   // Neither `isRecurring` nor `isInstallment` is set, so this is always the single-expense branch.
-  return Array.isArray(result) ? result[0] : result;
+  const expenseId = Array.isArray(result) ? result[0] : result;
+  // An imported contribution's entry joins its batch: «Import precedenti» lists it, the undo finds it.
+  if (input.importBatchId) await updateDoc(doc(db, 'expenses', expenseId), { importBatchId: input.importBatchId });
+  return expenseId;
 }
 
 /**
@@ -393,6 +403,25 @@ export async function deletePensionContribution(contribution: PensionContributio
 
   await deleteDoc(doc(db, PENSION_CONTRIBUTIONS_COLLECTION, contribution.id));
   await invalidateDashboardOverviewSummary(contribution.userId, 'pension_contribution_deleted');
+}
+
+/**
+ * Delete every contribution a CSV import wrote (`importBatchId`), each through
+ * deletePensionContribution — so the account, the fund and the transfer entry go back exactly.
+ * Equality filters only, no composite index (see the module note). Returns how many were deleted.
+ */
+export async function deletePensionContributionsByImportBatch(ownerId: string, importBatchId: string): Promise<number> {
+  const snapshot = await getDocs(
+    query(
+      collection(db, PENSION_CONTRIBUTIONS_COLLECTION),
+      where('userId', '==', ownerId),
+      where('importBatchId', '==', importBatchId)
+    )
+  );
+  for (const snap of snapshot.docs) {
+    await deletePensionContribution(docToPensionContribution(snap.id, snap.data() as Record<string, unknown>));
+  }
+  return snapshot.size;
 }
 
 /**
