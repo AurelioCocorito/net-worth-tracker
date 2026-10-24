@@ -19,10 +19,14 @@
  *   distinct categories, resolvable and creatable side by side. When two existing
  *   categories share BOTH name and type, rows attach to the OLDEST document
  *   (deterministic) and the plan carries a notice the preview must show.
+ * - Optional «conto» column (2026-10-24): the row is linked to that cash account and
+ *   moves its balance on its own date, like a row saved from the form. Without it the
+ *   row is linked to nothing and no balance moves (the historical behaviour).
  */
 
 import Papa from 'papaparse';
-import { ExpenseCategory, EXPENSE_TYPE_LABELS } from '@/types/expenses';
+import { roundToCents } from '@/lib/utils/cents';
+import { Expense, ExpenseCategory, EXPENSE_TYPE_LABELS } from '@/types/expenses';
 import {
   RawRow,
   PlannedExpenseRow,
@@ -32,6 +36,8 @@ import {
   ImportNotice,
   ImportPlan,
   ImportSummary,
+  ImportCashAccount,
+  ImportAccountSummary,
   ImportableExpenseType,
 } from '@/types/expenseImport';
 
@@ -56,14 +62,17 @@ const HEADER_ALIASES: Record<string, keyof Omit<RawRow, 'line'>> = {
   notes: 'note',
   valuta: 'valuta',
   currency: 'valuta',
+  conto: 'conto',
+  'conto corrente': 'conto',
+  account: 'conto',
 };
 
 /** Template shown/downloaded to guide users. Excel-IT friendly (`;` + BOM). */
-const TEMPLATE_HEADERS = ['data', 'importo', 'tipo', 'categoria', 'sottocategoria', 'note', 'valuta'] as const;
+const TEMPLATE_HEADERS = ['data', 'importo', 'tipo', 'categoria', 'sottocategoria', 'note', 'valuta', 'conto'] as const;
 const TEMPLATE_EXAMPLE_ROWS: string[][] = [
-  ['2024-01-15', '1200,00', 'fixed', 'Casa', 'Affitto', 'Canone gennaio', 'EUR'],
-  ['2024-01-27', '2500,00', 'income', 'Stipendio', '', 'Busta paga', 'EUR'],
-  ['2024-02-03', '54,90', 'variable', 'Spesa', 'Supermercato', '', 'EUR'],
+  ['2024-01-15', '1200,00', 'fixed', 'Casa', 'Affitto', 'Canone gennaio', 'EUR', ''],
+  ['2024-01-27', '2500,00', 'income', 'Stipendio', '', 'Busta paga', 'EUR', ''],
+  ['2024-02-03', '54,90', 'variable', 'Spesa', 'Supermercato', '', 'EUR', ''],
 ];
 
 /** Build the downloadable CSV template as a string (with UTF-8 BOM + `;` delimiter). */
@@ -191,6 +200,7 @@ export function parseImportCsv(raw: string): RawRow[] {
       sottocategoria: get(row, 'sottocategoria'),
       note: get(row, 'note'),
       valuta: get(row, 'valuta'),
+      conto: get(row, 'conto'),
     });
   }
   return rows;
@@ -217,8 +227,26 @@ export function categoryMatchKey(name: string, type: string): string {
  * Two existing categories sharing BOTH name and type resolve to the oldest one,
  * and the plan carries a notice the preview must display. Finally it derives
  * which categories / subcategories must be created and a human-facing summary.
+ *
+ * The optional «conto» column links a row to one of `cashAccounts` by name
+ * (case-insensitive); an unknown or ambiguous name rejects the row — a typo must
+ * never land as an unlinked row that silently leaves the balance where it was.
+ * `defaultAccountId` (the preview's «Conto per le righe senza conto») links every
+ * row whose «conto» cell is empty — a whole bank statement lands on its account
+ * without the column at all.
  */
-export function buildImportPlan(rows: RawRow[], existingCategories: ExpenseCategory[]): ImportPlan {
+export function buildImportPlan(
+  rows: RawRow[],
+  existingCategories: ExpenseCategory[],
+  cashAccounts: ImportCashAccount[] = [],
+  defaultAccountId?: string
+): ImportPlan {
+  const accountsByName = new Map<string, ImportCashAccount[]>();
+  for (const a of cashAccounts) {
+    accountsByName.set(norm(a.name), [...(accountsByName.get(norm(a.name)) ?? []), a]);
+  }
+  const accountNames = cashAccounts.map((a) => a.name).join(', ') || 'nessuno';
+
   // (name, type) → existing categories, oldest first: [0] is the resolution target.
   const existingByKey = new Map<string, ExpenseCategory[]>();
   // name → importable types it exists under, for the untyped-row inheritance rule.
@@ -284,6 +312,23 @@ export function buildImportPlan(rows: RawRow[], existingCategories: ExpenseCateg
       continue;
     }
 
+    let linkedCashAssetId: string | undefined = defaultAccountId;
+    if (row.conto) {
+      const matches = accountsByName.get(norm(row.conto)) ?? [];
+      if (matches.length !== 1) {
+        errors.push({
+          line: row.line,
+          reason:
+            matches.length === 0
+              ? `Conto "${row.conto}" non trovato. Conti disponibili: ${accountNames}.`
+              : `Conto "${row.conto}" ambiguo: ${matches.length} conti hanno questo nome.`,
+          raw: row,
+        });
+        continue;
+      }
+      linkedCashAssetId = matches[0].id;
+    }
+
     const resolved = existingByKey.get(categoryMatchKey(row.categoria, type))?.[0];
     validRows.push({
       line: row.line,
@@ -295,6 +340,7 @@ export function buildImportPlan(rows: RawRow[], existingCategories: ExpenseCateg
       subCategoryName: row.sottocategoria ? row.sottocategoria.trim() : undefined,
       notes: row.note || undefined,
       currency: (row.valuta || 'EUR').toUpperCase(),
+      linkedCashAssetId,
     });
   }
 
@@ -351,11 +397,18 @@ export function buildImportPlan(rows: RawRow[], existingCategories: ExpenseCateg
     }
   }
 
-  const summary = buildSummary(validRows, errors, categoriesToCreate.length);
+  const summary = buildSummary(validRows, errors, categoriesToCreate.length, cashAccounts);
   return { validRows, errors, categoriesToCreate, subCategoriesToCreate, notices, summary };
 }
 
-function buildSummary(validRows: PlannedExpenseRow[], errors: RowError[], newCategoriesCount: number): ImportSummary {
+function buildSummary(
+  validRows: PlannedExpenseRow[],
+  errors: RowError[],
+  newCategoriesCount: number,
+  cashAccounts: ImportCashAccount[]
+): ImportSummary {
+  const accountName = new Map(cashAccounts.map((a) => [a.id, a.name]));
+  const byAccount = new Map<string, ImportAccountSummary>();
   let totalIncome = 0;
   let totalExpense = 0;
   let dateFrom: Date | undefined;
@@ -366,6 +419,17 @@ function buildSummary(validRows: PlannedExpenseRow[], errors: RowError[], newCat
     else totalExpense += r.amount;
     if (!dateFrom || r.date < dateFrom) dateFrom = r.date;
     if (!dateTo || r.date > dateTo) dateTo = r.date;
+    if (r.linkedCashAssetId) {
+      const entry = byAccount.get(r.linkedCashAssetId) ?? {
+        assetId: r.linkedCashAssetId,
+        name: accountName.get(r.linkedCashAssetId) ?? r.linkedCashAssetId,
+        count: 0,
+        net: 0,
+      };
+      entry.count++;
+      entry.net = roundToCents(entry.net + (r.type === 'income' ? r.amount : -r.amount));
+      byAccount.set(r.linkedCashAssetId, entry);
+    }
   }
 
   return {
@@ -376,5 +440,50 @@ function buildSummary(validRows: PlannedExpenseRow[], errors: RowError[], newCat
     totalExpense,
     dateFrom,
     dateTo,
+    accounts: [...byAccount.values()],
   };
+}
+
+/** One past import, as the list of past imports shows it. */
+export interface ImportBatchSummary {
+  importBatchId: string;
+  count: number;
+  /** When it was imported (the rows' shared `createdAt`). */
+  importedAt: Date;
+  dateFrom: Date;
+  dateTo: Date;
+  /** Rows linked to an account: their undo gives the balance back. */
+  linkedCount: number;
+}
+
+/**
+ * The past imports still in the data, newest first, from the rows that carry an
+ * `importBatchId`. Until 2026-10-24 the undo lived only in the wizard's «done» phase,
+ * so an import was undoable only before leaving the page.
+ */
+export function summarizeImportBatches(
+  expenses: Pick<Expense, 'importBatchId' | 'date' | 'createdAt' | 'linkedCashAssetId'>[]
+): ImportBatchSummary[] {
+  const byBatch = new Map<string, ImportBatchSummary>();
+  for (const e of expenses) {
+    if (!e.importBatchId) continue;
+    const entry = byBatch.get(e.importBatchId);
+    if (!entry) {
+      byBatch.set(e.importBatchId, {
+        importBatchId: e.importBatchId,
+        count: 1,
+        importedAt: e.createdAt,
+        dateFrom: e.date,
+        dateTo: e.date,
+        linkedCount: e.linkedCashAssetId ? 1 : 0,
+      });
+      continue;
+    }
+    entry.count++;
+    if (e.linkedCashAssetId) entry.linkedCount++;
+    if (e.createdAt < entry.importedAt) entry.importedAt = e.createdAt;
+    if (e.date < entry.dateFrom) entry.dateFrom = e.date;
+    if (e.date > entry.dateTo) entry.dateTo = e.date;
+  }
+  return [...byBatch.values()].sort((a, b) => b.importedAt.getTime() - a.importedAt.getTime());
 }
