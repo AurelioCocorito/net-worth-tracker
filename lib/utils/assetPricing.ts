@@ -65,3 +65,60 @@ export function requiresManualPricing(asset: PricedAssetFields): boolean {
   if (asset.autoUpdatePrice === false) return true;
   return !hasMarketPrice(asset.type, asset.subCategory);
 }
+
+/**
+ * Days after which an automatic quote counts as stale even without a recorded failure. The price
+ * update runs every evening (the daily cron, `vercel.json`), so four days is three runs missed in a
+ * row: past a passing hiccup of Yahoo or Vercel, and the sign that the job itself is not running.
+ */
+export const AUTO_PRICE_STALE_DAYS = 4;
+
+/** What Patrimonio shows beside an instrument's name about its automatic price (owner, 2026-10-25). */
+export type AutoPriceStatus =
+  /** Valued by hand: no market price, or automatic updates switched off. No mark, the row tint says it. */
+  | { kind: 'manual' }
+  /** Automatic and working: the green check. */
+  | { kind: 'ok'; updatedAt: Date }
+  /**
+   * Automatic, it found a price before, and now it does not: the last attempt failed, or no quote
+   * has arrived for too long. The yellow warning: to keep an eye on (owner, 2026-10-25).
+   */
+  | { kind: 'failing'; reason: 'failed' | 'stale'; updatedAt: Date; failedAt: Date | null }
+  /**
+   * Automatic, and it has NEVER found a price: the only `lastPriceUpdate` is the one stamped at
+   * creation (typically a ticker Yahoo does not know). The red mark: to update by hand.
+   */
+  | { kind: 'never'; failedAt: Date | null };
+
+/** The fields `resolveAutoPriceStatus` reads. */
+export interface AutoPricedAssetFields extends PricedAssetFields {
+  lastPriceUpdate?: Date | null;
+  priceUpdateFailedAt?: Date | null;
+  createdAt?: Date | null;
+}
+
+function validDate(value: Date | null | undefined): Date | null {
+  return value instanceof Date && !Number.isNaN(value.getTime()) ? value : null;
+}
+
+/**
+ * Whether this asset's automatic price is on AND working. «Riuscito» reads two fields the price
+ * update writes (lib/helpers/priceUpdater.ts): `priceUpdateFailedAt`, stamped when a run gets no
+ * quote and removed by the next success, and `lastPriceUpdate`, stamped by every success. A failure
+ * later than the last success is `failed`; a last success older than AUTO_PRICE_STALE_DAYS is
+ * `stale`. `lastPriceUpdate` is also stamped at creation, so a new instrument reads `ok` until the
+ * first evening run says otherwise.
+ */
+export function resolveAutoPriceStatus(asset: AutoPricedAssetFields, now: Date): AutoPriceStatus {
+  if (requiresManualPricing(asset)) return { kind: 'manual' };
+  const updatedAt = validDate(asset.lastPriceUpdate);
+  const failedAt = validDate(asset.priceUpdateFailedAt);
+  const createdAt = validDate(asset.createdAt);
+  const lastFailed = failedAt !== null && (!updatedAt || failedAt.getTime() >= updatedAt.getTime());
+  const stale = !updatedAt || now.getTime() - updatedAt.getTime() > AUTO_PRICE_STALE_DAYS * 86_400_000;
+  if (!lastFailed && !stale && updatedAt) return { kind: 'ok', updatedAt };
+  const neverUpdated = !updatedAt || (!!createdAt && updatedAt.getTime() <= createdAt.getTime());
+  if (neverUpdated || !updatedAt) return { kind: 'never', failedAt: lastFailed ? failedAt : null };
+  if (lastFailed) return { kind: 'failing', reason: 'failed', updatedAt, failedAt };
+  return { kind: 'failing', reason: 'stale', updatedAt, failedAt: null };
+}

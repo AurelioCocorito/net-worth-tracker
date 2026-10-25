@@ -267,6 +267,11 @@ export interface Asset {
   // trades are gone, if no trade outside the batch was recorded on it. Absent = created by hand.
   importBatchId?: string;
   lastPriceUpdate: Date;
+  // When the automatic price update last got NO quote for this asset (2026-10-25): stamped by
+  // lib/helpers/priceUpdater.ts on a failure and removed by its next success, so it is present
+  // only while the automatic price is not working. Read by `resolveAutoPriceStatus`
+  // (lib/utils/assetPricing.ts) for Patrimonio's green check. Absent on every older document.
+  priceUpdateFailedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

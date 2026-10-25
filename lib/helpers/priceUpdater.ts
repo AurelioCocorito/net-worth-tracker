@@ -1,3 +1,4 @@
+import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import {
   getMultipleQuotes,
@@ -23,6 +24,19 @@ function bondQuoteToEurPerUnit(bond: Asset, quote: number, now: Date): number {
       ? (latestIndexationCoefficient(bondDetails.indexationCoefficients, now) ?? undefined)
       : undefined;
   return resolveBondPrice(quote, { nominalValue: bondDetails?.nominalValue, indexationCoefficient }, true);
+}
+
+/**
+ * Stamps `priceUpdateFailedAt` on an asset this run got no quote for, so Patrimonio can tell an
+ * automatic price that works from one that does not (`resolveAutoPriceStatus`). Best-effort: a
+ * failed stamp is logged and never aborts the rest of the update. Each success removes the field.
+ */
+async function markPriceUpdateFailed(asset: Asset): Promise<void> {
+  try {
+    await adminDb.collection('assets').doc(asset.id).update({ priceUpdateFailedAt: new Date() });
+  } catch (error) {
+    console.warn(`[Price Update] Could not record the failure of ${asset.ticker}:`, error);
+  }
 }
 
 export interface PriceUpdateResult {
@@ -124,6 +138,7 @@ export async function updateUserAssetPrices(
           await assetRef.update({
             currentPrice: adjustedPrice,
             lastPriceUpdate: new Date(),
+            priceUpdateFailedAt: FieldValue.delete(),
             updatedAt: new Date(),
           });
           updated.push(`${bond.ticker} (BI-${bondPrice.priceType})`);
@@ -141,18 +156,21 @@ export async function updateUserAssetPrices(
             await assetRef.update({
               currentPrice: adjustedPrice,
               lastPriceUpdate: new Date(),
+              priceUpdateFailedAt: FieldValue.delete(),
               updatedAt: new Date(),
             });
             updated.push(`${bond.ticker} (YF-fallback)`);
             console.log(`[Bond Update] ${bond.ticker}: Updated from Yahoo Finance fallback: ${quote.price}% → €${adjustedPrice}`);
           } else {
             failed.push(bond.ticker);
+            await markPriceUpdateFailed(bond);
             console.warn(`[Bond Update] ${bond.ticker}: Both Borsa Italiana and Yahoo Finance failed`);
           }
         }
       } catch (error) {
         console.error(`[Bond Update] Error updating ${bond.ticker}:`, error);
         failed.push(bond.ticker);
+        await markPriceUpdateFailed(bond);
       }
     }
 
@@ -187,6 +205,7 @@ export async function updateUserAssetPrices(
             currentPrice: normalizedPrice,
             currency: normalizedCurrency,
             lastPriceUpdate: new Date(),
+            priceUpdateFailedAt: FieldValue.delete(),
             updatedAt: new Date(),
           };
 
@@ -207,9 +226,11 @@ export async function updateUserAssetPrices(
         } catch (error) {
           console.error(`Failed to update ${asset.ticker}:`, error);
           failed.push(asset.ticker);
+          await markPriceUpdateFailed(asset);
         }
       } else {
         failed.push(asset.ticker);
+        await markPriceUpdateFailed(asset);
       }
     }
 

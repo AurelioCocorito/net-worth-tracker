@@ -25,6 +25,7 @@ import {
   describeInstrumentReturns,
   describeInstruments,
   describeLastPriceUpdate,
+  describeAutoPriceStatus,
   describeManualValuation,
   describeMonthTrades,
   describeMortgage,
@@ -297,6 +298,43 @@ describe('tile readings', () => {
     // A quote older than the calendar year names its year, or a stale ticker reads as three weeks ago.
     expect(describeLastPriceUpdate(new Date(Date.UTC(2025, 8, 14, 16, 0)), now)).toBe('prezzi aggiornati il 14/09/2025 alle 18:00');
     expect(describeLastPriceUpdate(null, now)).toBeNull();
+  });
+});
+
+describe('describeAutoPriceStatus — the tooltip of the mark beside an instrument', () => {
+  const now = new Date(Date.UTC(2026, 7, 22, 10, 0)); // 22/08/2026 12:00 in Rome
+
+  it('says nothing for a hand-valued asset', () => {
+    expect(describeAutoPriceStatus({ kind: 'manual' }, now)).toBeNull();
+  });
+
+  it('says when an automatic price last updated', () => {
+    expect(describeAutoPriceStatus({ kind: 'ok', updatedAt: new Date(Date.UTC(2026, 7, 21, 16, 0)) }, now)).toBe(
+      "Prezzo aggiornato in automatico, l'ultima volta ieri alle 18:00. Non serve aggiornarlo a mano.",
+    );
+  });
+
+  it('names the failed attempt and the last good price, and says to watch it', () => {
+    const text = describeAutoPriceStatus(
+      { kind: 'failing', reason: 'failed', updatedAt: new Date(Date.UTC(2026, 7, 14, 16, 0)), failedAt: new Date(Date.UTC(2026, 7, 21, 16, 0)) },
+      now,
+    );
+    expect(text).toBe(
+      "L'aggiornamento automatico del prezzo non è riuscito (ultimo tentativo ieri alle 18:00). Ultimo prezzo valido: il 14/08 alle 18:00. Tienilo d'occhio: se continua, aggiornalo a mano.",
+    );
+  });
+
+  it('names the threshold when no quote arrived for too long', () => {
+    const text = describeAutoPriceStatus({ kind: 'failing', reason: 'stale', updatedAt: new Date(Date.UTC(2026, 7, 14, 16, 0)), failedAt: null }, now);
+    expect(text).toBe(
+      "Il prezzo non si aggiorna in automatico da più di 4 giorni. Ultimo prezzo valido: il 14/08 alle 18:00. Tienilo d'occhio: se continua, aggiornalo a mano.",
+    );
+  });
+
+  it('says a price never found has to be updated by hand', () => {
+    expect(describeAutoPriceStatus({ kind: 'never', failedAt: null }, now)).toBe(
+      'Yahoo Finance non ha mai trovato un prezzo per questo strumento. Aggiornalo a mano, oppure correggi il ticker.',
+    );
   });
 });
 

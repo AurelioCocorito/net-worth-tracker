@@ -80,6 +80,7 @@ import {
   ASSET_ROW_LAZY_CHARTS,
   AssetClassChip,
   AssetRow,
+  AutoPriceMark,
   InstrumentClassChip,
   RealEstateValueTooltip,
   describeAssetRowSubLine,
@@ -475,14 +476,17 @@ export function StrumentiTile({
         <th scope="row" className={cn(CELL_CLASS, 'max-w-[260px] text-left font-normal')}>
           <div className="flex min-w-0 items-center gap-2">
             <div className="min-w-0">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="block truncate font-medium text-foreground">{asset.name}</span>
-                  </TooltipTrigger>
-                  <TooltipContent>{asset.name}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="truncate font-medium text-foreground">{asset.name}</span>
+                    </TooltipTrigger>
+                    <TooltipContent>{asset.name}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <AutoPriceMark asset={asset} now={now} />
+              </span>
               {/* pensionFund has no ticker input — a leftover raw value must not resurface. */}
               {(asset.ticker && asset.type !== 'pensionFund') || subLine ? (
                 <span className="block truncate text-[11px] text-muted-foreground">
