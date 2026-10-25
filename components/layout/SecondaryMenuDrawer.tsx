@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { SceneLink } from '@/components/layout/SceneLink';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   DropdownMenu,
@@ -15,14 +15,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LogoutDialog } from '@/components/layout/LogoutDialog';
 import { ThemePicker } from '@/components/layout/ThemePicker';
-import { Settings, LogOut, MoreVertical, Users, Check } from 'lucide-react';
+import { LogOut, MoreVertical, Users, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { drawerContainer, drawerItem } from '@/lib/utils/motionVariants';
 import { useLogout } from '@/lib/hooks/useLogout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
 import { getAccountLabel, getDisplayInfo } from '@/lib/utils/userDisplayUtils';
-import { analysisNav, planningNav, assistantNavItem } from '@/lib/constants/navigation';
+import { analysisNav, planningNav, assistantNavItem, toolsNav } from '@/lib/constants/navigation';
+import { resolveActiveNavHref } from '@/lib/utils/navUtils';
 import { SIDEBAR_AVATAR_CLASS } from '@/components/layout/shellStyles';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TILE_EYEBROW_CLASS } from '@/components/ui/tile';
@@ -42,6 +43,40 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
       'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
     )
   );
+}
+
+type ToolsListProps = {
+  itemClassName: (active: boolean) => string;
+  onNavigate: () => void;
+};
+
+/** The «Strumenti» rows, the ONE active row resolved on the route and its `?tab=` (null in the fallback). */
+function ToolsList({ itemClassName, onNavigate, tab }: ToolsListProps & { tab: string | null }) {
+  const pathname = usePathname();
+  const activeHref = resolveActiveNavHref(toolsNav.map((nav) => nav.href), pathname, tab);
+  return (
+    <ul className="m-0 list-none p-0">
+      {toolsNav.map((nav) => (
+        <motion.li key={nav.href} variants={drawerItem}>
+          <SceneLink
+            href={nav.href}
+            aria-current={nav.href === activeHref ? 'page' : undefined}
+            onClick={onNavigate}
+            className={itemClassName(nav.href === activeHref)}
+          >
+            <nav.icon className="size-5 shrink-0" />
+            {nav.name}
+          </SceneLink>
+        </motion.li>
+      ))}
+    </ul>
+  );
+}
+
+/** Its own component because `useSearchParams` wants a Suspense boundary in a layout. */
+function ToolsListWithTab(props: ToolsListProps) {
+  const searchParams = useSearchParams();
+  return <ToolsList {...props} tab={searchParams.get('tab')} />;
 }
 
 export function SecondaryMenuDrawer({ open, onOpenChange }: SecondaryMenuDrawerProps) {
@@ -226,6 +261,16 @@ export function SecondaryMenuDrawer({ open, onOpenChange }: SecondaryMenuDrawerP
                   </ul>
                 </div>
 
+                {/* Strumenti group — the settings and two of its sections (2026-10-25) */}
+                <div className="mb-1">
+                  <motion.p variants={drawerItem} className={cn(sectionLabel, 'pt-2')}>
+                    Strumenti
+                  </motion.p>
+                  <Suspense fallback={<ToolsList itemClassName={navItemCn} onNavigate={() => onOpenChange(false)} tab={null} />}>
+                    <ToolsListWithTab itemClassName={navItemCn} onNavigate={() => onOpenChange(false)} />
+                  </Suspense>
+                </div>
+
                 {/* Assistente AI — a route like the others, after a hairline */}
                 {process.env.NEXT_PUBLIC_ASSISTANT_AI_ENABLED !== 'false' && (
                   <ul className="m-0 list-none border-t border-sidebar-border p-0 pt-1 mx-1 mt-1">
@@ -311,15 +356,6 @@ export function SecondaryMenuDrawer({ open, onOpenChange }: SecondaryMenuDrawerP
                           <DropdownMenuSeparator />
                         </>
                       )}
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem asChild>
-                          <SceneLink href="/dashboard/settings" onClick={() => onOpenChange(false)}>
-                            <Settings className="size-4" />
-                            Impostazioni
-                          </SceneLink>
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
                       <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
                         Preferenze
                       </DropdownMenuLabel>

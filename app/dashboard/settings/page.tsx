@@ -77,6 +77,7 @@ import { DividendiTab } from '@/components/settings/tabs/DividendiTab';
 import { GeneraleTab } from '@/components/settings/tabs/GeneraleTab';
 import { SpeseTab } from '@/components/settings/tabs/SpeseTab';
 import { runGuarded, SETTINGS_TABS_LAYOUT_ID } from '@/components/settings/tabs/shared';
+import { SETTINGS_SECTION_IDS } from '@/lib/constants/navigation';
 
 // Module-level tab definitions drive both the mobile pill and the desktop underline tabs.
 const SETTINGS_TABS: TabDef[] = [
@@ -150,6 +151,17 @@ export default function SettingsPage() {
     setMountedTabs((prev) => new Set(prev).add(value as SettingsTabId));
     router.replace(`${pathname}?tab=${value}`, { scroll: false });
   };
+
+  // A link into the page while it is open (the sidebar's «Backup» and «Import CSV», 2026-10-25)
+  // changes `?tab=` without remounting it: the active tab follows the URL, settled during render.
+  const [followedTab, setFollowedTab] = useState(requestedTab);
+  if (requestedTab !== followedTab) {
+    setFollowedTab(requestedTab);
+    if (isSettingsTabId(requestedTab) && requestedTab !== activeTab) {
+      setActiveTab(requestedTab);
+      setMountedTabs((prev) => new Set(prev).add(requestedTab));
+    }
+  }
 
   // Canonicalize the URL on mount only when the tab param is absent or invalid (as Cashflow does):
   // an unconditional replace re-rendered every `useSearchParams` consumer of the shell. An Effect
@@ -290,6 +302,33 @@ export default function SettingsPage() {
       toast.error('Lettura delle impostazioni fallita: le modifiche restano nel modulo.');
     });
   };
+
+  // `&sezione=` (the sidebar's «Backup», «Import CSV»): scroll to that tile once its panel has
+  // painted — polled a frame at a time, the tab's code and reads may land after the commit — then
+  // drop the parameter, so the same link clicked again scrolls again.
+  const requestedSection = searchParams.get('sezione');
+  const dropSectionParam = useEffectEvent(() => {
+    router.replace(`${pathname}?tab=${activeTab}`, { scroll: false });
+  });
+  useEffect(() => {
+    if (requestedSection === null || loading) return;
+    const id = SETTINGS_SECTION_IDS[requestedSection as keyof typeof SETTINGS_SECTION_IDS];
+    let frame = 0;
+    const seek = (attempt: number) => {
+      const target = id ? document.getElementById(id) : null;
+      if (target) {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+      }
+      if (target || !id || attempt >= 180) {
+        dropSectionParam();
+        return;
+      }
+      frame = window.requestAnimationFrame(() => seek(attempt + 1));
+    };
+    frame = window.requestAnimationFrame(() => seek(0));
+    return () => window.cancelAnimationFrame(frame);
+  }, [requestedSection, loading]);
 
   // A reload or a closed tab with edits pending asks first (the browser's own prompt). An
   // in-app link does not: the App Router has no navigation guard, so the bar at the bottom is

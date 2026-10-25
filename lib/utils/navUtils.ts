@@ -9,6 +9,22 @@ export function isNavItemActive(href: string, pathname: string): boolean {
 }
 
 /**
+ * The ONE active href of a group whose items may carry a `?tab=` (the «Strumenti» group: three
+ * rows on the same route). An item with a tab is active when the route AND the tab match; a plain
+ * item by `isNavItemActive`, unless a sibling with a tab already claimed the route. Null = none.
+ */
+export function resolveActiveNavHref(hrefs: string[], pathname: string, tab: string | null): string | null {
+  const parsed = hrefs.map((href) => {
+    const [path, query = ''] = href.split('?');
+    return { href, path, tab: new URLSearchParams(query).get('tab') };
+  });
+  const byTab = parsed.find((item) => item.tab !== null && item.path === pathname && item.tab === tab);
+  if (byTab) return byTab.href;
+  const plain = parsed.find((item) => item.tab === null && isNavItemActive(item.path, pathname));
+  return plain ? plain.href : null;
+}
+
+/**
  * Whether the bottom nav draws the «+» that adds an expense: on Cashflow › Tracciamento alone
  * (`?tab=` absent or `tracking` — on Dividendi and Budget the tab's own add button sits under
  * the verdict, and a FAB that still added an EXPENSE there read as the tab's add affordance)

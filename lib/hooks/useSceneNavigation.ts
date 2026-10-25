@@ -16,7 +16,8 @@ const NEXT_PAGE_TIMEOUT_MS = 700;
  * `router.push` wrapped in a view transition whose DOM update resolves when the pathname has
  * actually changed — the App Router swaps the tree asynchronously, so the promise is what tells
  * the browser "now take the new snapshot". Without the API, or with reduced motion, this is a
- * plain `router.push`. The same page is never re-entered through a scene.
+ * plain `router.push`. The same page is never re-entered through a scene: the same route with
+ * another query is a plain push.
  */
 export function useSceneNavigation() {
   const router = useRouter();
@@ -32,6 +33,12 @@ export function useSceneNavigation() {
   return useCallback(
     (href: string) => {
       if (href === pathname) return;
+      // Another `?tab=` of the page on screen (the sidebar's «Backup», «Import CSV»): the pathname
+      // never changes, so a scene would hold the frozen snapshot for the whole timeout.
+      if (href.split(/[?#]/)[0] === pathname) {
+        router.push(href, { scroll: false });
+        return;
+      }
       void runViewTransition('page', () => {
         return new Promise<void>((resolve) => {
           const timer = setTimeout(resolve, NEXT_PAGE_TIMEOUT_MS);
