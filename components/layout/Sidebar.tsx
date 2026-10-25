@@ -1,7 +1,8 @@
 'use client';
 
 import { SceneLink } from '@/components/layout/SceneLink';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
@@ -35,20 +36,22 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useLogout } from '@/lib/hooks/useLogout';
-import { isNavItemActive } from '@/lib/utils/navUtils';
+import { resolveActiveNavHref } from '@/lib/utils/navUtils';
 import { getAccountLabel, getDisplayInfo } from '@/lib/utils/userDisplayUtils';
 import {
   primaryNav,
   analysisNav,
   planningNav,
   assistantNavItem,
+  toolsNav,
   type NavItem,
 } from '@/lib/constants/navigation';
-import { Settings, LogOut, ChevronsUpDown, PanelLeftClose, PanelLeftOpen, Check, Users } from 'lucide-react';
+import { LogOut, ChevronsUpDown, PanelLeftClose, PanelLeftOpen, Check, Users } from 'lucide-react';
 
-function NavItems({ items }: { items: NavItem[] }) {
+function NavItems({ items, tab = null }: { items: NavItem[]; tab?: string | null }) {
   const pathname = usePathname();
   const { isMobile, setOpenMobile } = useSidebar();
+  const activeHref = resolveActiveNavHref(items.map((item) => item.href), pathname, tab);
 
   const handleClick = () => {
     if (isMobile) setOpenMobile(false);
@@ -57,7 +60,7 @@ function NavItems({ items }: { items: NavItem[] }) {
   return (
     <SidebarMenu>
       {items.map((item) => {
-        const isActive = isNavItemActive(item.href, pathname);
+        const isActive = item.href === activeHref;
         return (
           <SidebarMenuItem key={item.name}>
             {isActive && (
@@ -84,6 +87,15 @@ function NavItems({ items }: { items: NavItem[] }) {
       })}
     </SidebarMenu>
   );
+}
+
+/**
+ * «Strumenti»: three rows on the settings route, told apart by `?tab=`. Its own component because
+ * `useSearchParams` wants a Suspense boundary in a layout (as BottomNavigation's FAB).
+ */
+function ToolsNavItems() {
+  const searchParams = useSearchParams();
+  return <NavItems items={toolsNav} tab={searchParams.get('tab')} />;
 }
 
 /**
@@ -180,6 +192,15 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
 
+          <SidebarGroup>
+            <SidebarGroupLabel className={cn(TILE_EYEBROW_CLASS, 'h-6 text-sidebar-foreground/60')}>Strumenti</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <Suspense fallback={<NavItems items={toolsNav} />}>
+                <ToolsNavItems />
+              </Suspense>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
           {/* The assistant is a route like the others: a row after a hairline, no banner. */}
           {showAssistant && (
             <>
@@ -266,15 +287,6 @@ export function AppSidebar() {
                       <DropdownMenuSeparator />
                     </>
                   )}
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem asChild>
-                      <SceneLink href="/dashboard/settings" onClick={closeMobile}>
-                        <Settings className="size-4" />
-                        Impostazioni
-                      </SceneLink>
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
                   <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
                     Preferenze
                   </DropdownMenuLabel>

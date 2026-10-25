@@ -69,6 +69,13 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   «Ripristina default» is the FACTORY targets (`allocazione/replaceTargets`), a different act; the header chip
   «Anteprima attiva» is gone. The `?tab=` is canonicalised on mount ONLY when absent or invalid (as Cashflow does):
   an unconditional `router.replace` re-rendered every `useSearchParams` consumer of the shell.
+- **The sidebar's «Strumenti» opens the page and two of its tiles** (2026-10-25, the owner's ask): Impostazioni,
+  Backup (`?tab=condivisione&sezione=backup`) and Import CSV (`?tab=spese&sezione=import`), `toolsNav` in
+  `lib/constants/navigation.ts`, in the 1440 sidebar and the phone's «Altro»; Impostazioni left the account menu
+  (one place, the owner's choice). The active tab FOLLOWS `?tab=` while the page is open (a link from the sidebar
+  does not remount it), `&sezione=` scrolls to the tile by `SETTINGS_SECTION_IDS` and is then dropped, so the same
+  link scrolls again; one row lit at a time (`resolveActiveNavHref`, on the tab). A link to another query of the
+  page on screen is a plain push, never a page scene (`useSceneNavigation`).
 - **The target rules live in `lib/utils/allocationTargetValidation.ts`, and they say WHERE they failed.**
   `findTargetProblem` returns the first broken rule (total, then each class top to bottom, subcategories before
   their assets) with its class/row indices; `describeTargetProblem` is its sentence, in the Target per classe

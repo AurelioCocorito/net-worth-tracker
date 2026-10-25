@@ -66,6 +66,7 @@ import { ASSET_CLASS_LABELS } from '@/lib/utils/allocationUtils';
 import { isLedgerAssetType } from '@/types/assetTransactions';
 import { ImportCashAccount, ImportExistingDividend, ImportInstrument, ImportPlan, RawRow } from '@/types/expenseImport';
 import type { ExpenseCategory } from '@/types/expenses';
+import { SETTINGS_SECTION_IDS } from '@/lib/constants/navigation';
 
 /** The default-account select's value for «no account». */
 const NO_DEFAULT_ACCOUNT = '__none__';
@@ -335,7 +336,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
         : describeImport({ phase: 'idle' });
 
   return (
-    <Tile eyebrow="Import CSV" aside="anteprima obbligatoria" reading={reading}>
+    <Tile id={SETTINGS_SECTION_IDS.import} className="scroll-mt-24 desktop:scroll-mt-4" eyebrow="Import CSV" aside="anteprima obbligatoria" reading={reading}>
       {phase === 'idle' && (
         <>
           <div className="mt-3.5 flex flex-col gap-3 sm:flex-row">

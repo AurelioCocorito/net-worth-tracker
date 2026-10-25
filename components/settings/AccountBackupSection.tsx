@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Tile } from '@/components/ui/tile';
 import { authenticatedFetch } from '@/lib/utils/authFetch';
 import { backupFileName, type AccountBackupFile } from '@/lib/utils/accountBackup';
+import { SETTINGS_SECTION_IDS } from '@/lib/constants/navigation';
 
 interface AccountBackupSectionProps {
   /** In demo nothing is downloaded: the demo data is not the viewer's. */
@@ -66,6 +67,8 @@ export function AccountBackupSection({ disabled }: AccountBackupSectionProps) {
 
   return (
     <Tile
+      id={SETTINGS_SECTION_IDS.backup}
+      className="scroll-mt-24 desktop:scroll-mt-4"
       eyebrow="Backup dei dati"
       reading={[
         {

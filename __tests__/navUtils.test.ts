@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { isAddExpenseFabShown, isNavItemActive } from '@/lib/utils/navUtils';
+import { isAddExpenseFabShown, isNavItemActive, resolveActiveNavHref } from '@/lib/utils/navUtils';
 
 describe('isAddExpenseFabShown', () => {
   it('draws the FAB on Tracciamento only: the tab absent or `tracking`, on the Cashflow route', () => {
@@ -31,5 +31,26 @@ describe('isNavItemActive', () => {
     expect(isNavItemActive('/dashboard/cashflow', '/dashboard/cashflow')).toBe(true);
     expect(isNavItemActive('/dashboard/cashflow', '/dashboard/cashflow/x')).toBe(true);
     expect(isNavItemActive('/dashboard/cashflow', '/dashboard/cashflows')).toBe(false);
+  });
+});
+
+describe('resolveActiveNavHref', () => {
+  const tools = [
+    '/dashboard/settings',
+    '/dashboard/settings?tab=condivisione&sezione=backup',
+    '/dashboard/settings?tab=spese&sezione=import',
+  ];
+
+  it('lights ONE row of «Strumenti»: the tab picks Backup or Import CSV, any other tab Impostazioni', () => {
+    expect(resolveActiveNavHref(tools, '/dashboard/settings', 'condivisione')).toBe(tools[1]);
+    expect(resolveActiveNavHref(tools, '/dashboard/settings', 'spese')).toBe(tools[2]);
+    expect(resolveActiveNavHref(tools, '/dashboard/settings', 'aspetto')).toBe(tools[0]);
+    expect(resolveActiveNavHref(tools, '/dashboard/settings', null)).toBe(tools[0]);
+  });
+
+  it('lights none off the settings route, and keeps the prefix rule for plain rows', () => {
+    expect(resolveActiveNavHref(tools, '/dashboard/cashflow', 'spese')).toBeNull();
+    expect(resolveActiveNavHref(['/dashboard', '/dashboard/assets'], '/dashboard/assets/123', null)).toBe('/dashboard/assets');
+    expect(resolveActiveNavHref(['/dashboard', '/dashboard/assets'], '/dashboard', null)).toBe('/dashboard');
   });
 });

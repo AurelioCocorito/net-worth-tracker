@@ -10,6 +10,9 @@ import {
   Flame,
   PiggyBank,
   Bot,
+  Settings,
+  DatabaseBackup,
+  FileUp,
 } from 'lucide-react';
 
 export type NavItem = {
@@ -50,6 +53,21 @@ export const assistantNavItem: NavItem = {
   href: '/dashboard/assistant',
   icon: Bot,
 };
+
+// Tools — Sidebar "Strumenti" group and SecondaryMenuDrawer (2026-10-25, the owner's ask): the
+// settings page and two of its sections reached in one click. Backup and Import CSV open their tab
+// (`?tab=`) and scroll to their tile (`&sezione=`, the ids in SETTINGS_SECTION_IDS); the active
+// row is resolved by `resolveActiveNavHref` on the tab, so the three never light up together.
+export const SETTINGS_SECTION_IDS = {
+  backup: 'sezione-backup',
+  import: 'sezione-import-csv',
+} as const;
+
+export const toolsNav: NavItem[] = [
+  { name: 'Impostazioni', href: '/dashboard/settings',                               icon: Settings       },
+  { name: 'Backup',       href: '/dashboard/settings?tab=condivisione&sezione=backup', icon: DatabaseBackup },
+  { name: 'Import CSV',   href: '/dashboard/settings?tab=spese&sezione=import',        icon: FileUp         },
+];
 
 // All secondary hrefs — used by BottomNavigation to determine "Altro" active state.
 export const secondaryHrefs: string[] = [
