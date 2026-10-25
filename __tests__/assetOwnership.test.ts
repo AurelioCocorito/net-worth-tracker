@@ -25,7 +25,9 @@ import {
   hasCostFigures,
   ownershipRowOn,
   resolveAssetOwnership,
+  soleFamilyMemberId,
   summarizeOwnership,
+  withSoleOwnerDefault,
   type OwnershipRow,
 } from '@/lib/utils/assetOwnership';
 import { describeOwnership, describeOwnershipAnswer, describeOwnershipAside, describeOwnershipFooter, OWNERSHIP_FOOTER } from '@/lib/utils/patrimonioNarrative';
@@ -343,5 +345,47 @@ describe('summarizeOwnership — the same groups at the price of carry', () => {
     const two = { reassign: [], withoutCostBasis: [{ assetId: 'u', name: 'Senza PMC' }, { assetId: 'v', name: 'Altro' }] };
     expect(describeOwnershipFooter(two, 'cost').text).toBe('2 asset senza prezzo di carico contano al valore attuale: Senza PMC e Altro.');
     expect(describeOwnershipFooter({ reassign: [{ assetId: 'a', name: 'VWCE' }], withoutCostBasis: one.withoutCostBasis }, 'cost').tone).toBe('warning');
+  });
+});
+
+describe('withSoleOwnerDefault — a new asset with one member is that member\'s (owner, 2026-10-25)', () => {
+  const alone = [{ id: 'm1' }];
+  const two = [{ id: 'm1' }, { id: 'm2' }];
+  const stock = { type: 'stock' as const, ownerMemberId: undefined, ownerShares: undefined, financedAssetId: undefined, pensionFundDetails: undefined };
+
+  it('names only the household\'s only member', () => {
+    expect(soleFamilyMemberId(alone)).toBe('m1');
+    expect(soleFamilyMemberId(two)).toBeNull();
+    expect(soleFamilyMemberId([])).toBeNull();
+    expect(soleFamilyMemberId(undefined)).toBeNull();
+  });
+
+  it('gives an unnamed asset to the only member, and leaves it «In comune» with two or none', () => {
+    expect(withSoleOwnerDefault(stock, alone).ownerMemberId).toBe('m1');
+    expect(withSoleOwnerDefault(stock, two).ownerMemberId).toBeUndefined();
+    expect(withSoleOwnerDefault(stock, []).ownerMemberId).toBeUndefined();
+  });
+
+  it('keeps a named owner or typed quotas as they are', () => {
+    expect(withSoleOwnerDefault({ ...stock, ownerMemberId: 'other' }, alone).ownerMemberId).toBe('other');
+    const quoted = { ...stock, ownerShares: [{ memberId: 'm1', percent: 50 }] };
+    expect(withSoleOwnerDefault(quoted, alone)).toBe(quoted);
+  });
+
+  it('links a pension fund to the only member as its contributor, keeping its other details', () => {
+    const fund = { ...stock, type: 'pensionFund' as const };
+    expect(withSoleOwnerDefault(fund, alone).pensionFundDetails).toEqual({ provider: '', familyMemberId: 'm1' });
+    const withProvider = { ...fund, pensionFundDetails: { provider: 'Fondo X', unlockDate: '2050-01-01' } };
+    expect(withSoleOwnerDefault(withProvider, alone).pensionFundDetails).toEqual({ provider: 'Fondo X', unlockDate: '2050-01-01', familyMemberId: 'm1' });
+    expect(withSoleOwnerDefault(fund, alone).ownerMemberId).toBeUndefined();
+    const linked = { ...fund, pensionFundDetails: { provider: 'Fondo X', familyMemberId: 'other' } };
+    expect(withSoleOwnerDefault(linked, alone)).toBe(linked);
+    expect(withSoleOwnerDefault(fund, two).pensionFundDetails).toBeUndefined();
+  });
+
+  it('leaves a mortgage to its property, and names a personal loan', () => {
+    const mortgage = { ...stock, type: 'loan' as const, financedAssetId: 'house' };
+    expect(withSoleOwnerDefault(mortgage, alone)).toBe(mortgage);
+    expect(withSoleOwnerDefault({ ...mortgage, financedAssetId: undefined }, alone).ownerMemberId).toBe('m1');
   });
 });

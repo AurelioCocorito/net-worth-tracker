@@ -54,7 +54,7 @@ import { useSettings } from '@/lib/hooks/useSettings';
 import { queryKeys } from '@/lib/query/queryKeys';
 import { formatCurrency, formatNumberIt, formatPercentageIt } from '@/lib/utils/formatters';
 import { resolveAllocationRole } from '@/lib/utils/allocationUtils';
-import { hasOwnOwnerField } from '@/lib/utils/assetOwnership';
+import { hasOwnOwnerField, soleFamilyMemberId } from '@/lib/utils/assetOwnership';
 import { suggestIsLiquid } from '@/lib/utils/assetLiquidity';
 import { hasMarketPrice } from '@/lib/utils/assetPricing';
 import { sliceBase, sliceUnit, sliceUnitLabel, summarizeSlices, type AssetSlice } from '@/lib/utils/assetSlice';
@@ -1017,6 +1017,16 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
   const watchOpeningCashAssetId = useWatch({ control, name: 'openingCashAssetId' });
   const watchDividendCashAssetId = useWatch({ control, name: 'dividendCashAssetId' });
   const watchPensionFamilyMemberId = useWatch({ control, name: 'pensionFamilyMemberId' });
+
+  // A new asset with one family member starts as that member's — the owner and, for a pension
+  // fund, the contributor (`withSoleOwnerDefault`, which createAsset applies too): the form shows
+  // what it will save. With two or more members it stays «In comune» / «Non assegnato».
+  const soleOwnerId = soleFamilyMemberId(settings?.familyMembers);
+  useEffect(() => {
+    if (!open || asset || !soleOwnerId) return;
+    if (getValues('ownerMemberId') === '__none__' && (getValues('ownerShares') ?? []).length === 0) setValue('ownerMemberId', soleOwnerId);
+    if (getValues('pensionFamilyMemberId') === '__none__') setValue('pensionFamilyMemberId', soleOwnerId);
+  }, [open, asset, soleOwnerId, getValues, setValue]);
 
   // Ledger gating (Phase C):
   //  - isLedgerEdit: editing a ledger asset → quantity/PMC are read-only, submit via updateAssetMetadata.
