@@ -44,6 +44,7 @@ export const BACKUP_COLLECTIONS: readonly BackupCollectionSpec[] = [
   { name: 'dividends', scope: 'userIdField' },
   { name: 'pensionContributions', scope: 'userIdField' },
   { name: 'costCenters', scope: 'userIdField' },
+  { name: 'revenueEntries', scope: 'userIdField' },
   { name: 'budgets', scope: 'docId' },
   { name: 'budgetHistory', scope: 'docId', subcollections: ['months'] },
   { name: 'goalBasedInvesting', scope: 'docId' },
