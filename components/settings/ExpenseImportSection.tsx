@@ -54,17 +54,32 @@ import {
   summarizeImportBatches,
   type ImportBatchSummary,
 } from '@/lib/utils/expenseImport';
-import { commitImportPlan, deleteExpensesByImportBatch } from '@/lib/services/expenseImportService';
+import {
+  balanceCorrectionsAsBatchRows,
+  commitImportPlan,
+  deleteExpensesByImportBatch,
+} from '@/lib/services/expenseImportService';
 import {
   getExistingDividendsForImport,
   getImportedDividends,
   getImportedTrades,
 } from '@/lib/services/investmentImportService';
 import { getAllExpenses } from '@/lib/services/expenseService';
+import { getAllAssets } from '@/lib/services/assetService';
+import { getAssetTransactions } from '@/lib/services/assetTransactionService';
+import { computeCashDelta } from '@/lib/utils/assetTransactionUtils';
+import { Checkbox } from '@/components/ui/checkbox';
 import { queryKeys } from '@/lib/query/queryKeys';
 import { ASSET_CLASS_LABELS } from '@/lib/utils/allocationUtils';
 import { isLedgerAssetType } from '@/types/assetTransactions';
-import { ImportCashAccount, ImportExistingDividend, ImportInstrument, ImportPlan, RawRow } from '@/types/expenseImport';
+import {
+  ImportCashAccount,
+  ImportExistingData,
+  ImportExistingDividend,
+  ImportInstrument,
+  ImportPlan,
+  RawRow,
+} from '@/types/expenseImport';
 import type { ExpenseCategory } from '@/types/expenses';
 import { SETTINGS_SECTION_IDS } from '@/lib/constants/navigation';
 
@@ -128,6 +143,49 @@ async function readExistingDividendsFor(rows: RawRow[], ownerId: string): Promis
   return rows.some((r) => isDividendTypeCell(r.tipo)) ? getExistingDividendsForImport(ownerId) : [];
 }
 
+/**
+ * What the file is checked against for rows already in the data (2026-10-25): every cashflow row
+ * and every trade of the account, read once when the file is chosen. The same reads give the
+ * «saldo» rows what moved after their day.
+ */
+async function readExistingDataFor(ownerId: string): Promise<Omit<ImportExistingData, 'includeDuplicates'>> {
+  const [expenses, trades] = await Promise.all([getAllExpenses(ownerId), getAssetTransactions(ownerId)]);
+  return {
+    expenses: expenses.map((e) => ({
+      date: e.date,
+      type: e.type,
+      amount: e.amount,
+      linkedCashAssetId: e.linkedCashAssetId,
+      transferCashAssetId: e.transferCashAssetId,
+      balancePending: e.balancePending,
+      importRowCode: e.importRowCode,
+    })),
+    trades: trades.map((t) => ({
+      assetId: t.assetId,
+      type: t.type,
+      date: t.date,
+      quantity: t.quantity,
+      pricePerUnit: t.pricePerUnit,
+      linkedCashAssetId: t.linkedCashAssetId,
+      cashDelta: computeCashDelta(t),
+    })),
+  };
+}
+
+/** «3 righe già presenti» — the preview's set-aside count. */
+function describeDuplicates(count: number): string {
+  return `${count} ${count === 1 ? 'riga già presente' : 'righe già presenti'} nei dati`;
+}
+
+/** The «Scartate» caption: where the reasons are, and the rows set aside apart from them. */
+function describeSkipped(summary: ImportPlan['summary']): string | undefined {
+  const parts = [
+    summary.skippedCount > 0 ? 'motivi riga per riga qui sotto' : '',
+    summary.duplicateCount > 0 ? `a parte ${describeDuplicates(summary.duplicateCount)}` : '',
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
 export default function ExpenseImportSection({ onImported }: ExpenseImportSectionProps) {
   const { ownerId } = useActiveAccount();
   const queryClient = useQueryClient();
@@ -144,12 +202,16 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     cashAccounts: ImportCashAccount[];
     instruments: ImportInstrument[];
     existingDividends: ImportExistingDividend[];
+    existing: Omit<ImportExistingData, 'includeDuplicates'>;
   } | null>(null);
+  // «Importa anche le righe già presenti»: off by default, a row already in the data is set aside.
+  const [includeDuplicates, setIncludeDuplicates] = useState(false);
   const [defaultAccountId, setDefaultAccountId] = useState<string>(NO_DEFAULT_ACCOUNT);
   const [lastBatch, setLastBatch] = useState<{
     importBatchId: string;
     created: number;
     tradeFailure?: { line: number; message: string };
+    balancesAligned?: number;
   } | null>(null);
   const [undoing, setUndoing] = useState(false);
   // «Import precedenti»: read on demand, never on mount (it reads every expense).
@@ -162,12 +224,15 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     if (!ownerId) return;
     setLoadingPast(true);
     try {
-      const [expenses, trades, dividends] = await Promise.all([
+      const [expenses, trades, dividends, assets] = await Promise.all([
         getAllExpenses(ownerId),
         getImportedTrades(ownerId),
         getImportedDividends(ownerId),
+        getAllAssets(ownerId),
       ]);
-      setPastBatches(summarizeImportBatches([...expenses, ...trades, ...dividends]));
+      setPastBatches(
+        summarizeImportBatches([...expenses, ...trades, ...dividends, ...balanceCorrectionsAsBatchRows(assets)])
+      );
     } catch (err) {
       console.error('Past imports read error:', err);
       toast.error('Impossibile leggere gli import precedenti.');
@@ -210,6 +275,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     setPlan(null);
     setSource(null);
     setDefaultAccountId(NO_DEFAULT_ACCOUNT);
+    setIncludeDuplicates(false);
     setFileName('');
     setLastBatch(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -238,8 +304,11 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
       const assets = await queryClient.fetchQuery(assetsQueryOptions(ownerId));
       // Plus the pension funds (2026-10-25), a transfer's destination only: the row becomes a
       // voluntary contribution in Previdenza.
+      // A cash account's balance is its quantity: what a «saldo» row is compared against.
       const cashAccounts: ImportCashAccount[] = [
-        ...assets.filter((a) => a.type === 'cash' && a.assetClass === 'cash').map((a) => ({ id: a.id, name: a.name })),
+        ...assets
+          .filter((a) => a.type === 'cash' && a.assetClass === 'cash')
+          .map((a) => ({ id: a.id, name: a.name, balance: a.quantity })),
         ...assets.filter((a) => a.type === 'pensionFund').map((a) => ({ id: a.id, name: a.name, kind: 'pensionFund' as const })),
       ];
       // The instruments the investment rows match by ISIN (2026-10-25).
@@ -247,9 +316,11 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
         .filter((a) => a.isin)
         .map((a) => ({ id: a.id, name: a.name, isin: a.isin, ledger: isLedgerAssetType(a.type) }));
       const existingDividends = await readExistingDividendsFor(rows, ownerId);
-      const built = buildImportPlan(rows, categories, cashAccounts, undefined, new Date(), instruments, existingDividends);
-      setSource({ rows, categories, cashAccounts, instruments, existingDividends });
+      const existing = await readExistingDataFor(ownerId);
+      const built = buildImportPlan(rows, categories, cashAccounts, undefined, new Date(), instruments, existingDividends, existing);
+      setSource({ rows, categories, cashAccounts, instruments, existingDividends, existing });
       setDefaultAccountId(NO_DEFAULT_ACCOUNT);
+      setIncludeDuplicates(false);
       setPlan(built);
       setPhase('preview');
       if (built.summary.validCount === 0) {
@@ -262,20 +333,30 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     }
   };
 
-  const handleDefaultAccountChange = (value: string) => {
-    setDefaultAccountId(value);
+  const replan = (accountValue: string, withDuplicates: boolean) => {
     if (!source) return;
     setPlan(
       buildImportPlan(
         source.rows,
         source.categories,
         source.cashAccounts,
-        value === NO_DEFAULT_ACCOUNT ? undefined : value,
+        accountValue === NO_DEFAULT_ACCOUNT ? undefined : accountValue,
         new Date(),
         source.instruments,
-        source.existingDividends
+        source.existingDividends,
+        { ...source.existing, includeDuplicates: withDuplicates }
       )
     );
+  };
+
+  const handleDefaultAccountChange = (value: string) => {
+    setDefaultAccountId(value);
+    replan(value, includeDuplicates);
+  };
+
+  const handleIncludeDuplicatesChange = (checked: boolean) => {
+    setIncludeDuplicates(checked);
+    replan(defaultAccountId, checked);
   };
 
   const handleConfirm = async () => {
@@ -374,7 +455,10 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
             tipo «acquisto», «vendita» o «correzione», l&apos;«isin», la «quantita» e il «prezzo»: finiscono nel
             Registro operazioni, e un titolo che non hai ancora viene creato da «titolo», «strumento» e «simbolo».
             Dividendi e cedole hanno tipo «dividendo» o «cedola», l&apos;«isin», la «quantita», l&apos;«importo» lordo e
-            la ritenuta in «tasse»: un pagamento già presente in Dividendi viene scartato.
+            la ritenuta in «tasse»: un pagamento già presente in Dividendi viene scartato. Una riga già nei dati
+            (stessa data, stesso importo, stesso conto, o lo stesso «codice») viene messa da parte, così un file
+            caricato due volte non raddoppia nulla. Una riga di tipo «saldo» con «conto» e «importo» porta quel conto
+            al saldo dell&apos;estratto a fine giornata.
           </div>
           <Collapsible
             className="mt-3 border-t border-border pt-3"
@@ -455,7 +539,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
             <PreviewKpi
               label="Scartate"
               value={String(plan.summary.skippedCount)}
-              caption={plan.summary.skippedCount > 0 ? 'motivi riga per riga qui sotto' : undefined}
+              caption={describeSkipped(plan.summary)}
             />
             <PreviewKpi
               label="Da creare"
@@ -502,6 +586,56 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {plan.balanceRows.length > 0 && (
+            <div className="mt-3.5 border-t border-border pt-3">
+              <p className={TILE_SUB_EYEBROW_CLASS}>Saldi allineati all&apos;estratto</p>
+              <ul className="mt-1.5 space-y-0.5 text-[13px] text-muted-foreground">
+                {plan.balanceRows.map((b) => (
+                  <li key={b.assetId}>
+                    • {b.accountName} al {formatDate(b.date)}: estratto{' '}
+                    {cachedFormatCurrencyEUR(b.statementBalance, true)}, app{' '}
+                    {cachedFormatCurrencyEUR(b.appBalance, true)}
+                    {Math.abs(b.delta) < 0.005
+                      ? ': già allineato, nessuna correzione'
+                      : ` → correzione ${b.delta > 0 ? '+' : '−'}${cachedFormatCurrencyEUR(Math.abs(b.delta), true)}`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {plan.duplicates.length > 0 && (
+            <div className="mt-3.5 border-t border-border pt-3">
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center gap-2 text-[13px] text-muted-foreground hover:underline">
+                  <Info className="h-4 w-4" aria-hidden="true" />
+                  {describeDuplicates(plan.duplicates.length)}
+                  {includeDuplicates ? ': verranno importate comunque' : ': non verranno importate'}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  <div className="max-h-56 divide-y divide-border overflow-y-auto rounded-md border border-border text-[13px]">
+                    {plan.duplicates.map((d) => (
+                      <div key={d.line} className="flex gap-3 px-3 py-2">
+                        <span className="shrink-0 font-mono text-muted-foreground">Riga {d.line}</span>
+                        <span>{d.reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+              <div className="mt-2 flex items-center gap-2">
+                <Checkbox
+                  id="import-include-duplicates"
+                  checked={includeDuplicates}
+                  onCheckedChange={(checked) => handleIncludeDuplicatesChange(checked === true)}
+                />
+                <label htmlFor="import-include-duplicates" className="text-[13px]">
+                  Importa anche le righe già presenti
+                </label>
+              </div>
             </div>
           )}
 
@@ -602,6 +736,13 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
             <CheckCircle2 className="h-5 w-5 text-positive" aria-hidden="true" />
             <span className="font-medium">Importate {lastBatch.created} transazioni.</span>
           </div>
+          {(lastBatch.balancesAligned ?? 0) > 0 && (
+            <p className="mt-2 text-[13px] text-muted-foreground">
+              {lastBatch.balancesAligned === 1
+                ? 'Un conto portato al saldo dell’estratto.'
+                : `${lastBatch.balancesAligned} conti portati al saldo dell’estratto.`}
+            </p>
+          )}
           {lastBatch.tradeFailure && (
             <p className="mt-2 flex gap-2 text-[13px] text-warning-foreground">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />

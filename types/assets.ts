@@ -272,8 +272,24 @@ export interface Asset {
   // only while the automatic price is not working. Read by `resolveAutoPriceStatus`
   // (lib/utils/assetPricing.ts) for Patrimonio's green check. Absent on every older document.
   priceUpdateFailedAt?: Date;
+  // A cash account aligned to a bank statement by a «saldo» row of the CSV import (2026-10-25):
+  // one entry per import, so «Annulla import» takes back exactly the delta it added. Absent on
+  // every other asset.
+  importBalanceCorrections?: ImportBalanceCorrection[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** One alignment of a cash account to a statement balance (see Asset.importBalanceCorrections). */
+export interface ImportBalanceCorrection {
+  importBatchId: string;
+  /** What was added to the balance (statement − app), signed. */
+  delta: number;
+  /** The statement's day, `YYYY-MM-DD` (Italian calendar). */
+  date: string;
+  statementBalance: number;
+  /** When the import wrote it, ISO timestamp. */
+  createdAt: string;
 }
 
 export interface AssetFormData {

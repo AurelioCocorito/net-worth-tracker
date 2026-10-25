@@ -25,6 +25,11 @@
  *   lib/services/investmentImportService.ts (the trade ledger's own route), under the same
  *   `importBatchId`; the undo removes them FIRST. A trade the ledger refuses stops that half of the
  *   import at its row and is returned as `tradeFailure` — what was written stays, undoable.
+ * - The «saldo» rows (`plan.balanceRows`, 2026-10-25) are applied LAST, once every other row is
+ *   written: each moves its account by statement − app and is stamped on the account
+ *   (`importBalanceCorrections`); the undo takes them back FIRST. A trade or dividend refusal skips
+ *   them (their delta assumed the whole file). Each written row carries its «codice» as
+ *   `importRowCode`, so a later import sets the same movement aside.
  * - `existingCategories` is the same array the caller already fetched via
  *   `getAllCategories` to build the plan (never `getCategoriesByType`, which
  *   needs a composite index that isn't deployed). New categories/subcategories
@@ -33,10 +38,12 @@
  */
 
 import {
+  arrayUnion,
   collection,
   doc,
   getDocs,
   query,
+  updateDoc,
   where,
   writeBatch,
   Timestamp,
@@ -58,10 +65,13 @@ import {
   deleteDividendsByImportBatch,
   deleteTradesByImportBatch,
 } from '@/lib/services/investmentImportService';
-import { ImportPlan } from '@/types/expenseImport';
+import { getItalyDateIso } from '@/lib/utils/dateHelpers';
+import { ImportPlan, PlannedBalanceRow } from '@/types/expenseImport';
+import type { ImportBalanceCorrection } from '@/types/assets';
 import { ExpenseCategory, ExpenseSubCategory } from '@/types/expenses';
 
 const EXPENSES_COLLECTION = 'expenses';
+const ASSETS_COLLECTION = 'assets';
 const BATCH_LIMIT = 400; // mirror costCenterService chunking (Firestore hard limit is 500)
 
 const norm = (s: string): string => s.trim().toLowerCase();
@@ -82,7 +92,13 @@ export async function commitImportPlan(
   userId: string,
   plan: ImportPlan,
   existingCategories: ExpenseCategory[]
-): Promise<{ importBatchId: string; created: number; tradeFailure?: { line: number; message: string } }> {
+): Promise<{
+  importBatchId: string;
+  created: number;
+  tradeFailure?: { line: number; message: string };
+  /** Accounts a «saldo» row moved to the statement's balance. */
+  balancesAligned?: number;
+}> {
   // Two lookups over the same objects, mirroring how the plan resolved: by document
   // id (rows that attached to an existing category) and by the shared (name, type)
   // key (rows whose category is created below). Same-named same-typed duplicates
@@ -184,6 +200,7 @@ export async function commitImportPlan(
       transferCashAssetId: row.transferCashAssetId,
       balancePending,
       importBatchId,
+      importRowCode: row.importRowCode,
       createdAt: now,
       updatedAt: now,
     });
@@ -215,21 +232,80 @@ export async function commitImportPlan(
       notes: row.notes,
       sourceCashAssetId: row.linkedCashAssetId,
       importBatchId,
+      importRowCode: row.importRowCode,
     });
     created++;
   }
   if (created > 0) await invalidateDashboardOverviewSummary(userId, 'expense_created');
 
   // The trades, then the dividends (an instrument they name may be created by the trades): each
-  // goes through its own route, which invalidates its own summaries. A refusal stops both.
-  if (plan.tradeRows.length === 0 && plan.dividendRows.length === 0) return { importBatchId, created };
-  const trades = await commitTradeRows(userId, plan, importBatchId);
-  created += trades.created;
-  if (trades.failure || plan.dividendRows.length === 0) {
-    return { importBatchId, created, tradeFailure: trades.failure };
+  // goes through its own route, which invalidates its own summaries. A refusal stops both — and the
+  // «saldo» rows, computed on a file written whole.
+  if (plan.tradeRows.length > 0 || plan.dividendRows.length > 0) {
+    const trades = await commitTradeRows(userId, plan, importBatchId);
+    created += trades.created;
+    if (trades.failure) return { importBatchId, created, tradeFailure: trades.failure };
+    if (plan.dividendRows.length > 0) {
+      const dividends = await commitDividendRows(userId, plan.dividendRows, trades.assetIdByIsin, importBatchId);
+      created += dividends.created;
+      if (dividends.failure) return { importBatchId, created, tradeFailure: dividends.failure };
+    }
   }
-  const dividends = await commitDividendRows(userId, plan.dividendRows, trades.assetIdByIsin, importBatchId);
-  return { importBatchId, created: created + dividends.created, tradeFailure: dividends.failure };
+  const aligned = await commitBalanceRows(plan.balanceRows, importBatchId, now);
+  return { importBatchId, created, ...(aligned > 0 ? { balancesAligned: aligned } : {}) };
+}
+
+/**
+ * The «saldo» rows, last: each account moves by its row's delta (statement − app) in one
+ * transaction, and the delta is stamped on the account (`importBalanceCorrections`) so the undo
+ * takes back exactly that. A zero delta writes nothing. Returns how many accounts moved.
+ */
+async function commitBalanceRows(rows: PlannedBalanceRow[], importBatchId: string, now: Date): Promise<number> {
+  const moving = rows.filter((r) => Math.abs(r.delta) >= 0.005);
+  if (moving.length === 0) return 0;
+  await applyBalanceEffects(moving.map((r) => ({ assetId: r.assetId, delta: r.delta })));
+  for (const r of moving) {
+    const correction: ImportBalanceCorrection = {
+      importBatchId,
+      delta: r.delta,
+      date: getItalyDateIso(r.date),
+      statementBalance: r.statementBalance,
+      createdAt: now.toISOString(),
+    };
+    await updateDoc(doc(db, ASSETS_COLLECTION, r.assetId), { importBalanceCorrections: arrayUnion(correction) });
+  }
+  return moving.length;
+}
+
+/** Undo the «saldo» rows of a batch: each account gives back its delta and forgets the entry. */
+async function deleteBalanceCorrectionsByImportBatch(userId: string, importBatchId: string): Promise<number> {
+  const snapshot = await getDocs(query(collection(db, ASSETS_COLLECTION), where('userId', '==', userId)));
+  let reversed = 0;
+  for (const assetDoc of snapshot.docs) {
+    const corrections = (assetDoc.data().importBalanceCorrections ?? []) as ImportBalanceCorrection[];
+    const mine = corrections.filter((c) => c.importBatchId === importBatchId);
+    if (mine.length === 0) continue;
+    await applyBalanceEffects(mine.map((c) => ({ assetId: assetDoc.id, delta: -c.delta })));
+    await updateDoc(assetDoc.ref, {
+      importBalanceCorrections: corrections.filter((c) => c.importBatchId !== importBatchId),
+    });
+    reversed += mine.length;
+  }
+  return reversed;
+}
+
+/** The «saldo» alignments of every batch, for «Import precedenti», shaped like the rows it lists. */
+export function balanceCorrectionsAsBatchRows(
+  assets: { id: string; importBalanceCorrections?: ImportBalanceCorrection[] }[]
+): { importBatchId: string; date: Date; createdAt: Date; linkedCashAssetId: string }[] {
+  return assets.flatMap((a) =>
+    (a.importBalanceCorrections ?? []).map((c) => ({
+      importBatchId: c.importBatchId,
+      date: new Date(`${c.date}T12:00:00`),
+      createdAt: new Date(c.createdAt),
+      linkedCashAssetId: a.id,
+    }))
+  );
 }
 
 /**
@@ -242,7 +318,9 @@ export async function deleteExpensesByImportBatch(userId: string, importBatchId:
   // First the trades (and the instruments the batch created): a settled trade gives its account
   // back through the ledger route, before the plain rows' balances are reversed below.
   // The payments first: a dividend's income row goes with it through its route.
-  const dividends = await deleteDividendsByImportBatch(userId, importBatchId);
+  // The statement alignments first: they were applied last, on top of everything below.
+  const balances = await deleteBalanceCorrectionsByImportBatch(userId, importBatchId);
+  const dividends = balances + (await deleteDividendsByImportBatch(userId, importBatchId));
   const trades = dividends + (await deleteTradesByImportBatch(userId, importBatchId));
   // Then the pension contributions: deleting one also deletes its transfer entry and gives back
   // both values, so the query below no longer sees (and never reverses twice) those entries.

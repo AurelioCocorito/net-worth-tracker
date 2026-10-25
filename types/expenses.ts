@@ -183,6 +183,9 @@ export interface Expense {
   // Set only on expenses written by the historical CSV importer (lib/services/expenseImportService.ts).
   // Groups every row of one import together so the whole batch can be undone in one call.
   importBatchId?: string;
+  // The import row's «codice» (2026-10-25): the same bank movement in a later file is recognised
+  // and set aside instead of being written twice (lib/utils/expenseImport.ts → setAsideDuplicates).
+  importRowCode?: string;
   createdAt: Date;
   updatedAt: Date;
 }
