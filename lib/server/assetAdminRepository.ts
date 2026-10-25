@@ -21,6 +21,7 @@ export async function getUserAssetsAdmin(userId: string): Promise<Asset[]> {
       id: doc.id,
       ...doc.data(),
       lastPriceUpdate: doc.data().lastPriceUpdate?.toDate() || new Date(),
+      priceUpdateFailedAt: doc.data().priceUpdateFailedAt?.toDate(),
       createdAt: doc.data().createdAt?.toDate() || new Date(),
       updatedAt: doc.data().updatedAt?.toDate() || new Date(),
       holdingStartDate: doc.data().holdingStartDate?.toDate(),

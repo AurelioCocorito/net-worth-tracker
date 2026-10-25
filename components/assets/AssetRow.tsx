@@ -2,16 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Pencil, Trash2, Calculator, ArrowLeftRight, ScrollText, PiggyBank, Info } from 'lucide-react';
+import { ChevronDown, Pencil, Trash2, Calculator, ArrowLeftRight, ScrollText, PiggyBank, Info, CircleCheck, CircleAlert, CircleX } from 'lucide-react';
 import { isLoanAsset, type Asset } from '@/types/assets';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/services/chartService';
 import { calculateAssetValue } from '@/lib/services/assetService';
 import { computeUnrealizedGain, resolveBondRowFacts } from '@/lib/utils/patrimonioSummary';
-import { describeBondRow, describeLoanRow, describeManualValuation } from '@/lib/utils/patrimonioNarrative';
+import { describeAutoPriceStatus, describeBondRow, describeLoanRow, describeManualValuation } from '@/lib/utils/patrimonioNarrative';
 import { costBasisPerUnitEur, isEurNative } from '@/lib/utils/costBasisEur';
-import { hasMarketPrice } from '@/lib/utils/assetPricing';
+import { hasMarketPrice, resolveAutoPriceStatus } from '@/lib/utils/assetPricing';
 import { toDate } from '@/lib/utils/dateHelpers';
 import { useArmedDelete } from '@/lib/hooks/useArmedDelete';
 import { getAssetClassCssVar } from '@/lib/constants/colors';
@@ -151,6 +151,47 @@ export function InstrumentClassChip({ asset }: { asset: Pick<Asset, 'assetClass'
   );
 }
 
+/** The three marks of `AutoPriceMark`, by `AutoPriceStatus` kind (a hand-valued asset has none). */
+const AUTO_PRICE_MARKS = {
+  ok: { Icon: CircleCheck, className: 'text-positive', label: 'Prezzo automatico attivo' },
+  failing: { Icon: CircleAlert, className: 'text-warning-foreground', label: 'Prezzo automatico non trovato da qualche giorno' },
+  never: { Icon: CircleX, className: 'text-destructive', label: 'Prezzo automatico mai trovato' },
+} as const;
+
+/**
+ * The mark beside an instrument's name (owner, 2026-10-25): a green check where the price updates
+ * by itself and the last update worked; yellow where it found a price before and does not now (to
+ * watch); red where it has never found one (to update by hand); nothing where the value is kept by
+ * hand (the row tint already says so). The explanation is a tooltip on the desktop table; the phone
+ * row, whose whole head is one button, spells it out in the opened panel instead
+ * (`describeAutoPriceStatus`), so the mark there is `sr-only` text plus the icon.
+ */
+export function AutoPriceMark({ asset, now, withTooltip = true }: { asset: Asset; now: Date; withTooltip?: boolean }) {
+  const status = resolveAutoPriceStatus(asset, now);
+  const explanation = describeAutoPriceStatus(status, now);
+  if (status.kind === 'manual' || explanation === null) return null;
+  const mark = AUTO_PRICE_MARKS[status.kind];
+  const icon = (
+    <span data-auto-price={status.kind} className="inline-flex shrink-0 items-center">
+      <mark.Icon className={cn('h-3.5 w-3.5', mark.className)} aria-hidden="true" />
+      <span className="sr-only">{mark.label}</span>
+    </span>
+  );
+  if (!withTooltip) return icon;
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={0} className="inline-flex shrink-0 cursor-help rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {icon}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[280px] text-xs">{explanation}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 /**
  * The gross/debt/net breakdown of a mortgaged property, as a tooltip on its value. The row prints
  * the GROSS value (the mortgage is a loan row of its own since 2026-10-10); `debt` is the linked
@@ -285,6 +326,8 @@ export function AssetRow({
   const weight = totalValue > 0 ? (value / totalValue) * 100 : null;
   const panelId = `asset-row-${asset.id}`;
   const subLine = describeAssetRowSubLine(asset, now, financedAssetName, ownerLabel);
+  // The phone's spelling of the name's mark (`AutoPriceMark`): no tooltip inside the row's button.
+  const autoPriceNote = describeAutoPriceStatus(resolveAutoPriceStatus(asset, now), now);
   const showTicker = !!asset.ticker && asset.type !== 'pensionFund';
   // The actions sit in a two-column grid; with an odd count the last one (Elimina) would be
   // alone in its row, so it takes the whole row instead of leaving a hole beside it.
@@ -337,6 +380,7 @@ export function AssetRow({
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-[13px] font-medium text-foreground">{asset.name}</span>
+            <AutoPriceMark asset={asset} now={now} withTooltip={false} />
             {asset.quantity === 0 && (
               <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                 {isLoanAsset(asset) ? 'Estinto' : 'Azzerato'}
@@ -376,6 +420,7 @@ export function AssetRow({
       >
         <div className="overflow-hidden">
           <div className="flex flex-col gap-3 pb-3.5">
+            {autoPriceNote && <p className="text-[11px] leading-snug text-muted-foreground">{autoPriceNote}</p>}
             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
               {details.map((d) => (
                 <div key={d.label} className="flex items-baseline gap-1.5">

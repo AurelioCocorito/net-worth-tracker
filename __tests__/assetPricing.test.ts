@@ -8,7 +8,7 @@
  * manually valued asset in the portfolio table.
  */
 import { describe, it, expect } from 'vitest';
-import { hasMarketPrice, requiresManualPricing } from '@/lib/utils/assetPricing';
+import { AUTO_PRICE_STALE_DAYS, hasMarketPrice, requiresManualPricing, resolveAutoPriceStatus } from '@/lib/utils/assetPricing';
 import type { AssetType } from '@/types/assets';
 
 const MARKET_TRADED_TYPES: AssetType[] = ['stock', 'etf', 'bond', 'crypto', 'commodity'];
@@ -54,5 +54,61 @@ describe('requiresManualPricing', () => {
 
   it('is true for a Private Equity position', () => {
     expect(requiresManualPricing({ type: 'stock', subCategory: 'Private Equity' })).toBe(true);
+  });
+});
+
+describe('resolveAutoPriceStatus', () => {
+  // Noon in Rome; the daily price update runs in the evening.
+  const now = new Date('2026-03-10T11:00:00Z');
+  const yesterday = new Date('2026-03-09T18:00:00Z');
+  const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
+  const created = daysAgo(30);
+
+  it('is manual for a hand-valued type, whatever its dates say', () => {
+    expect(resolveAutoPriceStatus({ type: 'cash', lastPriceUpdate: yesterday }, now)).toEqual({ kind: 'manual' });
+  });
+
+  it('is manual for a quoted instrument with automatic updates switched off', () => {
+    expect(resolveAutoPriceStatus({ type: 'etf', autoUpdatePrice: false, lastPriceUpdate: yesterday }, now)).toEqual({ kind: 'manual' });
+  });
+
+  it('is ok for a quoted instrument updated yesterday, autoUpdatePrice unset counting as on', () => {
+    expect(resolveAutoPriceStatus({ type: 'etf', createdAt: created, lastPriceUpdate: yesterday }, now)).toEqual({ kind: 'ok', updatedAt: yesterday });
+  });
+
+  it('is failing (yellow) when the last attempt failed after an earlier success', () => {
+    const failedAt = new Date('2026-03-09T18:00:05Z');
+    const status = resolveAutoPriceStatus({ type: 'stock', createdAt: created, lastPriceUpdate: daysAgo(2), priceUpdateFailedAt: failedAt }, now);
+    expect(status).toEqual({ kind: 'failing', reason: 'failed', updatedAt: daysAgo(2), failedAt });
+  });
+
+  it('ignores a failure older than a later success', () => {
+    const status = resolveAutoPriceStatus({ type: 'stock', createdAt: created, lastPriceUpdate: yesterday, priceUpdateFailedAt: daysAgo(3) }, now);
+    expect(status.kind).toBe('ok');
+  });
+
+  it('is failing (yellow) when no quote arrived for more than the stale threshold', () => {
+    const justInside = resolveAutoPriceStatus({ type: 'bond', createdAt: created, lastPriceUpdate: daysAgo(AUTO_PRICE_STALE_DAYS) }, now);
+    const justOutside = resolveAutoPriceStatus({ type: 'bond', createdAt: created, lastPriceUpdate: daysAgo(AUTO_PRICE_STALE_DAYS + 0.1) }, now);
+    expect(justInside.kind).toBe('ok');
+    expect(justOutside).toEqual({ kind: 'failing', reason: 'stale', updatedAt: daysAgo(AUTO_PRICE_STALE_DAYS + 0.1), failedAt: null });
+  });
+
+  it('is never (red) when the only update is the creation stamp and the run failed', () => {
+    const status = resolveAutoPriceStatus({ type: 'stock', createdAt: created, lastPriceUpdate: created, priceUpdateFailedAt: yesterday }, now);
+    expect(status).toEqual({ kind: 'never', failedAt: yesterday });
+  });
+
+  it('is never (red) when the creation stamp is the only update and it is past the threshold', () => {
+    expect(resolveAutoPriceStatus({ type: 'stock', createdAt: created, lastPriceUpdate: created }, now)).toEqual({ kind: 'never', failedAt: null });
+  });
+
+  it('is never (red) without any valid update date', () => {
+    expect(resolveAutoPriceStatus({ type: 'crypto', lastPriceUpdate: new Date('invalid') }, now)).toEqual({ kind: 'never', failedAt: null });
+  });
+
+  it('keeps a new instrument ok before its first evening run', () => {
+    const today = new Date('2026-03-10T09:00:00Z');
+    expect(resolveAutoPriceStatus({ type: 'stock', createdAt: today, lastPriceUpdate: today }, now).kind).toBe('ok');
   });
 });

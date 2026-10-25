@@ -20,6 +20,7 @@ import { cachedFormatCurrencyEUR, isPrintedZero } from '@/lib/utils/formatters';
 import { formatPercentageIt as formatPercentage } from '@/lib/utils/formatters';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { getItalyDate } from '@/lib/utils/dateHelpers';
+import { AUTO_PRICE_STALE_DAYS, type AutoPriceStatus } from '@/lib/utils/assetPricing';
 import { resolveDeclineCause, resolveTaxedGrowth, type PeriodSalesSummary } from '@/lib/utils/periodSales';
 import {
   declineHeadlineTail,
@@ -485,24 +486,50 @@ export function describeLoanRow(financedAssetName: string | null, annualRatePct:
 }
 
 /**
- * "prezzi aggiornati oggi alle 09:12" — the compact header's description. Day words follow the
- * Italian wall clock of both instants; beyond yesterday the date is spelled as dd/MM.
+ * "oggi alle 09:12" / "ieri alle 18:00" / "il 12/09 alle 18:00" — an instant on the Italian wall
+ * clock, said against `now`. Day words follow the Italian wall clock of both instants; beyond
+ * yesterday the date is spelled as dd/MM.
  */
-export function describeLastPriceUpdate(lastUpdate: Date | null, now: Date): string | null {
-  if (!lastUpdate) return null;
-  const updated = getItalyDate(lastUpdate);
+function describeItalyMoment(instant: Date, now: Date): string {
+  const updated = getItalyDate(instant);
   const today = getItalyDate(now);
   const time = `${String(updated.getHours()).padStart(2, '0')}:${String(updated.getMinutes()).padStart(2, '0')}`;
 
   const dayOf = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000;
   const daysAgo = dayOf(today) - dayOf(updated);
-  if (daysAgo === 0) return `prezzi aggiornati oggi alle ${time}`;
-  if (daysAgo === 1) return `prezzi aggiornati ieri alle ${time}`;
+  if (daysAgo === 0) return `oggi alle ${time}`;
+  if (daysAgo === 1) return `ieri alle ${time}`;
   // Beyond yesterday the date is spelled out; a quote older than the calendar year names its
   // year, or a ticker that stopped updating last September reads as three weeks ago.
   const sameYear = updated.getFullYear() === today.getFullYear();
   const date = `${String(updated.getDate()).padStart(2, '0')}/${String(updated.getMonth() + 1).padStart(2, '0')}${sameYear ? '' : `/${updated.getFullYear()}`}`;
-  return `prezzi aggiornati il ${date} alle ${time}`;
+  return `il ${date} alle ${time}`;
+}
+
+/** "prezzi aggiornati oggi alle 09:12" — the compact header's description. */
+export function describeLastPriceUpdate(lastUpdate: Date | null, now: Date): string | null {
+  if (!lastUpdate) return null;
+  return `prezzi aggiornati ${describeItalyMoment(lastUpdate, now)}`;
+}
+
+/**
+ * The tooltip of the mark beside an instrument's name (owner, 2026-10-25): what the green check,
+ * the yellow warning (found before, not now: to watch) or the red mark (never found: to update by
+ * hand) means, in plain words. Null for a hand-valued asset, which carries no mark.
+ */
+export function describeAutoPriceStatus(status: AutoPriceStatus, now: Date): string | null {
+  if (status.kind === 'manual') return null;
+  if (status.kind === 'ok') {
+    return `Prezzo aggiornato in automatico, l'ultima volta ${describeItalyMoment(status.updatedAt, now)}. Non serve aggiornarlo a mano.`;
+  }
+  if (status.kind === 'never') {
+    return 'Yahoo Finance non ha mai trovato un prezzo per questo strumento. Aggiornalo a mano, oppure correggi il ticker.';
+  }
+  const what =
+    status.reason === 'failed' && status.failedAt
+      ? `L'aggiornamento automatico del prezzo non è riuscito (ultimo tentativo ${describeItalyMoment(status.failedAt, now)}).`
+      : `Il prezzo non si aggiorna in automatico da più di ${AUTO_PRICE_STALE_DAYS} giorni.`;
+  return `${what} Ultimo prezzo valido: ${describeItalyMoment(status.updatedAt, now)}. Tienilo d'occhio: se continua, aggiornalo a mano.`;
 }
 
 // ─── Mutuo ────────────────────────────────────────────────────────────────────
