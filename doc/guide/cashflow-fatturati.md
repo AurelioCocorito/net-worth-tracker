@@ -36,6 +36,12 @@ figures in a spreadsheet and wants, over the years, the strongest months and wha
   min and max with their year; the SHARE OF THE YEAR measured on complete years only (twelve months recorded) — the
   reading of seasonality that a growing revenue does not distort. The verdict says that with one or two years the
   median is the mean. The year-to-date comparison stops at the latest recorded month of the latest year, in both years.
+- **Stagionalità** (2026-10-25): each bar is coloured by band — the measured months ranked by median and cut in
+  thirds (`revenueMonthTiers`: with twelve, the four weakest `--destructive`, the four in the middle `--chart-3`,
+  the four strongest `--positive`, a legend under the plot); no band under three measured months or when all are
+  alike. The pointer, or a TAP on a phone (`useChartHover(12, 'slot', { tap: true })`, DESIGN.md → The Hover
+  Reading Rule), opens the month's tip (`describeRevenueMonthTip`): the median, then the mean, the lowest and the
+  highest year, the share of the year; with one year it names the year and nothing else.
 - **The client filter** (the Select beside the verdict, or a row of «Per datore») narrows every tile but «Per datore»,
   which always shows the whole register.
 - **The read has no `orderBy`** (no composite index): the register is small and sorted in memory.

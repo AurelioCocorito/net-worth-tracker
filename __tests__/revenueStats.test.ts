@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   ALL_CLIENTS,
   median,
+  revenueMonthTiers,
   revenueClientKey,
   revenueEntryId,
   summarizeRevenue,
   UNSPECIFIED_CLIENT_LABEL,
 } from '@/lib/utils/revenueStats';
-import { buildRevenueVerdict, describeRevenueGrid } from '@/lib/utils/revenueNarrative';
+import { buildRevenueVerdict, describeRevenueGrid, describeRevenueMonthTip } from '@/lib/utils/revenueNarrative';
 import { narrativeToText } from '@/lib/utils/narrative';
 import type { RevenueEntry } from '@/types/revenue';
 
@@ -135,5 +136,41 @@ describe('buildRevenueVerdict', () => {
   it('the grid says an empty cell is not a zero', () => {
     const text = narrativeToText(describeRevenueGrid(summarizeRevenue([entry('2025-01', 1)]))!);
     expect(text).toContain('non zeri');
+  });
+});
+
+describe('describeRevenueMonthTip', () => {
+  it('opens on the median, then the mean, the lowest and the highest year, the share of the year', () => {
+    const summary = summarizeRevenue([...fullYear(2024, 1000, 400), ...fullYear(2025, 1200, 600), entry('2026-07', 500)]);
+    const tip = describeRevenueMonthTip(summary.months[6]);
+    expect(tip?.title).toBe('Luglio · 3 anni');
+    expect(tip?.headline).toMatch(/^Mediana 500/);
+    expect(tip?.rows.map((r) => r.label)).toEqual(['Media', 'Minimo', 'Massimo', "Quota dell'anno"]);
+    expect(tip?.rows[1].value).toMatch(/400.*\(2024\)/);
+    expect(tip?.rows[2].value).toMatch(/600.*\(2025\)/);
+  });
+
+  it('with one year names that year and nothing else; a month nobody recorded has no tip', () => {
+    const summary = summarizeRevenue([entry('2025-03', 2500), entry('2025-04', 1120)]);
+    const tip = describeRevenueMonthTip(summary.months[2]);
+    expect(tip?.title).toBe('Marzo · 1 anno');
+    expect(tip?.rows).toEqual([{ label: 'Solo il', value: '2025' }]);
+    expect(describeRevenueMonthTip(summary.months[0])).toBeNull();
+  });
+});
+
+describe('revenueMonthTiers', () => {
+  it('cuts twelve months into the four weakest, the four in the middle and the four strongest', () => {
+    const entries = Array.from({ length: 12 }, (_, i) => entry(`2025-${String(i + 1).padStart(2, '0')}`, [50, 1200, 900, 300, 1000, 2500, 400, 100, 1100, 700, 800, 2000][i]));
+    expect(revenueMonthTiers(summarizeRevenue(entries).months)).toEqual([
+      'low', 'high', 'mid', 'low', 'mid', 'high', 'low', 'low', 'high', 'mid', 'mid', 'high',
+    ]);
+  });
+
+  it('leaves an unrecorded month out, and ranks nothing under three months or when all are alike', () => {
+    const six = summarizeRevenue(['01', '02', '03', '04', '05', '06'].map((m, i) => entry(`2025-${m}`, (i + 1) * 100)));
+    expect(revenueMonthTiers(six.months).slice(0, 7)).toEqual(['low', 'low', 'mid', 'mid', 'high', 'high', null]);
+    expect(revenueMonthTiers(summarizeRevenue([entry('2025-01', 100), entry('2025-02', 200)]).months).every((t) => t === null)).toBe(true);
+    expect(revenueMonthTiers(summarizeRevenue([entry('2025-01', 100), entry('2025-02', 100), entry('2025-03', 100)]).months).every((t) => t === null)).toBe(true);
   });
 });
