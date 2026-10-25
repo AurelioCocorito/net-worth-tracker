@@ -4,7 +4,7 @@
  */
 
 import type { Narrative, NarrativeSegment, PageVerdictModel } from '@/lib/utils/narrative';
-import type { RevenueSummary, RevenueYearToDate } from '@/lib/utils/revenueStats';
+import type { RevenueMonthStat, RevenueSummary, RevenueYearToDate } from '@/lib/utils/revenueStats';
 import { MONTH_NAMES } from '@/lib/constants/months';
 import { formatEuroMinus, formatPercentageIt, formatSignedPercentIt, printedSign } from '@/lib/utils/formatters';
 
@@ -138,6 +138,40 @@ export function describeRevenueSeasonality(summary: RevenueSummary): Narrative |
 }
 
 /** The years tile's reading. */
+export interface RevenueMonthTip {
+  /** «Marzo · 3 anni». */
+  title: string;
+  /** The month's median: the tip's headline figure. */
+  headline: string;
+  /** The rest, one line each: label and value. */
+  rows: { label: string; value: string }[];
+}
+
+/**
+ * What the Stagionalità tip says about one calendar month: the median first, then the mean, the
+ * lowest and the highest year, the share of the year. With one year the median IS that year's
+ * figure, so the tip names the year and prints nothing else; `null` for a month nobody recorded.
+ */
+export function describeRevenueMonthTip(month: RevenueMonthStat): RevenueMonthTip | null {
+  if (month.median === null) return null;
+  const name = MONTH_NAMES[month.month - 1];
+  const years = month.values.length;
+  const rows: RevenueMonthTip['rows'] = [];
+  if (years === 1) {
+    rows.push({ label: 'Solo il', value: String(month.values[0].year) });
+  } else {
+    if (month.mean !== null) rows.push({ label: 'Media', value: formatEuroMinus(month.mean) });
+    if (month.min) rows.push({ label: 'Minimo', value: `${formatEuroMinus(month.min.amount)} (${month.min.year})` });
+    if (month.max) rows.push({ label: 'Massimo', value: `${formatEuroMinus(month.max.amount)} (${month.max.year})` });
+  }
+  if (month.shareMedian !== null) rows.push({ label: "Quota dell'anno", value: formatPercentageIt(month.shareMedian, 1) });
+  return {
+    title: `${name} · ${years} ${plural(years, 'anno', 'anni')}`,
+    headline: `Mediana ${formatEuroMinus(month.median)}`,
+    rows,
+  };
+}
+
 export function describeRevenueYears(summary: RevenueSummary): Narrative | null {
   const complete = summary.years.filter((y) => y.complete);
   if (complete.length === 0) {

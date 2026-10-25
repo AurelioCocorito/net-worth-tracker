@@ -263,3 +263,25 @@ function computeYearToDate(years: readonly RevenueYearRow[]): RevenueYearToDate 
     deltaPct: previous > 0 ? ((current - previous) / previous) * 100 : null,
   };
 }
+
+export type RevenueMonthTier = 'low' | 'mid' | 'high';
+
+/**
+ * Stagionalità's three bands (the owner's request, 2026-10-25): the measured months ranked by
+ * median and cut in thirds — with twelve, the four weakest, the four in the middle, the four
+ * strongest. A tie keeps the calendar order. `null` for a month nobody recorded, and for every
+ * month when fewer than three are measured or all of them are alike: there is no ranking to show.
+ */
+export function revenueMonthTiers(months: readonly RevenueMonthStat[]): (RevenueMonthTier | null)[] {
+  const measured = months.filter((m) => m.median !== null);
+  const tiers: (RevenueMonthTier | null)[] = months.map(() => null);
+  if (measured.length < 3) return tiers;
+  const medians = measured.map((m) => m.median as number);
+  if (Math.min(...medians) === Math.max(...medians)) return tiers;
+  const ranked = [...measured].sort((a, b) => (a.median as number) - (b.median as number) || a.month - b.month);
+  const bands: RevenueMonthTier[] = ['low', 'mid', 'high'];
+  ranked.forEach((m, rank) => {
+    tiers[months.indexOf(m)] = bands[Math.floor((rank * 3) / ranked.length)];
+  });
+  return tiers;
+}
