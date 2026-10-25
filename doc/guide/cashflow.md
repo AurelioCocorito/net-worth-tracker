@@ -287,6 +287,26 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   trades) through DELETE /api/dividends/[id], which removes that row too. Not handled: a LATER scrape writing the same
   payment under a different ex-date — the scrape's own `isDuplicateDividend` compares ex-dates only. Pinned by
   `e2e/settings.import-dividends.spec.ts`.
+- **Rows already in the data (2026-10-25)**: the preview reads every cashflow row and every trade of the account
+  (`readExistingDataFor`) and `setAsideDuplicates` puts aside what is already there, so a file loaded twice or two
+  statements that overlap never write a movement twice. The optional «codice» column (alias `code`) names the bank
+  movement and is stored as `importRowCode` (on the transfer entry of a pension contribution too): a stored code is
+  that row. Without one, a row matches a stored row with the same `expenseFingerprint` — Italian day, direction (in /
+  out / transfer: fixed vs variable does not count), cents, accounts; never category nor note, which the owner corrects
+  after an import — that carries no code or the same code, each stored row answering for ONE file row (two identical
+  coffees against one typed by hand leave one to import). A trade matches on day, instrument, type, units and price;
+  dividends keep their own rule. The set-aside rows are listed apart from «Scartate», never counted in `validCount`, and
+  «Importa anche le righe già presenti» re-plans with `includeDuplicates`. A code repeated inside the file is refused
+  after its first row. The bank scripts that prepare the owner's files write the code (`<banca>-<hash>`).
+- **«saldo» rows (2026-10-25)**: `tipo` = `saldo`/`balance`, «conto» (or the default account), «importo» = the statement
+  balance at the END of «data» (a leading minus is an overdraft). `planBalanceRows` computes what the app will hold for
+  that day — today's balance + what the file moves at commit − everything settled dated after the day (stored rows,
+  the file's rows, trades on their own date) — and the commit moves the account by the difference LAST, in one
+  transaction, stamping `{importBatchId, delta, date, statementBalance}` on the asset's `importBalanceCorrections`;
+  the undo gives back exactly that delta first. Dividends are not counted (their income row is the server's). One
+  saldo per account per file; future day, unknown account, a fund refused; skipped when the trades stopped. «Import
+  precedenti» lists an alignment through `balanceCorrectionsAsBatchRows`. Pinned by
+  `e2e/settings.import-duplicates.spec.ts`.
 - **Tracciamento's account filter** closes with «Conto non specificato» (rows with no `linkedCashAssetId`) when the
   listed rows hold any.
 

@@ -141,6 +141,8 @@ export interface PensionContributionInput {
    * «Annulla import» finds the contribution and deletes it through deletePensionContribution.
    */
   importBatchId?: string;
+  /** The import row's «codice» (2026-10-25), stamped on the transfer entry: a second import of the same row is set aside. */
+  importRowCode?: string;
 }
 
 /**
@@ -289,7 +291,12 @@ async function createVoluntaryTransferEntry(
   // Neither `isRecurring` nor `isInstallment` is set, so this is always the single-expense branch.
   const expenseId = Array.isArray(result) ? result[0] : result;
   // An imported contribution's entry joins its batch: «Import precedenti» lists it, the undo finds it.
-  if (input.importBatchId) await updateDoc(doc(db, 'expenses', expenseId), { importBatchId: input.importBatchId });
+  if (input.importBatchId) {
+    await updateDoc(doc(db, 'expenses', expenseId), {
+      importBatchId: input.importBatchId,
+      ...(input.importRowCode ? { importRowCode: input.importRowCode } : {}),
+    });
+  }
   return expenseId;
 }
 

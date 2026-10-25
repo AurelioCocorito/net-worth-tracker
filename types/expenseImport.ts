@@ -53,6 +53,11 @@ export interface RawRow {
   aliquota?: string;
   /** Dividend/coupon rows: the ex-date (column «data_stacco»); absent = the payment date («data»). */
   dataStacco?: string;
+  /**
+   * The row's own code (column «codice», 2026-10-25): stable for the same bank movement, so a file
+   * loaded twice, or two statements that overlap, never write it twice. Stored on the written row.
+   */
+  codice?: string;
 }
 
 /** The two income types an import row can carry: a dividend or a coupon (types/dividend.ts). */
@@ -146,6 +151,62 @@ export interface ImportCashAccount {
    * becomes a voluntary contribution recorded in Previdenza. Absent = a cash account.
    */
   kind?: 'cash' | 'pensionFund';
+  /** Today's balance in the app (a cash account's quantity): what a «saldo» row is compared against. */
+  balance?: number;
+}
+
+/**
+ * A cashflow row already in the data, as the plan checks the file against it (2026-10-25): the
+ * same day, the same amount, the same accounts — and the same «codice» when both carry one — is a
+ * row already imported or typed by hand, and is not written twice.
+ */
+export interface ImportExistingExpense {
+  date: Date;
+  type: ExpenseType;
+  /** Signed, as stored (spending negative, income and transfers positive). */
+  amount: number;
+  linkedCashAssetId?: string;
+  transferCashAssetId?: string;
+  balancePending?: boolean;
+  importRowCode?: string;
+}
+
+/** A trade already in the ledger, as the plan checks the file against it and reads its cash. */
+export interface ImportExistingTrade {
+  assetId: string;
+  type: ImportTradeType;
+  date: Date;
+  quantity: number;
+  pricePerUnit: number;
+  linkedCashAssetId?: string;
+  /** What it moved on its settlement account (computeCashDelta), signed. */
+  cashDelta: number;
+}
+
+/** What the plan checks the file against for rows already in the data; all optional. */
+export interface ImportExistingData {
+  expenses?: ImportExistingExpense[];
+  trades?: ImportExistingTrade[];
+  /** The preview's «Importa anche le righe già presenti»: nothing is set aside. */
+  includeDuplicates?: boolean;
+}
+
+/**
+ * A «saldo» row (2026-10-25): the balance the bank statement shows for an account at the end of
+ * a day. The plan computes what the app will hold for that day once the file is written; the
+ * commit moves the account by the difference, so the balance matches the bank without typing it.
+ */
+export interface PlannedBalanceRow {
+  line: number;
+  date: Date;
+  assetId: string;
+  accountName: string;
+  /** The statement's balance at the end of `date`. */
+  statementBalance: number;
+  /** What the app holds for that day after the import (today's balance minus what came after). */
+  appBalance: number;
+  /** statementBalance − appBalance: what the commit adds to the account. */
+  delta: number;
 }
 
 /**
@@ -177,6 +238,8 @@ export interface PlannedExpenseRow {
   linkedCashAssetId?: string;
   /** On a transfer: the destination account (column «conto_destinazione»); origin = linkedCashAssetId. */
   transferCashAssetId?: string;
+  /** The row's «codice», stored on the written document as `importRowCode`. */
+  importRowCode?: string;
   /**
    * The destination is a fondo pensione: the commit records a VOLUNTARY contribution through
    * recordPensionContribution (Previdenza record + its own transfer entry + both balances), never a
@@ -232,6 +295,10 @@ export interface ImportSummary {
   dividendCount: number;
   couponCount: number;
   totalDividendNet: number;
+  /** Rows set aside because they are already in the data (not counted in validCount nor skippedCount). */
+  duplicateCount: number;
+  /** «saldo» rows (included in validCount). */
+  balanceCount: number;
   dateFrom?: Date;
   dateTo?: Date;
   /** Per linked account: how many rows and their signed net (income +, spending −), for the preview. */
@@ -274,7 +341,11 @@ export interface ImportPlan {
   instrumentsToCreate: InstrumentToCreate[];
   /** Dividend and coupon rows, committed after the trades (an instrument they name may be created by them). */
   dividendRows: PlannedDividendRow[];
+  /** «saldo» rows: the accounts the commit aligns to the statement, after every other row. */
+  balanceRows: PlannedBalanceRow[];
   errors: RowError[];
+  /** Rows already in the data, set aside (unless `includeDuplicates`): line and the reason. */
+  duplicates: RowError[];
   categoriesToCreate: CategoryToCreate[];
   subCategoriesToCreate: SubCategoryToCreate[];
   notices: ImportNotice[];

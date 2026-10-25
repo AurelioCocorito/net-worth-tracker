@@ -15,6 +15,8 @@
  *   6. transfers — «conto» origin + «conto_destinazione» destination, the default
  *      transfer category, rejections, the summary's per-account legs.
  *   7. summarizeImportBatches — the past imports listed for a later undo.
+ *   8. rows already in the data — «codice» and the day/amount/account fingerprint (2026-10-25).
+ *   9. «saldo» rows — the account aligned to the statement's balance of a day (2026-10-25).
  *
  * No React, no Firebase — the module imports only papaparse + types.
  */
@@ -28,7 +30,7 @@ import {
   buildTemplateCsv,
   summarizeImportBatches,
 } from '@/lib/utils/expenseImport';
-import { ExpenseCategory } from '@/types/expenses';
+import { Expense, ExpenseCategory } from '@/types/expenses';
 
 function cat(partial: Partial<ExpenseCategory> & { name: string; type: ExpenseCategory['type'] }): ExpenseCategory {
   return {
@@ -641,5 +643,231 @@ describe('dividend rows (dividendo / cedola)', () => {
     expect(plan('2026-10-15;100;dividendo;;;IE0000000001;200;;2026-09-30;;;;', existing).errors[0].reason).toMatch(/già registrato/);
     expect(plan('2026-10-14;100;dividendo;;;IE0000000001;200;;2026-10-01;;;;', existing).errors[0].reason).toMatch(/già registrato/);
     expect(plan('2026-10-20;100;dividendo;;;IE0000000001;200;;;;;;', existing).dividendRows).toHaveLength(1);
+  });
+});
+
+describe('rows already in the data (codice and fingerprint)', () => {
+  const accounts = [
+    { id: 'acc-a', name: 'Conto Alfa', balance: 1000 },
+    { id: 'acc-b', name: 'Conto Beta', balance: 500 },
+  ];
+  const csv = (body: string) =>
+    parseImportCsv('data;importo;tipo;categoria;sottocategoria;note;valuta;conto;codice\n' + body);
+  const stored = (date: string, type: Expense['type'], amount: number, linked?: string, code?: string) => ({
+    date: new Date(`${date}T12:00:00`),
+    type,
+    amount,
+    linkedCashAssetId: linked,
+    importRowCode: code,
+  });
+  const now = new Date('2024-12-01T12:00:00');
+
+  it('reads the «codice» column and stores it on the planned row', () => {
+    const plan = buildImportPlan(csv('2024-01-15;50,00;variable;Spesa;;;;Conto Alfa;alfa-001'), [], accounts, undefined, now);
+    expect(plan.validRows[0].importRowCode).toBe('alfa-001');
+  });
+
+  it('sets aside a row whose codice is already stored', () => {
+    const plan = buildImportPlan(
+      csv('2024-01-15;50,00;variable;Spesa;;;;Conto Alfa;alfa-001'),
+      [],
+      accounts,
+      undefined,
+      now,
+      [],
+      [],
+      { expenses: [stored('2024-02-20', 'variable', -99, 'acc-b', 'alfa-001')] }
+    );
+    expect(plan.validRows).toHaveLength(0);
+    expect(plan.duplicates[0].reason).toMatch(/codice «alfa-001»/);
+    expect(plan.summary.duplicateCount).toBe(1);
+    expect(plan.summary.skippedCount).toBe(0);
+  });
+
+  it('sets aside a row of the same day, amount and account, whatever its category or type', () => {
+    const plan = buildImportPlan(
+      csv('2024-01-15;50,00;variable;Spesa;;;;Conto Alfa;'),
+      [],
+      accounts,
+      undefined,
+      now,
+      [],
+      [],
+      { expenses: [stored('2024-01-15', 'fixed', -50, 'acc-a')] }
+    );
+    expect(plan.validRows).toHaveLength(0);
+    expect(plan.duplicates[0].reason).toMatch(/15\/01\/2024/);
+    expect(plan.categoriesToCreate).toEqual([]);
+  });
+
+  it('lets each stored row answer for one file row only', () => {
+    const plan = buildImportPlan(
+      csv('2024-01-15;1,50;variable;Bar;;;;Conto Alfa;\n2024-01-15;1,50;variable;Bar;;;;Conto Alfa;'),
+      [],
+      accounts,
+      undefined,
+      now,
+      [],
+      [],
+      { expenses: [stored('2024-01-15', 'variable', -1.5, 'acc-a')] }
+    );
+    expect(plan.validRows).toHaveLength(1);
+    expect(plan.duplicates).toHaveLength(1);
+  });
+
+  it('never matches a stored row that carries a different codice', () => {
+    const plan = buildImportPlan(
+      csv('2024-01-15;1,50;variable;Bar;;;;Conto Alfa;alfa-002'),
+      [],
+      accounts,
+      undefined,
+      now,
+      [],
+      [],
+      { expenses: [stored('2024-01-15', 'variable', -1.5, 'acc-a', 'alfa-001')] }
+    );
+    expect(plan.validRows).toHaveLength(1);
+    expect(plan.duplicates).toHaveLength(0);
+  });
+
+  it('keeps the rows apart from another account or another direction', () => {
+    const plan = buildImportPlan(
+      csv('2024-01-15;50,00;variable;Spesa;;;;Conto Beta;\n2024-01-15;50,00;income;Rimborso;;;;Conto Alfa;'),
+      [],
+      accounts,
+      undefined,
+      now,
+      [],
+      [],
+      { expenses: [stored('2024-01-15', 'variable', -50, 'acc-a')] }
+    );
+    expect(plan.validRows).toHaveLength(2);
+  });
+
+  it('imports them anyway when asked, still listing them', () => {
+    const plan = buildImportPlan(
+      csv('2024-01-15;50,00;variable;Spesa;;;;Conto Alfa;'),
+      [],
+      accounts,
+      undefined,
+      now,
+      [],
+      [],
+      { expenses: [stored('2024-01-15', 'variable', -50, 'acc-a')], includeDuplicates: true }
+    );
+    expect(plan.validRows).toHaveLength(1);
+    expect(plan.duplicates).toHaveLength(1);
+  });
+
+  it('refuses a codice repeated inside the file, keeping the first row', () => {
+    const plan = buildImportPlan(
+      csv('2024-01-15;50,00;variable;Spesa;;;;Conto Alfa;x1\n2024-01-16;20,00;variable;Spesa;;;;Conto Alfa;x1'),
+      [],
+      accounts,
+      undefined,
+      now
+    );
+    expect(plan.validRows.map((r) => r.line)).toEqual([1]);
+    expect(plan.errors[0].reason).toMatch(/già usato alla riga 1/);
+  });
+
+  it('sets aside a trade of the same day, instrument, units and price', () => {
+    const rows = parseImportCsv(
+      'data;tipo;isin;quantita;prezzo;conto\n2024-03-01;acquisto;IE00TEST0001;10;50,00;Conto Alfa\n2024-03-02;acquisto;IE00TEST0001;10;50,00;Conto Alfa'
+    );
+    const plan = buildImportPlan(
+      rows,
+      [],
+      accounts,
+      undefined,
+      now,
+      [{ id: 'etf-1', name: 'Test ETF', isin: 'IE00TEST0001', ledger: true }],
+      [],
+      {
+        trades: [
+          { assetId: 'etf-1', type: 'buy', date: new Date('2024-03-01T12:00:00'), quantity: 10, pricePerUnit: 50, cashDelta: -500 },
+        ],
+      }
+    );
+    expect(plan.tradeRows.map((t) => t.line)).toEqual([2]);
+    expect(plan.duplicates.map((d) => d.line)).toEqual([1]);
+  });
+});
+
+describe('«saldo» rows', () => {
+  const accounts = [
+    { id: 'acc-a', name: 'Conto Alfa', balance: 1000 },
+    { id: 'fund', name: 'Fondo Pensione', kind: 'pensionFund' as const },
+  ];
+  const csv = (body: string) => parseImportCsv('data;importo;tipo;categoria;sottocategoria;note;valuta;conto\n' + body);
+  const now = new Date('2024-12-01T12:00:00');
+
+  it('aligns the account to the statement after the file is written', () => {
+    // Today 1000; the file adds −200 (dated before the statement day): the app will hold 800.
+    const plan = buildImportPlan(
+      csv('2024-11-10;200,00;variable;Spesa;;;;Conto Alfa\n2024-11-30;850,00;saldo;;;;;Conto Alfa'),
+      [],
+      accounts,
+      undefined,
+      now
+    );
+    expect(plan.balanceRows).toEqual([
+      expect.objectContaining({ assetId: 'acc-a', statementBalance: 850, appBalance: 800, delta: 50 }),
+    ]);
+    expect(plan.summary.balanceCount).toBe(1);
+    expect(plan.summary.validCount).toBe(2);
+    expect(plan.categoriesToCreate).toEqual([{ name: 'Spesa', type: 'variable', subCategories: [] }]);
+  });
+
+  it('leaves out what moved after the statement day, stored or in the file', () => {
+    // Today 1000; after the import 900 (the file's −100 of 28/11). After 20/11 the account moved by
+    // +300 (stored, 25/11) and −100 (the file): on 20/11 it held 900 − 200 = 700.
+    const plan = buildImportPlan(
+      csv('2024-11-28;100,00;variable;Spesa;;;;Conto Alfa\n2024-11-20;700,00;saldo;;;;;Conto Alfa'),
+      [],
+      accounts,
+      undefined,
+      now,
+      [],
+      [],
+      {
+        expenses: [{ date: new Date('2024-11-25T12:00:00'), type: 'income', amount: 300, linkedCashAssetId: 'acc-a' }],
+        trades: [],
+      }
+    );
+    expect(plan.balanceRows[0]).toMatchObject({ appBalance: 700, delta: 0 });
+  });
+
+  it('reads a leading minus as an overdraft', () => {
+    const plan = buildImportPlan(csv('2024-11-30;-120,00;saldo;;;;;Conto Alfa'), [], accounts, undefined, now);
+    expect(plan.balanceRows[0]).toMatchObject({ statementBalance: -120, delta: -1120 });
+  });
+
+  it('takes the default account when «conto» is empty', () => {
+    const plan = buildImportPlan(csv('2024-11-30;1000,00;saldo;;;;;'), [], accounts, 'acc-a', now);
+    expect(plan.balanceRows[0]).toMatchObject({ assetId: 'acc-a', delta: 0 });
+  });
+
+  it('refuses a future day, a missing account, a fund and a second saldo for the same account', () => {
+    const plan = buildImportPlan(
+      csv(
+        '2024-12-05;10,00;saldo;;;;;Conto Alfa\n' +
+          '2024-11-30;10,00;saldo;;;;;\n' +
+          '2024-11-30;10,00;saldo;;;;;Fondo Pensione\n' +
+          '2024-11-30;10,00;saldo;;;;;Conto Alfa\n' +
+          '2024-11-29;10,00;saldo;;;;;Conto Alfa'
+      ),
+      [],
+      accounts,
+      undefined,
+      now
+    );
+    expect(plan.balanceRows.map((b) => b.line)).toEqual([4]);
+    expect(plan.errors.map((e) => e.reason)).toEqual([
+      expect.stringMatching(/data futura/),
+      expect.stringMatching(/Saldo senza conto/),
+      expect.stringMatching(/non è un conto corrente/),
+      expect.stringMatching(/Un solo saldo per conto/),
+    ]);
   });
 });

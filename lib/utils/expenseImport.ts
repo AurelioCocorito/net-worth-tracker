@@ -41,11 +41,16 @@
  *   GROSS amount, «tasse» = the withholding. Written through the dividend route, which also writes
  *   the income row of Tracciamento; a payment already in the registry (same instrument, same
  *   payment or ex day — e.g. downloaded from Borsa Italiana) is refused, never counted twice.
+ * - Rows already in the data (2026-10-25): `existing` carries the stored cashflow rows and trades;
+ *   setAsideDuplicates puts aside a row whose «codice» is stored, or whose fingerprint (day, direction,
+ *   cents, accounts) matches a stored row, one stored row per file row. Listed in `duplicates`.
+ * - «saldo» rows (2026-10-25): the statement balance of «conto» at the end of «data»; planBalanceRows
+ *   computes the app's balance for that day after the import and the delta the commit applies.
  */
 
 import Papa from 'papaparse';
 import { roundToCents } from '@/lib/utils/cents';
-import { settlesLater } from '@/lib/utils/cashSettlement';
+import { appliedBalanceEffectsOf, balanceEffectsOf, settlesLater } from '@/lib/utils/cashSettlement';
 import { getItalyDateIso } from '@/lib/utils/dateHelpers';
 import { Expense, ExpenseCategory, EXPENSE_TYPE_LABELS } from '@/types/expenses';
 import type { AssetClass, AssetType } from '@/types/assets';
@@ -68,6 +73,8 @@ import {
   PlannedDividendRow,
   InstrumentToCreate,
   PlannedTradeRow,
+  PlannedBalanceRow,
+  ImportExistingData,
 } from '@/types/expenseImport';
 
 const IMPORTABLE_TYPES: ImportableExpenseType[] = ['fixed', 'variable', 'debt', 'income', 'transfer'];
@@ -135,6 +142,10 @@ const HEADER_ALIASES: Record<string, keyof Omit<RawRow, 'line'>> = {
   'data stacco': 'dataStacco',
   'ex date': 'dataStacco',
   ex_date: 'dataStacco',
+  codice: 'codice',
+  'codice riga': 'codice',
+  codice_riga: 'codice',
+  code: 'codice',
 };
 
 /** `tipo` values of a dividend row → the registry's dividend type. */
@@ -148,6 +159,14 @@ const DIVIDEND_TYPE_ALIASES: Record<string, ImportDividendType> = {
 /** Whether a `tipo` cell names a dividend or coupon row. */
 export function isDividendTypeCell(tipo: string): boolean {
   return DIVIDEND_TYPE_ALIASES[tipo.trim().toLowerCase()] !== undefined;
+}
+
+/** `tipo` values of a statement-balance row (2026-10-25): the account's balance at the end of «data». */
+const BALANCE_TYPE_CELLS = new Set(['saldo', 'balance']);
+
+/** Whether a `tipo` cell names a «saldo» row. */
+export function isBalanceTypeCell(tipo: string): boolean {
+  return BALANCE_TYPE_CELLS.has(tipo.trim().toLowerCase());
 }
 
 /** `tipo` values of an investment row → the ledger's trade type. */
@@ -221,17 +240,18 @@ export function isTradeTypeCell(tipo: string): boolean {
 const TEMPLATE_HEADERS = [
   'data', 'importo', 'tipo', 'categoria', 'sottocategoria', 'note', 'valuta', 'conto', 'conto_destinazione',
   'isin', 'quantita', 'prezzo', 'commissioni', 'tasse', 'titolo', 'strumento', 'simbolo', 'classe', 'aliquota',
-  'data_stacco',
+  'data_stacco', 'codice',
 ] as const;
 const TEMPLATE_EXAMPLE_ROWS: string[][] = [
-  ['2024-01-15', '1200,00', 'fixed', 'Casa', 'Affitto', 'Canone gennaio', 'EUR', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-  ['2024-01-27', '2500,00', 'income', 'Stipendio', '', 'Busta paga', 'EUR', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-  ['2024-02-03', '54,90', 'variable', 'Spesa', 'Supermercato', '', 'EUR', '', '', '', '', '', '', '', '', '', '', '', '', ''],
-  ['2024-02-05', '500,00', 'transfer', '', '', 'Bonifico per investimento', 'EUR', 'Conto corrente', 'Conto deposito', '', '', '', '', '', '', '', '', '', '', ''],
-  ['2024-02-06', '', 'acquisto', '', '', '', 'EUR', 'Conto corrente', '', 'IE00EXAMPLE1', '10', '50,00', '2,95', '', 'Esempio World ETF', 'etf', 'EXMP.MI', '', '', ''],
-  ['2024-03-01', '', 'vendita', '', '', '', 'EUR', 'Conto corrente', '', 'IE00EXAMPLE1', '4', '55,00', '2,95', '5,20', '', '', '', '', '', ''],
-  ['2024-03-31', '', 'correzione', '', '', 'Allineamento al broker', 'EUR', '', '', 'IE00EXAMPLE1', '6', '50,30', '', '', '', '', '', '', '', ''],
-  ['2024-04-15', '12,00', 'dividendo', '', '', '', 'EUR', '', '', 'IE00EXAMPLE1', '6', '', '', '3,12', '', '', '', '', '', '2024-04-02'],
+  ['2024-01-15', '1200,00', 'fixed', 'Casa', 'Affitto', 'Canone gennaio', 'EUR', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-01-27', '2500,00', 'income', 'Stipendio', '', 'Busta paga', 'EUR', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-02-03', '54,90', 'variable', 'Spesa', 'Supermercato', '', 'EUR', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-02-05', '500,00', 'transfer', '', '', 'Bonifico per investimento', 'EUR', 'Conto corrente', 'Conto deposito', '', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-02-06', '', 'acquisto', '', '', '', 'EUR', 'Conto corrente', '', 'IE00EXAMPLE1', '10', '50,00', '2,95', '', 'Esempio World ETF', 'etf', 'EXMP.MI', '', '', '', ''],
+  ['2024-03-01', '', 'vendita', '', '', '', 'EUR', 'Conto corrente', '', 'IE00EXAMPLE1', '4', '55,00', '2,95', '5,20', '', '', '', '', '', '', ''],
+  ['2024-03-31', '', 'correzione', '', '', 'Allineamento al broker', 'EUR', '', '', 'IE00EXAMPLE1', '6', '50,30', '', '', '', '', '', '', '', '', ''],
+  ['2024-04-15', '12,00', 'dividendo', '', '', '', 'EUR', '', '', 'IE00EXAMPLE1', '6', '', '', '3,12', '', '', '', '', '', '2024-04-02', ''],
+  ['2024-04-30', '3250,40', 'saldo', '', '', 'Saldo dell\'estratto conto', 'EUR', 'Conto corrente', '', '', '', '', '', '', '', '', '', '', '', '', ''],
 ];
 
 /** Build the downloadable CSV template as a string (with UTF-8 BOM + `;` delimiter). */
@@ -382,6 +402,7 @@ export function parseImportCsv(raw: string): RawRow[] {
       classe: get(row, 'classe'),
       aliquota: get(row, 'aliquota'),
       dataStacco: get(row, 'dataStacco'),
+      codice: get(row, 'codice'),
     });
   }
   return rows;
@@ -427,7 +448,8 @@ export function buildImportPlan(
   defaultAccountId?: string,
   now: Date = new Date(),
   instruments: ImportInstrument[] = [],
-  existingDividends: ImportExistingDividend[] = []
+  existingDividends: ImportExistingDividend[] = [],
+  existing: ImportExistingData = {}
 ): ImportPlan {
   const accountsByName = new Map<string, ImportCashAccount[]>();
   for (const a of cashAccounts) {
@@ -489,7 +511,7 @@ export function buildImportPlan(
   errors.push(...dividends.errors);
 
   for (const row of rows) {
-    if (isTradeTypeCell(row.tipo) || isDividendTypeCell(row.tipo)) continue;
+    if (isTradeTypeCell(row.tipo) || isDividendTypeCell(row.tipo) || isBalanceTypeCell(row.tipo)) continue;
     const rawType = norm(row.tipo);
     const isTransfer = rawType === 'transfer' || (rawType === '' && row.contoDestinazione !== '');
     if (!row.categoria && !isTransfer) {
@@ -605,8 +627,29 @@ export function buildImportPlan(
       linkedCashAssetId,
       transferCashAssetId,
       pensionContribution: transferCashAssetId && pensionFundIds.has(transferCashAssetId) ? true : undefined,
+      importRowCode: row.codice ? row.codice.trim() : undefined,
     });
   }
+
+  // A «codice» names ONE bank movement: twice in the same file is a mistake in the file, never two rows.
+  rejectRepeatedCodes(rows, validRows, errors);
+
+  // Rows already in the data (a file loaded twice, two statements that overlap) are set aside.
+  const kept = setAsideDuplicates(validRows, trades.tradeRows, existing);
+  validRows.length = 0;
+  validRows.push(...kept.validRows);
+  trades.tradeRows = kept.tradeRows;
+
+  const balances = planBalanceRows(
+    rows.filter((r) => isBalanceTypeCell(r.tipo)),
+    { resolveAccount, defaultAccountId, pensionFundIds },
+    cashAccounts,
+    validRows,
+    trades.tradeRows,
+    existing,
+    now
+  );
+  errors.push(...balances.errors);
 
   // Derive categories / subcategories to create from the valid rows — keyed by
   // (name, type), so "Casa" fissa and "Casa" variabile can be created side by side.
@@ -663,12 +706,17 @@ export function buildImportPlan(
 
   errors.sort((a, b) => a.line - b.line);
   const summary = buildSummary(validRows, trades.tradeRows, dividends.dividendRows, errors, categoriesToCreate.length, cashAccounts);
+  summary.duplicateCount = kept.duplicates.length;
+  summary.balanceCount = balances.balanceRows.length;
+  summary.validCount += balances.balanceRows.length;
   return {
     validRows,
     tradeRows: trades.tradeRows,
     instrumentsToCreate: trades.instrumentsToCreate,
     dividendRows: dividends.dividendRows,
+    balanceRows: balances.balanceRows,
     errors,
+    duplicates: kept.duplicates,
     categoriesToCreate,
     subCategoriesToCreate,
     notices,
@@ -1014,6 +1062,238 @@ function defineInstrument(row: RawRow, isin: string, price: number): InstrumentT
   };
 }
 
+const toCents = (n: number): number => Math.round(Math.abs(n) * 100);
+
+/** `2026-10-25` → `25/10/2026`, for the reasons the preview lists. */
+const italianDay = (iso: string): string => iso.split('-').reverse().join('/');
+
+/**
+ * What identifies a cashflow movement whatever was edited on it later (2026-10-25): its Italian
+ * calendar day, its direction (in, out or a transfer — a spending row moved between fixed and
+ * variable is still the same movement), its amount in cents and its accounts. Category and note
+ * are left out on purpose: they are what the owner corrects after an import.
+ */
+export function expenseFingerprint(row: {
+  date: Date;
+  type: string;
+  amount: number;
+  linkedCashAssetId?: string;
+  transferCashAssetId?: string;
+}): string {
+  const kind = row.type === 'income' ? 'in' : row.type === 'transfer' ? 'tr' : 'out';
+  return `${getItalyDateIso(row.date)}|${kind}|${toCents(row.amount)}|${row.linkedCashAssetId ?? ''}|${row.transferCashAssetId ?? ''}`;
+}
+
+/** A trade's identity: day, instrument, type, units and price. */
+function tradeFingerprint(t: { date: Date; assetId: string; type: string; quantity: number; pricePerUnit: number }): string {
+  return `${getItalyDateIso(t.date)}|${t.assetId}|${t.type}|${t.quantity.toFixed(6)}|${t.pricePerUnit.toFixed(4)}`;
+}
+
+/** A «codice» repeated inside the file: the first row keeps it, the later ones are refused. */
+function rejectRepeatedCodes(rows: RawRow[], validRows: PlannedExpenseRow[], errors: RowError[]): void {
+  const firstLine = new Map<string, number>();
+  const rawByLine = new Map(rows.map((r) => [r.line, r]));
+  const kept: PlannedExpenseRow[] = [];
+  for (const row of [...validRows].sort((a, b) => a.line - b.line)) {
+    const code = row.importRowCode;
+    const first = code ? firstLine.get(code) : undefined;
+    if (code && first !== undefined) {
+      errors.push({ line: row.line, reason: `Codice «${code}» già usato alla riga ${first} del file.`, raw: rawByLine.get(row.line) });
+      continue;
+    }
+    if (code) firstLine.set(code, row.line);
+    kept.push(row);
+  }
+  validRows.length = 0;
+  validRows.push(...kept);
+}
+
+/**
+ * Set aside the rows already in the data (2026-10-25). A row whose «codice» is stored on a row
+ * is that row. Otherwise it matches a stored row of the same fingerprint (expenseFingerprint)
+ * that carries no code, or the same one — each stored row answers for ONE file row, so two
+ * identical coffees in the file against one already typed by hand leave one to import.
+ * Trades match on day, instrument, type, units and price; dividends are checked by their own
+ * rule (planDividendRows). With `includeDuplicates` the rows are still listed but kept.
+ */
+export function setAsideDuplicates(
+  validRows: PlannedExpenseRow[],
+  tradeRows: PlannedTradeRow[],
+  existing: ImportExistingData
+): { validRows: PlannedExpenseRow[]; tradeRows: PlannedTradeRow[]; duplicates: RowError[] } {
+  const duplicates: RowError[] = [];
+  const codes = new Set<string>();
+  const pool = new Map<string, { code?: string }[]>();
+  for (const e of existing.expenses ?? []) {
+    if (e.importRowCode) codes.add(e.importRowCode);
+    const key = expenseFingerprint(e);
+    pool.set(key, [...(pool.get(key) ?? []), { code: e.importRowCode }]);
+  }
+  const keptRows: PlannedExpenseRow[] = [];
+  for (const row of validRows) {
+    if (row.importRowCode && codes.has(row.importRowCode)) {
+      duplicates.push({ line: row.line, reason: `Già importata: il codice «${row.importRowCode}» è già nei dati.` });
+      if (existing.includeDuplicates) keptRows.push(row);
+      continue;
+    }
+    const candidates = pool.get(expenseFingerprint(row)) ?? [];
+    const match = candidates.findIndex((c) => !c.code || c.code === row.importRowCode);
+    if (match >= 0) {
+      candidates.splice(match, 1);
+      duplicates.push({
+        line: row.line,
+        reason: `Già presente: una voce del ${italianDay(getItalyDateIso(row.date))} con lo stesso importo e lo stesso conto.`,
+      });
+      if (existing.includeDuplicates) keptRows.push(row);
+      continue;
+    }
+    keptRows.push(row);
+  }
+
+  const tradePool = new Map<string, number>();
+  for (const t of existing.trades ?? []) {
+    const key = tradeFingerprint(t);
+    tradePool.set(key, (tradePool.get(key) ?? 0) + 1);
+  }
+  const keptTrades: PlannedTradeRow[] = [];
+  for (const t of tradeRows) {
+    const key = t.assetId ? tradeFingerprint({ ...t, assetId: t.assetId, type: t.tradeType }) : undefined;
+    const left = key ? tradePool.get(key) ?? 0 : 0;
+    if (key && left > 0) {
+      tradePool.set(key, left - 1);
+      duplicates.push({
+        line: t.line,
+        reason: `Già presente: un'operazione del ${italianDay(getItalyDateIso(t.date))} sullo stesso titolo, stessa quantità e stesso prezzo.`,
+      });
+      if (existing.includeDuplicates) keptTrades.push(t);
+      continue;
+    }
+    keptTrades.push(t);
+  }
+  duplicates.sort((a, b) => a.line - b.line);
+  return { validRows: keptRows, tradeRows: keptTrades, duplicates };
+}
+
+/** A planned row's signed amount, as the commit writes it (income and transfers positive). */
+const signedAmountOf = (r: PlannedExpenseRow): number =>
+  r.type === 'income' || r.type === 'transfer' ? r.amount : -r.amount;
+
+/** What a planned row moves on `assetId` once written: nothing while it waits for its date. */
+function plannedEffectOn(r: PlannedExpenseRow, assetId: string, now: Date): number {
+  if (settlesLater(r.date, now)) return 0;
+  return balanceEffectsOf({
+    type: r.type,
+    amount: signedAmountOf(r),
+    linkedCashAssetId: r.linkedCashAssetId,
+    transferCashAssetId: r.transferCashAssetId,
+  })
+    .filter((e) => e.assetId === assetId)
+    .reduce((sum, e) => sum + e.delta, 0);
+}
+
+/**
+ * Plan the «saldo» rows (2026-10-25): `importo` is the balance of «conto» (or the preview's default
+ * account) at the end of «data», as the statement prints it; a leading minus is an overdraft.
+ *
+ * What the app will hold for that day = today's balance + what this file moves when written −
+ * everything already moved that is dated AFTER that day (stored rows, the file's own rows, trades
+ * — a trade settles when it is written, whatever its date, so it counts on its own date here like
+ * on the statement). The commit adds the difference to the account, after every other row.
+ * Dividends are not counted: their income row is written by the server, with its own timing.
+ * One «saldo» per account per file; a future day, an unknown account or a fund is refused.
+ */
+export function planBalanceRows(
+  rows: RawRow[],
+  ctx: Pick<TradeRowContext, 'resolveAccount' | 'defaultAccountId' | 'pensionFundIds'>,
+  cashAccounts: ImportCashAccount[],
+  validRows: PlannedExpenseRow[],
+  tradeRows: PlannedTradeRow[],
+  existing: ImportExistingData,
+  now: Date
+): { balanceRows: PlannedBalanceRow[]; errors: RowError[] } {
+  const errors: RowError[] = [];
+  const balanceRows: PlannedBalanceRow[] = [];
+  const seen = new Map<string, number>();
+  for (const row of rows) {
+    const date = parseFlexibleDate(row.data);
+    if (!date) {
+      errors.push({ line: row.line, reason: `Data non valida: "${row.data}".`, raw: row });
+      continue;
+    }
+    if (settlesLater(date, now)) {
+      errors.push({ line: row.line, reason: 'Saldo con data futura: usa il saldo di un giorno già passato.', raw: row });
+      continue;
+    }
+    const magnitude = parseItalianNumber(row.importo);
+    if (magnitude === null) {
+      errors.push({ line: row.line, reason: `Saldo non valido: "${row.importo}".`, raw: row });
+      continue;
+    }
+    const statementBalance = row.importo.trim().startsWith('-') ? -magnitude : magnitude;
+
+    let assetId = ctx.defaultAccountId;
+    if (row.conto) {
+      const account = ctx.resolveAccount(row.conto);
+      if ('error' in account) {
+        errors.push({ line: row.line, reason: account.error, raw: row });
+        continue;
+      }
+      assetId = account.id;
+    }
+    const account = cashAccounts.find((a) => a.id === assetId);
+    if (!assetId || !account) {
+      errors.push({ line: row.line, reason: 'Saldo senza conto: indica il conto nella colonna "conto".', raw: row });
+      continue;
+    }
+    if (ctx.pensionFundIds.has(assetId) || account.balance === undefined) {
+      errors.push({ line: row.line, reason: `"${account.name}" non è un conto corrente: il saldo vale solo per i conti.`, raw: row });
+      continue;
+    }
+    const earlier = seen.get(assetId);
+    if (earlier !== undefined) {
+      errors.push({ line: row.line, reason: `Un solo saldo per conto: "${account.name}" ha già il saldo della riga ${earlier}.`, raw: row });
+      continue;
+    }
+    seen.set(assetId, row.line);
+
+    const day = getItalyDateIso(date);
+    const after = (d: Date) => getItalyDateIso(d) > day;
+    let written = 0;
+    let movedAfter = 0;
+    for (const r of validRows) {
+      const effect = plannedEffectOn(r, assetId, now);
+      written += effect;
+      if (after(r.date)) movedAfter += effect;
+    }
+    for (const t of tradeRows) {
+      if (t.linkedCashAssetId !== assetId) continue;
+      const delta = tradeCashDelta(t);
+      written += delta;
+      if (after(t.date)) movedAfter += delta;
+    }
+    for (const e of existing.expenses ?? []) {
+      if (!after(e.date)) continue;
+      movedAfter += appliedBalanceEffectsOf(e)
+        .filter((x) => x.assetId === assetId)
+        .reduce((sum, x) => sum + x.delta, 0);
+    }
+    for (const t of existing.trades ?? []) {
+      if (t.linkedCashAssetId === assetId && after(t.date)) movedAfter += t.cashDelta;
+    }
+    const appBalance = roundToCents(account.balance + written - movedAfter);
+    balanceRows.push({
+      line: row.line,
+      date,
+      assetId,
+      accountName: account.name,
+      statementBalance,
+      appBalance,
+      delta: roundToCents(statementBalance - appBalance),
+    });
+  }
+  return { balanceRows, errors };
+}
+
 /** What a trade moves on its settlement account: a buy pays price × units + fees, a sale receives it net of fees and tax. */
 export function tradeCashDelta(t: Pick<PlannedTradeRow, 'tradeType' | 'quantity' | 'pricePerUnit' | 'fees' | 'withheldTaxEur'>): number {
   if (t.tradeType === 'adjustment') return 0;
@@ -1100,6 +1380,8 @@ function buildSummary(
 
   return {
     validCount: validRows.length + tradeRows.length + dividendRows.length,
+    duplicateCount: 0,
+    balanceCount: 0,
     dividendCount,
     couponCount,
     totalDividendNet: roundToCents(totalDividendNet),
