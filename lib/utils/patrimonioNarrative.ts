@@ -515,10 +515,11 @@ export function describeLastPriceUpdate(lastUpdate: Date | null, now: Date): str
 /**
  * The tooltip of the mark beside an instrument's name (owner, 2026-10-25): what the green check,
  * the yellow warning (found before, not now: to watch) or the red mark (never found: to update by
- * hand) means, in plain words. Null for a hand-valued asset, which carries no mark.
+ * hand) means, in plain words. Null for a hand-valued asset and for one no run has tried yet,
+ * which carry no mark.
  */
 export function describeAutoPriceStatus(status: AutoPriceStatus, now: Date): string | null {
-  if (status.kind === 'manual') return null;
+  if (status.kind === 'manual' || status.kind === 'pending') return null;
   if (status.kind === 'ok') {
     return `Prezzo aggiornato in automatico, l'ultima volta ${describeItalyMoment(status.updatedAt, now)}. Non serve aggiornarlo a mano.`;
   }

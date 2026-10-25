@@ -10,8 +10,9 @@
  * 3. "Prezzo ufficiale" (official price) - daily reference price
  * 4. "Apertura" (opening price) - session opening price
  *
- * Scope: Currently supports BTP and MOT bonds only.
- * Future: Can be extended for corporate bonds, EuroMOT with different URL patterns.
+ * Scope: any bond on MOT, Italian or not: the `mot/btp/scheda/{ISIN}-MOTX` page also serves the
+ * EuroMOT foreign issues (Austria 0,85% 2120, AT0000A2HLC4, read 2026-10-25: same page, same
+ * «Prezzo ufficiale» row).
  *
  * Error Handling: Returns null price on failure (graceful degradation).
  */
@@ -58,7 +59,7 @@ function parseItalianNumber(numberString: string): number {
 export async function getBondPriceByIsin(isin: string): Promise<BondPriceResult> {
   // Validate ISIN before constructing the URL: an invalid ISIN (e.g. containing '/' or '..')
   // would silently alter the path sent to Borsa Italiana.
-  if (!validateItalianBondIsin(isin)) {
+  if (!validateBondIsin(isin)) {
     return {
       isin,
       price: null,
@@ -240,21 +241,18 @@ export async function getBondPriceByIsin(isin: string): Promise<BondPriceResult>
 }
 
 /**
- * Validate ISIN format for Italian bonds
- * ISIN format: IT + 10 alphanumeric characters + 1 check digit
+ * Validate the ISIN format of a bond quoted on MOT / EuroMOT
+ * ISIN format: 2-letter country + 9 alphanumeric characters + 1 check digit
+ *
+ * Any country: until 2026-10-25 only «IT» passed, so a foreign EuroMOT bond (AT…) skipped Borsa
+ * Italiana and fell back to a Yahoo ticker that does not exist.
  *
  * Note: This is an additional validation layer. The main ISIN validation
  * is already handled by Zod schema in AssetDialog.tsx.
  */
-export function validateItalianBondIsin(isin: string): boolean {
+export function validateBondIsin(isin: string): boolean {
   // Basic ISIN validation (same pattern as AssetDialog Zod schema)
   const isinPattern = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
 
-  if (!isinPattern.test(isin)) {
-    return false;
-  }
-
-  // Italian bonds start with "IT"
-  // Note: This is optional - can be relaxed in future if supporting non-IT MOT bonds
-  return isin.startsWith('IT');
+  return isinPattern.test(isin);
 }

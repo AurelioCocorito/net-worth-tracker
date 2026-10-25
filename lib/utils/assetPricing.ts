@@ -88,7 +88,13 @@ export type AutoPriceStatus =
    * Automatic, and it has NEVER found a price: the only `lastPriceUpdate` is the one stamped at
    * creation (typically a ticker Yahoo does not know). The red mark: to update by hand.
    */
-  | { kind: 'never'; failedAt: Date | null };
+  | { kind: 'never'; failedAt: Date | null }
+  /**
+   * Automatic, and no attempt has spoken yet: the only `lastPriceUpdate` is the one stamped at
+   * creation, no run has failed and the creation is younger than AUTO_PRICE_STALE_DAYS. No mark: a
+   * check here would claim a price nobody fetched (Austria 2120, owner, 2026-10-25).
+   */
+  | { kind: 'pending' };
 
 /** The fields `resolveAutoPriceStatus` reads. */
 export interface AutoPricedAssetFields extends PricedAssetFields {
@@ -106,8 +112,8 @@ function validDate(value: Date | null | undefined): Date | null {
  * update writes (lib/helpers/priceUpdater.ts): `priceUpdateFailedAt`, stamped when a run gets no
  * quote and removed by the next success, and `lastPriceUpdate`, stamped by every success. A failure
  * later than the last success is `failed`; a last success older than AUTO_PRICE_STALE_DAYS is
- * `stale`. `lastPriceUpdate` is also stamped at creation, so a new instrument reads `ok` until the
- * first evening run says otherwise.
+ * `stale`. `lastPriceUpdate` is also stamped at creation, so the check needs a success LATER than
+ * `createdAt`: a new instrument reads `pending` (no mark) until the first run, then `ok` or `never`.
  */
 export function resolveAutoPriceStatus(asset: AutoPricedAssetFields, now: Date): AutoPriceStatus {
   if (requiresManualPricing(asset)) return { kind: 'manual' };
@@ -116,8 +122,9 @@ export function resolveAutoPriceStatus(asset: AutoPricedAssetFields, now: Date):
   const createdAt = validDate(asset.createdAt);
   const lastFailed = failedAt !== null && (!updatedAt || failedAt.getTime() >= updatedAt.getTime());
   const stale = !updatedAt || now.getTime() - updatedAt.getTime() > AUTO_PRICE_STALE_DAYS * 86_400_000;
-  if (!lastFailed && !stale && updatedAt) return { kind: 'ok', updatedAt };
   const neverUpdated = !updatedAt || (!!createdAt && updatedAt.getTime() <= createdAt.getTime());
+  if (!lastFailed && !stale && updatedAt && !neverUpdated) return { kind: 'ok', updatedAt };
+  if (!lastFailed && !stale && neverUpdated) return { kind: 'pending' };
   if (neverUpdated || !updatedAt) return { kind: 'never', failedAt: lastFailed ? failedAt : null };
   if (lastFailed) return { kind: 'failing', reason: 'failed', updatedAt, failedAt };
   return { kind: 'failing', reason: 'stale', updatedAt, failedAt: null };
