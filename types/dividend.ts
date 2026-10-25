@@ -51,6 +51,9 @@ export interface Dividend {
   // Undefined for legacy records created before this field was introduced — those fall back
   // to the current asset.averageCost.
   costPerShare?: number;
+  // The CSV import that wrote this payment (Impostazioni › Spese, 2026-10-25): «Annulla import»
+  // deletes every payment of the batch (and, through the route, its income row). Absent = by hand.
+  importBatchId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,6 +76,7 @@ export interface DividendFormData {
   isProvisional?: boolean;
   // Server-set snapshot of asset.averageCost at payment time — never from user input.
   costPerShare?: number;
+  importBatchId?: string; // set by the CSV import only (see Dividend)
 }
 
 export interface DividendStats {

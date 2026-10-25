@@ -196,6 +196,11 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   `ledgerSpanDays`, both in `assetTransactionUtils.ts`; the words in `describeLedgerReturnVital`): under the floor
   it is «Rendimento sul periodo · +66,92% · in 53 giorni, non annualizzato», never an XIRR — VWCE's ledger, opened
   47 days earlier, printed «XIRR +4388,68% annualizzato» in green beside two real figures.
+- **The ISIN field is open on every listed instrument, in any class** (2026-10-25): stock, ETF, bond, commodity and
+  crypto show it, never disabled. It used to be shown only on stock/ETF/bond and disabled outside equity stocks/ETFs
+  and bonds-class bonds, so an ETC on gold, a money-market ETF or a bitcoin ETP could not carry the ISIN the CSV import
+  matches on. Its consumers keep their own gate: the dividend cron reads `assetClass == 'equity'`, MOT pricing
+  `isBondQuotedInPercent` (bond + bonds + ISIN).
 - **A refused submit of the asset form lands in the reading line** (`onInvalid` in `AssetDialog.tsx`,
   `describeFormRefusal`): «Mancano 2 campi: Ticker e Nome.» — the fields named in FORM order (sorted by DOM
   position, not zod's, whose custom ticker issue comes last), the first refused field scrolled into view and

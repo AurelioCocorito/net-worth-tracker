@@ -248,6 +248,7 @@ export async function createDividend(
       // Historical cost basis snapshot: asset.averageCost at time of dividend creation.
       // Undefined for dividends created before this field was introduced.
       costPerShare: dividendData.costPerShare,
+      importBatchId: dividendData.importBatchId,
       // Currency conversion fields (only if currency !== EUR)
       grossAmountEur,
       taxAmountEur,

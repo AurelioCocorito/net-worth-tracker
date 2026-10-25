@@ -269,6 +269,20 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   so no trade is ever pending. The undo deletes the batch's trades newest first through the route (each gives its settlement
   back), then the instruments it created that hold no other trade, BEFORE the expense rows. A file carrying «isin» needs
   neither «importo» nor «categoria» as columns. Pinned by `e2e/settings.import-trades.spec.ts`.
+- **Dividend and coupon rows (2026-10-25)**: `tipo` = `dividendo`/`dividend` or `cedola`/`coupon` writes a payment
+  of the registry of Dividendi (`planDividendRows`; writes in `investmentImportService.ts`). «data» = the payment date
+  (never future: an announced payment is the scrape's or the form's), «data_stacco» = the ex-date (optional, defaults
+  to the payment day, never after it), «importo» = the GROSS, «tasse» = the withholding (empty = 0, never above the
+  gross), «quantita» = the units entitled; the per-unit amount is gross ÷ units. Matched on «isin» against the held
+  ledger instruments, or one the same file creates; «conto» is NOT read — the dividend route credits the instrument's
+  own account only when the payment is due today or later, so a past payment moves no balance. A payment already in
+  the registry for the same instrument on the same Italian day of payment OR of ex-date is refused with the reason:
+  the daily Borsa Italiana scrape may have written it already. Each row goes through POST /api/dividends (oldest
+  first, stopping at the first refusal, skipped altogether when the trades stopped), which writes the income row of
+  Tracciamento as the dialog does (when Impostazioni › Dividendi names the income category); the payment carries the `importBatchId`, and the undo deletes it FIRST (before the
+  trades) through DELETE /api/dividends/[id], which removes that row too. Not handled: a LATER scrape writing the same
+  payment under a different ex-date — the scrape's own `isDuplicateDividend` compares ex-dates only. Pinned by
+  `e2e/settings.import-dividends.spec.ts`.
 - **Tracciamento's account filter** closes with «Conto non specificato» (rows with no `linkedCashAssetId`) when the
   listed rows hold any.
 

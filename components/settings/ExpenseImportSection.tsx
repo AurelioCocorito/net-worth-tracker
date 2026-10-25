@@ -15,6 +15,8 @@
  * recorded as a voluntary contribution in Previdenza. Investment rows (2026-10-25: acquisto,
  * vendita, correzione, matched on «isin») become trades of the Registro operazioni, creating an
  * instrument the user does not hold yet; the preview counts them and names the instruments.
+ * Dividend rows («dividendo», «cedola») land in the Dividendi registry; a payment already there
+ * (e.g. scraped from Borsa Italiana) is refused in the preview.
  *
  * The tile's reading line states the phase (settingsNarrative.describeImport): the
  * idle promise, the preview's three counts (import/skip/create — nothing moves
@@ -48,16 +50,21 @@ import {
   buildImportPlan,
   parseImportCsv,
   buildTemplateCsv,
+  isDividendTypeCell,
   summarizeImportBatches,
   type ImportBatchSummary,
 } from '@/lib/utils/expenseImport';
 import { commitImportPlan, deleteExpensesByImportBatch } from '@/lib/services/expenseImportService';
-import { getImportedTrades } from '@/lib/services/investmentImportService';
+import {
+  getExistingDividendsForImport,
+  getImportedDividends,
+  getImportedTrades,
+} from '@/lib/services/investmentImportService';
 import { getAllExpenses } from '@/lib/services/expenseService';
 import { queryKeys } from '@/lib/query/queryKeys';
 import { ASSET_CLASS_LABELS } from '@/lib/utils/allocationUtils';
 import { isLedgerAssetType } from '@/types/assetTransactions';
-import { ImportCashAccount, ImportInstrument, ImportPlan, RawRow } from '@/types/expenseImport';
+import { ImportCashAccount, ImportExistingDividend, ImportInstrument, ImportPlan, RawRow } from '@/types/expenseImport';
 import type { ExpenseCategory } from '@/types/expenses';
 
 /** The default-account select's value for «no account». */
@@ -90,6 +97,15 @@ function describeTradeCounts(summary: ImportPlan['summary']): string {
   return `${parts.join(', ')} di titoli`;
 }
 
+/** «3 dividendi e 1 cedola (52,40 € netti)» — the payments of the preview. */
+function describeDividendCounts(summary: ImportPlan['summary']): string {
+  const parts = [
+    summary.dividendCount > 0 ? `${summary.dividendCount} ${summary.dividendCount === 1 ? 'dividendo' : 'dividendi'}` : '',
+    summary.couponCount > 0 ? `${summary.couponCount} ${summary.couponCount === 1 ? 'cedola' : 'cedole'}` : '',
+  ].filter(Boolean);
+  return `${parts.join(' e ')} (${cachedFormatCurrencyEUR(summary.totalDividendNet, true)} netti)`;
+}
+
 /** A flat KPI of the preview: sub-eyebrow, 18px mono figure, muted caption. */
 function PreviewKpi({ label, value, caption }: { label: string; value: string; caption?: string }) {
   return (
@@ -99,6 +115,16 @@ function PreviewKpi({ label, value, caption }: { label: string; value: string; c
       {caption && <p className="mt-1 text-[11px] leading-[1.4] text-muted-foreground">{caption}</p>}
     </div>
   );
+}
+
+
+/**
+ * The registry, read only when the file carries dividend rows: a payment already in it is refused.
+ * Outside the component: a conditional inside the handler's try/catch is a value block the React
+ * Compiler does not support, and it would skip the whole component.
+ */
+async function readExistingDividendsFor(rows: RawRow[], ownerId: string): Promise<ImportExistingDividend[]> {
+  return rows.some((r) => isDividendTypeCell(r.tipo)) ? getExistingDividendsForImport(ownerId) : [];
 }
 
 export default function ExpenseImportSection({ onImported }: ExpenseImportSectionProps) {
@@ -116,6 +142,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     categories: ExpenseCategory[];
     cashAccounts: ImportCashAccount[];
     instruments: ImportInstrument[];
+    existingDividends: ImportExistingDividend[];
   } | null>(null);
   const [defaultAccountId, setDefaultAccountId] = useState<string>(NO_DEFAULT_ACCOUNT);
   const [lastBatch, setLastBatch] = useState<{
@@ -134,8 +161,12 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     if (!ownerId) return;
     setLoadingPast(true);
     try {
-      const [expenses, trades] = await Promise.all([getAllExpenses(ownerId), getImportedTrades(ownerId)]);
-      setPastBatches(summarizeImportBatches([...expenses, ...trades]));
+      const [expenses, trades, dividends] = await Promise.all([
+        getAllExpenses(ownerId),
+        getImportedTrades(ownerId),
+        getImportedDividends(ownerId),
+      ]);
+      setPastBatches(summarizeImportBatches([...expenses, ...trades, ...dividends]));
     } catch (err) {
       console.error('Past imports read error:', err);
       toast.error('Impossibile leggere gli import precedenti.');
@@ -214,8 +245,9 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
       const instruments: ImportInstrument[] = assets
         .filter((a) => a.isin)
         .map((a) => ({ id: a.id, name: a.name, isin: a.isin, ledger: isLedgerAssetType(a.type) }));
-      const built = buildImportPlan(rows, categories, cashAccounts, undefined, new Date(), instruments);
-      setSource({ rows, categories, cashAccounts, instruments });
+      const existingDividends = await readExistingDividendsFor(rows, ownerId);
+      const built = buildImportPlan(rows, categories, cashAccounts, undefined, new Date(), instruments, existingDividends);
+      setSource({ rows, categories, cashAccounts, instruments, existingDividends });
       setDefaultAccountId(NO_DEFAULT_ACCOUNT);
       setPlan(built);
       setPhase('preview');
@@ -239,7 +271,8 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
         source.cashAccounts,
         value === NO_DEFAULT_ACCOUNT ? undefined : value,
         new Date(),
-        source.instruments
+        source.instruments,
+        source.existingDividends
       )
     );
   };
@@ -247,6 +280,8 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
   const handleConfirm = async () => {
     if (!plan || plan.summary.validCount === 0 || !ownerId) return;
     setPhase('committing');
+    // Outside the try: a logical expression inside it is a value block the React Compiler refuses.
+    const touchesInvestments = plan.tradeRows.length > 0 || plan.dividendRows.length > 0;
     try {
       // Re-read categories right before committing (`staleTime: 0`, never the cache): the preview
       // may be stale if the user edited categories elsewhere while this dialog was open.
@@ -254,7 +289,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
       const result = await commitImportPlan(ownerId, plan, categories);
       setLastBatch(result);
       setPhase('done');
-      if (plan.tradeRows.length > 0) invalidateTradeCaches();
+      if (touchesInvestments) invalidateTradeCaches();
       if (result.tradeFailure) {
         toast.error(`Import fermato alla riga ${result.tradeFailure.line}: ${result.tradeFailure.message}`);
       } else {
@@ -337,6 +372,8 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
             pensione diventa un versamento volontario in Previdenza. Acquisti, vendite e correzioni di titoli hanno
             tipo «acquisto», «vendita» o «correzione», l&apos;«isin», la «quantita» e il «prezzo»: finiscono nel
             Registro operazioni, e un titolo che non hai ancora viene creato da «titolo», «strumento» e «simbolo».
+            Dividendi e cedole hanno tipo «dividendo» o «cedola», l&apos;«isin», la «quantita», l&apos;«importo» lordo e
+            la ritenuta in «tasse»: un pagamento già presente in Dividendi viene scartato.
           </div>
           <Collapsible
             className="mt-3 border-t border-border pt-3"
@@ -410,7 +447,8 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
                 (plan.summary.pensionContributionCount > 0
                   ? `, di cui ${plan.summary.pensionContributionCount} ${plan.summary.pensionContributionCount === 1 ? 'versamento' : 'versamenti'} alla previdenza`
                   : '') +
-                (plan.tradeRows.length > 0 ? ` · ${describeTradeCounts(plan.summary)}` : '')
+                (plan.tradeRows.length > 0 ? ` · ${describeTradeCounts(plan.summary)}` : '') +
+                (plan.dividendRows.length > 0 ? ` · ${describeDividendCounts(plan.summary)}` : '')
               }
             />
             <PreviewKpi
@@ -567,7 +605,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
             <p className="mt-2 flex gap-2 text-[13px] text-warning-foreground">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>
-                Le operazioni su titoli si sono fermate alla riga {lastBatch.tradeFailure.line}:{' '}
+                Le operazioni su titoli e i dividendi si sono fermati alla riga {lastBatch.tradeFailure.line}:{' '}
                 {lastBatch.tradeFailure.message} Le righe successive non sono state scritte; puoi annullare
                 l&apos;import, correggere il file e ricaricarlo.
               </span>

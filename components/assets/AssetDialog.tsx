@@ -1048,7 +1048,12 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
   // Field visibility based on asset type — applies to both create and edit modes.
   const isLoan = selectedType === 'loan';
   const newAsset_showTicker = selectedType !== 'cash' && selectedType !== 'realestate' && selectedType !== 'pensionFund' && !isLoan;
-  const newAsset_showISIN = selectedType === 'stock' || selectedType === 'etf' || selectedType === 'bond';
+  // An ETC on gold or bitcoin (commodity, crypto) has an ISIN too: the CSV import matches every
+  // instrument on it (2026-10-25), so the form must let the owner type it — in any class: the
+  // field used to be disabled outside equity stocks/ETFs and bonds-class bonds, which left an ETF
+  // on the money market or a managed-futures fund unmatchable. Every consumer of the ISIN keeps its
+  // own gate (the dividend cron reads equity only, MOT pricing bond + bonds only).
+  const newAsset_showISIN = selectedType === 'stock' || selectedType === 'etf' || selectedType === 'bond' || selectedType === 'commodity' || selectedType === 'crypto';
   const newAsset_quantityLabel = selectedType === 'cash' ? 'Saldo' : selectedType === 'realestate' ? 'Valore stimato' : selectedType === 'pensionFund' ? 'Valore attuale' : isLoan ? 'Debito residuo' : 'Quantità';
   const newAsset_showAutoUpdate = selectedType !== 'cash' && selectedType !== 'realestate' && selectedType !== 'pensionFund' && !isLoan;
   const newAsset_showCostBasis = selectedType !== 'cash' && selectedType !== 'realestate' && selectedType !== 'pensionFund' && !isLoan;
@@ -1893,7 +1898,7 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
           </div>
           )}
 
-          {/* ISIN — hidden for types that don't use it (crypto, cash, realestate, commodity) */}
+          {/* ISIN — hidden for types that don't have one (cash, realestate, pension fund, loan) */}
           {newAsset_showISIN && (
           <div className="space-y-2">
             <Label htmlFor="isin">ISIN</Label>
@@ -1901,18 +1906,12 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
               id="isin"
               {...register('isin')}
               placeholder="IE00B3RBWM25"
-              disabled={
-                // Enable for stocks/ETFs in equity class (dividends)
-                !((selectedType === 'stock' || selectedType === 'etf') && selectedAssetClass === 'equity') &&
-                // Enable for bonds in bonds class (price scraping)
-                !(selectedType === 'bond' && selectedAssetClass === 'bonds')
-              }
             />
             {errors.isin && (
               <p className="text-sm text-destructive">{errors.isin.message}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              Necessario per dividendi automatici (azioni/ETF) e aggiornamento prezzi obbligazioni MOT
+              Riconosce il titolo nell&apos;import CSV; serve anche per i dividendi automatici (azioni/ETF azionari) e i prezzi delle obbligazioni MOT
             </p>
           </div>
           )}
