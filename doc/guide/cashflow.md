@@ -234,6 +234,10 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 - Impostazioni → Spese. A pure parse → validate → plan layer with a MANDATORY preview before any write; every row of
   one import shares an `importBatchId`, which is what the one-tap undo deletes by. Category identity is **(name,
   type)**, never the name alone.
+- **A lone comma is always the decimal separator** (`parseItalianNumber`, 2026-10-25): `224,139` is 224,139, never
+  224.139 — a price or a quantity carries three or four decimals, and the old «exactly 3 digits = thousands» rule made a
+  share bought at 224,139 € worth 224.139 € on a real import. Several commas with no dot are refused; a lone dot keeps
+  the heuristic (`1.234` = 1234, `12.50` = 12,5).
 - **Accounts (2026-10-24)**: a row is linked to a cash account by the optional «conto» column (the account's name,
   case-insensitive; an unknown or ambiguous name rejects the row) or, when the cell is empty, by the preview's «Conto per
   le righe senza conto». A linked row follows the ONE settlement rule (`lib/utils/cashSettlement.ts`): past rows move

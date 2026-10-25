@@ -1,21 +1,23 @@
 'use client';
 
 /**
- * Impostazioni › Aspetto — light/dark/system beside the six colour themes.
+ * Impostazioni › Aspetto — light/dark/system beside the six colour themes, and the start page.
  *
- * No slice: both choices save themselves (the mode through next-themes, per device; the theme
- * through `ColorThemeContext`, on the account) outside the page's «Salva», and mark no tab
+ * No slice: every choice saves itself (the mode through next-themes, per device; the theme
+ * through `ColorThemeContext`, on the account; the start page in localStorage, per device —
+ * lib/utils/startPage.ts) outside the page's «Salva», and mark no tab
  * (doc/guide/impostazioni.md). The view reads the two contexts itself.
  */
 
 import { useSyncExternalStore } from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon, Monitor, LayoutDashboard, Wallet } from 'lucide-react';
 import { useColorTheme, type ColorTheme } from '@/contexts/ColorThemeContext';
 import { Tile, TILE_CELL_CLASS } from '@/components/ui/tile';
 import { cn } from '@/lib/utils';
 import { applyThemeWithTransition } from '@/lib/utils/themeTransition';
-import { describeColorTheme, describeThemeMode, type ThemeMode } from '@/lib/utils/settingsNarrative';
+import { describeColorTheme, describeStartPage, describeThemeMode, type ThemeMode } from '@/lib/utils/settingsNarrative';
+import { useStartPage } from '@/lib/hooks/useStartPage';
 import { SettingsTabPanel } from './shared';
 
 // Stable no-op store for the SSR/hydration split (same guard ThemePicker uses).
@@ -26,6 +28,12 @@ const THEME_MODES = [
   { value: 'light',  label: 'Chiaro',  Icon: Sun     },
   { value: 'dark',   label: 'Scuro',   Icon: Moon    },
   { value: 'system', label: 'Sistema', Icon: Monitor },
+] as const;
+
+// Pagina iniziale: where the app opens on this device.
+const START_PAGES = [
+  { value: 'panoramica', label: 'Panoramica', Icon: LayoutDashboard },
+  { value: 'cashflow',   label: 'Cashflow',   Icon: Wallet          },
 ] as const;
 
 // Tema colori. Swatch previews carry each theme's own oklch values on purpose:
@@ -99,6 +107,7 @@ export function AspettoTab() {
   // The active next-themes mode does not exist until hydration (same guard as ThemePicker).
   const isThemeHydrated = useSyncExternalStore(neverChanges, () => true, () => false);
   const resolvedThemeMode = isThemeHydrated ? (theme as ThemeMode | undefined) : undefined;
+  const [startPage, setStartPage] = useStartPage();
   const activeSwatch = COLOR_THEME_SWATCHES.find((swatch) => swatch.id === colorTheme) ?? COLOR_THEME_SWATCHES[0];
 
   return (
@@ -129,6 +138,35 @@ export function AspettoTab() {
           <div className="mt-auto border-t border-border pt-3 text-[11px] leading-[1.45] text-muted-foreground">
             Il passaggio anima con la transizione circolare dal punto del clic; il selettore resta anche nel menu
             account della sidebar.
+          </div>
+        </Tile>
+      </div>
+
+      {/* Pagina iniziale — per device, saved at the tap */}
+      <div className={cn(TILE_CELL_CLASS, 'desktop:col-span-4')}>
+        <Tile eyebrow="Pagina iniziale" aside="questo dispositivo" reading={describeStartPage(startPage)}>
+          <div className="mt-3.5 flex rounded-lg bg-muted p-1" role="group" aria-label="Pagina iniziale">
+            {START_PAGES.map(({ value, label, Icon }) => {
+              const isActive = startPage === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => setStartPage(value)}
+                  className={cn(
+                    'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-medium transition-colors',
+                    isActive ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-auto border-t border-border pt-3 text-[11px] leading-[1.45] text-muted-foreground">
+            Vale quando apri l&apos;app o accedi; Panoramica resta nel menu. La scelta si salva da sola.
           </div>
         </Tile>
       </div>

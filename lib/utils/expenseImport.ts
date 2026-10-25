@@ -245,9 +245,11 @@ export function buildTemplateCsv(): string {
  * Parse an Italian-locale number string into a JS number, or null if not parseable.
  *
  * Handles both `1.234,56` (IT: dot thousands, comma decimal) and `1234.56` (EN).
- * Heuristic when a single separator type is present: a separator followed by
- * exactly 3 digits is treated as a thousands group (e.g. `1.234` → 1234,
- * `1,234` → 1234); 1-2 trailing digits means it is the decimal separator.
+ * A lone comma is ALWAYS the decimal separator (2026-10-25, the owner's rule): `224,139` is
+ * 224,139 € — a price or a quantity carries three or four decimals, and reading it as a
+ * thousands group once made an Amazon share worth 224.139 €. More than one comma with no dot
+ * (`1,234,567`) is refused. A lone dot keeps the heuristic: followed by exactly 3 digits it is
+ * a thousands group (`1.234` → 1234), otherwise the decimal separator (`12.50`).
  * The returned value is always the positive magnitude (sign comes from the type).
  */
 export function parseItalianNumber(input: string): number | null {
@@ -265,8 +267,12 @@ export function parseItalianNumber(input: string): number | null {
     const decimalSep = s.lastIndexOf(',') > s.lastIndexOf('.') ? ',' : '.';
     const thousandsSep = decimalSep === ',' ? '.' : ',';
     normalized = s.split(thousandsSep).join('').replace(decimalSep, '.');
-  } else if (hasComma || hasDot) {
-    const sep = hasComma ? ',' : '.';
+  } else if (hasComma) {
+    const parts = s.split(',');
+    if (parts.length > 2) return null;
+    normalized = parts.join('.');
+  } else if (hasDot) {
+    const sep = '.';
     const parts = s.split(sep);
     const lastPart = parts[parts.length - 1];
     // Multiple occurrences, or a single one grouping exactly 3 digits → thousands.

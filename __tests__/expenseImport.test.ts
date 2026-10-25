@@ -2,7 +2,7 @@
  * Tests for the pure import layer in lib/utils/expenseImport.ts.
  *
  * Covers the tricky, locale-sensitive parts of the historical CSV importer:
- *   1. parseItalianNumber — IT (`1.234,56`) vs EN (`1234.56`) + thousands heuristic.
+ *   1. parseItalianNumber — IT (`1.234,56`) vs EN (`1234.56`); a lone comma is always decimal.
  *   2. parseFlexibleDate — ISO and DD/MM/YYYY, with invalid/overflow rejection.
  *   3. parseImportCsv — header aliases, `;` delimiter, missing-column errors.
  *   4. buildImportPlan — (name, type) identity: same-named categories of different
@@ -53,9 +53,18 @@ describe('parseItalianNumber', () => {
     expect(parseItalianNumber('1,234.56')).toBe(1234.56);
   });
 
-  it('treats a single separator grouping 3 digits as thousands', () => {
+  it('treats a lone dot grouping 3 digits as thousands', () => {
     expect(parseItalianNumber('1.234')).toBe(1234);
-    expect(parseItalianNumber('1,234')).toBe(1234);
+  });
+
+  it('always reads a lone comma as the decimal separator, three or four decimals included', () => {
+    expect(parseItalianNumber('1,234')).toBe(1.234);
+    expect(parseItalianNumber('224,139')).toBe(224.139);
+    expect(parseItalianNumber('192,1095')).toBe(192.1095);
+  });
+
+  it('refuses several commas with no dot', () => {
+    expect(parseItalianNumber('1,234,567')).toBeNull();
   });
 
   it('treats a single separator with 1-2 decimals as decimal', () => {

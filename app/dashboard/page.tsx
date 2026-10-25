@@ -3,6 +3,7 @@
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { recordSessionEntry, START_PAGE_PATHS, takeStartRedirect } from '@/lib/utils/startPage';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cardItem, staggerContainer } from '@/lib/utils/motionVariants';
 import { useAuth } from '@/contexts/AuthContext';
@@ -178,6 +179,13 @@ export default function DashboardPage() {
   const isDemo = useDemoMode();
   const prefersReducedMotion = useReducedMotion();
   const router = useRouter();
+
+  // The device opens on Cashflow (Impostazioni › Aspetto): a tab that entered on Panoramica is sent
+  // there once, so the net worth is not the first figure on screen (lib/utils/startPage.ts).
+  useEffect(() => {
+    recordSessionEntry('/dashboard');
+    if (takeStartRedirect()) router.replace(START_PAGE_PATHS.cashflow);
+  }, [router]);
 
   // A category row opens its Scheda on Analisi — the same three flat params the Scheda writes
   // to the URL itself (doc/guide/cashflow-analisi.md). A payload from before source version 17

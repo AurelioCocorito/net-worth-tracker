@@ -13,6 +13,18 @@ import { FlaskConical } from 'lucide-react';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { TILE_EYEBROW_CLASS } from '@/components/ui/tile';
 import { cn } from '@/lib/utils';
+import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
+import { recordSessionEntry } from '@/lib/utils/startPage';
+
+/** Where this browser tab entered the dashboard: Panoramica's start-page redirect reads it. */
+function SessionEntryRecorder() {
+  const pathname = usePathname();
+  useEffect(() => {
+    recordSessionEntry(pathname);
+  }, [pathname]);
+  return null;
+}
 
 /**
  * The dashboard shell — in the prerendered HTML and on screen BEFORE Firebase Auth resolves
@@ -34,6 +46,7 @@ export default function DashboardLayout({
 
   return (
     <ChartColorsProvider>
+      <SessionEntryRecorder />
       {/* The first Tab stop of every dashboard page: the sidebar is fourteen stops (measured on Storico,
           2026-09-20) between a keyboard reader and the page. The landing has the same link. */}
       <a
