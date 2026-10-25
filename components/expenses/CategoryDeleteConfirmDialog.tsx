@@ -66,6 +66,7 @@ import { CategoryManagementDialog } from './CategoryManagementDialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { categoriesQueryOptions } from '@/lib/hooks/useExpenses';
 import { cn } from '@/lib/utils';
+import { crossesTransferBoundary } from '@/lib/utils/expenseTypeTransition';
 
 interface CategoryDeleteConfirmDialogProps {
   open: boolean;
@@ -128,9 +129,13 @@ export function CategoryDeleteConfirmDialog({
    * By memoizing, we ensure the reference stays stable unless the actual dependencies
    * (localCategories or categoryToDelete.id) change, preventing unnecessary effect triggers.
    */
+  // Destinations across the transfer boundary are never offered, as in CategoryMoveDialog: the
+  // reassignment re-types the rows (moveExpensesToCategory), which refuses that crossing.
   const availableCategories = useMemo(
-    () => localCategories.filter(cat => cat.id !== categoryToDelete.id),
-    [localCategories, categoryToDelete.id]
+    () => localCategories.filter(
+      cat => cat.id !== categoryToDelete.id && !crossesTransferBoundary(categoryToDelete.type, cat.type)
+    ),
+    [localCategories, categoryToDelete.id, categoryToDelete.type]
   );
 
   /**

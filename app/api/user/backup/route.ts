@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthErrorResponse, requireFirebaseAuth } from '@/lib/server/apiAuth';
 import { buildAccountBackup } from '@/lib/server/accountBackupService';
 import { backupFileName } from '@/lib/utils/accountBackup';
+import { adminDb } from '@/lib/firebase/admin';
 
 /**
  * GET /api/user/backup — the caller's whole account as one JSON file (2026-10-25).
@@ -12,6 +13,9 @@ import { backupFileName } from '@/lib/utils/accountBackup';
  *
  * A Vercel Function answers with at most 4.5 MB; the file is compact JSON and a larger one is
  * refused with a sentence rather than cut.
+ *
+ * A file served stamps `users/{uid}.lastBackupAt` (2026-10-25): the date the reminder in Strumenti
+ * counts from (lib/utils/backupReminder.ts). A failed stamp never costs the owner the file.
  */
 
 const MAX_RESPONSE_BYTES = 4_400_000;
@@ -30,6 +34,12 @@ export async function GET(request: NextRequest) {
         { error: 'Il backup supera il limite di 4,4 MB di una singola risposta: serve dividerlo in più file.' },
         { status: 413 }
       );
+    }
+
+    try {
+      await adminDb.collection('users').doc(decodedToken.uid).set({ lastBackupAt: now }, { merge: true });
+    } catch (error) {
+      console.error('[backup] Failed to stamp lastBackupAt:', error);
     }
 
     return new NextResponse(body, {

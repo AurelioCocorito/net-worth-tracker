@@ -331,6 +331,19 @@ async function commitInBatches(docs: { ref: DocumentReference; data: Record<stri
 }
 
 /**
+ * Apply the given field updates in batches under Firestore's 500-operation ceiling: a category
+ * rewrite touches every row of the category, and a category used for years holds more than one
+ * batch accepts (2026-10-25).
+ */
+async function updateInBatches(updates: { ref: DocumentReference; data: Record<string, unknown> }[]): Promise<void> {
+  for (let start = 0; start < updates.length; start += OPERATIONS_PER_BATCH) {
+    const batch = writeBatch(db);
+    for (const { ref, data } of updates.slice(start, start + OPERATIONS_PER_BATCH)) batch.update(ref, data);
+    await batch.commit();
+  }
+}
+
+/**
  * The fee row of ONE written occurrence (lib/utils/expenseFee.ts): the parent's date, currency
  * and account, the fee category's type, pointing at the parent — whose document carries the
  * fee's id (`transferFeeExpenseId`). Returns the document and the row for the balances.
@@ -1045,79 +1058,15 @@ export async function updateExpensesCategoryName(
       return; // No expenses to update
     }
 
-    const batch = writeBatch(db);
-
-    querySnapshot.docs.forEach(docSnapshot => {
-      batch.update(docSnapshot.ref, {
-        categoryName: newCategoryName,
-        updatedAt: new Date(),
-      });
-    });
-
-    await batch.commit();
+    await updateInBatches(querySnapshot.docs.map((docSnapshot) => ({
+      ref: docSnapshot.ref,
+      data: { categoryName: newCategoryName, updatedAt: new Date() },
+    })));
     // The Panoramica prints category names from the rows: a renamed category is a changed input.
     await invalidateDashboardOverviewSummary(userId, 'expense_category_renamed');
   } catch (error) {
     console.error('Error updating expenses category name:', error);
     throw new Error('Failed to update expenses category name');
-  }
-}
-
-
-/**
- * Reassign all expenses from one category to another
- */
-export async function reassignExpensesCategory(
-  oldCategoryId: string,
-  newCategoryId: string,
-  newCategoryName: string,
-  userId: string,
-  newSubCategoryId?: string,
-  newSubCategoryName?: string
-): Promise<number> {
-  try {
-    const expensesRef = collection(db, EXPENSES_COLLECTION);
-    const q = query(
-      expensesRef,
-      where('userId', '==', userId),
-      where('categoryId', '==', oldCategoryId)
-    );
-
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-      return 0; // No expenses to reassign
-    }
-
-    const batch = writeBatch(db);
-    let count = 0;
-
-    querySnapshot.docs.forEach(docSnapshot => {
-      const updates: Record<string, unknown> = {
-        categoryId: newCategoryId,
-        categoryName: newCategoryName,
-        updatedAt: new Date(),
-      };
-
-      // If new subcategory is provided, update it; otherwise clear it
-      if (newSubCategoryId && newSubCategoryName) {
-        updates.subCategoryId = newSubCategoryId;
-        updates.subCategoryName = newSubCategoryName;
-      } else {
-        updates.subCategoryId = null;
-        updates.subCategoryName = null;
-      }
-
-      batch.update(docSnapshot.ref, removeUndefinedFields(updates));
-      count++;
-    });
-
-    await batch.commit();
-    await invalidateDashboardOverviewSummary(userId, 'expense_category_reassigned');
-    return count;
-  } catch (error) {
-    console.error('Error reassigning expenses category:', error);
-    throw new Error('Failed to reassign expenses category');
   }
 }
 
@@ -1142,10 +1091,7 @@ export async function clearExpensesCategoryAssignment(
       return 0; // No expenses to update
     }
 
-    const batch = writeBatch(db);
-    let count = 0;
-
-    querySnapshot.docs.forEach(docSnapshot => {
+    const rewrites = querySnapshot.docs.map((docSnapshot) => {
       const updates: Record<string, unknown> = {
         categoryId: 'uncategorized',
         categoryName: 'Uncategorized',
@@ -1154,13 +1100,12 @@ export async function clearExpensesCategoryAssignment(
         updatedAt: new Date(),
       };
 
-      batch.update(docSnapshot.ref, removeUndefinedFields(updates));
-      count++;
+      return { ref: docSnapshot.ref, data: removeUndefinedFields(updates) };
     });
 
-    await batch.commit();
+    await updateInBatches(rewrites);
     await invalidateDashboardOverviewSummary(userId, 'expense_category_cleared');
-    return count;
+    return rewrites.length;
   } catch (error) {
     console.error('Error clearing expenses category assignment:', error);
     throw new Error('Failed to clear expenses category assignment');
@@ -1192,10 +1137,7 @@ export async function reassignExpensesSubCategory(
       return 0; // No expenses to reassign
     }
 
-    const batch = writeBatch(db);
-    let count = 0;
-
-    querySnapshot.docs.forEach(docSnapshot => {
+    const rewrites = querySnapshot.docs.map((docSnapshot) => {
       const updates: Record<string, unknown> = {
         updatedAt: new Date(),
       };
@@ -1209,12 +1151,11 @@ export async function reassignExpensesSubCategory(
         updates.subCategoryName = null;
       }
 
-      batch.update(docSnapshot.ref, removeUndefinedFields(updates));
-      count++;
+      return { ref: docSnapshot.ref, data: removeUndefinedFields(updates) };
     });
 
-    await batch.commit();
-    return count;
+    await updateInBatches(rewrites);
+    return rewrites.length;
   } catch (error) {
     console.error('Error reassigning expenses subcategory:', error);
     throw new Error('Failed to reassign expenses subcategory');
@@ -1224,8 +1165,10 @@ export async function reassignExpensesSubCategory(
 /**
  * Move all expenses from one category to another, updating type for cross-type moves.
  *
- * Unlike reassignExpensesCategory (used during deletion), this preserves the source
- * category and also updates the expense `type` field to match the destination category.
+ * The ONE way rows leave a category, whether the source is kept (the move) or deleted next
+ * (the delete with reassignment): both update the expense `type` field to match the destination
+ * category. Until 2026-10-25 the delete had its own rewrite that kept the old type, so a variable
+ * expense moved into a fixed category stayed variable in Analisi and in the 50/30/20 split.
  * When crossing the positive/negative sign boundary, flips the amount sign to maintain
  * the sign convention (income/transfer = positive, expenses = negative).
  * Refuses to cross the transfer boundary when expenses exist (TransferBoundaryError).
@@ -1259,10 +1202,7 @@ export async function moveExpensesToCategory(
     }
 
     const flipSign = needsSignFlip(oldType, newType);
-    const batch = writeBatch(db);
-    let count = 0;
-
-    querySnapshot.docs.forEach(docSnapshot => {
+    const rewrites = querySnapshot.docs.map((docSnapshot) => {
       const updates: Record<string, unknown> = {
         categoryId: newCategoryId,
         categoryName: newCategoryName,
@@ -1284,13 +1224,12 @@ export async function moveExpensesToCategory(
         updates.subCategoryName = null;
       }
 
-      batch.update(docSnapshot.ref, removeUndefinedFields(updates));
-      count++;
+      return { ref: docSnapshot.ref, data: removeUndefinedFields(updates) };
     });
 
-    await batch.commit();
+    await updateInBatches(rewrites);
     await invalidateDashboardOverviewSummary(userId, 'expense_category_moved');
-    return count;
+    return rewrites.length;
   } catch (error) {
     if (error instanceof TransferBoundaryError) throw error;
     console.error('Error moving expenses to category:', error);
@@ -1336,10 +1275,7 @@ export async function moveExpensesFromSubCategory(
     }
 
     const flipSign = needsSignFlip(oldType, newType);
-    const batch = writeBatch(db);
-    let count = 0;
-
-    querySnapshot.docs.forEach(docSnapshot => {
+    const rewrites = querySnapshot.docs.map((docSnapshot) => {
       const updates: Record<string, unknown> = {
         categoryId: newCategoryId,
         categoryName: newCategoryName,
@@ -1361,13 +1297,12 @@ export async function moveExpensesFromSubCategory(
         updates.subCategoryName = null;
       }
 
-      batch.update(docSnapshot.ref, removeUndefinedFields(updates));
-      count++;
+      return { ref: docSnapshot.ref, data: removeUndefinedFields(updates) };
     });
 
-    await batch.commit();
+    await updateInBatches(rewrites);
     await invalidateDashboardOverviewSummary(userId, 'expense_category_moved');
-    return count;
+    return rewrites.length;
   } catch (error) {
     if (error instanceof TransferBoundaryError) throw error;
     console.error('Error moving expenses from subcategory:', error);
@@ -1413,10 +1348,7 @@ export async function updateExpensesType(
     }
 
     const flipSign = needsSignFlip(oldType, newType);
-    const batch = writeBatch(db);
-    let count = 0;
-
-    querySnapshot.docs.forEach(docSnapshot => {
+    const rewrites = querySnapshot.docs.map((docSnapshot) => {
       const updates: Record<string, unknown> = {
         type: newType,
         updatedAt: new Date(),
@@ -1427,13 +1359,12 @@ export async function updateExpensesType(
         updates.amount = -currentAmount;
       }
 
-      batch.update(docSnapshot.ref, updates);
-      count++;
+      return { ref: docSnapshot.ref, data: updates };
     });
 
-    await batch.commit();
+    await updateInBatches(rewrites);
     await invalidateDashboardOverviewSummary(userId, 'expense_category_type_changed');
-    return count;
+    return rewrites.length;
   } catch (error) {
     if (error instanceof TransferBoundaryError) throw error;
     console.error('Error updating expense types in category:', error);

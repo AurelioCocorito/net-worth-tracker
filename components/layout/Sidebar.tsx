@@ -44,8 +44,10 @@ import {
   planningNav,
   assistantNavItem,
   toolsNav,
+  BACKUP_NAV_HREF,
   type NavItem,
 } from '@/lib/constants/navigation';
+import { BackupDueMark } from '@/components/layout/BackupDueMark';
 import { LogOut, ChevronsUpDown, PanelLeftClose, PanelLeftOpen, Check, Users } from 'lucide-react';
 
 function NavItems({ items, tab = null }: { items: NavItem[]; tab?: string | null }) {
@@ -80,6 +82,7 @@ function NavItems({ items, tab = null }: { items: NavItem[]; tab?: string | null
               <SceneLink href={item.href} onClick={handleClick} aria-current={isActive ? 'page' : undefined}>
                 <item.icon />
                 <span>{item.name}</span>
+                {item.href === BACKUP_NAV_HREF && <BackupDueMark className="group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:right-1 group-data-[collapsible=icon]:top-1" />}
               </SceneLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

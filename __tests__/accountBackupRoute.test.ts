@@ -21,6 +21,9 @@ function docsUnder(prefix: string) {
 function docRef(path: string) {
   return {
     get: async () => ({ exists: store.has(path), data: () => store.get(path) }),
+    set: async (data: Record<string, unknown>, options?: { merge?: boolean }) => {
+      store.set(path, options?.merge ? { ...(store.get(path) ?? {}), ...data } : data);
+    },
     collection: (name: string) => ({ get: async () => ({ docs: docsUnder(`${path}/${name}`) }) }),
   };
 }
@@ -55,6 +58,15 @@ describe('/api/user/backup', () => {
   it('refuses a request without a token', async () => {
     const res = await GET(request(false));
     expect(res.status).toBe(401);
+  });
+
+  it('stamps the date of the backup on the caller\'s user document, keeping its other fields', async () => {
+    store.set('users/owner-1', { email: 'owner@example.com' });
+
+    const res = await GET(request());
+
+    expect(res.status).toBe(200);
+    expect(store.get('users/owner-1')).toEqual({ email: 'owner@example.com', lastBackupAt: expect.any(Date) });
   });
 
   it("downloads the caller's documents and nobody else's", async () => {

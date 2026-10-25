@@ -4,11 +4,13 @@
  *
  * Like the sharing tile beside it, it always concerns the logged-in user's OWN account, whatever
  * account is active in the switcher. After a download the reading says how many documents the file
- * holds, so the owner can see it is not empty.
+ * holds, so the owner can see it is not empty. Before it, the reading says when the last backup was
+ * (`useLastBackup`, the reminder of 2026-10-25: Strumenti marks «Backup» once it is a month old).
  */
 'use client';
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -16,6 +18,10 @@ import { Tile } from '@/components/ui/tile';
 import { authenticatedFetch } from '@/lib/utils/authFetch';
 import { backupFileName, type AccountBackupFile } from '@/lib/utils/accountBackup';
 import { SETTINGS_SECTION_IDS } from '@/lib/constants/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLastBackup } from '@/lib/hooks/useLastBackup';
+import { queryKeys } from '@/lib/query/queryKeys';
+import { describeLastBackup } from '@/lib/utils/backupReminder';
 
 interface AccountBackupSectionProps {
   /** In demo nothing is downloaded: the demo data is not the viewer's. */
@@ -50,6 +56,10 @@ async function downloadAccountBackup(): Promise<number> {
 export function AccountBackupSection({ disabled }: AccountBackupSectionProps) {
   const [downloading, setDownloading] = useState(false);
   const [lastCount, setLastCount] = useState<number | null>(null);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const lastBackupAt = useLastBackup();
+  const lastBackup = lastBackupAt === undefined ? null : describeLastBackup(lastBackupAt, new Date());
 
   // A promise chain, not try/finally: the React Compiler skips a component holding the latter.
   const handleDownload = () => {
@@ -58,6 +68,8 @@ export function AccountBackupSection({ disabled }: AccountBackupSectionProps) {
       .then((total) => {
         setLastCount(total);
         toast.success('Backup scaricato');
+        // The route stamped the date: the reading and the Strumenti mark follow.
+        if (user) void queryClient.invalidateQueries({ queryKey: queryKeys.accountBackup.last(user.uid) });
       })
       .catch((error: unknown) => {
         toast.error(error instanceof Error ? error.message : 'Impossibile creare il backup.');
@@ -73,9 +85,11 @@ export function AccountBackupSection({ disabled }: AccountBackupSectionProps) {
       reading={[
         {
           text:
-            lastCount === null
-              ? 'Un file con tutto ciò che hai inserito, per ricostruire l’account se i dati andassero persi.'
-              : `Backup scaricato: ${lastCount.toLocaleString('it-IT')} documenti nel file.`,
+            lastCount !== null
+              ? `Backup scaricato: ${lastCount.toLocaleString('it-IT')} documenti nel file.`
+              : lastBackup
+                ? lastBackup.text
+                : 'Un file con tutto ciò che hai inserito, per ricostruire l’account se i dati andassero persi.',
         },
       ]}
     >

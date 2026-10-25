@@ -63,9 +63,12 @@ export const SETTINGS_SECTION_IDS = {
   import: 'sezione-import-csv',
 } as const;
 
+/** The «Backup» row: it carries the reminder mark once the last backup is a month old (BackupDueMark). */
+export const BACKUP_NAV_HREF = '/dashboard/settings?tab=condivisione&sezione=backup';
+
 export const toolsNav: NavItem[] = [
   { name: 'Impostazioni', href: '/dashboard/settings',                               icon: Settings       },
-  { name: 'Backup',       href: '/dashboard/settings?tab=condivisione&sezione=backup', icon: DatabaseBackup },
+  { name: 'Backup',       href: BACKUP_NAV_HREF,                                       icon: DatabaseBackup },
   { name: 'Import CSV',   href: '/dashboard/settings?tab=spese&sezione=import',        icon: FileUp         },
 ];
 

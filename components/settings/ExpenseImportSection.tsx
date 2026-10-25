@@ -82,11 +82,44 @@ import {
 } from '@/types/expenseImport';
 import type { ExpenseCategory } from '@/types/expenses';
 import { SETTINGS_SECTION_IDS } from '@/lib/constants/navigation';
+import { authenticatedFetch } from '@/lib/utils/authFetch';
+import {
+  describePriceWarning,
+  findImplausibleTradePrices,
+  type ImportPriceReference,
+} from '@/lib/utils/importPriceCheck';
 
 /** The default-account select's value for «no account». */
 const NO_DEFAULT_ACCOUNT = '__none__';
 
 type Phase = 'idle' | 'preview' | 'committing' | 'done';
+
+/** A price in the instrument's currency, with up to four decimals, Italian separators. */
+function formatPrice(value: number): string {
+  return value.toLocaleString('it-IT', { maximumFractionDigits: 4 });
+}
+
+/** The held instruments' prices in Patrimonio, by upper-case ISIN: the reference of their rows. */
+function heldPriceReferences(assets: { isin?: string; name: string; currentPrice: number }[]): Map<string, ImportPriceReference> {
+  const references = new Map<string, ImportPriceReference>();
+  for (const a of assets) {
+    if (a.isin && a.currentPrice > 0) references.set(a.isin.trim().toUpperCase(), { name: a.name, price: a.currentPrice });
+  }
+  return references;
+}
+
+/** The live quote of a ticker (GET /api/prices/quote), or null when there is none. */
+async function fetchQuotedReference(ticker: string, name: string): Promise<ImportPriceReference | null> {
+  if (!ticker) return null;
+  try {
+    const response = await authenticatedFetch(`/api/prices/quote?ticker=${encodeURIComponent(ticker)}`);
+    if (!response.ok) return null;
+    const quote = (await response.json()) as { price?: number | null };
+    return typeof quote.price === 'number' && quote.price > 0 ? { name, price: quote.price } : null;
+  } catch {
+    return null;
+  }
+}
 
 interface ExpenseImportSectionProps {
   /** Called after a successful commit or undo, so the parent can refresh categories/expenses. */
@@ -206,6 +239,8 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
   } | null>(null);
   // «Importa anche le righe già presenti»: off by default, a row already in the data is set aside.
   const [includeDuplicates, setIncludeDuplicates] = useState(false);
+  /** The price each trade row is checked against (importPriceCheck), by upper-case ISIN. */
+  const [priceReferences, setPriceReferences] = useState<ReadonlyMap<string, ImportPriceReference>>(new Map());
   const [defaultAccountId, setDefaultAccountId] = useState<string>(NO_DEFAULT_ACCOUNT);
   const [lastBatch, setLastBatch] = useState<{
     importBatchId: string;
@@ -276,6 +311,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     setSource(null);
     setDefaultAccountId(NO_DEFAULT_ACCOUNT);
     setIncludeDuplicates(false);
+    setPriceReferences(new Map());
     setFileName('');
     setLastBatch(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -318,6 +354,8 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
       const existingDividends = await readExistingDividendsFor(rows, ownerId);
       const existing = await readExistingDataFor(ownerId);
       const built = buildImportPlan(rows, categories, cashAccounts, undefined, new Date(), instruments, existingDividends, existing);
+      setPriceReferences(heldPriceReferences(assets));
+      void addQuotedPriceReferences(built);
       setSource({ rows, categories, cashAccounts, instruments, existingDividends, existing });
       setDefaultAccountId(NO_DEFAULT_ACCOUNT);
       setIncludeDuplicates(false);
@@ -331,6 +369,17 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
       toast.error(err instanceof Error ? err.message : 'Impossibile leggere il file CSV.');
       reset();
     }
+  };
+
+  // An instrument the file creates has no price in Patrimonio yet: its live quote is the
+  // reference, fetched after the preview opens (best effort — no quote, no check).
+  const addQuotedPriceReferences = async (built: ImportPlan) => {
+    const quoted = await Promise.all(built.instrumentsToCreate.map((i) => fetchQuotedReference(i.ticker, i.name)));
+    const found = built.instrumentsToCreate
+      .map((i, index) => [i.isin.toUpperCase(), quoted[index]] as const)
+      .filter((entry): entry is readonly [string, ImportPriceReference] => entry[1] !== null);
+    if (found.length === 0) return;
+    setPriceReferences((current) => new Map([...current, ...found]));
   };
 
   const replan = (accountValue: string, withDuplicates: boolean) => {
@@ -402,6 +451,8 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     // After the try/catch rather than in a `finally`: keeps the section compilable by the React Compiler.
     setUndoing(false);
   };
+
+  const priceWarnings = plan ? findImplausibleTradePrices(plan.tradeRows, priceReferences, new Date()) : [];
 
   const reading =
     phase === 'preview' && plan
@@ -604,6 +655,25 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {priceWarnings.length > 0 && (
+            <div className="mt-3.5 border-t border-border pt-3" data-testid="import-price-warnings">
+              <p className={`${TILE_SUB_EYEBROW_CLASS} flex items-center gap-1.5 text-warning-foreground`}>
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                {priceWarnings.length === 1 ? 'Un prezzo da controllare' : `${priceWarnings.length} prezzi da controllare`}
+              </p>
+              <ul className="mt-1.5 space-y-0.5 text-[13px] text-muted-foreground">
+                {priceWarnings.map((w) => (
+                  <li key={w.line}>
+                    <span className="font-mono">Riga {w.line}</span> · {describePriceWarning(w, formatPrice)}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                È solo un avviso: le righe si importano comunque. Se il prezzo è sbagliato, correggi il file e ricaricalo.
+              </p>
             </div>
           )}
 
