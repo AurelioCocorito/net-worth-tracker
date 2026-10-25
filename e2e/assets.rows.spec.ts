@@ -76,7 +76,7 @@ test('Strumenti at 1440 is the table alone: one row per instrument, no phone row
   const strumenti = page.locator('section#strumenti');
 
   expect(instruments).toBeGreaterThan(0);
-  await expect(strumenti.locator('tbody tr')).toHaveCount(instruments);
+  await expect(strumenti.locator('tbody tr:not([data-group-header])')).toHaveCount(instruments);
   await expect(strumenti.locator('button[aria-controls^="asset-row-"]')).toHaveCount(0);
   await expect(strumenti.locator('svg.recharts-surface')).toHaveCount(0);
 

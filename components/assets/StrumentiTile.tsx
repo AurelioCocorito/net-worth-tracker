@@ -5,7 +5,8 @@
  * priced by hand, how concentrated the top of the table is), then the table itself. It stays a
  * table because this is the management page: sortable columns (the three Δ windows included),
  * the «Andamento» VIEW — the three Δ windows in place of Quantità · Prezzo · PMC · TER, so the
- * table never scrolls at 1440 — the optional grouping by class, the `--chart-3` tint on
+ * table never scrolls at 1440 — the three blocks Core · Trading · Altro (by type, 2026-10-25;
+ * lib/utils/portfolioSleeve.ts), the optional grouping by class inside them, the `--chart-3` tint on
  * hand-priced rows and the two-click delete.
  *
  * Three things the table says that the storage does not (2026-09-14, the page's first critique):
@@ -61,6 +62,7 @@ import { useDeleteAsset } from '@/lib/hooks/useAssets';
 import { useArmedDelete } from '@/lib/hooks/useArmedDelete';
 import { useCompactLayout } from '@/lib/hooks/useCompactLayout';
 import { resolveDisplayAssetClass } from '@/lib/utils/assetDisplayClass';
+import { groupBySleeve, type SleeveGroup } from '@/lib/utils/portfolioSleeve';
 import { getAssetDisplayTicker } from '@/lib/utils/assetDisplay';
 import { hasMarketPrice, requiresManualPricing } from '@/lib/utils/assetPricing';
 import { costBasisPerUnitEur, isEurNative } from '@/lib/utils/costBasisEur';
@@ -416,17 +418,21 @@ export function StrumentiTile({
     });
   }, [visibleAssets, sortState, performance]);
 
-  // Grouped mode: an ordered map keyed by display class, in first-occurrence order of the sort.
-  const groupedAssets = useMemo(() => {
-    if (!groupByClass) return null;
+  // The three blocks (Core · Trading · Altro, lib/utils/portfolioSleeve.ts, 2026-10-25): always on,
+  // the sort applied inside each; null when one block holds every row.
+  const sleeveGroups = useMemo(() => groupBySleeve(sortedAssets), [sortedAssets]);
+
+  // Grouped mode: an ordered map keyed by display class, in first-occurrence order of the sort —
+  // inside each block when the blocks are drawn.
+  const groupByDisplayClass = (list: Asset[]): Map<string, Asset[]> => {
     const map = new Map<string, Asset[]>();
-    for (const asset of sortedAssets) {
+    for (const asset of list) {
       const key = resolveDisplayAssetClass(asset);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(asset);
     }
     return map;
-  }, [groupByClass, sortedAssets]);
+  };
 
   const toggleGroupCollapsed = (key: string) => {
     setCollapsedGroups((prev) => {
@@ -601,17 +607,17 @@ export function StrumentiTile({
     );
   };
 
-  const renderGroupHeader = (cls: string, groupAssets: Asset[]) => {
+  const renderGroupHeader = (cls: string, groupAssets: Asset[], collapseKey: string) => {
     const groupTotal = groupAssets.reduce((sum, a) => sum + calculateAssetValue(a), 0);
     const groupWeight = totalValue > 0 ? (groupTotal / totalValue) * 100 : null;
-    const isCollapsed = collapsedGroups.has(cls);
+    const isCollapsed = collapsedGroups.has(collapseKey);
     const Chevron = isCollapsed ? ChevronRight : ChevronDown;
     return (
-      <tr key={`group-${cls}`} className="border-t border-border bg-muted/40">
+      <tr key={`group-${collapseKey}`} data-group-header className="border-t border-border bg-muted/40">
         <td colSpan={columnCount} className="p-0">
           <button
             type="button"
-            onClick={() => toggleGroupCollapsed(cls)}
+            onClick={() => toggleGroupCollapsed(collapseKey)}
             aria-expanded={!isCollapsed}
             className="flex w-full items-center justify-between px-1.5 py-2 text-left hover:bg-muted/60"
           >
@@ -631,6 +637,73 @@ export function StrumentiTile({
       </tr>
     );
   };
+
+  // A block's rows: by class when the toggle is on, else in the sort's order.
+  const renderBlockRows = (list: Asset[], keyPrefix: string) =>
+    groupByClass
+      ? Array.from(groupByDisplayClass(list).entries()).flatMap(([cls, groupAssets]) => {
+          const collapseKey = `${keyPrefix}${cls}`;
+          return [renderGroupHeader(cls, groupAssets, collapseKey), ...(collapsedGroups.has(collapseKey) ? [] : groupAssets.map(renderRow))];
+        })
+      : list.map(renderRow);
+
+  // A block's header: its name, what it holds, its count, its total and its weight on the net
+  // worth (the Peso column's base), collapsible like a class group.
+  const renderSleeveHeader = (group: SleeveGroup<Asset>) => {
+    const blockTotal = group.assets.reduce((sum, a) => sum + calculateAssetValue(a), 0);
+    const blockWeight = totalValue > 0 ? (blockTotal / totalValue) * 100 : null;
+    const collapseKey = `sleeve:${group.sleeve}`;
+    const isCollapsed = collapsedGroups.has(collapseKey);
+    const Chevron = isCollapsed ? ChevronRight : ChevronDown;
+    return (
+      <tr key={collapseKey} data-group-header data-sleeve={group.sleeve} className="border-t-2 border-border bg-muted/60">
+        <td colSpan={columnCount} className="p-0">
+          <button
+            type="button"
+            onClick={() => toggleGroupCollapsed(collapseKey)}
+            aria-expanded={!isCollapsed}
+            className="flex w-full items-center justify-between px-1.5 py-2.5 text-left hover:bg-muted/80"
+          >
+            <span className="flex items-baseline gap-2">
+              <Chevron className="h-3.5 w-3.5 self-center text-muted-foreground" aria-hidden="true" />
+              <span className="text-[13px] font-semibold text-foreground">{group.label}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {group.description} · {group.assets.length} {group.assets.length === 1 ? 'strumento' : 'strumenti'}
+              </span>
+            </span>
+            <span className="flex items-center gap-3 font-mono text-[12px] tabular-nums text-foreground">
+              <span className="font-semibold">{formatCurrency(blockTotal)}</span>
+              <span className="w-[52px] text-right text-muted-foreground">{blockWeight === null ? '—' : formatPercentage(blockWeight, 1)}</span>
+            </span>
+          </button>
+        </td>
+      </tr>
+    );
+  };
+
+  const renderPhoneRow = (asset: Asset) => (
+    <AssetRow
+      key={asset.id}
+      asset={asset}
+      totalValue={totalValue}
+      now={now}
+      onEdit={onEdit}
+      onDelete={handleDelete}
+      announce={setAnnouncement}
+      onCalculateTaxes={hasCostBasis(asset) ? onCalculateTaxes : undefined}
+      isManualPrice={requiresManualPricing(asset)}
+      isDemo={isDemo}
+      sparklineData={unitPriceSeries[asset.id]}
+      chartColors={chartColors}
+      mortgage={resolveMortgageOf(asset, assets)}
+      financedAssetName={financedNameOf(asset)}
+      ownerLabel={ownerLabelOf(asset)}
+      performance={performance[asset.id]}
+      showLedgerActions={showLedgerActions(asset)}
+      onRegisterTrade={onRegisterTrade}
+      onMovements={onMovements}
+    />
+  );
 
   return (
     <Tile
@@ -705,32 +778,29 @@ export function StrumentiTile({
           </span>
 
           {!isDesktop ? (
-            // Below desktop: flat expandable rows (the Δ windows and actions live inside each).
-            <div className="mt-2 flex flex-col divide-y divide-border">
-              {sortedAssets.map((asset) => (
-                <AssetRow
-                  key={asset.id}
-                  asset={asset}
-                  totalValue={totalValue}
-                  now={now}
-                  onEdit={onEdit}
-                  onDelete={handleDelete}
-                  announce={setAnnouncement}
-                  onCalculateTaxes={hasCostBasis(asset) ? onCalculateTaxes : undefined}
-                  isManualPrice={requiresManualPricing(asset)}
-                  isDemo={isDemo}
-                  sparklineData={unitPriceSeries[asset.id]}
-                  chartColors={chartColors}
-                  mortgage={resolveMortgageOf(asset, assets)}
-                  financedAssetName={financedNameOf(asset)}
-                  ownerLabel={ownerLabelOf(asset)}
-                  performance={performance[asset.id]}
-                  showLedgerActions={showLedgerActions(asset)}
-                  onRegisterTrade={onRegisterTrade}
-                  onMovements={onMovements}
-                />
-              ))}
-            </div>
+            // Below desktop: expandable rows (the Δ windows and actions live inside each), under a
+            // heading per block when there is more than one.
+            sleeveGroups ? (
+              <div className="mt-2 flex flex-col gap-4">
+                {sleeveGroups.map((group) => {
+                  const blockTotal = group.assets.reduce((sum, a) => sum + calculateAssetValue(a), 0);
+                  return (
+                    <div key={group.sleeve} data-sleeve={group.sleeve}>
+                      <h3 className="flex items-baseline justify-between gap-3 border-b border-border pb-1.5">
+                        <span className="min-w-0">
+                          <span className="text-[13px] font-semibold text-foreground">{group.label}</span>
+                          <span className="ml-2 text-[11px] font-normal text-muted-foreground">{group.description}</span>
+                        </span>
+                        <span className="shrink-0 font-mono text-[12px] font-semibold tabular-nums text-foreground">{formatCurrency(blockTotal)}</span>
+                      </h3>
+                      <div className="flex flex-col divide-y divide-border">{group.assets.map(renderPhoneRow)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mt-2 flex flex-col divide-y divide-border">{sortedAssets.map(renderPhoneRow)}</div>
+            )
           ) : (
             // Desktop: the table. Scrolls inside the tile when the Δ columns are on; the actions
             // column stays put.
@@ -782,12 +852,12 @@ export function StrumentiTile({
                   </tr>
                 </thead>
                 <tbody>
-                  {groupedAssets
-                    ? Array.from(groupedAssets.entries()).flatMap(([cls, groupAssets]) => [
-                        renderGroupHeader(cls, groupAssets),
-                        ...(collapsedGroups.has(cls) ? [] : groupAssets.map(renderRow)),
+                  {sleeveGroups
+                    ? sleeveGroups.flatMap((group) => [
+                        renderSleeveHeader(group),
+                        ...(collapsedGroups.has(`sleeve:${group.sleeve}`) ? [] : renderBlockRows(group.assets, `${group.sleeve}:`)),
                       ])
-                    : sortedAssets.map(renderRow)}
+                    : renderBlockRows(sortedAssets, '')}
                 </tbody>
               </table>
             </div>
