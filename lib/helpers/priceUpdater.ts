@@ -139,6 +139,8 @@ export async function updateUserAssetPrices(
             currentPrice: adjustedPrice,
             lastPriceUpdate: new Date(),
             priceUpdateFailedAt: FieldValue.delete(),
+            // Borsa Italiana's page gives no time for its price: no market time to judge.
+            priceQuotedAt: FieldValue.delete(),
             updatedAt: new Date(),
           });
           updated.push(`${bond.ticker} (BI-${bondPrice.priceType})`);
@@ -157,6 +159,7 @@ export async function updateUserAssetPrices(
               currentPrice: adjustedPrice,
               lastPriceUpdate: new Date(),
               priceUpdateFailedAt: FieldValue.delete(),
+              priceQuotedAt: quote.marketTime ?? FieldValue.delete(),
               updatedAt: new Date(),
             });
             updated.push(`${bond.ticker} (YF-fallback)`);
@@ -206,6 +209,7 @@ export async function updateUserAssetPrices(
             currency: normalizedCurrency,
             lastPriceUpdate: new Date(),
             priceUpdateFailedAt: FieldValue.delete(),
+            priceQuotedAt: quote.marketTime ?? FieldValue.delete(),
             updatedAt: new Date(),
           };
 

@@ -154,7 +154,7 @@ export function InstrumentClassChip({ asset }: { asset: Pick<Asset, 'assetClass'
 /** The three marks of `AutoPriceMark`, by `AutoPriceStatus` kind (a hand-valued asset and a `pending` one have none). */
 const AUTO_PRICE_MARKS = {
   ok: { Icon: CircleCheck, className: 'text-positive', label: 'Prezzo automatico attivo' },
-  failing: { Icon: CircleAlert, className: 'text-warning-foreground', label: 'Prezzo automatico non trovato da qualche giorno' },
+  failing: { Icon: CircleAlert, className: 'text-warning-foreground', label: 'Prezzo automatico da controllare' },
   never: { Icon: CircleX, className: 'text-destructive', label: 'Prezzo automatico mai trovato' },
 } as const;
 

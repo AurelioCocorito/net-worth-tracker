@@ -22,7 +22,16 @@ export interface QuoteResult {
   ticker: string;
   price: number | null;
   currency: string;
+  // When the market made this price (Yahoo's `regularMarketTime`). Yahoo can keep answering with
+  // a price that stopped moving weeks ago; the caller stores this to tell it from a fresh one.
+  marketTime?: Date;
   error?: string;
+}
+
+/** Yahoo's `regularMarketTime` as a valid Date (the library gives a Date; epoch seconds tolerated), else undefined. */
+function toMarketTime(value: unknown): Date | undefined {
+  const date = value instanceof Date ? value : typeof value === 'number' ? new Date(value * 1000) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : undefined;
 }
 
 /**
@@ -48,6 +57,7 @@ export async function getQuote(ticker: string): Promise<QuoteResult> {
       ticker,
       price: quote.regularMarketPrice,
       currency: quote.currency || 'EUR',
+      marketTime: toMarketTime(quote.regularMarketTime),
     };
   } catch (error) {
     console.error(`Error fetching quote for ${ticker}:`, error);

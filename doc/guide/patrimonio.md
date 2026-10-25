@@ -33,7 +33,12 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   does not touch it), so the check needs a success LATER than `createdAt`: a new instrument is `pending`, without a
   mark, until the first run (the evening cron, «Aggiorna prezzi», a snapshot) — it showed the check before
   (Austria 2120, 2026-10-25). The bond scrape of Borsa Italiana takes any ISIN (`validateBondIsin`), not only «IT»:
-  the `mot/btp/scheda/{ISIN}-MOTX` page also serves the EuroMOT foreign issues.
+  the `mot/btp/scheda/{ISIN}-MOTX` page also serves the EuroMOT foreign issues. **A success with a frozen price is
+  yellow too** (`failing`, reason `frozen`, owner 2026-10-25): Yahoo can answer with a `regularMarketPrice` that stopped
+  moving weeks ago (the Fineco «1GOOGL.MI» tickers, frozen on 02/10 while their daily closes moved), so every Yahoo
+  success also writes `priceQuotedAt` (its `regularMarketTime`) and a market time older than `AUTO_PRICE_STALE_DAYS`
+  turns the check yellow, the tooltip naming the frozen date and suggesting another ticker (Xetra `.DE`). A Borsa
+  Italiana success removes the field (its page gives no time), so a bond priced there never reads `frozen`.
 - **`suggestIsLiquid` is the single liquidity-default predicate**, keyed on the TYPE so a REIT **ETF** stays liquid; three
   call sites in lock-step (create-mode effect, edit-mode legacy fallback, liquid/illiquid net-worth read-time fallback).
 - `buildAssetFormDataFromValues` clamps `autoUpdatePrice` to `false` when `hasMarketPrice()` is false. **That clamp is

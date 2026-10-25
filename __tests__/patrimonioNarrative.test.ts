@@ -318,6 +318,15 @@ describe('describeAutoPriceStatus — the tooltip of the mark beside an instrume
     );
   });
 
+  it('says a frozen Yahoo price is frozen, with its date, and how to fix it', () => {
+    const quotedAt = new Date(Date.UTC(2026, 7, 2, 15, 35)); // 02/08 17:35 in Rome
+    expect(
+      describeAutoPriceStatus({ kind: 'failing', reason: 'frozen', updatedAt: new Date(Date.UTC(2026, 7, 21, 16, 0)), quotedAt }, now),
+    ).toBe(
+      'Yahoo Finance risponde, ma con un prezzo fermo al 02/08 alle 17:35: per questo ticker non si aggiorna più. Prova un altro ticker dello stesso titolo (per esempio quello di Xetra, .DE) oppure aggiornalo a mano.',
+    );
+  });
+
   it('names the failed attempt and the last good price, and says to watch it', () => {
     const text = describeAutoPriceStatus(
       { kind: 'failing', reason: 'failed', updatedAt: new Date(Date.UTC(2026, 7, 14, 16, 0)), failedAt: new Date(Date.UTC(2026, 7, 21, 16, 0)) },

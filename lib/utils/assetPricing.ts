@@ -80,10 +80,13 @@ export type AutoPriceStatus =
   /** Automatic and working: the green check. */
   | { kind: 'ok'; updatedAt: Date }
   /**
-   * Automatic, it found a price before, and now it does not: the last attempt failed, or no quote
-   * has arrived for too long. The yellow warning: to keep an eye on (owner, 2026-10-25).
+   * Automatic, it found a price before, and now it does not: the last attempt failed, no quote
+   * has arrived for too long, or the quote arrives but the market made it too long ago (`frozen`:
+   * Yahoo answering with a price that stopped moving, the «1GOOGL.MI» case). The yellow warning:
+   * to keep an eye on (owner, 2026-10-25).
    */
   | { kind: 'failing'; reason: 'failed' | 'stale'; updatedAt: Date; failedAt: Date | null }
+  | { kind: 'failing'; reason: 'frozen'; updatedAt: Date; quotedAt: Date }
   /**
    * Automatic, and it has NEVER found a price: the only `lastPriceUpdate` is the one stamped at
    * creation (typically a ticker Yahoo does not know). The red mark: to update by hand.
@@ -100,6 +103,7 @@ export type AutoPriceStatus =
 export interface AutoPricedAssetFields extends PricedAssetFields {
   lastPriceUpdate?: Date | null;
   priceUpdateFailedAt?: Date | null;
+  priceQuotedAt?: Date | null;
   createdAt?: Date | null;
 }
 
@@ -114,6 +118,8 @@ function validDate(value: Date | null | undefined): Date | null {
  * later than the last success is `failed`; a last success older than AUTO_PRICE_STALE_DAYS is
  * `stale`. `lastPriceUpdate` is also stamped at creation, so the check needs a success LATER than
  * `createdAt`: a new instrument reads `pending` (no mark) until the first run, then `ok` or `never`.
+ * A success whose market time (`priceQuotedAt`, Yahoo's `regularMarketTime`) is older than
+ * AUTO_PRICE_STALE_DAYS is `frozen`: the update works, the price it brings does not move.
  */
 export function resolveAutoPriceStatus(asset: AutoPricedAssetFields, now: Date): AutoPriceStatus {
   if (requiresManualPricing(asset)) return { kind: 'manual' };
@@ -123,7 +129,11 @@ export function resolveAutoPriceStatus(asset: AutoPricedAssetFields, now: Date):
   const lastFailed = failedAt !== null && (!updatedAt || failedAt.getTime() >= updatedAt.getTime());
   const stale = !updatedAt || now.getTime() - updatedAt.getTime() > AUTO_PRICE_STALE_DAYS * 86_400_000;
   const neverUpdated = !updatedAt || (!!createdAt && updatedAt.getTime() <= createdAt.getTime());
-  if (!lastFailed && !stale && updatedAt && !neverUpdated) return { kind: 'ok', updatedAt };
+  const quotedAt = validDate(asset.priceQuotedAt);
+  const frozen = quotedAt !== null && now.getTime() - quotedAt.getTime() > AUTO_PRICE_STALE_DAYS * 86_400_000;
+  if (!lastFailed && !stale && updatedAt && !neverUpdated) {
+    return frozen && quotedAt ? { kind: 'failing', reason: 'frozen', updatedAt, quotedAt } : { kind: 'ok', updatedAt };
+  }
   if (!lastFailed && !stale && neverUpdated) return { kind: 'pending' };
   if (neverUpdated || !updatedAt) return { kind: 'never', failedAt: lastFailed ? failedAt : null };
   if (lastFailed) return { kind: 'failing', reason: 'failed', updatedAt, failedAt };
