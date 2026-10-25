@@ -572,3 +572,65 @@ describe('investment rows (acquisto / vendita / correzione)', () => {
     expect(p.summary.validCount).toBe(2);
   });
 });
+
+describe('dividend rows (dividendo / cedola)', () => {
+  const NOW = new Date(2026, 9, 25, 12);
+  const header = 'data;importo;tipo;note;conto;isin;quantita;tasse;data_stacco;titolo;strumento;simbolo;prezzo\n';
+  const held = [
+    { id: 'a-etf', name: 'World ETF', isin: 'IE0000000001', ledger: true },
+    { id: 'a-acc', name: 'Conto', isin: 'IT0000000009', ledger: false },
+  ];
+  const plan = (body: string, existing: Parameters<typeof buildImportPlan>[6] = []) =>
+    buildImportPlan(parseImportCsv(header + body), [], [{ id: 'acc-1', name: 'Broker' }], undefined, NOW, held, existing);
+
+  it('reads a dividend on a held instrument: gross, withholding, ex-date, net in the summary', () => {
+    const p = plan('2026-10-15;100,00;dividendo;trimestrale;Broker;ie0000000001;200;26,00;2026-10-01;;;;');
+    expect(p.errors).toEqual([]);
+    expect(p.dividendRows).toHaveLength(1);
+    expect(p.dividendRows[0]).toMatchObject({
+      assetId: 'a-etf', isin: 'IE0000000001', dividendType: 'ordinary', quantity: 200,
+      grossAmount: 100, taxAmount: 26, currency: 'EUR', notes: 'trimestrale',
+    });
+    expect(p.dividendRows[0].exDate.getDate()).toBe(1);
+    expect(p.validRows).toHaveLength(0); // never a Tracciamento row of the plan: the route writes it
+    expect(p.summary).toMatchObject({ dividendCount: 1, couponCount: 0, totalDividendNet: 74, validCount: 1 });
+  });
+
+  it('reads a coupon, with no withholding and the ex-date defaulting to the payment day', () => {
+    const p = plan('2026-09-30;50;cedola;;;IE0000000001;1000;;;;;;');
+    expect(p.dividendRows[0]).toMatchObject({ dividendType: 'coupon', taxAmount: 0 });
+    expect(p.dividendRows[0].exDate.getTime()).toBe(p.dividendRows[0].paymentDate.getTime());
+    expect(p.summary.couponCount).toBe(1);
+  });
+
+  it('accepts a dividend on an instrument the same file creates', () => {
+    const p = plan(
+      '2026-10-01;1000;acquisto;;;IE0000000002;10;;;Nuovo ETF;etf;NEW.MI;100\n' +
+        '2026-10-10;5;dividendo;;;IE0000000002;10;;;;;;'
+    );
+    expect(p.errors).toEqual([]);
+    expect(p.instrumentsToCreate).toHaveLength(1);
+    expect(p.dividendRows[0]).toMatchObject({ isin: 'IE0000000002', assetId: undefined });
+  });
+
+  it.each([
+    ['no ISIN', '2026-10-15;100;dividendo;;;;200;;;;;;', /senza ISIN/],
+    ['a future payment', '2026-10-26;100;dividendo;;;IE0000000001;200;;;;;;', /data futura/],
+    ['an ex-date after the payment', '2026-10-15;100;dividendo;;;IE0000000001;200;;2026-10-16;;;;', /stacco non valida/],
+    ['a zero quantity', '2026-10-15;100;dividendo;;;IE0000000001;0;;;;;;', /Quantità non valida/],
+    ['a withholding above the gross', '2026-10-15;100;dividendo;;;IE0000000001;200;101;;;;;', /Ritenuta non valida/],
+    ['an unknown ISIN', '2026-10-15;100;dividendo;;;US0000000003;200;;;;;;', /non è in Patrimonio/],
+    ['an instrument outside the ledger', '2026-10-15;100;dividendo;;;IT0000000009;200;;;;;;', /non paga dividendi/],
+  ])('refuses %s', (_label, body, reason) => {
+    const p = plan(body);
+    expect(p.dividendRows).toHaveLength(0);
+    expect(p.errors[0].reason).toMatch(reason);
+  });
+
+  it('refuses a payment already in the registry, by payment day or by ex-date day', () => {
+    const existing = [{ assetId: 'a-etf', exDate: new Date(2026, 9, 1, 12), paymentDate: new Date(2026, 9, 15, 12) }];
+    expect(plan('2026-10-15;100;dividendo;;;IE0000000001;200;;2026-09-30;;;;', existing).errors[0].reason).toMatch(/già registrato/);
+    expect(plan('2026-10-14;100;dividendo;;;IE0000000001;200;;2026-10-01;;;;', existing).errors[0].reason).toMatch(/già registrato/);
+    expect(plan('2026-10-20;100;dividendo;;;IE0000000001;200;;;;;;', existing).dividendRows).toHaveLength(1);
+  });
+});

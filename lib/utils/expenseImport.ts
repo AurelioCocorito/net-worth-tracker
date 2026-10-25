@@ -36,11 +36,17 @@
  *   (+ optional «classe», «aliquota», «valuta»). They are written through the trade ledger's
  *   route, which replays the instrument; a correction sets quantity and average cost at once —
  *   the way to load today's portfolio. «categoria» is ignored on them.
+ * - Dividend rows (2026-10-25): `tipo` = `dividendo`/`dividend` or `cedola`/`coupon`, matched on
+ *   «isin», «data» = the payment date (+ optional «data_stacco»), «quantita», «importo» = the
+ *   GROSS amount, «tasse» = the withholding. Written through the dividend route, which also writes
+ *   the income row of Tracciamento; a payment already in the registry (same instrument, same
+ *   payment or ex day — e.g. downloaded from Borsa Italiana) is refused, never counted twice.
  */
 
 import Papa from 'papaparse';
 import { roundToCents } from '@/lib/utils/cents';
 import { settlesLater } from '@/lib/utils/cashSettlement';
+import { getItalyDateIso } from '@/lib/utils/dateHelpers';
 import { Expense, ExpenseCategory, EXPENSE_TYPE_LABELS } from '@/types/expenses';
 import type { AssetClass, AssetType } from '@/types/assets';
 import {
@@ -57,6 +63,9 @@ import {
   ImportableExpenseType,
   ImportInstrument,
   ImportTradeType,
+  ImportDividendType,
+  ImportExistingDividend,
+  PlannedDividendRow,
   InstrumentToCreate,
   PlannedTradeRow,
 } from '@/types/expenseImport';
@@ -122,7 +131,24 @@ const HEADER_ALIASES: Record<string, keyof Omit<RawRow, 'line'>> = {
   'asset class': 'classe',
   aliquota: 'aliquota',
   'tax rate': 'aliquota',
+  data_stacco: 'dataStacco',
+  'data stacco': 'dataStacco',
+  'ex date': 'dataStacco',
+  ex_date: 'dataStacco',
 };
+
+/** `tipo` values of a dividend row → the registry's dividend type. */
+const DIVIDEND_TYPE_ALIASES: Record<string, ImportDividendType> = {
+  dividendo: 'ordinary',
+  dividend: 'ordinary',
+  cedola: 'coupon',
+  coupon: 'coupon',
+};
+
+/** Whether a `tipo` cell names a dividend or coupon row. */
+export function isDividendTypeCell(tipo: string): boolean {
+  return DIVIDEND_TYPE_ALIASES[tipo.trim().toLowerCase()] !== undefined;
+}
 
 /** `tipo` values of an investment row → the ledger's trade type. */
 const TRADE_TYPE_ALIASES: Record<string, ImportTradeType> = {
@@ -195,15 +221,17 @@ export function isTradeTypeCell(tipo: string): boolean {
 const TEMPLATE_HEADERS = [
   'data', 'importo', 'tipo', 'categoria', 'sottocategoria', 'note', 'valuta', 'conto', 'conto_destinazione',
   'isin', 'quantita', 'prezzo', 'commissioni', 'tasse', 'titolo', 'strumento', 'simbolo', 'classe', 'aliquota',
+  'data_stacco',
 ] as const;
 const TEMPLATE_EXAMPLE_ROWS: string[][] = [
-  ['2024-01-15', '1200,00', 'fixed', 'Casa', 'Affitto', 'Canone gennaio', 'EUR', '', '', '', '', '', '', '', '', '', '', '', ''],
-  ['2024-01-27', '2500,00', 'income', 'Stipendio', '', 'Busta paga', 'EUR', '', '', '', '', '', '', '', '', '', '', '', ''],
-  ['2024-02-03', '54,90', 'variable', 'Spesa', 'Supermercato', '', 'EUR', '', '', '', '', '', '', '', '', '', '', '', ''],
-  ['2024-02-05', '500,00', 'transfer', '', '', 'Bonifico per investimento', 'EUR', 'Conto corrente', 'Conto deposito', '', '', '', '', '', '', '', '', '', ''],
-  ['2024-02-06', '', 'acquisto', '', '', '', 'EUR', 'Conto corrente', '', 'IE00EXAMPLE1', '10', '50,00', '2,95', '', 'Esempio World ETF', 'etf', 'EXMP.MI', '', ''],
-  ['2024-03-01', '', 'vendita', '', '', '', 'EUR', 'Conto corrente', '', 'IE00EXAMPLE1', '4', '55,00', '2,95', '5,20', '', '', '', '', ''],
-  ['2024-03-31', '', 'correzione', '', '', 'Allineamento al broker', 'EUR', '', '', 'IE00EXAMPLE1', '6', '50,30', '', '', '', '', '', '', ''],
+  ['2024-01-15', '1200,00', 'fixed', 'Casa', 'Affitto', 'Canone gennaio', 'EUR', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-01-27', '2500,00', 'income', 'Stipendio', '', 'Busta paga', 'EUR', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-02-03', '54,90', 'variable', 'Spesa', 'Supermercato', '', 'EUR', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-02-05', '500,00', 'transfer', '', '', 'Bonifico per investimento', 'EUR', 'Conto corrente', 'Conto deposito', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-02-06', '', 'acquisto', '', '', '', 'EUR', 'Conto corrente', '', 'IE00EXAMPLE1', '10', '50,00', '2,95', '', 'Esempio World ETF', 'etf', 'EXMP.MI', '', '', ''],
+  ['2024-03-01', '', 'vendita', '', '', '', 'EUR', 'Conto corrente', '', 'IE00EXAMPLE1', '4', '55,00', '2,95', '5,20', '', '', '', '', '', ''],
+  ['2024-03-31', '', 'correzione', '', '', 'Allineamento al broker', 'EUR', '', '', 'IE00EXAMPLE1', '6', '50,30', '', '', '', '', '', '', '', ''],
+  ['2024-04-15', '12,00', 'dividendo', '', '', '', 'EUR', '', '', 'IE00EXAMPLE1', '6', '', '', '3,12', '', '', '', '', '', '2024-04-02'],
 ];
 
 /** Build the downloadable CSV template as a string (with UTF-8 BOM + `;` delimiter). */
@@ -347,6 +375,7 @@ export function parseImportCsv(raw: string): RawRow[] {
       simbolo: get(row, 'simbolo'),
       classe: get(row, 'classe'),
       aliquota: get(row, 'aliquota'),
+      dataStacco: get(row, 'dataStacco'),
     });
   }
   return rows;
@@ -382,7 +411,8 @@ export function categoryMatchKey(name: string, type: string): string {
  * without the column at all; on a transfer it is the origin.
  * An account of kind `pensionFund` is accepted only as a transfer's destination; `now` decides
  * which contribution dates are in the future (refused: the contribution moves the values at once).
- * `instruments` are the user's assets the investment rows match by ISIN (see planTradeRows).
+ * `instruments` are the user's assets the investment rows match by ISIN (see planTradeRows);
+ * `existingDividends` the registry the dividend rows are checked against (see planDividendRows).
  */
 export function buildImportPlan(
   rows: RawRow[],
@@ -390,7 +420,8 @@ export function buildImportPlan(
   cashAccounts: ImportCashAccount[] = [],
   defaultAccountId?: string,
   now: Date = new Date(),
-  instruments: ImportInstrument[] = []
+  instruments: ImportInstrument[] = [],
+  existingDividends: ImportExistingDividend[] = []
 ): ImportPlan {
   const accountsByName = new Map<string, ImportCashAccount[]>();
   for (const a of cashAccounts) {
@@ -442,9 +473,17 @@ export function buildImportPlan(
     { resolveAccount, defaultAccountId, pensionFundIds, now }
   );
   errors.push(...trades.errors);
+  const dividends = planDividendRows(
+    rows.filter((r) => isDividendTypeCell(r.tipo)),
+    instruments,
+    new Set(trades.instrumentsToCreate.map((i) => i.isin)),
+    existingDividends,
+    now
+  );
+  errors.push(...dividends.errors);
 
   for (const row of rows) {
-    if (isTradeTypeCell(row.tipo)) continue;
+    if (isTradeTypeCell(row.tipo) || isDividendTypeCell(row.tipo)) continue;
     const rawType = norm(row.tipo);
     const isTransfer = rawType === 'transfer' || (rawType === '' && row.contoDestinazione !== '');
     if (!row.categoria && !isTransfer) {
@@ -617,11 +656,12 @@ export function buildImportPlan(
   }
 
   errors.sort((a, b) => a.line - b.line);
-  const summary = buildSummary(validRows, trades.tradeRows, errors, categoriesToCreate.length, cashAccounts);
+  const summary = buildSummary(validRows, trades.tradeRows, dividends.dividendRows, errors, categoriesToCreate.length, cashAccounts);
   return {
     validRows,
     tradeRows: trades.tradeRows,
     instrumentsToCreate: trades.instrumentsToCreate,
+    dividendRows: dividends.dividendRows,
     errors,
     categoriesToCreate,
     subCategoriesToCreate,
@@ -821,6 +861,117 @@ export function planTradeRows(
   };
 }
 
+/**
+ * Validate the dividend/coupon rows. The instrument is matched by ISIN among the ones held (any
+ * type the dividend form offers: what is not a ledger instrument is refused) or created by the
+ * same file's trade rows (`isinsBeingCreated`). «importo» is the GROSS amount, «tasse» the
+ * withholding (0 when empty, never above the gross); the per-unit amount is gross ÷ quantity.
+ * A future payment is refused (an announced dividend is the scrape's or the form's, not a
+ * statement's). A payment already in the registry — same instrument and the same Italian day of
+ * payment or of ex-date — is refused with the reason: the daily Borsa Italiana scrape may have
+ * written it already, and the registry must never count a payment twice. «conto» is not read:
+ * a payment credits the instrument's own account (Patrimonio) or the default of Impostazioni ›
+ * Dividendi, and only when it is due today or later — a past payment moves no balance.
+ */
+export function planDividendRows(
+  rows: RawRow[],
+  instruments: ImportInstrument[],
+  isinsBeingCreated: Set<string>,
+  existingDividends: ImportExistingDividend[],
+  now: Date
+): { dividendRows: PlannedDividendRow[]; errors: RowError[] } {
+  const errors: RowError[] = [];
+  const dividendRows: PlannedDividendRow[] = [];
+  const byIsin = new Map<string, ImportInstrument[]>();
+  for (const i of instruments) {
+    if (!i.isin) continue;
+    const key = i.isin.trim().toUpperCase();
+    byIsin.set(key, [...(byIsin.get(key) ?? []), i]);
+  }
+  const dayKey = (d: Date) => getItalyDateIso(d);
+  const paidDays = new Set(existingDividends.map((d) => `${d.assetId}::${dayKey(d.paymentDate)}`));
+  const exDays = new Set(existingDividends.map((d) => `${d.assetId}::${dayKey(d.exDate)}`));
+
+  for (const row of rows) {
+    const fail = (reason: string) => errors.push({ line: row.line, reason, raw: row });
+    const dividendType = DIVIDEND_TYPE_ALIASES[norm(row.tipo)];
+    const isin = (row.isin ?? '').trim().toUpperCase();
+    if (!isin) {
+      fail('Dividendo senza ISIN (colonna "isin").');
+      continue;
+    }
+    const paymentDate = parseFlexibleDate(row.data);
+    if (!paymentDate) {
+      fail(`Data non valida: "${row.data}".`);
+      continue;
+    }
+    if (settlesLater(paymentDate, now)) {
+      fail('Pagamento con data futura: registralo quando è stato incassato.');
+      continue;
+    }
+    let exDate = paymentDate;
+    if (row.dataStacco) {
+      const parsed = parseFlexibleDate(row.dataStacco);
+      if (!parsed || parsed > paymentDate) {
+        fail(`Data di stacco non valida: "${row.dataStacco}" (deve precedere o coincidere con il pagamento).`);
+        continue;
+      }
+      exDate = parsed;
+    }
+    const quantity = parseItalianNumber(row.quantita ?? '');
+    if (quantity === null || quantity <= 0) {
+      fail(`Quantità non valida: "${row.quantita ?? ''}".`);
+      continue;
+    }
+    const grossAmount = parseItalianNumber(row.importo);
+    if (grossAmount === null || grossAmount <= 0) {
+      fail(`Importo lordo non valido: "${row.importo}".`);
+      continue;
+    }
+    const taxAmount = row.tasse ? parseItalianNumber(row.tasse) : 0;
+    if (taxAmount === null || taxAmount < 0 || taxAmount > grossAmount) {
+      fail(`Ritenuta non valida: "${row.tasse}" (colonna "tasse", al massimo l'importo lordo).`);
+      continue;
+    }
+
+    const held = byIsin.get(isin) ?? [];
+    let assetId: string | undefined;
+    if (held.length > 1) {
+      fail(`ISIN ${isin} ambiguo: ${held.length} titoli in Patrimonio hanno questo ISIN.`);
+      continue;
+    }
+    if (held.length === 1) {
+      if (!held[0].ledger) {
+        fail(`ISIN ${isin} appartiene a "${held[0].name}", che non paga dividendi.`);
+        continue;
+      }
+      assetId = held[0].id;
+      if (paidDays.has(`${assetId}::${dayKey(paymentDate)}`) || exDays.has(`${assetId}::${dayKey(exDate)}`)) {
+        fail(`Pagamento di "${held[0].name}" già registrato in Dividendi per questa data: non viene contato due volte.`);
+        continue;
+      }
+    } else if (!isinsBeingCreated.has(isin)) {
+      fail(`ISIN ${isin} non è in Patrimonio: un dividendo si registra su un titolo che possiedi o hai posseduto.`);
+      continue;
+    }
+
+    dividendRows.push({
+      line: row.line,
+      paymentDate,
+      exDate,
+      dividendType,
+      isin,
+      assetId,
+      quantity,
+      grossAmount,
+      taxAmount,
+      currency: (row.valuta || 'EUR').toUpperCase(),
+      notes: row.note || undefined,
+    });
+  }
+  return { dividendRows, errors };
+}
+
 function defineInstrument(row: RawRow, isin: string, price: number): InstrumentToCreate | { error: string } {
   const name = (row.titolo ?? '').trim();
   const ticker = (row.simbolo ?? '').trim();
@@ -869,6 +1020,7 @@ export function tradeCashDelta(t: Pick<PlannedTradeRow, 'tradeType' | 'quantity'
 function buildSummary(
   validRows: PlannedExpenseRow[],
   tradeRows: PlannedTradeRow[],
+  dividendRows: PlannedDividendRow[],
   errors: RowError[],
   newCategoriesCount: number,
   cashAccounts: ImportCashAccount[]
@@ -929,8 +1081,22 @@ function buildSummary(
     byAccount.set(t.linkedCashAssetId, entry);
   }
 
+  let dividendCount = 0;
+  let couponCount = 0;
+  let totalDividendNet = 0;
+  for (const d of dividendRows) {
+    if (d.dividendType === 'coupon') couponCount++;
+    else dividendCount++;
+    totalDividendNet += d.grossAmount - d.taxAmount;
+    if (!dateFrom || d.paymentDate < dateFrom) dateFrom = d.paymentDate;
+    if (!dateTo || d.paymentDate > dateTo) dateTo = d.paymentDate;
+  }
+
   return {
-    validCount: validRows.length + tradeRows.length,
+    validCount: validRows.length + tradeRows.length + dividendRows.length,
+    dividendCount,
+    couponCount,
+    totalDividendNet: roundToCents(totalDividendNet),
     buyCount,
     sellCount,
     adjustmentCount,

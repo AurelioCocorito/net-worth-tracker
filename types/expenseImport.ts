@@ -51,6 +51,37 @@ export interface RawRow {
   classe?: string;
   /** Optional tax rate % on gains (column «aliquota»); absent = 26. */
   aliquota?: string;
+  /** Dividend/coupon rows: the ex-date (column «data_stacco»); absent = the payment date («data»). */
+  dataStacco?: string;
+}
+
+/** The two income types an import row can carry: a dividend or a coupon (types/dividend.ts). */
+export type ImportDividendType = 'ordinary' | 'coupon';
+
+/** A dividend already in the registry, as the plan checks a row against it (no double counting). */
+export interface ImportExistingDividend {
+  assetId: string;
+  exDate: Date;
+  paymentDate: Date;
+}
+
+/**
+ * A validated dividend/coupon row, written through POST /api/dividends — the route the dialog
+ * uses, which also writes the income row of Tracciamento for a payment already made.
+ */
+export interface PlannedDividendRow {
+  line: number;
+  paymentDate: Date;
+  exDate: Date;
+  dividendType: ImportDividendType;
+  isin: string;
+  /** The held instrument; undefined when it is created by the same import (resolved at commit). */
+  assetId?: string;
+  quantity: number;
+  grossAmount: number;
+  taxAmount: number;
+  currency: string;
+  notes?: string;
 }
 
 /** The three trade types an import row can carry — the ledger's own (types/assetTransactions.ts). */
@@ -197,6 +228,10 @@ export interface ImportSummary {
   buyCount: number;
   sellCount: number;
   adjustmentCount: number;
+  /** Dividend and coupon rows (included in validCount) and their net total (gross − withholding). */
+  dividendCount: number;
+  couponCount: number;
+  totalDividendNet: number;
   dateFrom?: Date;
   dateTo?: Date;
   /** Per linked account: how many rows and their signed net (income +, spending −), for the preview. */
@@ -237,6 +272,8 @@ export interface ImportPlan {
   /** Trade rows (acquisto / vendita / correzione), committed after the expense rows. */
   tradeRows: PlannedTradeRow[];
   instrumentsToCreate: InstrumentToCreate[];
+  /** Dividend and coupon rows, committed after the trades (an instrument they name may be created by them). */
+  dividendRows: PlannedDividendRow[];
   errors: RowError[];
   categoriesToCreate: CategoryToCreate[];
   subCategoriesToCreate: SubCategoryToCreate[];

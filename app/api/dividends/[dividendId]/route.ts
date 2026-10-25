@@ -58,7 +58,7 @@ export async function PUT(
       );
     }
 
-    const updatesResult = parseOr400(dividendDataSchema.partial(), body.updates);
+    const updatesResult = parseOr400(dividendDataSchema.omit({ importBatchId: true }).partial(), body.updates);
     if (!updatesResult.ok) return updatesResult.response;
     const updates = updatesResult.data as Partial<DividendFormData>;
 

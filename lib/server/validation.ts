@@ -68,6 +68,8 @@ export const dividendDataSchema = z.object({
   assetIsin: isinSchema.optional(),
   // Server-set cost basis snapshot — validated if present in the payload.
   costPerShare: z.number().finite().optional(),
+  // The CSV import's batch (2026-10-25), so «Annulla import» finds the payment.
+  importBatchId: z.string().min(1).max(100).optional(),
 });
 
 /**

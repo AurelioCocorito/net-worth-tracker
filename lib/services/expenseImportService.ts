@@ -52,7 +52,12 @@ import {
   recordPensionContribution,
   deletePensionContributionsByImportBatch,
 } from '@/lib/services/pensionContributionService';
-import { commitTradeRows, deleteTradesByImportBatch } from '@/lib/services/investmentImportService';
+import {
+  commitDividendRows,
+  commitTradeRows,
+  deleteDividendsByImportBatch,
+  deleteTradesByImportBatch,
+} from '@/lib/services/investmentImportService';
 import { ImportPlan } from '@/types/expenseImport';
 import { ExpenseCategory, ExpenseSubCategory } from '@/types/expenses';
 
@@ -215,12 +220,16 @@ export async function commitImportPlan(
   }
   if (created > 0) await invalidateDashboardOverviewSummary(userId, 'expense_created');
 
-  // The trades last: each goes through the ledger route, which invalidates its own summaries.
-  if (plan.tradeRows.length > 0) {
-    const trades = await commitTradeRows(userId, plan, importBatchId);
-    return { importBatchId, created: created + trades.created, tradeFailure: trades.failure };
+  // The trades, then the dividends (an instrument they name may be created by the trades): each
+  // goes through its own route, which invalidates its own summaries. A refusal stops both.
+  if (plan.tradeRows.length === 0 && plan.dividendRows.length === 0) return { importBatchId, created };
+  const trades = await commitTradeRows(userId, plan, importBatchId);
+  created += trades.created;
+  if (trades.failure || plan.dividendRows.length === 0) {
+    return { importBatchId, created, tradeFailure: trades.failure };
   }
-  return { importBatchId, created };
+  const dividends = await commitDividendRows(userId, plan.dividendRows, trades.assetIdByIsin, importBatchId);
+  return { importBatchId, created: created + dividends.created, tradeFailure: dividends.failure };
 }
 
 /**
@@ -232,7 +241,9 @@ export async function commitImportPlan(
 export async function deleteExpensesByImportBatch(userId: string, importBatchId: string): Promise<number> {
   // First the trades (and the instruments the batch created): a settled trade gives its account
   // back through the ledger route, before the plain rows' balances are reversed below.
-  const trades = await deleteTradesByImportBatch(userId, importBatchId);
+  // The payments first: a dividend's income row goes with it through its route.
+  const dividends = await deleteDividendsByImportBatch(userId, importBatchId);
+  const trades = dividends + (await deleteTradesByImportBatch(userId, importBatchId));
   // Then the pension contributions: deleting one also deletes its transfer entry and gives back
   // both values, so the query below no longer sees (and never reverses twice) those entries.
   const contributions = await deletePensionContributionsByImportBatch(userId, importBatchId);
