@@ -142,7 +142,7 @@ The app integrates with Yahoo Finance for real-time price updates and includes a
 
 ```bash
 # Clone the repository
-git clone https://github.com/GiuseppeDM98/net-worth-tracker.git
+git clone https://github.com/AurelioCocorito/net-worth-tracker.git
 cd net-worth-tracker
 
 # Install dependencies
@@ -483,6 +483,22 @@ See [LICENSE.md](LICENSE.md) for the full license text.
 ![Hall of Fame](doc/screenshots/hall-of-fame.png)
 *Hall of Fame: the record month named first, then the rankings — net worth, income, what a month kept, and the years*
 
-## Star History
+## About this fork
 
-[![Star History Chart](https://api.star-history.com/image?repos=GiuseppeDM98/net-worth-tracker&type=date&legend=top-left)](https://www.star-history.com/?repos=GiuseppeDM98%2Fnet-worth-tracker&type=date&legend=top-left)
+This repository is a fork of [GiuseppeDM98/net-worth-tracker](https://github.com/GiuseppeDM98/net-worth-tracker), by Giuseppe Di Maio, released under the GNU AGPL-3.0 (see [LICENSE.md](LICENSE.md)). The original project provides the whole application; this fork adapts it to one household's day-to-day use. The live instance of this fork is https://networth-2786.vercel.app.
+
+### How it was changed
+
+Since 2026-10-23 the fork has been developed by its owner together with [Claude Code](https://claude.com/claude-code), Anthropic's coding agent. The owner names a need from real use; Claude reads the code and the project guides, proposes a plan, and implements it on its own branch. Each change lands as one pull request with unit tests (Vitest) and, where a page changes, a browser test on the Firebase emulators, and is merged by the owner only after review. Personal data never enters the repository: tests use invented figures.
+
+### What changed (2026-10-23 → 2026-10-25)
+
+- **CSV import, extended** (Impostazioni › Spese): rows linked to an account, so balances move; past imports listed and undoable («Import precedenti»); transfers with a source and a destination account, including contributions to a pension fund recorded in Previdenza; trades (buy, sell, adjustment) into the Registro operazioni; dividends and coupons into Dividendi; a comma is always the decimal separator; rows already present are set aside (optional `codice` column, or same day, direction, amount and accounts); a `saldo` row aligns an account to the statement balance.
+- **Recurring transfers**, monthly or yearly (the original keeps transfers one-off by choice).
+- **Cashflow › Fatturati**: invoiced amounts by month of competence and client, kept apart from cash income, with medians per calendar month, share of the year and a seasonality chart.
+- **Patrimonio**: a green / yellow / red mark beside each instrument whose price updates automatically; Borsa Italiana prices also for foreign bonds listed on EuroMOT; instruments grouped as Core · Trading · Altro; with a single household member, a new asset is that member's.
+- **Backup**: «Scarica backup» downloads the whole account as JSON.
+- **Navigation**: a «Strumenti» group in the sidebar (Impostazioni, Backup, Import CSV).
+- **Maintenance**: Next.js 16.4.3 and Storybook 10.6.3 for security advisories; `.firebaserc` points at this fork's own Firebase project.
+
+The full list, with each change's description and tests, is in the repository's [merged pull requests](https://github.com/AurelioCocorito/net-worth-tracker/pulls?q=is%3Apr+is%3Amerged).

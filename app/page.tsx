@@ -325,7 +325,7 @@ export default function HomePage() {
           <span>
             Portfolio Tracker — open source su{' '}
             <a
-              href="https://github.com/GiuseppeDM98/net-worth-tracker"
+              href="https://github.com/AurelioCocorito/net-worth-tracker"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Portfolio Tracker su GitHub (apre in una nuova scheda)"
