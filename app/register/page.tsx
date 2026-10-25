@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { readStartPage, resolveStartPath } from '@/lib/utils/startPage';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,7 +48,8 @@ export default function RegisterPage() {
   // Same race condition fix as in login/page.tsx — see that file for the full explanation.
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/dashboard');
+      // The device's start page (Impostazioni › Aspetto): Panoramica, or Cashflow (lib/utils/startPage.ts).
+      router.push(resolveStartPath(readStartPage()));
     }
   }, [user, authLoading, router]);
 

@@ -815,6 +815,15 @@ export function describeThemeMode(mode: ThemeMode | undefined): Narrative | null
   ];
 }
 
+/** Pagina iniziale — where the app opens on this device (lib/utils/startPage.ts). */
+export function describeStartPage(page: 'panoramica' | 'cashflow' | undefined): Narrative | null {
+  if (page === undefined) return null;
+  if (page === 'cashflow') {
+    return [prose('Su questo dispositivo l\'app si apre su Cashflow: il patrimonio compare solo se apri Panoramica.')];
+  }
+  return [prose('Su questo dispositivo l\'app si apre su Panoramica, con il patrimonio netto in evidenza.')];
+}
+
 /** Tema colori — the active palette, synced on the account. */
 export function describeColorTheme(themeName: string): Narrative {
   return [prose(`${themeName} attivo, sincronizzato su tutti i dispositivi.`)];

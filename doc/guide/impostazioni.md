@@ -40,7 +40,11 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   a «Salva» from another tab would never see them (`e2e/settings.draft.spec.ts`, seen red with a `useState` planted
   inside the panel). What may stay local is ephemeral UI: a recipient being typed, a send or a sync in flight, the
   category dialogs (they live with the list, in `SpeseTab`). A slice holds the fields of the TAB THAT EDITS THEM;
-  Condivisione and Aspetto have none (they write where they act). `sliceSettings(document, fallbackTargets)` seeds
+  Condivisione and Aspetto have none (they write where they act). **Aspetto › Pagina iniziale** (2026-10-25):
+  Panoramica or Cashflow, per device in localStorage (`lib/utils/startPage.ts`, `useStartPage`) — the landing and
+  Accesso/Registrazione push a signed-in user there, and Panoramica sends a tab that ENTERED on `/dashboard` to
+  Cashflow once (`takeStartRedirect`; the entry recorded by the dashboard layout, sessionStorage), so the net worth
+  is not the first figure on screen among other people. Pinned by `e2e/settings.start-page.spec.ts`. `sliceSettings(document, fallbackTargets)` seeds
   the slices (the old `loadTargets`, defaults included), `composeSettingsDocument(slices, current)` rebuilds the
   document or names the first broken target rule WITH its place, `isSliceDirty(tab, draft, saved)` is the dot:
   `__tests__/settingsDraft.test.ts` pins `compose ∘ slice ≡ document` on a fixture carrying EVERY written field

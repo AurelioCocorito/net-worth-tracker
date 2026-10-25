@@ -29,6 +29,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { readStartPage, resolveStartPath } from '@/lib/utils/startPage';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
@@ -102,7 +103,8 @@ export default function HomePage() {
   // Redirect authenticated users straight to the dashboard.
   useEffect(() => {
     if (!loading && user) {
-      router.push('/dashboard');
+      // The device's start page (Impostazioni › Aspetto): Panoramica, or Cashflow (lib/utils/startPage.ts).
+      router.push(resolveStartPath(readStartPage()));
     }
   }, [user, loading, router]);
 
