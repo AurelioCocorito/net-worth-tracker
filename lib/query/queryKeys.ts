@@ -31,6 +31,13 @@ export const queryKeys = {
     all: (userId: string) => ['allocation-advice', userId] as const,
   },
 
+  // The date of the caller's last «Scarica backup» (users/{uid}.lastBackupAt, 2026-10-25): the
+  // reminder in Strumenti. Always the viewer's OWN uid — a backup is of the own account. Not
+  // persisted to IndexedDB: one small document, read once a session.
+  accountBackup: {
+    last: (userId: string) => ['account-backup', userId] as const,
+  },
+
   // Dividend receipts — the owner's dividend records as receipts (Rendimenti's attribution).
   dividendReceipts: {
     all: (userId: string) => ['dividend-receipts', userId] as const,

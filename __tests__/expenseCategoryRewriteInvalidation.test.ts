@@ -1,7 +1,7 @@
 /**
  * The bulk rewrites of expense rows that a category edit cascades into invalidate the Panoramica's
  * materialized summary AFTER their batch commits (2026-10-03). Since the summary stays fresh
- * for the whole Italian day, a rename, a type change, a reassign or a move that did not invalidate
+ * for the whole Italian day, a rename, a type change, a clear or a move that did not invalidate
  * left the Panoramica printing the old category names and the old month totals for hours.
  * `reassignExpensesSubCategory` is the one that does not: the payload never reads the subcategory.
  */
@@ -45,7 +45,6 @@ import {
   clearExpensesCategoryAssignment,
   moveExpensesFromSubCategory,
   moveExpensesToCategory,
-  reassignExpensesCategory,
   reassignExpensesSubCategory,
   updateExpensesCategoryName,
   updateExpensesType,
@@ -63,7 +62,6 @@ describe('category rewrites of expense rows → the overview summary', () => {
   it.each([
     ['a rename', () => updateExpensesCategoryName('cat-1', 'Casa e bollette', 'owner'), 'expense_category_renamed'],
     ['a type change', () => updateExpensesType('cat-1', 'variable', 'fixed', 'owner'), 'expense_category_type_changed'],
-    ['a reassign on delete', () => reassignExpensesCategory('cat-1', 'cat-2', 'Svago', 'owner'), 'expense_category_reassigned'],
     ['a clear on delete', () => clearExpensesCategoryAssignment('cat-1', 'owner'), 'expense_category_cleared'],
     ['a move of a category', () => moveExpensesToCategory('cat-1', 'variable', 'cat-2', 'Svago', 'income', 'owner'), 'expense_category_moved'],
     ['a move of a subcategory', () => moveExpensesFromSubCategory('cat-1', 'sub-1', 'variable', 'cat-2', 'Svago', 'fixed', 'owner'), 'expense_category_moved'],

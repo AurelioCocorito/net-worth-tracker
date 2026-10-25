@@ -206,6 +206,13 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 - **The BATCH paths refuse to cross the transfer boundary** (`crossesTransferBoundary`): `updateExpensesType`,
   `moveExpensesToCategory`, `moveExpensesFromSubCategory` throw `TransferBoundaryError` when expenses exist, since each
   row would need its own destination account.
+- **Rows leave a category through ONE rewrite** (2026-10-25): the delete with reassignment (Impostazioni › Spese,
+  `CategoryDeleteConfirmDialog`) calls `moveExpensesToCategory` like the move does, so the rows take the destination's
+  TYPE (and sign) — until then it had its own rewrite that kept the old type, and a variable expense reassigned into a
+  fixed category stayed variable in Analisi and in 50/30/20. The dialog offers no destination across the transfer
+  boundary. Every bulk category rewrite (rename, type change, clear, move, subcategory reassign) writes through
+  `updateInBatches`, 450 updates a batch, so a category with more rows than one Firestore batch accepts (500) is
+  rewritten whole. Pinned by `__tests__/expenseCategoryBulkRewrite.test.ts` and `e2e/settings.review-fixes.spec.ts`.
 - Changing the type always invalidates the category (categories are type-scoped) — `resolveEquivalentCategory` re-points
   to the same-named one under the new type.
 
@@ -307,6 +314,11 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   saldo per account per file; future day, unknown account, a fund refused; skipped when the trades stopped. «Import
   precedenti» lists an alignment through `balanceCorrectionsAsBatchRows`. Pinned by
   `e2e/settings.import-duplicates.spec.ts`.
+- **Prices to check (2026-10-25)**: the preview flags, never refuses, a trade row whose price is far from the
+  instrument's (`lib/utils/importPriceCheck.ts`): a buy or sell of the last 31 days beyond ±25%, an older trade or a
+  correction beyond a factor of 3 — a decimal slip («48.500» with a dot is read as thousands), not a market move. The
+  reference is `currentPrice` for a held instrument, the live quote (`/api/prices/quote`) for one the file creates,
+  fetched after the preview opens; no reference, no check. Pinned by `e2e/settings.review-fixes.spec.ts`.
 - **Tracciamento's account filter** closes with «Conto non specificato» (rows with no `linkedCashAssetId`) when the
   listed rows hold any.
 

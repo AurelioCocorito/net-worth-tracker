@@ -44,7 +44,6 @@ import {
   clearExpensesCategoryAssignment,
   getExpenseCountByCategoryId,
   moveExpensesToCategory,
-  reassignExpensesCategory,
   TransferBoundaryError,
 } from '@/lib/services/expenseService';
 import { describeReadFailure, type SurfaceState } from '@/lib/utils/statesNarrative';
@@ -304,10 +303,13 @@ export function SpeseTab({
         newSubCategoryName = newCategory.subCategories.find((sub) => sub.id === newSubCategoryId)?.name;
       }
 
-      const reassignedCount = await reassignExpensesCategory(
+      // The same rewrite as the move: the rows take the destination's type, not only its name.
+      const reassignedCount = await moveExpensesToCategory(
         categoryToDelete.id,
+        categoryToDelete.type,
         newCategoryId,
         newCategory.name,
+        newCategory.type,
         ownerId,
         newSubCategoryId,
         newSubCategoryName
@@ -323,7 +325,7 @@ export function SpeseTab({
       await onRetryCategories();
     }, (error) => {
       console.error('Error during reassignment and deletion:', error);
-      toast.error('Errore durante la riassegnazione delle spese');
+      toast.error(error instanceof TransferBoundaryError ? error.message : 'Errore durante la riassegnazione delle spese');
     });
   };
 

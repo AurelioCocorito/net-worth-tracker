@@ -22,7 +22,8 @@ import { useLogout } from '@/lib/hooks/useLogout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
 import { getAccountLabel, getDisplayInfo } from '@/lib/utils/userDisplayUtils';
-import { analysisNav, planningNav, assistantNavItem, toolsNav } from '@/lib/constants/navigation';
+import { analysisNav, planningNav, assistantNavItem, toolsNav, BACKUP_NAV_HREF } from '@/lib/constants/navigation';
+import { BackupDueMark } from '@/components/layout/BackupDueMark';
 import { resolveActiveNavHref } from '@/lib/utils/navUtils';
 import { SIDEBAR_AVATAR_CLASS } from '@/components/layout/shellStyles';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -66,6 +67,7 @@ function ToolsList({ itemClassName, onNavigate, tab }: ToolsListProps & { tab: s
           >
             <nav.icon className="size-5 shrink-0" />
             {nav.name}
+            {nav.href === BACKUP_NAV_HREF && <BackupDueMark />}
           </SceneLink>
         </motion.li>
       ))}
