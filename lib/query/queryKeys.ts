@@ -133,4 +133,9 @@ export const queryKeys = {
   costCenters: {
     all: (userId: string) => ['cost-centers', userId] as const,
   },
+
+  // Fatturato: the `revenueEntries` register, whole (Cashflow › Fatturati). Not persisted.
+  revenue: {
+    all: (userId: string) => ['revenue-entries', userId] as const,
+  },
 } as const;

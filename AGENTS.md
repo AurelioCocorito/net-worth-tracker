@@ -403,6 +403,12 @@ file used to carry.
 - `allocateByShare` charges the rounding residual to the LARGEST share and re-rounds — untestable on two shares (they cancel), test on three.
 - Il resto — the mobile composition (§ Composizione mobile), `unattributedIncome`, the booked pool net of the income received and the «Da dividere» row, the calendar as a separate clause, `laborIncomeCategoryIds` no longer read, the readers outside the tab (`movementsOwnerFilter.ts`), the deleted-member bucket, the dialog control, `effectiveTab`, the one-cell people row, the verdict-explains/tile-instructs split, «Attribuisci spese» — in `doc/guide/cashflow-divisione.md`.
 
+### Cashflow › Fatturati → `doc/guide/cashflow-fatturati.md`
+- What was INVOICED by month of competence, in its own register (`revenueEntries`), NEVER an expense row and never read outside the tab — the cash is already an «Entrata».
+- One document per (owner, month, client), id derived by `revenueEntryId`: the form and the CSV import are one upsert, a re-import replaces, two file rows of one pair are summed.
+- An unrecorded month is `null`, never 0; per calendar month the median (mean beside it), the share of the year on complete years only.
+- Il resto — the CSV format, the client filter, the edit that moves a row, the rule to publish — in `doc/guide/cashflow-fatturati.md`.
+
 ### Cashflow › Dividendi · Dividends and Coupons → `doc/guide/cashflow-dividendi.md`
 - RECEIVED AND ANNOUNCED ARE NEVER ONE FIGURE — counted, totalled and coloured apart on every surface; `summarizePayments` returns two halves and no sum.
 - ONE period axis (`resolvePeriodBounds`, upper bound = end of the period's own unit, NOT today), the announced money ON it; filters narrow only the list. TWO POPULATIONS, BOTH NAMED (2026-09-14): verdict and inventory read the REGISTRY (sold included); Affidabilità and Chi paga di più measure the HELD portfolio (`heldAssetIds`).

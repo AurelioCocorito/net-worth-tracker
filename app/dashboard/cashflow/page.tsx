@@ -16,6 +16,7 @@
  * - Budget: verdict + tile grid over the month's ceiling and the category budgets (BudgetTab)
  * - Cost centers: optional tab (settings.costCentersEnabled) — verdict + tile grid over the centers' whole cost
  * - Divisione: optional tab (settings.expenseSplitEnabled) — verdict + tile grid over how a household splits its spending
+ * - Fatturati: what was invoiced by month of competence, its own register (`revenueEntries`), never a cashflow total
  *
  * The root is the 1920px tile-page width (`PageContainer`): Tracciamento is a
  * 12-column bento, and a bento uses width.
@@ -31,7 +32,7 @@ import { useState, useEffect, useEffectEvent, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowRightLeft, Coins, Target, Layers, Users, Download, Plus, Settings } from 'lucide-react';
+import { ArrowRightLeft, Coins, Target, Layers, Users, Download, Plus, Settings, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
@@ -39,7 +40,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { ExpenseTrackingTab } from '@/components/cashflow/ExpenseTrackingTab';
 import { lazyComponent, usePreloadWhenIdle } from '@/components/ui/lazy-component';
 import { TileGridSkeleton } from '@/components/ui/tile-grid-skeleton';
-import { BUDGET_SKELETON_CELLS, COST_CENTERS_SKELETON_CELLS } from '@/lib/constants/cashflowTabSkeletons';
+import { BUDGET_SKELETON_CELLS, COST_CENTERS_SKELETON_CELLS, REVENUE_SKELETON_CELLS } from '@/lib/constants/cashflowTabSkeletons';
 import { DividendsTabSkeleton, SplitTabSkeleton } from '@/components/cashflow/CashflowTabSkeletons';
 import { useActiveAccount } from '@/contexts/ActiveAccountContext';
 import { Dividend } from '@/types/dividend';
@@ -66,9 +67,10 @@ const CASHFLOW_TABS_BASE: TabDef[] = [
   { value: 'tracking',  label: 'Tracciamento', icon: ArrowRightLeft },
   { value: 'dividends', label: 'Dividendi',    icon: Coins          },
   { value: 'budget',    label: 'Budget',       icon: Target         },
+  { value: 'revenue',   label: 'Fatturati',    icon: Receipt        },
 ];
 
-const VALID_CASHFLOW_TABS = ['tracking', 'dividends', 'budget', 'cost-centers', 'split'] as const;
+const VALID_CASHFLOW_TABS = ['tracking', 'dividends', 'budget', 'revenue', 'cost-centers', 'split'] as const;
 /** The cashflow floor when the settings carry none: last year (the same default Analisi uses). */
 const DEFAULT_HISTORY_START_YEAR = new Date().getFullYear() - 1;
 const EMPTY_FAMILY_MEMBERS: FamilyMember[] = [];
@@ -86,9 +88,10 @@ const DividendTrackingTab = lazyComponent(() => import('@/components/dividends/D
 const BudgetTab = lazyComponent(() => import('@/components/cashflow/BudgetTab').then((m) => m.BudgetTab));
 const ExpenseSplitTab = lazyComponent(() => import('@/components/cashflow/ExpenseSplitTab').then((m) => m.ExpenseSplitTab));
 const CostCentersTab = lazyComponent(() => import('@/components/cashflow/CostCentersTab').then((m) => m.CostCentersTab));
+const RevenueTab = lazyComponent(() => import('@/components/cashflow/RevenueTab').then((m) => m.RevenueTab));
 // Module-level arrays (usePreloadWhenIdle runs its effect on the array's identity); the optional
 // tabs are preloaded only for an account that has them on.
-const ALWAYS_SHOWN_LAZY_TABS = [DividendTrackingTab, BudgetTab];
+const ALWAYS_SHOWN_LAZY_TABS = [DividendTrackingTab, BudgetTab, RevenueTab];
 const SPLIT_LAZY_TAB = [ExpenseSplitTab];
 const COST_CENTERS_LAZY_TAB = [CostCentersTab];
 
@@ -459,6 +462,25 @@ export default function CashflowPage() {
                 userId={ownerId ?? ''}
                 active={effectiveTab === 'budget'}
               />
+            </motion.div>
+          </TabsContent>
+        )}
+        {mountedTabs.has('revenue') && (
+          <TabsContent
+            value="revenue"
+            forceMount
+            id={pageTabPanelId('cashflow-tab', 'revenue')}
+            aria-label="Fatturati"
+            // Radix names a Content after ITS trigger; these triggers are plain buttons, so the
+            // generated reference points at nothing. The name is the label above.
+            aria-labelledby={undefined}
+          >
+            <motion.div
+              initial={false}
+              animate={effectiveTab === 'revenue' ? 'visible' : 'hidden'}
+              variants={tabPanelSwitch}
+            >
+              <RevenueTab fallback={<TileGridSkeleton cells={REVENUE_SKELETON_CELLS} className="pt-1" />} />
             </motion.div>
           </TabsContent>
         )}
