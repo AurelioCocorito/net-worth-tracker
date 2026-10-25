@@ -460,7 +460,7 @@ interface FormBodyProps {
   /** The row being edited IS a fee (it names the row it was charged for): it takes no fee of its own. */
   isFeeRowEdit: boolean;
   /** Where a transfer can land: the cash accounts, then the properties whose value lives in `quantity` (a deposit on a house). */
-  transferDestinations: { accounts: Asset[]; properties: Asset[] };
+  transferDestinations: { accounts: Asset[]; properties: Asset[]; funds: Asset[] };
   /** Loans a debt row can repay (`isRepayableDebt`, plus the one the row already names). */
   loans: Asset[];
   watchedDebtAssetId: string | undefined;
@@ -785,6 +785,16 @@ function ExpenseFormBody({
                     ))}
                   </SelectGroup>
                 )}
+                {transferDestinations.funds.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>Fondo pensione</SelectLabel>
+                    {transferDestinations.funds.map((asset) => (
+                      <SelectItem key={asset.id} value={asset.id}>
+                        {asset.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
               </SelectContent>
             </Select>
             {errors.transferCashAssetId && (
@@ -794,7 +804,9 @@ function ExpenseFormBody({
             )}
           </div>
           <p id="transferCashAssetId-hint" className="text-xs text-muted-foreground">
-            {transferDestinations.properties.some((a) => a.id === watchedTransferCashAssetId)
+            {transferDestinations.funds.some((a) => a.id === watchedTransferCashAssetId)
+              ? 'Versamento registrato in Previdenza: importo, data e conti si cambiano da lì. Qui si ritoccano categoria, sottocategoria e note.'
+              : transferDestinations.properties.some((a) => a.id === watchedTransferCashAssetId)
               ? 'Il conto scende e il valore dell’immobile sale dello stesso importo alla data del trasferimento: una caparra o un acconto non è una spesa, è patrimonio che cambia forma.'
               : 'I due saldi si muovono alla data del trasferimento: subito se è oggi o passata, quel giorno se è futura.'}
           </p>
@@ -1433,12 +1445,16 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
   // Where a transfer can land: the accounts, and the properties whose value lives in `quantity`
   // at price 1 (as the form writes them) — a deposit on a house moves the account's money into
   // the property's value (2026-10-10). A property priced otherwise cannot take a euro delta.
+  // A fondo pensione is never offered (Previdenza owns that flow), but the row Previdenza wrote
+  // keeps its fund listed (2026-10-25): without it the select had no item for the saved value, and
+  // retouching such a row's subcategory risked a save without its destination.
   const transferDestinations = useMemo(
     () => ({
       accounts: cashAssets,
       properties: allAssets.filter((a) => a.type === 'realestate' && a.assetClass === 'realestate' && a.currentPrice === 1),
+      funds: allAssets.filter((a) => a.type === 'pensionFund' && a.id === expense?.transferCashAssetId),
     }),
-    [allAssets, cashAssets]
+    [allAssets, cashAssets, expense?.transferCashAssetId]
   );
   // Loans a debt row can repay. A loan already named by the row stays listed even once its debt
   // is repaid (and so does a property the migration has not reached).

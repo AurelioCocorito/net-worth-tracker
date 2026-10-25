@@ -5,6 +5,7 @@ import {
   derivePensionContributionsByYearAndNature,
   derivePensionContributionYears,
   resolveActivePensionYear,
+  findPensionTransferSubCategory,
 } from '@/lib/utils/pensionContributions';
 import type { ContributionSource, PensionContribution } from '@/types/pension';
 
@@ -204,5 +205,25 @@ describe('resolveActivePensionYear', () => {
   it('should keep a selected future tax year that the axis genuinely contains', () => {
     // A contribution booked to a future taxYear is the user's own data, not an invalid selection.
     expect(resolveActivePensionYear(2027, [2027, 2026], 2026)).toBe(2027);
+  });
+});
+
+describe('findPensionTransferSubCategory', () => {
+  const sub = (id: string, name: string) => ({ id, name });
+
+  it('should pick the subcategory whose name speaks of a pension, ignoring case and accents', () => {
+    const subs = [sub('a', 'Conto comune'), sub('b', 'Pensione integrativa'), sub('c', 'Investimenti')];
+    expect(findPensionTransferSubCategory(subs)?.id).toBe('b');
+    expect(findPensionTransferSubCategory([sub('d', 'FONDO PENSIONE')])?.id).toBe('d');
+    expect(findPensionTransferSubCategory([sub('e', 'Previdenza complementare')])?.id).toBe('e');
+  });
+
+  it('should return the first match when several qualify', () => {
+    expect(findPensionTransferSubCategory([sub('a', 'Pensione 1'), sub('b', 'Pensione 2')])?.id).toBe('a');
+  });
+
+  it('should return undefined when no subcategory names a pension', () => {
+    expect(findPensionTransferSubCategory([sub('a', 'Giroconti'), sub('b', 'Risparmio')])).toBeUndefined();
+    expect(findPensionTransferSubCategory([])).toBeUndefined();
   });
 });

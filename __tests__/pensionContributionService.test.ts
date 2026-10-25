@@ -320,6 +320,38 @@ describe('recordPensionContribution (voluntary)', () => {
     expect(createExpenseMock.mock.calls[0][2]).toBe('Giroconti');
   });
 
+  it('should put the transfer entry in the pension subcategory when the transfer category has one', async () => {
+    getCategoryByIdMock.mockResolvedValue({
+      id: 'category-transfer',
+      name: 'Trasferimenti',
+      subCategories: [
+        { id: 'sub-joint', name: 'Conto comune' },
+        { id: 'sub-pension', name: 'Pensione integrativa' },
+      ],
+    });
+
+    await recordPensionContribution(USER_ID, voluntaryInput);
+
+    const [, expenseData, categoryName, subCategoryName] = createExpenseMock.mock.calls[0];
+    expect(expenseData).toMatchObject({ categoryId: 'category-transfer', subCategoryId: 'sub-pension' });
+    expect(categoryName).toBe('Trasferimenti');
+    expect(subCategoryName).toBe('Pensione integrativa');
+  });
+
+  it('should leave the transfer entry without a subcategory when none names a pension', async () => {
+    getCategoryByIdMock.mockResolvedValue({
+      id: 'category-transfer',
+      name: 'Trasferimenti',
+      subCategories: [{ id: 'sub-joint', name: 'Conto comune' }],
+    });
+
+    await recordPensionContribution(USER_ID, voluntaryInput);
+
+    const [, expenseData, , subCategoryName] = createExpenseMock.mock.calls[0];
+    expect(expenseData).not.toHaveProperty('subCategoryId');
+    expect(subCategoryName).toBeUndefined();
+  });
+
   it('should credit the fund standalone (no transfer) when no source account is given, e.g. withheld from payroll', async () => {
     const id = await recordPensionContribution(USER_ID, {
       ...voluntaryInput,
