@@ -116,6 +116,7 @@ function buildTradeSetDocData(t: AssetTransaction): Record<string, unknown> {
     isBaseline: t.isBaseline,
     indexationCoefficient: t.indexationCoefficient,
     note: t.note,
+    importBatchId: t.importBatchId,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
   });
@@ -270,6 +271,7 @@ async function prepareCreate(
     withheldTaxEur: data.type === 'sell' ? data.withheldTaxEur : undefined,
     indexationCoefficient: data.indexationCoefficient,
     note: data.note,
+    importBatchId: data.importBatchId,
     createdAt: now,
     updatedAt: now,
   };

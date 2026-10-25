@@ -12,7 +12,9 @@
  * and moves its balance on each row's date; the preview names the accounts and the
  * net they move by, and an undo gives it back. A `transfer` row (2026-10-25) names its
  * destination in «conto_destinazione» and moves both accounts; into a fondo pensione it is
- * recorded as a voluntary contribution in Previdenza.
+ * recorded as a voluntary contribution in Previdenza. Investment rows (2026-10-25: acquisto,
+ * vendita, correzione, matched on «isin») become trades of the Registro operazioni, creating an
+ * instrument the user does not hold yet; the preview counts them and names the instruments.
  *
  * The tile's reading line states the phase (settingsNarrative.describeImport): the
  * idle promise, the preview's three counts (import/skip/create — nothing moves
@@ -50,8 +52,12 @@ import {
   type ImportBatchSummary,
 } from '@/lib/utils/expenseImport';
 import { commitImportPlan, deleteExpensesByImportBatch } from '@/lib/services/expenseImportService';
+import { getImportedTrades } from '@/lib/services/investmentImportService';
 import { getAllExpenses } from '@/lib/services/expenseService';
-import { ImportCashAccount, ImportPlan, RawRow } from '@/types/expenseImport';
+import { queryKeys } from '@/lib/query/queryKeys';
+import { ASSET_CLASS_LABELS } from '@/lib/utils/allocationUtils';
+import { isLedgerAssetType } from '@/types/assetTransactions';
+import { ImportCashAccount, ImportInstrument, ImportPlan, RawRow } from '@/types/expenseImport';
 import type { ExpenseCategory } from '@/types/expenses';
 
 /** The default-account select's value for «no account». */
@@ -71,6 +77,18 @@ const TYPE_LABELS: Record<string, string> = {
   income: 'Entrate',
   transfer: 'Trasferimenti',
 };
+
+/** «2 acquisti, 1 vendita, 19 correzioni» — the trade rows of the preview, by type. */
+function describeTradeCounts(summary: ImportPlan['summary']): string {
+  const parts = [
+    summary.buyCount > 0 ? `${summary.buyCount} ${summary.buyCount === 1 ? 'acquisto' : 'acquisti'}` : '',
+    summary.sellCount > 0 ? `${summary.sellCount} ${summary.sellCount === 1 ? 'vendita' : 'vendite'}` : '',
+    summary.adjustmentCount > 0
+      ? `${summary.adjustmentCount} ${summary.adjustmentCount === 1 ? 'correzione' : 'correzioni'}`
+      : '',
+  ].filter(Boolean);
+  return `${parts.join(', ')} di titoli`;
+}
 
 /** A flat KPI of the preview: sub-eyebrow, 18px mono figure, muted caption. */
 function PreviewKpi({ label, value, caption }: { label: string; value: string; caption?: string }) {
@@ -93,9 +111,18 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   // What the preview re-plans from when the default account changes: the parsed rows and
   // the categories / accounts read with them.
-  const [source, setSource] = useState<{ rows: RawRow[]; categories: ExpenseCategory[]; cashAccounts: ImportCashAccount[] } | null>(null);
+  const [source, setSource] = useState<{
+    rows: RawRow[];
+    categories: ExpenseCategory[];
+    cashAccounts: ImportCashAccount[];
+    instruments: ImportInstrument[];
+  } | null>(null);
   const [defaultAccountId, setDefaultAccountId] = useState<string>(NO_DEFAULT_ACCOUNT);
-  const [lastBatch, setLastBatch] = useState<{ importBatchId: string; created: number } | null>(null);
+  const [lastBatch, setLastBatch] = useState<{
+    importBatchId: string;
+    created: number;
+    tradeFailure?: { line: number; message: string };
+  } | null>(null);
   const [undoing, setUndoing] = useState(false);
   // «Import precedenti»: read on demand, never on mount (it reads every expense).
   const [pastBatches, setPastBatches] = useState<ImportBatchSummary[] | null>(null);
@@ -107,7 +134,8 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     if (!ownerId) return;
     setLoadingPast(true);
     try {
-      setPastBatches(summarizeImportBatches(await getAllExpenses(ownerId)));
+      const [expenses, trades] = await Promise.all([getAllExpenses(ownerId), getImportedTrades(ownerId)]);
+      setPastBatches(summarizeImportBatches([...expenses, ...trades]));
     } catch (err) {
       console.error('Past imports read error:', err);
       toast.error('Impossibile leggere gli import precedenti.');
@@ -127,6 +155,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
       const deleted = await deleteExpensesByImportBatch(ownerId, batch.importBatchId);
       toast.success(`Import annullato: ${deleted} transazioni rimosse.`);
       setPastBatches((list) => (list ?? []).filter((b) => b.importBatchId !== batch.importBatchId));
+      invalidateTradeCaches();
       if (onImported) onImported();
     } catch (err) {
       console.error('Undo past import error:', err);
@@ -134,6 +163,14 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     }
     setArmedBatchId(null);
     setUndoingBatchId(null);
+  };
+
+  // An import may write trades and create instruments: the same triple the trade hooks refresh.
+  const invalidateTradeCaches = () => {
+    if (!ownerId) return;
+    void queryClient.invalidateQueries({ queryKey: queryKeys.assetTransactions.all(ownerId) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.assets.all(ownerId) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(ownerId) });
   };
 
   const reset = () => {
@@ -173,12 +210,16 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
         ...assets.filter((a) => a.type === 'cash' && a.assetClass === 'cash').map((a) => ({ id: a.id, name: a.name })),
         ...assets.filter((a) => a.type === 'pensionFund').map((a) => ({ id: a.id, name: a.name, kind: 'pensionFund' as const })),
       ];
-      const built = buildImportPlan(rows, categories, cashAccounts);
-      setSource({ rows, categories, cashAccounts });
+      // The instruments the investment rows match by ISIN (2026-10-25).
+      const instruments: ImportInstrument[] = assets
+        .filter((a) => a.isin)
+        .map((a) => ({ id: a.id, name: a.name, isin: a.isin, ledger: isLedgerAssetType(a.type) }));
+      const built = buildImportPlan(rows, categories, cashAccounts, undefined, new Date(), instruments);
+      setSource({ rows, categories, cashAccounts, instruments });
       setDefaultAccountId(NO_DEFAULT_ACCOUNT);
       setPlan(built);
       setPhase('preview');
-      if (built.validRows.length === 0) {
+      if (built.summary.validCount === 0) {
         toast.warning('Nessuna riga valida trovata nel file.');
       }
     } catch (err) {
@@ -192,12 +233,19 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     setDefaultAccountId(value);
     if (!source) return;
     setPlan(
-      buildImportPlan(source.rows, source.categories, source.cashAccounts, value === NO_DEFAULT_ACCOUNT ? undefined : value)
+      buildImportPlan(
+        source.rows,
+        source.categories,
+        source.cashAccounts,
+        value === NO_DEFAULT_ACCOUNT ? undefined : value,
+        new Date(),
+        source.instruments
+      )
     );
   };
 
   const handleConfirm = async () => {
-    if (!plan || plan.validRows.length === 0 || !ownerId) return;
+    if (!plan || plan.summary.validCount === 0 || !ownerId) return;
     setPhase('committing');
     try {
       // Re-read categories right before committing (`staleTime: 0`, never the cache): the preview
@@ -206,7 +254,12 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
       const result = await commitImportPlan(ownerId, plan, categories);
       setLastBatch(result);
       setPhase('done');
-      toast.success(`Importate ${result.created} transazioni.`);
+      if (plan.tradeRows.length > 0) invalidateTradeCaches();
+      if (result.tradeFailure) {
+        toast.error(`Import fermato alla riga ${result.tradeFailure.line}: ${result.tradeFailure.message}`);
+      } else {
+        toast.success(`Importate ${result.created} transazioni.`);
+      }
       // An `if`, not `?.()`: the React Compiler refuses optional chaining inside a try.
       if (onImported) onImported();
     } catch (err) {
@@ -222,6 +275,7 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
     try {
       const deleted = await deleteExpensesByImportBatch(ownerId, lastBatch.importBatchId);
       toast.success(`Import annullato: ${deleted} transazioni rimosse.`);
+      invalidateTradeCaches();
       if (onImported) onImported();
       reset();
     } catch (err) {
@@ -280,7 +334,9 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
             Una riga per transazione; le categorie mancanti vengono create. Senza la colonna «conto» i saldi non si
             muovono; con «conto», ogni riga muove il saldo di quel conto alla sua data, come una voce inserita a mano.
             Un trasferimento ha tipo «transfer», «conto» di partenza e «conto_destinazione» di arrivo; verso un fondo
-            pensione diventa un versamento volontario in Previdenza.
+            pensione diventa un versamento volontario in Previdenza. Acquisti, vendite e correzioni di titoli hanno
+            tipo «acquisto», «vendita» o «correzione», l&apos;«isin», la «quantita» e il «prezzo»: finiscono nel
+            Registro operazioni, e un titolo che non hai ancora viene creato da «titolo», «strumento» e «simbolo».
           </div>
           <Collapsible
             className="mt-3 border-t border-border pt-3"
@@ -353,7 +409,8 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
                   : '') +
                 (plan.summary.pensionContributionCount > 0
                   ? `, di cui ${plan.summary.pensionContributionCount} ${plan.summary.pensionContributionCount === 1 ? 'versamento' : 'versamenti'} alla previdenza`
-                  : '')
+                  : '') +
+                (plan.tradeRows.length > 0 ? ` · ${describeTradeCounts(plan.summary)}` : '')
               }
             />
             <PreviewKpi
@@ -401,7 +458,24 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
                   <li key={a.assetId}>
                     • {a.name}: {a.count} {a.count === 1 ? 'voce' : 'voci'}, saldo{' '}
                     {a.net >= 0 ? '+' : '−'}
-                    {cachedFormatCurrencyEUR(Math.abs(a.net), true)} (ogni voce alla sua data)
+                    {cachedFormatCurrencyEUR(Math.abs(a.net), true)} (ogni voce alla sua data
+                    {a.tradeCount ? `, di cui ${a.tradeCount} su titoli` : ''})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {plan.instrumentsToCreate.length > 0 && (
+            <div className="mt-3.5 border-t border-border pt-3">
+              <p className={TILE_SUB_EYEBROW_CLASS}>Titoli che verranno creati in Patrimonio</p>
+              <ul className="mt-1.5 space-y-0.5 text-[13px] text-muted-foreground">
+                {plan.instrumentsToCreate.map((i) => (
+                  <li key={i.isin}>
+                    • {i.name}{' '}
+                    <span className="opacity-70">
+                      ({i.isin} · {i.ticker} · {ASSET_CLASS_LABELS[i.assetClass] ?? i.assetClass} · aliquota {i.taxRate}%)
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -464,10 +538,10 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
           <div className="mt-auto flex flex-col gap-3 border-t border-border pt-3.5 sm:flex-row">
             <Button
               onClick={handleConfirm}
-              disabled={isDemo || plan.validRows.length === 0}
+              disabled={isDemo || plan.summary.validCount === 0}
               className="w-full sm:w-auto"
             >
-              Importa {plan.validRows.length} voci
+              Importa {plan.summary.validCount} voci
             </Button>
             <Button variant="outline" onClick={reset} className="w-full sm:w-auto">
               Annulla
@@ -489,6 +563,16 @@ export default function ExpenseImportSection({ onImported }: ExpenseImportSectio
             <CheckCircle2 className="h-5 w-5 text-positive" aria-hidden="true" />
             <span className="font-medium">Importate {lastBatch.created} transazioni.</span>
           </div>
+          {lastBatch.tradeFailure && (
+            <p className="mt-2 flex gap-2 text-[13px] text-warning-foreground">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>
+                Le operazioni su titoli si sono fermate alla riga {lastBatch.tradeFailure.line}:{' '}
+                {lastBatch.tradeFailure.message} Le righe successive non sono state scritte; puoi annullare
+                l&apos;import, correggere il file e ricaricarlo.
+              </span>
+            </p>
+          )}
           <div className="mt-auto flex flex-col gap-3 border-t border-border pt-3.5 sm:flex-row">
             <Button
               variant="outline"

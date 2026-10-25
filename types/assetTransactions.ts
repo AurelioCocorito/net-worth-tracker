@@ -65,6 +65,9 @@ export interface AssetTransaction {
   // the replay never reads it.
   indexationCoefficient?: number;
   note?: string;
+  // The CSV import that wrote this trade (Impostazioni › Spese, 2026-10-25): «Annulla import»
+  // deletes every trade of the batch. Absent on a trade recorded by hand.
+  importBatchId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,6 +84,7 @@ export interface AssetTransactionFormData {
   withheldTaxEur?: number;
   indexationCoefficient?: number;
   note?: string;
+  importBatchId?: string; // set by the CSV import only (see AssetTransaction)
   // priceEur is NOT part of the form: the server resolves it, so the client
   // can never write an inconsistent FX value.
 }

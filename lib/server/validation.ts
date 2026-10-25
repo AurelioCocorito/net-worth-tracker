@@ -98,6 +98,8 @@ const assetTransactionBaseSchema = z.object({
   // BTP€i: the indexation coefficient behind pricePerUnit (metadata for the edit form; > 0).
   indexationCoefficient: z.number().finite().positive().optional(),
   note: z.string().max(500).optional(),
+  // The CSV import's batch (create only: the update schema omits it, a batch is never moved).
+  importBatchId: z.string().min(1).max(100).optional(),
 });
 
 /** Cross-field rules shared by create and update. `type`/`quantity` may be absent on an update. */
@@ -149,7 +151,7 @@ export const assetTransactionDataSchema = assetTransactionBaseSchema.superRefine
 
 /** PUT payload: every field optional, and a trade can never be moved to another asset. */
 export const assetTransactionUpdateSchema = assetTransactionBaseSchema
-  .omit({ assetId: true })
+  .omit({ assetId: true, importBatchId: true })
   .partial()
   .superRefine(refineAssetTransaction);
 

@@ -64,6 +64,7 @@ function docToAssetTransaction(id: string, data: Record<string, unknown>): Asset
     isBaseline: data.isBaseline as boolean | undefined,
     indexationCoefficient: data.indexationCoefficient as number | undefined,
     note: data.note as string | undefined,
+    importBatchId: data.importBatchId as string | undefined,
     createdAt: toDate(data.createdAt as never),
     updatedAt: toDate(data.updatedAt as never),
   };

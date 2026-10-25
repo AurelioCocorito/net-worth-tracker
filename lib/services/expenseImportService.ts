@@ -21,6 +21,10 @@
  *   recordPensionContribution as a voluntary contribution, after the batch: the service writes the
  *   Previdenza record, its own transfer entry and both values. Both carry the `importBatchId`, and
  *   the undo deletes them through deletePensionContribution BEFORE the plain rows.
+ * - Investment rows (`plan.tradeRows`, 2026-10-25) are written LAST, through
+ *   lib/services/investmentImportService.ts (the trade ledger's own route), under the same
+ *   `importBatchId`; the undo removes them FIRST. A trade the ledger refuses stops that half of the
+ *   import at its row and is returned as `tradeFailure` — what was written stays, undoable.
  * - `existingCategories` is the same array the caller already fetched via
  *   `getAllCategories` to build the plan (never `getCategoriesByType`, which
  *   needs a composite index that isn't deployed). New categories/subcategories
@@ -48,6 +52,7 @@ import {
   recordPensionContribution,
   deletePensionContributionsByImportBatch,
 } from '@/lib/services/pensionContributionService';
+import { commitTradeRows, deleteTradesByImportBatch } from '@/lib/services/investmentImportService';
 import { ImportPlan } from '@/types/expenseImport';
 import { ExpenseCategory, ExpenseSubCategory } from '@/types/expenses';
 
@@ -72,7 +77,7 @@ export async function commitImportPlan(
   userId: string,
   plan: ImportPlan,
   existingCategories: ExpenseCategory[]
-): Promise<{ importBatchId: string; created: number }> {
+): Promise<{ importBatchId: string; created: number; tradeFailure?: { line: number; message: string } }> {
   // Two lookups over the same objects, mirroring how the plan resolved: by document
   // id (rows that attached to an existing category) and by the shared (name, type)
   // key (rows whose category is created below). Same-named same-typed duplicates
@@ -208,8 +213,13 @@ export async function commitImportPlan(
     });
     created++;
   }
-  await invalidateDashboardOverviewSummary(userId, 'expense_created');
+  if (created > 0) await invalidateDashboardOverviewSummary(userId, 'expense_created');
 
+  // The trades last: each goes through the ledger route, which invalidates its own summaries.
+  if (plan.tradeRows.length > 0) {
+    const trades = await commitTradeRows(userId, plan, importBatchId);
+    return { importBatchId, created: created + trades.created, tradeFailure: trades.failure };
+  }
   return { importBatchId, created };
 }
 
@@ -220,7 +230,10 @@ export async function commitImportPlan(
  * gave nothing and gets nothing back). Returns the number of expenses deleted.
  */
 export async function deleteExpensesByImportBatch(userId: string, importBatchId: string): Promise<number> {
-  // First the pension contributions: deleting one also deletes its transfer entry and gives back
+  // First the trades (and the instruments the batch created): a settled trade gives its account
+  // back through the ledger route, before the plain rows' balances are reversed below.
+  const trades = await deleteTradesByImportBatch(userId, importBatchId);
+  // Then the pension contributions: deleting one also deletes its transfer entry and gives back
   // both values, so the query below no longer sees (and never reverses twice) those entries.
   const contributions = await deletePensionContributionsByImportBatch(userId, importBatchId);
   const q = query(
@@ -229,7 +242,7 @@ export async function deleteExpensesByImportBatch(userId: string, importBatchId:
     where('importBatchId', '==', importBatchId)
   );
   const snapshot = await getDocs(q);
-  if (snapshot.empty) return contributions;
+  if (snapshot.empty) return trades + contributions;
 
   await reverseAppliedBalances(
     snapshot.docs.map((d) => {
@@ -262,5 +275,5 @@ export async function deleteExpensesByImportBatch(userId: string, importBatchId:
   await Promise.all(batches.map((b) => b.commit()));
   await invalidateDashboardOverviewSummary(userId, 'expense_deleted');
 
-  return contributions + snapshot.size;
+  return trades + contributions + snapshot.size;
 }
