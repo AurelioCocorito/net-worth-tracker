@@ -151,7 +151,7 @@ export function InstrumentClassChip({ asset }: { asset: Pick<Asset, 'assetClass'
   );
 }
 
-/** The three marks of `AutoPriceMark`, by `AutoPriceStatus` kind (a hand-valued asset has none). */
+/** The three marks of `AutoPriceMark`, by `AutoPriceStatus` kind (a hand-valued asset and a `pending` one have none). */
 const AUTO_PRICE_MARKS = {
   ok: { Icon: CircleCheck, className: 'text-positive', label: 'Prezzo automatico attivo' },
   failing: { Icon: CircleAlert, className: 'text-warning-foreground', label: 'Prezzo automatico non trovato da qualche giorno' },
@@ -162,14 +162,14 @@ const AUTO_PRICE_MARKS = {
  * The mark beside an instrument's name (owner, 2026-10-25): a green check where the price updates
  * by itself and the last update worked; yellow where it found a price before and does not now (to
  * watch); red where it has never found one (to update by hand); nothing where the value is kept by
- * hand (the row tint already says so). The explanation is a tooltip on the desktop table; the phone
+ * hand (the row tint already says so) or no run has tried yet. The explanation is a tooltip on the desktop table; the phone
  * row, whose whole head is one button, spells it out in the opened panel instead
  * (`describeAutoPriceStatus`), so the mark there is `sr-only` text plus the icon.
  */
 export function AutoPriceMark({ asset, now, withTooltip = true }: { asset: Asset; now: Date; withTooltip?: boolean }) {
   const status = resolveAutoPriceStatus(asset, now);
   const explanation = describeAutoPriceStatus(status, now);
-  if (status.kind === 'manual' || explanation === null) return null;
+  if (status.kind === 'manual' || status.kind === 'pending' || explanation === null) return null;
   const mark = AUTO_PRICE_MARKS[status.kind];
   const icon = (
     <span data-auto-price={status.kind} className="inline-flex shrink-0 items-center">

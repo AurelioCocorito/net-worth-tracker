@@ -107,8 +107,17 @@ describe('resolveAutoPriceStatus', () => {
     expect(resolveAutoPriceStatus({ type: 'crypto', lastPriceUpdate: new Date('invalid') }, now)).toEqual({ kind: 'never', failedAt: null });
   });
 
-  it('keeps a new instrument ok before its first evening run', () => {
+  it('gives a new instrument no mark before its first run, never the check (Austria 2120)', () => {
     const today = new Date('2026-03-10T09:00:00Z');
-    expect(resolveAutoPriceStatus({ type: 'stock', createdAt: today, lastPriceUpdate: today }, now).kind).toBe('ok');
+    expect(resolveAutoPriceStatus({ type: 'stock', createdAt: today, lastPriceUpdate: today }, now)).toEqual({ kind: 'pending' });
+    expect(resolveAutoPriceStatus({ type: 'bond', createdAt: daysAgo(3), lastPriceUpdate: daysAgo(3) }, now)).toEqual({ kind: 'pending' });
+  });
+
+  it('turns a pending instrument red once a run fails, or once it is older than the stale threshold', () => {
+    const failedAt = new Date('2026-03-10T10:00:00Z');
+    const today = new Date('2026-03-10T09:00:00Z');
+    expect(resolveAutoPriceStatus({ type: 'bond', createdAt: today, lastPriceUpdate: today, priceUpdateFailedAt: failedAt }, now)).toEqual({ kind: 'never', failedAt });
+    const old = daysAgo(AUTO_PRICE_STALE_DAYS + 1);
+    expect(resolveAutoPriceStatus({ type: 'bond', createdAt: old, lastPriceUpdate: old }, now)).toEqual({ kind: 'never', failedAt: null });
   });
 });

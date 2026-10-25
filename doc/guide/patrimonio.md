@@ -22,7 +22,7 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   false` opt-out. **A new hand-valued `AssetType` goes into `MANUALLY_VALUED_TYPES` and nowhere else.** The `--chart-3`
   row tint means "no market quote", NOT "illiquid".
 - **The mark beside an instrument's name** (owner, 2026-10-25): `resolveAutoPriceStatus` (`lib/utils/assetPricing.ts`)
-  says `ok` (green check), `failing` (yellow: it found a price before and does not now — to watch), `never` (red: it has
+  says `ok` (green check), `pending` (no mark: no run has tried yet), `failing` (yellow: it found a price before and does not now — to watch), `never` (red: it has
   never found one, typically a ticker Yahoo does not know — to update by hand) or `manual` (no mark: the row tint already
   says it); `describeAutoPriceStatus` (`lib/utils/patrimonioNarrative.ts`) spells it — a tooltip in the desktop table
   (`AutoPriceMark`), a line atop the opened phone row (no tooltip inside the row's button). «Riuscito» reads
@@ -30,7 +30,9 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   (`FieldValue.delete()`) by its next success, against `lastPriceUpdate`; a last success older than
   `AUTO_PRICE_STALE_DAYS` (4: the cron runs every evening, so three runs missed) is not `ok` either. «Never» is a
   `lastPriceUpdate` still equal to `createdAt` (`createAsset` stamps both with one instant; a hand edit of the price
-  does not touch it), so a new instrument shows the check until the first evening run says otherwise.
+  does not touch it), so the check needs a success LATER than `createdAt`: a new instrument is `pending`, without a
+  mark, until the first run (the evening cron, «Aggiorna prezzi», a snapshot) — it showed the check before
+  (Austria 2120, 2026-10-25).
 - **`suggestIsLiquid` is the single liquidity-default predicate**, keyed on the TYPE so a REIT **ETF** stays liquid; three
   call sites in lock-step (create-mode effect, edit-mode legacy fallback, liquid/illiquid net-worth read-time fallback).
 - `buildAssetFormDataFromValues` clamps `autoUpdatePrice` to `false` when `hasMarketPrice()` is false. **That clamp is

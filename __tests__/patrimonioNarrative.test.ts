@@ -308,6 +308,10 @@ describe('describeAutoPriceStatus — the tooltip of the mark beside an instrume
     expect(describeAutoPriceStatus({ kind: 'manual' }, now)).toBeNull();
   });
 
+  it('says nothing for an instrument no run has tried yet', () => {
+    expect(describeAutoPriceStatus({ kind: 'pending' }, now)).toBeNull();
+  });
+
   it('says when an automatic price last updated', () => {
     expect(describeAutoPriceStatus({ kind: 'ok', updatedAt: new Date(Date.UTC(2026, 7, 21, 16, 0)) }, now)).toBe(
       "Prezzo aggiornato in automatico, l'ultima volta ieri alle 18:00. Non serve aggiornarlo a mano.",
