@@ -94,7 +94,7 @@ export function AccountBackupSection({ disabled }: AccountBackupSectionProps) {
       </div>
 
       <div className="mt-auto border-t border-border pt-3 text-[11px] leading-[1.45] text-muted-foreground">
-        Contiene strumenti, operazioni, snapshot mensili, movimenti, categorie, dividendi, previdenza, budget,
+        Contiene strumenti, operazioni, snapshot mensili, movimenti, fatturati, categorie, dividendi, previdenza, budget,
         obiettivi, Allocazione, Consulente, note e impostazioni del TUO account. Restano fuori le conversazioni
         con l&apos;Assistente e i dati che l&apos;app ricalcola da sola (prezzi, cambi, rendimenti). Il file è in
         chiaro: conservalo in un posto sicuro.
