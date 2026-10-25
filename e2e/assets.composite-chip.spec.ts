@@ -123,7 +123,10 @@ test('a composite instrument keeps one row and splits its class chip — desktop
     // composite in `renderGroupHeader` (StrumentiTile.tsx): the header's name then starts with
     // «Azioni 60%, …», the locator still finds it, and the count reads 1.
     await switchOn(strumenti.getByRole('button', { name: 'Raggruppa per classe', exact: true }));
-    const groupHeader = strumenti.locator('tbody').getByRole('button', { name: /^Azioni\b.*strument/ });
+    // Since 2026-10-25 the class groups sit inside the blocks Core · Trading · Altro: an «Azioni»
+    // group opens both the core (the ETF, Pellicano's) and the trading block (single stocks), and
+    // the core's comes first.
+    const groupHeader = strumenti.locator('tbody').getByRole('button', { name: /^Azioni\b.*strument/ }).first();
     await expect(groupHeader).toBeVisible();
     await expect(groupHeader).toHaveAttribute('aria-expanded', 'true');
     // The composite rows under it still carry the split chip: the header's absence is a choice, not
