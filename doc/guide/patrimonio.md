@@ -32,7 +32,8 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   `lastPriceUpdate` still equal to `createdAt` (`createAsset` stamps both with one instant; a hand edit of the price
   does not touch it), so the check needs a success LATER than `createdAt`: a new instrument is `pending`, without a
   mark, until the first run (the evening cron, «Aggiorna prezzi», a snapshot) — it showed the check before
-  (Austria 2120, 2026-10-25).
+  (Austria 2120, 2026-10-25). The bond scrape of Borsa Italiana takes any ISIN (`validateBondIsin`), not only «IT»:
+  the `mot/btp/scheda/{ISIN}-MOTX` page also serves the EuroMOT foreign issues.
 - **`suggestIsLiquid` is the single liquidity-default predicate**, keyed on the TYPE so a REIT **ETF** stays liquid; three
   call sites in lock-step (create-mode effect, edit-mode legacy fallback, liquid/illiquid net-worth read-time fallback).
 - `buildAssetFormDataFromValues` clamps `autoUpdatePrice` to `false` when `hasMarketPrice()` is false. **That clamp is
