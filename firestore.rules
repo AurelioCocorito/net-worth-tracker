@@ -265,6 +265,15 @@ service cloud.firestore {
       allow delete: if canAccess(resource.data.userId);
     }
 
+    // Collezione revenueEntries - fatturato per mese di competenza e datore (Cashflow › Fatturati)
+    match /revenueEntries/{entryId} {
+      allow read: if canAccess(resource.data.userId);
+      allow create: if canAccess(request.resource.data.userId);
+      allow update: if canAccess(resource.data.userId) &&
+                       request.resource.data.userId == resource.data.userId;
+      allow delete: if canAccess(resource.data.userId);
+    }
+
     // Collezione assetTransactions - registro operazioni asset (trade ledger)
     // Leggibile dal proprietario o da un membro delegato; scrittura SOLO via Admin API
     // (ogni mutazione riscrive atomicamente i campi derivati dell'asset).

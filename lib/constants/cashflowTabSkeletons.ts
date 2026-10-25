@@ -42,3 +42,10 @@ export const COST_CENTERS_SKELETON_CELLS: TileSkeletonCell[] = [
   { span: 7, lines: 6 },
   { span: 7, lines: 3 },
 ];
+
+// Fatturati: «Mese per mese» across the page, then Stagionalità and Per datore side by side.
+export const REVENUE_SKELETON_CELLS: TileSkeletonCell[] = [
+  { span: 12, lines: 6 },
+  { span: 7, lines: 5 },
+  { span: 5, lines: 5 },
+];
