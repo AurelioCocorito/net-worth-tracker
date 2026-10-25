@@ -2,9 +2,11 @@
 
 /**
  * Impostazioni › Condivisione — the sharing section (its own tile, its own documents) beside how
- * it works. No slice: a grant is written where it is granted, never through «Salva».
+ * it works, then the backup of the same OWN account (2026-10-25). No slice: a grant is written
+ * where it is granted, never through «Salva»; the backup only reads.
  */
 
+import { AccountBackupSection } from '@/components/settings/AccountBackupSection';
 import { AccountSharingSection } from '@/components/settings/AccountSharingSection';
 import { Tile, TILE_CELL_CLASS } from '@/components/ui/tile';
 import { cn } from '@/lib/utils';
@@ -43,6 +45,9 @@ export function CondivisioneTab({ isDemo }: CondivisioneTabProps) {
             ))}
           </div>
         </Tile>
+      </div>
+      <div className={cn(TILE_CELL_CLASS, 'desktop:col-span-7')}>
+        <AccountBackupSection disabled={isDemo} />
       </div>
     </SettingsTabPanel>
   );
