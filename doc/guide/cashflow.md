@@ -252,6 +252,23 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   transfer entry, both values at once; tax year = the date's year). Both carry the `importBatchId`; the undo deletes
   them first through `deletePensionContributionsByImportBatch` → `deletePensionContribution`. A fund is never an origin
   nor a spending/income account, and a future-dated contribution is refused (it would move the values today).
+- **Investment rows (2026-10-25)**: `tipo` = `acquisto`/`buy`, `vendita`/`sell` or `correzione`/`adjustment` writes a
+  TRADE of the Registro operazioni, never an expense (`planTradeRows` in the pure layer,
+  `lib/services/investmentImportService.ts` for the writes). Matched on «isin» (case-insensitive) against the ledger
+  instruments; «quantita», «prezzo» — or «importo», from which the price is derived (a buy paid units × price + fees, a
+  sale received it − fees − tax) — «commissioni», and «tasse» on a sale only (`withheldTaxEur`; empty = the app's
+  estimate). A correction is the ledger's absolute reset (new total quantity, 0 allowed, and new average cost): the way
+  to load a broker's portfolio as of today. An unknown ISIN is CREATED empty, as AssetDialog's ledger create, from
+  «titolo», «strumento» (azione/etf/etc/obbligazione/crypto), «simbolo» (the price ticker) and the optional «classe»
+  (default = the type's class), «aliquota» (default 26) and «valuta»; the instrument carries the `importBatchId`. Every
+  trade goes through POST /api/asset-transactions, oldest first and within a day buy < sell < correction
+  (`orderTradeRowsForCommit`): the route replays each write, so a sale beyond the units held STOPS the trade half at that
+  row (`tradeFailure`, shown in the «done» phase) and what was written stays undoable. A settled trade moves its account
+  at commit, exactly like a past-dated expense row: the balance is one figure, so a past movement lands in it at once,
+  and only the frozen monthly snapshots never see it (doc/guide/registro-operazioni.md). A trade is never future-dated,
+  so no trade is ever pending. The undo deletes the batch's trades newest first through the route (each gives its settlement
+  back), then the instruments it created that hold no other trade, BEFORE the expense rows. A file carrying «isin» needs
+  neither «importo» nor «categoria» as columns. Pinned by `e2e/settings.import-trades.spec.ts`.
 - **Tracciamento's account filter** closes with «Conto non specificato» (rows with no `linkedCashAssetId`) when the
   listed rows hold any.
 

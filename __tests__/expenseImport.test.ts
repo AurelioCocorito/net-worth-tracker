@@ -454,3 +454,121 @@ describe('buildImportPlan — transfers into a fondo pensione', () => {
     ]);
   });
 });
+
+describe('investment rows (acquisto / vendita / correzione)', () => {
+  const NOW = new Date(2026, 9, 25, 12);
+  const header = 'data;importo;tipo;categoria;note;conto;isin;quantita;prezzo;commissioni;tasse;titolo;strumento;simbolo;classe;aliquota\n';
+  const plan = (body: string, instruments: Parameters<typeof buildImportPlan>[5] = [], defaultAccountId?: string) =>
+    buildImportPlan(
+      parseImportCsv(header + body),
+      [],
+      [{ id: 'acc-1', name: 'Broker' }, { id: 'fund-1', name: 'Fondo', kind: 'pensionFund' }],
+      defaultAccountId,
+      NOW,
+      instruments
+    );
+  const held = [
+    { id: 'a-etf', name: 'World ETF', isin: 'IE0000000001', ledger: true },
+    { id: 'a-acc', name: 'Conto', isin: 'IT0000000009', ledger: false },
+  ];
+
+  it('parses a file of investment rows only (no «importo» nor «categoria» column)', () => {
+    const rows = parseImportCsv('data;tipo;isin;quantita;prezzo\n2026-10-01;correzione;IE0000000001;100;50');
+    expect(rows[0]).toMatchObject({ tipo: 'correzione', isin: 'IE0000000001', quantita: '100', prezzo: '50' });
+  });
+
+  it('attaches a buy to the held instrument by ISIN, case-insensitive, with the account', () => {
+    const p = plan('2026-10-01;;acquisto;;;Broker;ie0000000001;10;50,00;2,50;;;;;;', held);
+    expect(p.errors).toEqual([]);
+    expect(p.validRows).toHaveLength(0);
+    expect(p.tradeRows).toEqual([
+      expect.objectContaining({ tradeType: 'buy', isin: 'IE0000000001', assetId: 'a-etf', quantity: 10, pricePerUnit: 50, fees: 2.5, linkedCashAssetId: 'acc-1' }),
+    ]);
+    expect(p.summary).toMatchObject({ validCount: 1, buyCount: 1 });
+    expect(p.summary.accounts).toEqual([
+      expect.objectContaining({ assetId: 'acc-1', net: -502.5, tradeCount: 1 }),
+    ]);
+  });
+
+  it('derives the price from «importo»: a buy paid price + fees, a sale received price − fees − tax', () => {
+    const p = plan(
+      '2026-10-01;1002,00;acquisto;;;;IE0000000001;20;;2,00;;;;;;\n' +
+        '2026-10-02;580,00;vendita;;;;IE0000000001;10;;2,00;18,00;;;;;',
+      held
+    );
+    expect(p.tradeRows.map((t) => t.pricePerUnit)).toEqual([50, 60]);
+    expect(p.tradeRows[1].withheldTaxEur).toBe(18);
+  });
+
+  it('creates an unknown ISIN from titolo, strumento and simbolo, with class and tax defaults', () => {
+    const p = plan(
+      '2026-10-01;;acquisto;;;;US0000000002;5;100;;;Esempio Corp;azione;EXC.MI;;\n' +
+        '2026-10-03;;acquisto;;;;US0000000002;5;110;;;;;;;'
+    );
+    expect(p.errors).toEqual([]);
+    expect(p.instrumentsToCreate).toEqual([
+      { isin: 'US0000000002', name: 'Esempio Corp', ticker: 'EXC.MI', type: 'stock', assetClass: 'equity', currency: 'EUR', taxRate: 26, currentPrice: 100 },
+    ]);
+    expect(p.tradeRows.every((t) => t.assetId === undefined)).toBe(true);
+  });
+
+  it('reads «classe» and «aliquota» for a created instrument', () => {
+    const p = plan('2026-10-01;;correzione;;;;AT0000000003;1000;0,98;;;Esempio Bond;obbligazione;EXB.MOT;obbligazioni;12,5');
+    expect(p.instrumentsToCreate[0]).toMatchObject({ type: 'bond', assetClass: 'bonds', taxRate: 12.5 });
+  });
+
+  it('refuses every row of an unknown ISIN with no definition', () => {
+    const p = plan('2026-10-01;;acquisto;;;;US0000000004;5;100;;;;;;;\n2026-10-02;;vendita;;;;US0000000004;5;100;;;;;;;');
+    expect(p.tradeRows).toEqual([]);
+    expect(p.errors.map((e) => e.line)).toEqual([1, 2]);
+    expect(p.errors[0].reason).toMatch(/titolo.*strumento.*simbolo/);
+  });
+
+  it('a correction is an absolute reset: 0 allowed, no fees, no account, no default account', () => {
+    const p = plan(
+      '2026-10-01;;correzione;;;;IE0000000001;0;50;;;;;;;\n' +
+        '2026-10-01;;correzione;;;;IE0000000001;10;50;1,00;;;;;;\n' +
+        '2026-10-01;;correzione;;;Broker;IE0000000001;10;50;;;;;;;',
+      held,
+      'acc-1'
+    );
+    expect(p.tradeRows).toEqual([expect.objectContaining({ line: 1, quantity: 0, linkedCashAssetId: undefined })]);
+    expect(p.errors.map((e) => e.reason)).toEqual([
+      expect.stringMatching(/commissioni/),
+      expect.stringMatching(/non movimenta/),
+    ]);
+  });
+
+  it('refuses a non-ledger ISIN, a tax outside a sale, a future date, a missing price and a pension fund account', () => {
+    const p = plan(
+      '2026-10-01;;acquisto;;;;IT0000000009;1;10;;;;;;;\n' +
+        '2026-10-01;;acquisto;;;;IE0000000001;1;10;;5;;;;;\n' +
+        '2026-11-01;;acquisto;;;;IE0000000001;1;10;;;;;;;\n' +
+        '2026-10-01;;acquisto;;;;IE0000000001;1;;;;;;;;\n' +
+        '2026-10-01;;acquisto;;;Fondo;IE0000000001;1;10;;;;;;;',
+      held
+    );
+    expect(p.tradeRows).toEqual([]);
+    expect(p.errors.map((e) => e.reason)).toEqual([
+      expect.stringMatching(/registro operazioni/),
+      expect.stringMatching(/solo su una vendita/),
+      expect.stringMatching(/data futura/),
+      expect.stringMatching(/Prezzo mancante/),
+      expect.stringMatching(/fondo pensione/),
+    ]);
+  });
+
+  it('keeps expense rows and trade rows side by side in one file', () => {
+    const p = buildImportPlan(
+      parseImportCsv(header + '2026-10-01;50,00;variable;Spesa;;;;;;;;;;;;\n2026-10-01;;acquisto;;;;IE0000000001;1;10;;;;;;;'),
+      [],
+      [],
+      undefined,
+      NOW,
+      held
+    );
+    expect(p.validRows).toHaveLength(1);
+    expect(p.tradeRows).toHaveLength(1);
+    expect(p.summary.validCount).toBe(2);
+  });
+});

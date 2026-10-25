@@ -263,6 +263,9 @@ export interface Asset {
   // previous, discontinuous holding of the same instrument. Absent for assets held since before
   // this field existed; the snapshot-derived fallback (deriveHoldingStartDates) then applies.
   holdingStartDate?: Date;
+  // The CSV import that created this instrument (2026-10-25): «Annulla import» deletes it once its
+  // trades are gone, if no trade outside the batch was recorded on it. Absent = created by hand.
+  importBatchId?: string;
   lastPriceUpdate: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -301,6 +304,7 @@ export interface AssetFormData {
   dividendCashAssetId?: string;
   bondDetails?: BondDetails; // Optional bond-specific details for coupon scheduling
   pensionFundDetails?: PensionFundDetails; // Optional fondo pensione details (type 'pensionFund'); see types/pension.ts
+  importBatchId?: string; // set by the CSV import only (see Asset)
 }
 
 interface SubCategoryConfig {

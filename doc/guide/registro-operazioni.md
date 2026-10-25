@@ -80,6 +80,11 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   field) the clause under the field is a warning (`describeWithheldTaxField`): typing a tax lowers the account TODAY,
   and a balance already aligned to the bank would lose it twice. Pinned by `e2e/assets.sale-tax.spec.ts`.
 
+- **The CSV import writes trades too** (2026-10-25, Impostazioni › Spese): rows `acquisto`/`vendita`/`correzione` go
+  through POST /api/asset-transactions one by one with an `importBatchId` (create-only field: the update schema omits
+  it), and «Annulla import» deletes them through the DELETE route. The rules are in doc/guide/cashflow.md § Expense CSV
+  Import.
+
 ### Service, API, migration (`lib/server/assetTransactionUseCase.ts`)
 - **Writes are Admin-API-only**: a trade atomically rewrites the asset's derived fields from a full replay, and only the
   Admin SDK can `tx.get(query)` in a transaction. Reads stay client-SDK; auth = `assertCanAccessAccount`.

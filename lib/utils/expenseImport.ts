@@ -29,12 +29,20 @@
  * - Optional «conto» column (2026-10-24): the row is linked to that cash account and
  *   moves its balance on its own date, like a row saved from the form. Without it the
  *   row is linked to nothing and no balance moves (the historical behaviour).
+ * - Investment rows (2026-10-25): `tipo` = `acquisto`/`buy`, `vendita`/`sell` or
+ *   `correzione`/`adjustment`, matched on «isin» against the instruments the user holds, with
+ *   «quantita», «prezzo» (or «importo», from which the price is derived), «commissioni» and,
+ *   on a sale, «tasse». An unknown ISIN is created from «titolo», «strumento», «simbolo»
+ *   (+ optional «classe», «aliquota», «valuta»). They are written through the trade ledger's
+ *   route, which replays the instrument; a correction sets quantity and average cost at once —
+ *   the way to load today's portfolio. «categoria» is ignored on them.
  */
 
 import Papa from 'papaparse';
 import { roundToCents } from '@/lib/utils/cents';
 import { settlesLater } from '@/lib/utils/cashSettlement';
 import { Expense, ExpenseCategory, EXPENSE_TYPE_LABELS } from '@/types/expenses';
+import type { AssetClass, AssetType } from '@/types/assets';
 import {
   RawRow,
   PlannedExpenseRow,
@@ -47,6 +55,10 @@ import {
   ImportCashAccount,
   ImportAccountSummary,
   ImportableExpenseType,
+  ImportInstrument,
+  ImportTradeType,
+  InstrumentToCreate,
+  PlannedTradeRow,
 } from '@/types/expenseImport';
 
 const IMPORTABLE_TYPES: ImportableExpenseType[] = ['fixed', 'variable', 'debt', 'income', 'transfer'];
@@ -82,15 +94,116 @@ const HEADER_ALIASES: Record<string, keyof Omit<RawRow, 'line'>> = {
   destinazione: 'contoDestinazione',
   destination: 'contoDestinazione',
   'to account': 'contoDestinazione',
+  isin: 'isin',
+  quantita: 'quantita',
+  'quantità': 'quantita',
+  qta: 'quantita',
+  quantity: 'quantita',
+  prezzo: 'prezzo',
+  'prezzo unitario': 'prezzo',
+  prezzo_unitario: 'prezzo',
+  price: 'prezzo',
+  commissioni: 'commissioni',
+  fees: 'commissioni',
+  tasse: 'tasse',
+  'tasse trattenute': 'tasse',
+  tasse_trattenute: 'tasse',
+  tax: 'tasse',
+  titolo: 'titolo',
+  'nome titolo': 'titolo',
+  name: 'titolo',
+  strumento: 'strumento',
+  'tipo strumento': 'strumento',
+  tipo_strumento: 'strumento',
+  instrument: 'strumento',
+  simbolo: 'simbolo',
+  ticker: 'simbolo',
+  classe: 'classe',
+  'asset class': 'classe',
+  aliquota: 'aliquota',
+  'tax rate': 'aliquota',
 };
 
+/** `tipo` values of an investment row → the ledger's trade type. */
+const TRADE_TYPE_ALIASES: Record<string, ImportTradeType> = {
+  acquisto: 'buy',
+  buy: 'buy',
+  vendita: 'sell',
+  sell: 'sell',
+  correzione: 'adjustment',
+  rettifica: 'adjustment',
+  adjustment: 'adjustment',
+};
+
+/** «strumento» → AssetType. Only the ledger's types: an account or a house is not traded. */
+const INSTRUMENT_TYPE_ALIASES: Record<string, AssetType> = {
+  azione: 'stock',
+  azioni: 'stock',
+  stock: 'stock',
+  etf: 'etf',
+  fondo: 'etf',
+  etc: 'commodity',
+  etn: 'commodity',
+  'materia prima': 'commodity',
+  commodity: 'commodity',
+  obbligazione: 'bond',
+  obbligazioni: 'bond',
+  bond: 'bond',
+  certificate: 'bond',
+  crypto: 'crypto',
+  criptovaluta: 'crypto',
+};
+
+/** «classe» → AssetClass, in the app's Italian labels (ASSET_CLASS_LABELS) or its ids. */
+const ASSET_CLASS_ALIASES: Record<string, AssetClass> = {
+  azioni: 'equity',
+  azionario: 'equity',
+  equity: 'equity',
+  obbligazioni: 'bonds',
+  obbligazionario: 'bonds',
+  bonds: 'bonds',
+  'materie prime': 'commodity',
+  commodity: 'commodity',
+  criptovalute: 'crypto',
+  crypto: 'crypto',
+  'liquidità': 'cash',
+  liquidita: 'cash',
+  cash: 'cash',
+  'trend following': 'trendFollowing',
+  trendfollowing: 'trendFollowing',
+  carry: 'carry',
+};
+
+/** The class an instrument type falls in when «classe» is empty (as AssetDialog's TYPE_TO_CLASS). */
+const DEFAULT_CLASS_OF_TYPE: Partial<Record<AssetType, AssetClass>> = {
+  stock: 'equity',
+  etf: 'equity',
+  bond: 'bonds',
+  commodity: 'commodity',
+  crypto: 'crypto',
+};
+
+/** The tax rate on gains a created instrument gets without «aliquota» (the Italian 26%). */
+export const DEFAULT_IMPORT_TAX_RATE = 26;
+
+/** Whether a `tipo` cell names an investment row (acquisto / vendita / correzione). */
+export function isTradeTypeCell(tipo: string): boolean {
+  return TRADE_TYPE_ALIASES[tipo.trim().toLowerCase()] !== undefined;
+}
+
 /** Template shown/downloaded to guide users. Excel-IT friendly (`;` + BOM). */
-const TEMPLATE_HEADERS = ['data', 'importo', 'tipo', 'categoria', 'sottocategoria', 'note', 'valuta', 'conto', 'conto_destinazione'] as const;
+const TEMPLATE_HEADERS = [
+  'data', 'importo', 'tipo', 'categoria', 'sottocategoria', 'note', 'valuta', 'conto', 'conto_destinazione',
+  'isin', 'quantita', 'prezzo', 'commissioni', 'tasse', 'titolo', 'strumento', 'simbolo', 'classe', 'aliquota',
+] as const;
 const TEMPLATE_EXAMPLE_ROWS: string[][] = [
-  ['2024-01-15', '1200,00', 'fixed', 'Casa', 'Affitto', 'Canone gennaio', 'EUR', '', ''],
-  ['2024-01-27', '2500,00', 'income', 'Stipendio', '', 'Busta paga', 'EUR', '', ''],
-  ['2024-02-03', '54,90', 'variable', 'Spesa', 'Supermercato', '', 'EUR', '', ''],
-  ['2024-02-05', '500,00', 'transfer', '', '', 'Bonifico per investimento', 'EUR', 'Conto corrente', 'Conto deposito'],
+  ['2024-01-15', '1200,00', 'fixed', 'Casa', 'Affitto', 'Canone gennaio', 'EUR', '', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-01-27', '2500,00', 'income', 'Stipendio', '', 'Busta paga', 'EUR', '', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-02-03', '54,90', 'variable', 'Spesa', 'Supermercato', '', 'EUR', '', '', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-02-05', '500,00', 'transfer', '', '', 'Bonifico per investimento', 'EUR', 'Conto corrente', 'Conto deposito', '', '', '', '', '', '', '', '', '', ''],
+  ['2024-02-06', '', 'acquisto', '', '', '', 'EUR', 'Conto corrente', '', 'IE00EXAMPLE1', '10', '50,00', '2,95', '', 'Esempio World ETF', 'etf', 'EXMP.MI', '', ''],
+  ['2024-03-01', '', 'vendita', '', '', '', 'EUR', 'Conto corrente', '', 'IE00EXAMPLE1', '4', '55,00', '2,95', '5,20', '', '', '', '', ''],
+  ['2024-03-31', '', 'correzione', '', '', 'Allineamento al broker', 'EUR', '', '', 'IE00EXAMPLE1', '6', '50,30', '', '', '', '', '', '', ''],
 ];
 
 /** Build the downloadable CSV template as a string (with UTF-8 BOM + `;` delimiter). */
@@ -193,8 +306,11 @@ export function parseImportCsv(raw: string): RawRow[] {
     if (key && colIndex[key] === undefined) colIndex[key] = idx;
   });
 
-  // «categoria» is required as a COLUMN (a transfer row may leave its cell empty).
-  const missing = (['data', 'importo', 'categoria'] as const).filter((k) => colIndex[k] === undefined);
+  // «categoria» is required as a COLUMN (a transfer row may leave its cell empty) — unless the
+  // file carries «isin»: a file of investment rows only (today's portfolio) needs neither it nor
+  // «importo».
+  const required = colIndex.isin !== undefined ? (['data', 'tipo'] as const) : (['data', 'importo', 'categoria'] as const);
+  const missing = required.filter((k) => colIndex[k] === undefined);
   if (missing.length > 0) {
     throw new Error(
       `Intestazioni obbligatorie mancanti: ${missing.join(', ')}. ` +
@@ -221,6 +337,16 @@ export function parseImportCsv(raw: string): RawRow[] {
       valuta: get(row, 'valuta'),
       conto: get(row, 'conto'),
       contoDestinazione: get(row, 'contoDestinazione'),
+      isin: get(row, 'isin'),
+      quantita: get(row, 'quantita'),
+      prezzo: get(row, 'prezzo'),
+      commissioni: get(row, 'commissioni'),
+      tasse: get(row, 'tasse'),
+      titolo: get(row, 'titolo'),
+      strumento: get(row, 'strumento'),
+      simbolo: get(row, 'simbolo'),
+      classe: get(row, 'classe'),
+      aliquota: get(row, 'aliquota'),
     });
   }
   return rows;
@@ -256,13 +382,15 @@ export function categoryMatchKey(name: string, type: string): string {
  * without the column at all; on a transfer it is the origin.
  * An account of kind `pensionFund` is accepted only as a transfer's destination; `now` decides
  * which contribution dates are in the future (refused: the contribution moves the values at once).
+ * `instruments` are the user's assets the investment rows match by ISIN (see planTradeRows).
  */
 export function buildImportPlan(
   rows: RawRow[],
   existingCategories: ExpenseCategory[],
   cashAccounts: ImportCashAccount[] = [],
   defaultAccountId?: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  instruments: ImportInstrument[] = []
 ): ImportPlan {
   const accountsByName = new Map<string, ImportCashAccount[]>();
   for (const a of cashAccounts) {
@@ -307,7 +435,16 @@ export function buildImportPlan(
   const errors: RowError[] = [];
   const validRows: PlannedExpenseRow[] = [];
 
+  // Investment rows take their own path: they write trades, not expense documents.
+  const trades = planTradeRows(
+    rows.filter((r) => isTradeTypeCell(r.tipo)),
+    instruments,
+    { resolveAccount, defaultAccountId, pensionFundIds, now }
+  );
+  errors.push(...trades.errors);
+
   for (const row of rows) {
+    if (isTradeTypeCell(row.tipo)) continue;
     const rawType = norm(row.tipo);
     const isTransfer = rawType === 'transfer' || (rawType === '' && row.contoDestinazione !== '');
     if (!row.categoria && !isTransfer) {
@@ -479,12 +616,259 @@ export function buildImportPlan(
     }
   }
 
-  const summary = buildSummary(validRows, errors, categoriesToCreate.length, cashAccounts);
-  return { validRows, errors, categoriesToCreate, subCategoriesToCreate, notices, summary };
+  errors.sort((a, b) => a.line - b.line);
+  const summary = buildSummary(validRows, trades.tradeRows, errors, categoriesToCreate.length, cashAccounts);
+  return {
+    validRows,
+    tradeRows: trades.tradeRows,
+    instrumentsToCreate: trades.instrumentsToCreate,
+    errors,
+    categoriesToCreate,
+    subCategoriesToCreate,
+    notices,
+    summary,
+  };
+}
+
+interface TradeRowContext {
+  resolveAccount: (name: string) => { id: string } | { error: string };
+  defaultAccountId?: string;
+  pensionFundIds: Set<string>;
+  now: Date;
+}
+
+/**
+ * Validate the investment rows (`tipo` acquisto / vendita / correzione) against the user's
+ * instruments, matched by ISIN (case-insensitive).
+ *
+ * - An ISIN held by exactly one ledger instrument attaches to it; held by a non-ledger asset (an
+ *   account, a fund) or by two instruments, the row is refused with the reason.
+ * - An ISIN the user does not hold is created: «titolo», «strumento» and «simbolo» on at least
+ *   one of its rows (the first filled one wins), «classe» defaulting to the type's class,
+ *   «aliquota» to 26, «valuta» to EUR.
+ * - Price: «prezzo», else derived from «importo» — what the statement moved: a buy paid
+ *   quantity × price + fees, a sale received quantity × price − fees − tax.
+ * - A correction is an absolute reset: «quantita» is the new total (0 allowed), «prezzo» the new
+ *   average cost; it moves no money, so fees, tax and an explicit «conto» are refused (the
+ *   preview's default account is simply not applied to it).
+ * - A future date is refused (the ledger refuses it too, but here the user sees it row by row).
+ * The replay (no sale beyond the units held) is the ledger route's, at commit.
+ */
+export function planTradeRows(
+  rows: RawRow[],
+  instruments: ImportInstrument[],
+  ctx: TradeRowContext
+): { tradeRows: PlannedTradeRow[]; instrumentsToCreate: InstrumentToCreate[]; errors: RowError[] } {
+  const errors: RowError[] = [];
+  const tradeRows: PlannedTradeRow[] = [];
+  const byIsin = new Map<string, ImportInstrument[]>();
+  for (const i of instruments) {
+    if (!i.isin) continue;
+    const key = i.isin.trim().toUpperCase();
+    byIsin.set(key, [...(byIsin.get(key) ?? []), i]);
+  }
+
+  // The definition of each ISIN to create, from its first row that carries one.
+  const definitions = new Map<string, InstrumentToCreate>();
+  const definitionErrors = new Map<string, string>();
+  const isinsToCreate: string[] = [];
+
+  for (const row of rows) {
+    const fail = (reason: string) => errors.push({ line: row.line, reason, raw: row });
+    const tradeType = TRADE_TYPE_ALIASES[norm(row.tipo)];
+    const isin = (row.isin ?? '').trim().toUpperCase();
+    if (!isin) {
+      fail('Operazione su titoli senza ISIN (colonna "isin").');
+      continue;
+    }
+    const date = parseFlexibleDate(row.data);
+    if (!date) {
+      fail(`Data non valida: "${row.data}".`);
+      continue;
+    }
+    if (settlesLater(date, ctx.now)) {
+      fail('Operazione con data futura: registrala quando è avvenuta.');
+      continue;
+    }
+
+    const quantity = parseItalianNumber(row.quantita ?? '');
+    if (quantity === null || (tradeType !== 'adjustment' && quantity === 0)) {
+      fail(
+        tradeType === 'adjustment'
+          ? `Quantità non valida: "${row.quantita ?? ''}" (su una correzione è la nuova quantità totale, anche 0).`
+          : `Quantità non valida: "${row.quantita ?? ''}".`
+      );
+      continue;
+    }
+
+    const fees = row.commissioni ? parseItalianNumber(row.commissioni) : undefined;
+    if (fees === null) {
+      fail(`Commissioni non valide: "${row.commissioni}".`);
+      continue;
+    }
+    const tax = row.tasse ? parseItalianNumber(row.tasse) : undefined;
+    if (tax === null) {
+      fail(`Tasse non valide: "${row.tasse}".`);
+      continue;
+    }
+    if (tradeType !== 'sell' && tax !== undefined) {
+      fail('Le tasse trattenute si indicano solo su una vendita.');
+      continue;
+    }
+    if (tradeType === 'adjustment' && fees !== undefined) {
+      fail('Una correzione non prevede commissioni.');
+      continue;
+    }
+    if (tradeType === 'adjustment' && row.conto) {
+      fail('Una correzione non movimenta un conto: lascia vuota la colonna "conto".');
+      continue;
+    }
+
+    let pricePerUnit: number | null = row.prezzo ? parseItalianNumber(row.prezzo) : null;
+    if (row.prezzo && pricePerUnit === null) {
+      fail(`Prezzo non valido: "${row.prezzo}".`);
+      continue;
+    }
+    if (pricePerUnit === null && tradeType !== 'adjustment' && row.importo) {
+      const total = parseItalianNumber(row.importo);
+      if (total !== null && total > 0) {
+        const gross = tradeType === 'buy' ? total - (fees ?? 0) : total + (fees ?? 0) + (tax ?? 0);
+        pricePerUnit = gross > 0 ? gross / quantity : null;
+      }
+    }
+    if (pricePerUnit === null) {
+      fail(
+        tradeType === 'adjustment'
+          ? 'Correzione senza prezzo medio di carico (colonna "prezzo").'
+          : 'Prezzo mancante: indica "prezzo" oppure l\'"importo" totale dell\'operazione.'
+      );
+      continue;
+    }
+
+    let linkedCashAssetId: string | undefined;
+    if (tradeType !== 'adjustment') {
+      linkedCashAssetId = ctx.defaultAccountId;
+      if (row.conto) {
+        const account = ctx.resolveAccount(row.conto);
+        if ('error' in account) {
+          fail(account.error);
+          continue;
+        }
+        linkedCashAssetId = account.id;
+      }
+      if (linkedCashAssetId && ctx.pensionFundIds.has(linkedCashAssetId)) {
+        fail(`"${row.conto}" è un fondo pensione: non può regolare un'operazione su titoli.`);
+        continue;
+      }
+    }
+
+    const held = byIsin.get(isin) ?? [];
+    let assetId: string | undefined;
+    if (held.length > 1) {
+      fail(`ISIN ${isin} ambiguo: ${held.length} titoli in Patrimonio hanno questo ISIN.`);
+      continue;
+    }
+    if (held.length === 1) {
+      if (!held[0].ledger) {
+        fail(`ISIN ${isin} appartiene a "${held[0].name}", che non ha un registro operazioni.`);
+        continue;
+      }
+      assetId = held[0].id;
+    } else {
+      if (!definitions.has(isin) && !definitionErrors.has(isin)) isinsToCreate.push(isin);
+      if (!definitions.has(isin) && (row.titolo || row.strumento || row.simbolo)) {
+        const definition = defineInstrument(row, isin, pricePerUnit);
+        if ('error' in definition) definitionErrors.set(isin, definition.error);
+        else {
+          definitions.set(isin, definition);
+          definitionErrors.delete(isin);
+        }
+      }
+    }
+
+    tradeRows.push({
+      line: row.line,
+      date,
+      tradeType,
+      isin,
+      assetId,
+      quantity,
+      pricePerUnit,
+      fees,
+      withheldTaxEur: tradeType === 'sell' ? tax : undefined,
+      linkedCashAssetId,
+      notes: row.note || undefined,
+    });
+  }
+
+  // An ISIN neither held nor defined cannot be written: every row of it is refused, with the reason.
+  const undefinedIsins = new Set(isinsToCreate.filter((i) => !definitions.has(i)));
+  const kept = tradeRows.filter((t) => {
+    if (!undefinedIsins.has(t.isin)) return true;
+    errors.push({
+      line: t.line,
+      reason:
+        definitionErrors.get(t.isin) ??
+        `ISIN ${t.isin} non è in Patrimonio: per crearlo indica "titolo", "strumento" e "simbolo" su almeno una sua riga.`,
+    });
+    return false;
+  });
+
+  return {
+    tradeRows: kept,
+    instrumentsToCreate: isinsToCreate.filter((i) => definitions.has(i)).map((i) => definitions.get(i)!),
+    errors,
+  };
+}
+
+function defineInstrument(row: RawRow, isin: string, price: number): InstrumentToCreate | { error: string } {
+  const name = (row.titolo ?? '').trim();
+  const ticker = (row.simbolo ?? '').trim();
+  const type = INSTRUMENT_TYPE_ALIASES[norm(row.strumento ?? '')];
+  if (!name || !ticker || !row.strumento) {
+    return { error: `Per creare ${isin} servono "titolo", "strumento" e "simbolo" sulla stessa riga.` };
+  }
+  if (!type) {
+    return { error: `Strumento non valido: "${row.strumento}" (azione, etf, etc, obbligazione, crypto).` };
+  }
+  let assetClass = DEFAULT_CLASS_OF_TYPE[type]!;
+  if (row.classe) {
+    const resolved = ASSET_CLASS_ALIASES[norm(row.classe)];
+    if (!resolved) {
+      return { error: `Classe non valida: "${row.classe}" (azioni, obbligazioni, materie prime, criptovalute, liquidità, trend following).` };
+    }
+    assetClass = resolved;
+  }
+  let taxRate = DEFAULT_IMPORT_TAX_RATE;
+  if (row.aliquota) {
+    const parsed = parseItalianNumber(row.aliquota);
+    if (parsed === null || parsed > 100) return { error: `Aliquota non valida: "${row.aliquota}".` };
+    taxRate = parsed;
+  }
+  return {
+    isin,
+    name,
+    ticker,
+    type,
+    assetClass,
+    currency: (row.valuta || 'EUR').toUpperCase(),
+    taxRate,
+    currentPrice: price,
+  };
+}
+
+/** What a trade moves on its settlement account: a buy pays price × units + fees, a sale receives it net of fees and tax. */
+export function tradeCashDelta(t: Pick<PlannedTradeRow, 'tradeType' | 'quantity' | 'pricePerUnit' | 'fees' | 'withheldTaxEur'>): number {
+  if (t.tradeType === 'adjustment') return 0;
+  const gross = t.quantity * t.pricePerUnit;
+  return roundToCents(
+    t.tradeType === 'buy' ? -(gross + (t.fees ?? 0)) : gross - (t.fees ?? 0) - (t.withheldTaxEur ?? 0)
+  );
 }
 
 function buildSummary(
   validRows: PlannedExpenseRow[],
+  tradeRows: PlannedTradeRow[],
   errors: RowError[],
   newCategoriesCount: number,
   cashAccounts: ImportCashAccount[]
@@ -523,8 +907,33 @@ function buildSummary(
     if (r.transferCashAssetId) move(r.transferCashAssetId, r.amount);
   }
 
+  let buyCount = 0;
+  let sellCount = 0;
+  let adjustmentCount = 0;
+  for (const t of tradeRows) {
+    if (t.tradeType === 'buy') buyCount++;
+    else if (t.tradeType === 'sell') sellCount++;
+    else adjustmentCount++;
+    if (!dateFrom || t.date < dateFrom) dateFrom = t.date;
+    if (!dateTo || t.date > dateTo) dateTo = t.date;
+    if (!t.linkedCashAssetId) continue;
+    const entry = byAccount.get(t.linkedCashAssetId) ?? {
+      assetId: t.linkedCashAssetId,
+      name: accountName.get(t.linkedCashAssetId) ?? t.linkedCashAssetId,
+      count: 0,
+      net: 0,
+    };
+    entry.count++;
+    entry.tradeCount = (entry.tradeCount ?? 0) + 1;
+    entry.net = roundToCents(entry.net + tradeCashDelta(t));
+    byAccount.set(t.linkedCashAssetId, entry);
+  }
+
   return {
-    validCount: validRows.length,
+    validCount: validRows.length + tradeRows.length,
+    buyCount,
+    sellCount,
+    adjustmentCount,
     skippedCount: errors.length,
     newCategoriesCount,
     totalIncome,
