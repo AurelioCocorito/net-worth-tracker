@@ -526,6 +526,11 @@ export function describeAutoPriceStatus(status: AutoPriceStatus, now: Date): str
   if (status.kind === 'never') {
     return 'Yahoo Finance non ha mai trovato un prezzo per questo strumento. Aggiornalo a mano, oppure correggi il ticker.';
   }
+  if (status.reason === 'frozen') {
+    // Always beyond AUTO_PRICE_STALE_DAYS, so the moment reads «il 02/10 alle 17:35».
+    const moment = describeItalyMoment(status.quotedAt, now).replace(/^il /, 'al ');
+    return `Yahoo Finance risponde, ma con un prezzo fermo ${moment}: per questo ticker non si aggiorna più. Prova un altro ticker dello stesso titolo (per esempio quello di Xetra, .DE) oppure aggiornalo a mano.`;
+  }
   const what =
     status.reason === 'failed' && status.failedAt
       ? `L'aggiornamento automatico del prezzo non è riuscito (ultimo tentativo ${describeItalyMoment(status.failedAt, now)}).`

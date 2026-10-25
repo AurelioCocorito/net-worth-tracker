@@ -94,6 +94,24 @@ describe('resolveAutoPriceStatus', () => {
     expect(justOutside).toEqual({ kind: 'failing', reason: 'stale', updatedAt: daysAgo(AUTO_PRICE_STALE_DAYS + 0.1), failedAt: null });
   });
 
+  it('is failing (yellow, frozen) when the update works but the market made its price too long ago', () => {
+    const quotedAt = daysAgo(AUTO_PRICE_STALE_DAYS + 0.1);
+    const status = resolveAutoPriceStatus({ type: 'stock', createdAt: created, lastPriceUpdate: yesterday, priceQuotedAt: quotedAt }, now);
+    expect(status).toEqual({ kind: 'failing', reason: 'frozen', updatedAt: yesterday, quotedAt });
+  });
+
+  it('keeps the check when the market time is within the threshold (a weekend) or unknown (Borsa Italiana)', () => {
+    const friday = daysAgo(AUTO_PRICE_STALE_DAYS);
+    expect(resolveAutoPriceStatus({ type: 'etf', createdAt: created, lastPriceUpdate: yesterday, priceQuotedAt: friday }, now).kind).toBe('ok');
+    expect(resolveAutoPriceStatus({ type: 'bond', createdAt: created, lastPriceUpdate: yesterday, priceQuotedAt: null }, now).kind).toBe('ok');
+  });
+
+  it('lets a failed attempt speak before a frozen price', () => {
+    const failedAt = new Date('2026-03-09T18:00:05Z');
+    const status = resolveAutoPriceStatus({ type: 'stock', createdAt: created, lastPriceUpdate: daysAgo(2), priceUpdateFailedAt: failedAt, priceQuotedAt: daysAgo(20) }, now);
+    expect(status).toEqual({ kind: 'failing', reason: 'failed', updatedAt: daysAgo(2), failedAt });
+  });
+
   it('is never (red) when the only update is the creation stamp and the run failed', () => {
     const status = resolveAutoPriceStatus({ type: 'stock', createdAt: created, lastPriceUpdate: created, priceUpdateFailedAt: yesterday }, now);
     expect(status).toEqual({ kind: 'never', failedAt: yesterday });

@@ -272,6 +272,11 @@ export interface Asset {
   // only while the automatic price is not working. Read by `resolveAutoPriceStatus`
   // (lib/utils/assetPricing.ts) for Patrimonio's green check. Absent on every older document.
   priceUpdateFailedAt?: Date;
+  // When the market made the price of the last automatic update (2026-10-25): Yahoo's
+  // `regularMarketTime`, written by lib/helpers/priceUpdater.ts with every Yahoo success and removed
+  // by a Borsa Italiana one (its page gives no time). A Yahoo price can stop moving while Yahoo
+  // keeps answering: `resolveAutoPriceStatus` turns the check yellow when this is too old.
+  priceQuotedAt?: Date;
   // A cash account aligned to a bank statement by a «saldo» row of the CSV import (2026-10-25):
   // one entry per import, so «Annulla import» takes back exactly the delta it added. Absent on
   // every other asset.
