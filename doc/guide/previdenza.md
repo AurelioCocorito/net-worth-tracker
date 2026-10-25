@@ -48,6 +48,12 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   fund goes through `recordPensionContribution` with an `importBatchId` (on the record AND its transfer entry);
   «Annulla import» deletes them via `deletePensionContributionsByImportBatch`. Only voluntary: TFR/employer never
   transit an account, so they never appear in a bank statement (doc/guide/cashflow.md § Expense CSV Import).
+- **The transfer entry takes the pension subcategory when there is one (2026-10-25)**: `createVoluntaryTransferEntry`
+  re-reads the transfer category and `findPensionTransferSubCategory` (`lib/utils/pensionContributions.ts`) picks the
+  first subcategory whose name says «pension»/«previdenza», ignoring case and accents; none → the bare category. From
+  Previdenza and from the import alike. On Cashflow the row's fund stays listed as its destination in `ExpenseDialog`
+  (never offered to other rows), so retouching its subcategory or notes keeps the destination; amount, date and
+  accounts still change from Previdenza.
 - **The periodic statement (NAV overwrite) is NOT a contribution** — plain `updateAsset`. **Register the month's
   contributions FIRST, then overwrite "Valore attuale"**: the statement already includes them.
 - **Converting a pre-existing fund is a type EDIT, never delete + recreate** (`byAsset` is keyed by `assetId`): the submit

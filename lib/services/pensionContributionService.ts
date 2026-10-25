@@ -45,6 +45,7 @@ import {
 } from '@/lib/services/cashBalanceReconciliation';
 import { createExpense, deleteExpense } from '@/lib/services/expenseService';
 import { ensureTransferCategory, getCategoryById } from '@/lib/services/expenseCategoryService';
+import { findPensionTransferSubCategory } from '@/lib/utils/pensionContributions';
 import {
   isDeductibleSource,
   type ContributionSource,
@@ -257,7 +258,8 @@ async function writePensionContribution(
  *
  * The category name is denormalised on every expense, so it is re-read from the category document
  * rather than assumed: a user who renamed their transfer category would otherwise see a row labelled
- * with a name that no longer exists.
+ * with a name that no longer exists. The same read picks the pension subcategory, when the user has
+ * one (`findPensionTransferSubCategory`), so the entry lands in it from Previdenza and from the import.
  */
 async function createVoluntaryTransferEntry(
   userId: string,
@@ -265,12 +267,14 @@ async function createVoluntaryTransferEntry(
 ): Promise<string> {
   const transferCategoryId = await ensureTransferCategory(userId);
   const transferCategory = await getCategoryById(transferCategoryId);
+  const pensionSubCategory = findPensionTransferSubCategory(transferCategory?.subCategories ?? []);
 
   const result = await createExpense(
     userId,
     {
       type: 'transfer',
       categoryId: transferCategoryId,
+      ...(pensionSubCategory ? { subCategoryId: pensionSubCategory.id } : {}),
       amount: Math.abs(input.amount),
       currency: 'EUR',
       date: input.date,
@@ -278,7 +282,8 @@ async function createVoluntaryTransferEntry(
       linkedCashAssetId: input.sourceCashAssetId,
       transferCashAssetId: input.assetId,
     },
-    transferCategory?.name ?? DEFAULT_TRANSFER_CATEGORY_NAME
+    transferCategory?.name ?? DEFAULT_TRANSFER_CATEGORY_NAME,
+    pensionSubCategory?.name
   );
 
   // Neither `isRecurring` nor `isInstallment` is set, so this is always the single-expense branch.

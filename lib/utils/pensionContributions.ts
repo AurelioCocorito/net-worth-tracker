@@ -113,3 +113,15 @@ export function resolveActivePensionYear(
   if (selectedYear !== null && availableYears.includes(selectedYear)) return selectedYear;
   return currentYear;
 }
+
+/**
+ * The subcategory of the transfer category that a voluntary contribution's transfer entry takes
+ * (2026-10-25): the first whose name speaks of a pension («Pensione integrativa», «Fondo
+ * pensione», «Previdenza complementare»), ignoring case and accents. None → the entry stays on the
+ * bare category, as before. Matched by name because the subcategory is the user's own: the app
+ * creates none, and a renamed one keeps working as long as it still says what it is.
+ */
+export function findPensionTransferSubCategory<T extends { name: string }>(subCategories: T[]): T | undefined {
+  const normalise = (name: string) => name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return subCategories.find((sub) => /pension|previdenz/.test(normalise(sub.name)));
+}
