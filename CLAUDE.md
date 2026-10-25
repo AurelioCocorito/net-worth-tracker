@@ -43,7 +43,7 @@ One line per area: the question it answers, then where it is described (README.m
 - **FIRE**: Calcolatore, Coast FIRE, What If, Monte Carlo and Obiettivi, one verdict each; composed for a phone since 2026-10-15. doc/guide/fire.md (§ Composizione mobile; + fire-coast, fire-what-if, fire-monte-carlo, fire-obiettivi).
 - **Assistente AI**: the verdict IS the context, and the context is the whole portfolio (2026-10-20: instruments, roles, ledger, registers, household); flag `NEXT_PUBLIC_ASSISTANT_AI_ENABLED`, blocked in demo. doc/guide/assistente.md.
 - **Hall of Fame**: «quali sono stati i mesi e gli anni migliori?» — the first page composed for a phone (2026-10-10, § Composizione mobile). doc/guide/hall-of-fame.md.
-- **Impostazioni**: six tabs, six controlled views of ONE draft (`useReducer` + `lib/utils/settingsDraft.ts`), one Save per page. doc/guide/impostazioni.md (§ Settings — the FIVE places).
+- **Impostazioni**: six tabs, six controlled views of ONE draft (`useReducer` + `lib/utils/settingsDraft.ts`), one Save per page; «Scarica backup» in Condivisione downloads the whole own account as JSON (2026-10-25, `lib/utils/accountBackup.ts`). doc/guide/impostazioni.md (§ Settings — the FIVE places, § Backup dei dati).
 - **States**: loading · nothing recorded · measured zero · failed read, and «old but present» (2026-09-29). doc/guide/stati.md; DESIGN → The Absence-Has-Three-Names Rule.
 - **Dialogs and forms**: 40 modals on `ResponsiveModal`. doc/guide/dialog.md; DESIGN → The Modal-Is-A-Tile Rule.
 - **Periodic emails · budget email · PDF export**: verdict first, AI comment second. doc/guide/email-pdf.md; DESIGN → The Out-Of-DOM Token Rule.
