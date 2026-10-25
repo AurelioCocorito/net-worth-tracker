@@ -271,6 +271,12 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   a mortgage follows the FRACTIONS of the property it finances (a personal loan has its own rows). `resolveAssetOwnership`
   is the ONE resolution (`slices`, each member once and the rest last; `source`; `needsReassignment`); an id whose member
   was deleted is «Senza intestatario» (the Divisione's word), a group of its own, never folded into «In comune».
+  **With ONE family member, a new asset is that member's** (owner, 2026-10-25: `withSoleOwnerDefault` +
+  `soleFamilyMemberId`, applied by `createAsset` in `assetService.ts` — the one door every creation goes through,
+  the form, the CSV import, the loan migration — and shown by `AssetDialog`'s new-asset defaults): nobody named →
+  `ownerMemberId` = the member, a pension fund's «Membro famiglia» = the member; a typed quota, a named owner, a linked
+  fund and a mortgage are left alone. At CREATION only, never at read: an asset created while alone stays its member's
+  when a second member joins, and only what is added with two or more members starts «In comune» (the doubt is real).
   **Units past the quantity are DECLARED, never rescaled in silence** (owner's call): a sale or a value typed lower
   leaves the units as written, the asset's value is still split by their proportions so the tile adds up to the net
   worth, and the row and the tile say «quote da riassegnare» — the Strumenti sub-line closes with «quote da riassegnare

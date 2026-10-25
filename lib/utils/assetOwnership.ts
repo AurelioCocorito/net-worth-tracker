@@ -23,6 +23,9 @@
  *    riassegnare»), never rescaled in silence: the asset's value is still split by the stored
  *    proportions so the tile adds up to the net worth, and `needsReassignment` says the stored
  *    quotas no longer fit.
+ *  - With ONE family member a NEW asset with nobody named is that member's, a pension fund
+ *    included (`withSoleOwnerDefault`, owner 2026-10-25) — written at creation, never inferred at
+ *    read, so it stays theirs when a second member joins.
  *  - An id whose member was deleted is «Senza intestatario» (the Divisione's word), a group of
  *    its own: never folded into «In comune», so the stale datum is seen and fixed.
  *  - A credit card in the red is a debt its owner holds: the gate is «balance ≠ 0», not
@@ -39,7 +42,7 @@
  *    carry total would stop being comparable with the net worth.
  */
 
-import { isLoanAsset, type Asset, type AssetOwnerShare, type FamilyMember } from '@/types/assets';
+import { isLoanAsset, type Asset, type AssetFormData, type AssetOwnerShare, type FamilyMember } from '@/types/assets';
 import { SPLIT_UNASSIGNED_LABEL } from '@/lib/utils/expenseSplitSummary';
 import { OWNER_FILTER_ALL, OWNER_FILTER_COMMON, OWNER_FILTER_UNASSIGNED, type OwnerFilterOption } from '@/lib/utils/movementsOwnerFilter';
 import { isUnitsSlice, sliceBase, sliceUnit, sliceUnitLabel, sliceUnits, summarizeSlices, SLICE_UNITS_EPSILON, type AssetSlice, type SliceBudget, type SliceUnit } from '@/lib/utils/assetSlice';
@@ -156,6 +159,34 @@ function mergeShares(shares: readonly AssetOwnerShare[]): AssetOwnerShare[] {
     }
   }
   return [...byMember.values()];
+}
+
+/** The household's only member, or null with none or with two or more (owner, 2026-10-25). */
+export function soleFamilyMemberId(members: readonly Pick<FamilyMember, 'id'>[] | null | undefined): string | null {
+  return members && members.length === 1 && members[0].id ? members[0].id : null;
+}
+
+type OwnerDefaultFields = Pick<AssetFormData, 'type' | 'ownerMemberId' | 'ownerShares' | 'financedAssetId' | 'pensionFundDetails'>;
+
+/**
+ * A NEW asset with nobody named belongs to the household's only member (owner, 2026-10-25): with
+ * one member there is no doubt to record, so «In comune» is never the default — a pension fund
+ * gets that member as its Previdenza contributor, anything else as its whole owner. With two or
+ * more members nothing changes (the doubt is real and stays «In comune» until someone decides).
+ * Applied at creation only, so an asset created while alone stays its member's when a second
+ * member joins. A typed quota, a named owner, a fund already linked or a mortgage (it follows its
+ * property) are left as they are.
+ */
+export function withSoleOwnerDefault<T extends OwnerDefaultFields>(data: T, members: readonly Pick<FamilyMember, 'id'>[] | null | undefined): T {
+  const soleId = soleFamilyMemberId(members);
+  if (!soleId) return data;
+  if (data.type === 'pensionFund') {
+    if (data.pensionFundDetails?.familyMemberId) return data;
+    return { ...data, pensionFundDetails: { ...(data.pensionFundDetails ?? { provider: '' }), familyMemberId: soleId } };
+  }
+  if (isLoanAsset(data) && data.financedAssetId) return data;
+  if (data.ownerMemberId || mergeShares(data.ownerShares ?? []).length > 0) return data;
+  return { ...data, ownerMemberId: soleId };
 }
 
 /** Whether the form offers the quotas: a pension fund and a linked mortgage derive their owner. */

@@ -20,6 +20,7 @@ import { suggestIsLiquid } from '@/lib/utils/assetLiquidity';
 import { costBasisPerUnitEur, unitPriceEur } from '@/lib/utils/costBasisEur';
 import { CHECKING_ACCOUNT_STAMP_DUTY_EUR, CHECKING_ACCOUNT_STAMP_DUTY_THRESHOLD_EUR } from '@/lib/constants/stampDuty';
 import { invalidateDashboardOverviewSummary } from '@/lib/services/dashboardOverviewInvalidation';
+import { withSoleOwnerDefault } from '@/lib/utils/assetOwnership';
 import { AllocationRole, Asset, AssetFormData, BondDetails, isLoanAsset } from '@/types/assets';
 
 const ASSETS_COLLECTION = 'assets';
@@ -123,6 +124,21 @@ export async function getAssetById(assetId: string): Promise<Asset | null> {
 }
 
 /**
+ * The household's members from the settings document, for the owner default at creation. A failed
+ * read leaves the asset as typed (no default) rather than failing the creation.
+ */
+async function readFamilyMembers(userId: string): Promise<{ id: string }[]> {
+  try {
+    const snapshot = await getDoc(doc(db, 'assetAllocationTargets', userId));
+    const members = snapshot.exists() ? snapshot.data()?.familyMembers : undefined;
+    return Array.isArray(members) ? members : [];
+  } catch (error) {
+    console.error('Failed to read family members for the owner default', { userId, error: getErrorMessage(error) });
+    return [];
+  }
+}
+
+/**
  * Create a new asset
  * If ISIN exists and we have historical dividends with that ISIN, reuse the existing assetId
  * to maintain continuity with historical dividend data
@@ -163,9 +179,12 @@ export async function createAsset(
       }
     }
 
+    // With one family member, an asset nobody is named on is that member's (withSoleOwnerDefault).
+    const ownedData = withSoleOwnerDefault(assetData, await readFamilyMembers(userId));
+
     // Remove undefined fields to prevent Firebase errors
     const cleanedData = removeUndefinedFields({
-      ...assetData,
+      ...ownedData,
       userId,
       lastPriceUpdate: now,
       createdAt: now,
