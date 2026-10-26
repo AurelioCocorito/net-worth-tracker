@@ -27,10 +27,13 @@ function memoryStorage(): Storage {
 }
 
 describe('pure rules', () => {
-  it('reads anything but «cashflow» as Panoramica', () => {
+  it('reads a device that never chose as Cashflow, and the emulator builds as Panoramica', () => {
     expect(parseStartPage('cashflow')).toBe('cashflow');
-    expect(parseStartPage(null)).toBe('panoramica');
-    expect(parseStartPage('altro')).toBe('panoramica');
+    expect(parseStartPage('panoramica')).toBe('panoramica');
+    expect(parseStartPage(null)).toBe('cashflow');
+    expect(parseStartPage('altro')).toBe('cashflow');
+    expect(parseStartPage(null, 'panoramica')).toBe('panoramica');
+    expect(parseStartPage('cashflow', 'panoramica')).toBe('cashflow');
   });
 
   it('maps each page to its path', () => {
@@ -55,11 +58,16 @@ describe('storage', () => {
   it('persists the choice and notifies subscribers', () => {
     const listener = vi.fn();
     const unsubscribe = subscribeStartPage(listener);
-    expect(readStartPage()).toBe('panoramica');
-    writeStartPage('cashflow');
     expect(readStartPage()).toBe('cashflow');
+    writeStartPage('panoramica');
+    expect(readStartPage()).toBe('panoramica');
     expect(listener).toHaveBeenCalledTimes(1);
     unsubscribe();
+  });
+
+  it('sends a device that never chose from Panoramica to Cashflow', () => {
+    recordSessionEntry('/dashboard');
+    expect(takeStartRedirect()).toBe(true);
   });
 
   it('takes the redirect once per tab, and never when the tab entered elsewhere', () => {
@@ -74,11 +82,11 @@ describe('storage', () => {
     expect(takeStartRedirect()).toBe(false);
   });
 
-  it('answers Panoramica and no redirect when storage is blocked', () => {
+  it('answers the default and no redirect when storage is blocked', () => {
     const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
     vi.stubGlobal('window', { localStorage: blocked, sessionStorage: blocked });
-    writeStartPage('cashflow');
-    expect(readStartPage()).toBe('panoramica');
+    writeStartPage('panoramica');
+    expect(readStartPage()).toBe('cashflow');
     expect(takeStartRedirect()).toBe(false);
   });
 });

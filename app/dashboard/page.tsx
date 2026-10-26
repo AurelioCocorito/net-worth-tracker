@@ -180,7 +180,7 @@ export default function DashboardPage() {
   const prefersReducedMotion = useReducedMotion();
   const router = useRouter();
 
-  // The device opens on Cashflow (Impostazioni › Aspetto): a tab that entered on Panoramica is sent
+  // The device opens on Cashflow (the default, or Impostazioni › Aspetto): a tab that entered on Panoramica is sent
   // there once, so the net worth is not the first figure on screen (lib/utils/startPage.ts).
   useEffect(() => {
     recordSessionEntry('/dashboard');

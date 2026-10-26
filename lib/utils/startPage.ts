@@ -11,7 +11,12 @@
  * on `/dashboard` (a bookmark, the home-screen icon) — `shouldRedirectToStart`. Every later visit
  * to Panoramica in the same tab, from the menu, stays on Panoramica.
  *
- * Every storage access is wrapped: a private window or blocked site data answer «Panoramica».
+ * The default, when this device has never chosen, is Cashflow (2026-10-26, the owner's request: the
+ * app opens on Cashflow without picking it on every device); «Panoramica» in Aspetto opts back out.
+ * The emulator builds (E2E, perf and mobile census, the mirror tour) keep Panoramica as their
+ * default, so every harness that opens `/dashboard` still measures Panoramica.
+ *
+ * Every storage access is wrapped: a private window or blocked site data answer the default.
  */
 
 export type StartPage = 'panoramica' | 'cashflow';
@@ -21,14 +26,20 @@ export const START_PAGE_PATHS: Record<StartPage, string> = {
   cashflow: '/dashboard/cashflow',
 };
 
+export const DEFAULT_START_PAGE: StartPage =
+  process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true' ? 'panoramica' : 'cashflow';
+
 export const START_PAGE_STORAGE_KEY = 'nwt-start-page';
 /** The path the browser tab first opened inside the dashboard (sessionStorage). */
 export const SESSION_ENTRY_STORAGE_KEY = 'nwt-session-entry';
 /** Set once the tab has been sent to the start page (sessionStorage). */
 export const START_APPLIED_STORAGE_KEY = 'nwt-start-applied';
 
-export function parseStartPage(value: string | null | undefined): StartPage {
-  return value === 'cashflow' ? 'cashflow' : 'panoramica';
+export function parseStartPage(
+  value: string | null | undefined,
+  fallback: StartPage = DEFAULT_START_PAGE
+): StartPage {
+  return value === 'cashflow' || value === 'panoramica' ? value : fallback;
 }
 
 export function resolveStartPath(page: StartPage): string {
@@ -63,7 +74,7 @@ const local = () => window.localStorage;
 const session = () => window.sessionStorage;
 
 export function readStartPage(): StartPage {
-  if (typeof window === 'undefined') return 'panoramica';
+  if (typeof window === 'undefined') return DEFAULT_START_PAGE;
   return parseStartPage(safeGet(local, START_PAGE_STORAGE_KEY));
 }
 

@@ -44,7 +44,9 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   Panoramica or Cashflow, per device in localStorage (`lib/utils/startPage.ts`, `useStartPage`) — the landing and
   Accesso/Registrazione push a signed-in user there, and Panoramica sends a tab that ENTERED on `/dashboard` to
   Cashflow once (`takeStartRedirect`; the entry recorded by the dashboard layout, sessionStorage), so the net worth
-  is not the first figure on screen among other people. Pinned by `e2e/settings.start-page.spec.ts`. `sliceSettings(document, fallbackTargets)` seeds
+  is not the first figure on screen among other people. A device that never chose opens on Cashflow (2026-10-26,
+  `DEFAULT_START_PAGE`); the emulator builds keep Panoramica as their default, so E2E, perf and the mobile census
+  still land on Panoramica at `/dashboard`. Pinned by `e2e/settings.start-page.spec.ts`. `sliceSettings(document, fallbackTargets)` seeds
   the slices (the old `loadTargets`, defaults included), `composeSettingsDocument(slices, current)` rebuilds the
   document or names the first broken target rule WITH its place, `isSliceDirty(tab, draft, saved)` is the dot:
   `__tests__/settingsDraft.test.ts` pins `compose ∘ slice ≡ document` on a fixture carrying EVERY written field
