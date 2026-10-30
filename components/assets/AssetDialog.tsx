@@ -1603,7 +1603,7 @@ export function AssetDialog({ open, onClose, asset, onRegisterTrade, initialType
         const metadata: Partial<AssetFormData> = { ...formData };
         delete metadata.quantity;
         delete metadata.averageCost;
-        await updateAssetMetadata(asset.id, metadata);
+        await updateAssetMetadata(asset.id, metadata, ownerId);
         savedAssetId = asset.id;
         toast.success('Asset aggiornato con successo');
 

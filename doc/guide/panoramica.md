@@ -153,6 +153,16 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   (create, edit, delete), the two goal writers (`saveGoalData`, `appendInvestmentGoal`), the settings predicate (3 of
   the 5 fields: it held only because Impostazioni always sends the stamp duty) and the pension contribution record
   (invalidated before the record existed). A new writer of an input owes its invalidation in the same commit.
+- **A client invalidation never makes a save wait** (2026-10-28, `lib/services/dashboardOverviewInvalidation.ts`):
+  `invalidateDashboardOverviewSummary` queues its POST and returns at once — before, a save awaited one round trip to
+  the function per write it made (two for an expense on an account, four with a fee and a loan), each a cold start
+  away. Calls for one owner while a POST is in flight coalesce into ONE trailing POST, sent when the first answers, so
+  the last invalidation always lands after the save's last write (a recompute that read between two writes of one save
+  is still refused by the precondition below). The POST is `keepalive`, so a tab closed right after a save still sends
+  it. The one reader that must see it first, `useDashboardOverview`, awaits `settleDashboardOverviewInvalidations`
+  (at most `OVERVIEW_INVALIDATION_WAIT_MS`, 5 s, then it reads anyway — as a failed POST always did). Measured on the
+  emulator with every POST held 3 s: the expense dialog closed after 4,1 s before, 1,1 s after, and Panoramica's
+  read left 26 ms after the invalidation answered. Pinned by `__tests__/dashboardOverviewInvalidation.test.ts`.
 - **The request time is ONE `now`, from the freshness test to the payload** (2026-10-03): `getDashboardOverview`
   takes it and hands it to the readers, the expense stats and `buildLiveOverviewPayload` — a function of the recompute
   never reads its own clock, or a request across a month's midnight builds half its payload on each month. Pinned by
