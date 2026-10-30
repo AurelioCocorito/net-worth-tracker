@@ -267,7 +267,8 @@ holds it): how it was learned is `git log`'s.
 - **A server-owned materialized summary is fresh only while every write to an input invalidates it**
   (`dashboardOverviewSummaries/{userId}`, 2026-10-03): a new writer owes its invalidation in the same commit; fresh = no
   `invalidatedAt`, same `sourceVersion`, same Italian day, ≤ 6 h; rebuilt in `after()` under a precondition —
-  doc/guide/panoramica.md § The materialized summary.
+  doc/guide/panoramica.md § The materialized summary. **The client invalidation is queued, never awaited by a save**
+  (2026-10-28): its one reader waits for it instead (`settleDashboardOverviewInvalidations`).
 - **The React Query cache is persisted to IndexedDB** (2026-09-29) → `doc/guide/cache-persistita.md`: only the
   `PERSISTED_QUERY_PREFIXES` keys (`lib/constants/persistCache.ts`), only successful reads, never the demo uid; `gcTime`
   per prefix (`applyPersistedQueryDefaults`). **Bump `PERSIST_CACHE_VERSION` when a persisted payload's field is

@@ -347,11 +347,14 @@ export type AssetMetadataFormData = Omit<AssetFormData, 'quantity' | 'averageCos
  */
 export async function updateAssetMetadata(
   assetId: string,
-  updates: Partial<AssetMetadataFormData>
+  updates: Partial<AssetMetadataFormData>,
+  ownerId?: string
 ): Promise<void> {
   try {
     const assetRef = doc(db, ASSETS_COLLECTION, assetId);
-    const existingAsset = await getDoc(assetRef);
+    // The owner is read from the asset only when the caller does not know it (the dialog does):
+    // a read before the write is one more round trip in series on every «Salva».
+    const userId = ownerId ?? ((await getDoc(assetRef)).data()?.userId as string | undefined);
 
     const cleanedUpdates: Record<string, unknown> = removeUndefinedFields({
       ...updates,
@@ -385,7 +388,6 @@ export async function updateAssetMetadata(
 
     await updateDoc(assetRef, cleanedUpdates);
 
-    const userId = existingAsset.data()?.userId;
     if (userId) {
       await invalidateDashboardOverviewSummary(userId, 'asset_updated');
     }
@@ -518,12 +520,10 @@ export async function updateCashAssetBalancesAtomic(
 
   await runTransaction(db, async (tx) => {
     // Firestore transactions require ALL reads before ANY writes, so we read every
-    // asset first and only then issue the updates.
+    // asset first and only then issue the updates — together, not one round trip each
+    // (a transfer reads two accounts).
     const refs = validUpdates.map(u => ({ ...u, ref: doc(db, ASSETS_COLLECTION, u.assetId) }));
-    const reads = [];
-    for (const r of refs) {
-      reads.push({ ...r, snap: await tx.get(r.ref) });
-    }
+    const reads = await Promise.all(refs.map(async (r) => ({ ...r, snap: await tx.get(r.ref) })));
     for (const { assetId, signedDelta, ref, snap } of reads) {
       if (!snap.exists()) {
         console.warn('Skipping balance update: asset not found', { assetId });

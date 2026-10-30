@@ -781,11 +781,14 @@ export async function updateExpense(
   expenseId: string,
   updates: Partial<ExpenseFormData>,
   categoryName?: string,
-  subCategoryName?: string
+  subCategoryName?: string,
+  ownerId?: string
 ): Promise<void> {
   try {
     const expenseRef = doc(db, EXPENSES_COLLECTION, expenseId);
-    const existingExpense = await getDoc(expenseRef);
+    // The owner is read from the row only when the caller does not know it: the form does, and a
+    // read before the write is one more round trip in series on every «Salva modifiche».
+    const userId = ownerId ?? ((await getDoc(expenseRef)).data()?.userId as string | undefined);
 
     // If amount is being updated, ensure correct sign
     let updatedAmount = updates.amount;
@@ -808,7 +811,6 @@ export async function updateExpense(
     });
 
     await updateDoc(expenseRef, cleanedUpdates);
-    const userId = existingExpense.data()?.userId as string | undefined;
     if (userId) {
       await invalidateDashboardOverviewSummary(userId, 'expense_updated');
     }

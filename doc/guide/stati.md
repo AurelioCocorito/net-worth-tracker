@@ -7,6 +7,7 @@
 Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
 - **Stati**: `lib/utils/statesNarrative.ts` (`resolveSurfaceState` = the one wait/failure decision), `components/ui/{skeleton,empty-state,error-notice}.tsx`, `components/ui/sonner.tsx` — doc/guide/stati.md
+- **A page that stopped** (2026-10-28): `lib/utils/pageCrash.ts`, `components/ui/page-crash.tsx`, `app/{error,global-error}.tsx`, `app/dashboard/error.tsx` — § A page that stopped below
 - **The fourth reading** (2026-09-29): `lib/utils/freshness.ts` (`resolveFreshness`), `lib/hooks/useFreshness.ts`, `describeFreshness` in `statesNarrative.ts`, the `freshness` prop of `components/layout/PageHeader.tsx`; the persisted cache behind it in `lib/constants/persistCache.ts` (doc/guide/cache-persistita.md); `e2e/freshness.spec.ts`
 
 ## Stati: caricamento, vuoto, zero, errore
@@ -134,6 +135,30 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   `staleTime: 0` — there the header dates only the categories and the accounts lists. Rendimenti carries it: it reads
   the shared hooks and its two payloads are persisted, so its reload shows the sentence over restored figures
   (doc/guide/rendimenti.md § every collection read once).
+
+## A page that stopped: the error boundaries (2026-10-28)
+
+Until this date the app had no error boundary: a throw during a render left the blank «Application error» screen and
+a reload. Now three files catch it, all speaking `describePageCrash` (`lib/utils/pageCrash.ts`) in the failure
+notice's own shape (`ReadFailureNotice`, drawn by `ErrorNotice` through `components/ui/page-crash.tsx`):
+
+- `app/dashboard/error.tsx` — a dashboard page: the notice takes the page's place INSIDE the shell, so the sidebar and
+  the bottom nav stay and the reader can leave. «Riprova» is Next's `retry()` (the segment re-rendered).
+- `app/error.tsx` — the landing, the login, the registration, and the dashboard's own shell (Next's `error.js` does
+  not wrap the layout of its own segment).
+- `app/global-error.tsx` — the root layout itself: its own document and inline styles in the system's light or dark,
+  one «Ricarica la pagina».
+
+**A chunk of an older deploy is not a bug** (`isStaleDeployError`: webpack's `ChunkLoadError`, Chrome's, Firefox's and
+Safari's dynamic-import messages, Turbopack's): a tab left open across a Vercel deploy asks for a file the new build
+no longer serves. The boundary says «App aggiornata», its action is «Ricarica», and it reloads by itself ONCE —
+never twice within `AUTO_RELOAD_COOLDOWN_MS` (sessionStorage stamp), so a chunk really missing cannot loop the tab;
+no stamp (storage blocked) means no automatic reload. **`lazyComponent` is not covered**: its contract keeps the
+fallback on screen when its chunk fails (components/ui/lazy-component.tsx) — a tab across a deploy shows the
+placeholder until the next mount. The reassurance «i dati salvati non sono stati toccati» is true by construction: a
+render writes nothing, every save is an awaited write before its toast. Pinned by `__tests__/pageCrash.test.ts`;
+verified on 2026-10-28 with two throwaway pages on the emulator (a throw: the notice in the shell, «Riprova»; a
+`ChunkLoadError`: two loads, then «Ricarica»).
 
 ## Per-page blind spots
 

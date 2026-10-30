@@ -3,11 +3,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/queryKeys';
 import { authenticatedFetch } from '@/lib/utils/authFetch';
+import { settleDashboardOverviewInvalidations } from '@/lib/services/dashboardOverviewInvalidation';
 import { DashboardOverviewPayload } from '@/types/dashboardOverview';
 
 async function fetchDashboardOverview(
   userId: string
 ): Promise<DashboardOverviewPayload> {
+  // A save no longer waits for its invalidation POST (lib/services/dashboardOverviewInvalidation.ts):
+  // the refetch it triggers does, or the server would answer with the summary from before the save.
+  await settleDashboardOverviewInvalidations(userId);
   // Forward the active-account owner id: the endpoint is delegation-aware, so a
   // shared-account viewer must ask for the OWNER's overview, not the caller's own.
   const response = await authenticatedFetch(

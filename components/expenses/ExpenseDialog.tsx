@@ -2078,7 +2078,8 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
           expense.id,
           updatesWithLink as ExpenseFormData,
           category.name,
-          subCategoryName
+          subCategoryName,
+          ownerId
         );
 
         // Reconcile cash balances BEFORE confirming success — a failed transaction must not show
