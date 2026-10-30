@@ -49,17 +49,13 @@ import { useSettings } from '@/lib/hooks/useSettings';
 import { useExpenseCategories } from '@/lib/hooks/useExpenses';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Asset, FamilyMember } from '@/types/assets';
-import { createExpenseSettledOnDate, getFeeOf, saveExpenseFee, updateExpense, type ExpenseFee } from '@/lib/services/expenseService';
-import { applyDebtRepaymentEdit, applyDebtRepayments } from '@/lib/services/debtRepaymentService';
+import { createExpenseSettledOnDate, getFeeOf, saveExpenseEdit, type ExpenseFee } from '@/lib/services/expenseService';
 import { debtBalanceOf, isRepayableDebt, splitInstalment } from '@/lib/utils/mortgageRepayment';
-import { applyBalanceEffects } from '@/lib/services/cashBalanceReconciliation';
-import { editBalanceEffects } from '@/lib/utils/cashSettlement';
 import {
   describeExpenseFeeNote,
   expenseFeeCategoryLabel,
   isFeeRow,
   normalizeExpenseFee,
-  planExpenseFee,
   resolveExpenseFeeCategory,
   type ExpenseFeeSettings,
 } from '@/lib/utils/expenseFee';
@@ -2022,29 +2018,6 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
         // Editing always has an amount: the instalment toggle is creation-only, so the field is
         // never hidden here. A transfer is stored positive, every other row by the sign of its type.
         const editedAmount = Math.abs(data.amount ?? 0);
-        const settlement = editBalanceEffects(
-          expense,
-          {
-            type: data.type,
-            amount: data.type === 'income' || data.type === 'transfer' ? editedAmount : -editedAmount,
-            date: data.date,
-            linkedCashAssetId,
-            transferCashAssetId: data.type === 'transfer' ? transferCashAssetId : undefined,
-            debtAssetId: resolvedDebtAssetId,
-          },
-          now,
-        );
-        // The fee row follows its parent (created, updated or deleted), BEFORE the parent is
-        // written: the parent's pointer is the fee's id, or nothing.
-        const fee = await saveExpenseFee(
-          ownerId,
-          { id: expense.id, date: data.date, currency: data.currency, linkedCashAssetId },
-          savedFee.fee,
-          planExpenseFee(savedFee.fee, requestedFee),
-          feeCategory,
-          feeNote,
-          now,
-        );
         const updatesWithLink = {
           ...expenseData,
           linkedCashAssetId: linkedCashAssetId ?? null,
@@ -2062,42 +2035,42 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
           recurringFrequency: expenseData.isRecurring
             ? expenseData.recurringFrequency
             : deleteField(),
-          // Form-only, and `updateExpense` spreads whatever it is handed: the number of
+          // Form-only, and the write spreads whatever it is handed: the number of
           // occurrences describes a creation, not a row, and must never reach the document.
           recurringCount: undefined,
-          // The row's new date decides: still to come → it waits (the server settles it on the
-          // day), today or past → it has moved its account(s) with the effects below.
-          balancePending: settlement.pending,
-          transferFeeExpenseId: fee.feeExpenseId ?? deleteField(),
           debtAssetId: resolvedDebtAssetId ?? deleteField(),
           isDebtPayoff: resolvedIsDebtPayoff ? true : deleteField(),
           // Absent means counted (types/expenses.ts), so unticking has to DELETE the field.
           excludeFromBudget: resolvedExcludeFromBudget ? true : deleteField(),
         };
-        await updateExpense(
-          expense.id,
-          updatesWithLink as ExpenseFormData,
-          category.name,
+        // ONE transaction, BEFORE the success toast (lib/services/expenseService.ts →
+        // saveExpenseEdit): the row, its fee row (created, updated or deleted), the accounts — the
+        // old row's applied effect given back, the new one applied unless it waits for its date —
+        // and the loan's debt, all written or none. `balancePending` and the fee pointer are
+        // decided there, on the row as stored.
+        const edit = await saveExpenseEdit({
+          ownerId,
+          expenseId: expense.id,
+          updates: updatesWithLink as ExpenseFormData,
+          categoryName: category.name,
           subCategoryName,
-          ownerId
-        );
-
-        // Reconcile cash balances BEFORE confirming success — a failed transaction must not show
-        // a success toast while balances are left inconsistent. One set of effects covers every
-        // edit: the old row's APPLIED effect given back, the new one applied unless it waits for
-        // its date — amount, account, type across the transfer boundary and date alike.
-        const balancesMoved = await applyBalanceEffects([...settlement.effects, ...fee.effects]);
-        // The property's debt: what the row had repaid given back, the edited row split again on
-        // today's debt if it has happened (lib/utils/mortgageRepayment.ts → planDebtEdit).
-        const debtMoved = await applyDebtRepaymentEdit(
-          expense.id,
-          expense,
-          { type: data.type, amount: -editedAmount, debtAssetId: resolvedDebtAssetId, isDebtPayoff: resolvedIsDebtPayoff, date: data.date },
+          after: {
+            type: data.type,
+            amount: data.type === 'income' || data.type === 'transfer' ? editedAmount : -editedAmount,
+            date: data.date,
+            currency: data.currency,
+            linkedCashAssetId,
+            transferCashAssetId: data.type === 'transfer' ? transferCashAssetId : undefined,
+            debtAssetId: resolvedDebtAssetId,
+            isDebtPayoff: resolvedIsDebtPayoff,
+          },
+          requestedFee,
+          feeCategory,
+          feeNote,
           now,
-        );
-        const assetUpdated = balancesMoved || debtMoved;
+        });
 
-        if (assetUpdated) {
+        if (edit.assetsMoved) {
           queryClient.invalidateQueries({ queryKey: queryKeys.assets.all(ownerId) });
           queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(ownerId) });
         }
@@ -2119,8 +2092,8 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
             costCenterId: resolvedCostCenterId,
             costCenterName: resolvedCostCenterName,
             personalMemberId: resolvedPersonalMemberId,
-            balancePending: settlement.pending ? true : undefined,
-            transferFeeExpenseId: fee.feeExpenseId ?? undefined,
+            balancePending: edit.pending ? true : undefined,
+            transferFeeExpenseId: edit.feeExpenseId ?? undefined,
             debtAssetId: resolvedDebtAssetId,
             isDebtPayoff: resolvedIsDebtPayoff ? true : undefined,
             excludeFromBudget: resolvedExcludeFromBudget ? true : undefined,
@@ -2130,11 +2103,11 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
 
         toast.success(data.type === 'transfer' ? 'Trasferimento aggiornato con successo' : 'Spesa aggiornata con successo');
       } else {
-        // Every row of the shape carries its account; the rows already happened move it now
-        // (in one transaction, BEFORE the success toast), the ones to come on their own date.
-        // A row with a fee writes the pair in one batch, a series one pair per occurrence
-        // (lib/utils/expenseFee.ts).
-        const { ids: result, parents, appliedEffects, appliedDebtRows } = await createExpenseSettledOnDate(
+        // Every row of the shape carries its account; the rows already happened move it now, the
+        // ones to come on their own date. The rows, their fees (one per occurrence,
+        // lib/utils/expenseFee.ts), the accounts and the loan they repay are ONE transaction,
+        // BEFORE the success toast.
+        const { ids: result, parents, assetsMoved } = await createExpenseSettledOnDate(
           ownerId,
           expenseData,
           category.name,
@@ -2144,9 +2117,7 @@ export function ExpenseDialog({ open, onClose, expense, onSuccess, returnFocusTo
         );
         // The first parent written — a series hands its first occurrence, the fees are not parents.
         saved = parents.length > 0 ? { id: result[0], row: parents[0] } : null;
-        // The instalments already happened repay their loan now, in date order.
-        const debtMoved = await applyDebtRepayments(appliedDebtRows);
-        if ((await applyBalanceEffects(appliedEffects)) || debtMoved) {
+        if (assetsMoved) {
           queryClient.invalidateQueries({ queryKey: queryKeys.assets.all(ownerId) });
           queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview(ownerId) });
         }

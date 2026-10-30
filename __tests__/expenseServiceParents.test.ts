@@ -6,7 +6,7 @@
  * say whether the row is in the period or passes the filters.
  *
  * Firestore is mocked at the module boundary (as `__tests__/mortgageInstalmentsQuery.test.ts`):
- * `doc(collectionRef)` mints an id, `writeBatch` records what is set. Seen red on 2026-10-12 with
+ * `doc(collectionRef)` mints an id, the transaction (`writeBatch` before 2026-10-30) records what is set. Seen red on 2026-10-12 with
  * the fee rows pushed into `parents` beside their parents (two parents for one row with a fee, five
  * for a series of three with a fee each).
  */
@@ -15,6 +15,7 @@ import type { ExpenseFormData } from '@/types/expenses';
 
 let minted = 0;
 const batchSets: { id: string; data: Record<string, unknown> }[] = [];
+const assetUpdates: { id: string; data: Record<string, unknown> }[] = [];
 
 vi.mock('@/lib/firebase/config', () => ({ db: {} }));
 vi.mock('@/lib/services/dashboardOverviewInvalidation', () => ({ invalidateDashboardOverviewSummary: vi.fn() }));
@@ -28,6 +29,14 @@ vi.mock('firebase/firestore', () => ({
     delete: vi.fn(),
     commit: vi.fn().mockResolvedValue(undefined),
   }),
+  // Since 2026-10-30 the rows are written in the same transaction as the accounts they move.
+  runTransaction: async (_db: unknown, fn: (tx: unknown) => Promise<unknown>) =>
+    fn({
+      get: async (ref: { id: string }) => ({ id: ref.id, exists: () => true, data: () => ({ userId: 'owner', type: 'cash', quantity: 1000 }) }),
+      set: (ref: { id: string }, data: Record<string, unknown>) => batchSets.push({ id: ref.id, data }),
+      update: (ref: { id: string }, data: Record<string, unknown>) => assetUpdates.push({ id: ref.id, data }),
+      delete: vi.fn(),
+    }),
   getDocs: vi.fn(),
   getDoc: vi.fn(),
   addDoc: vi.fn(),
@@ -66,6 +75,7 @@ describe('createExpenseSettledOnDate → parents', () => {
   beforeEach(() => {
     minted = 0;
     batchSets.length = 0;
+    assetUpdates.length = 0;
   });
 
   it('returns the one row it wrote, as a reader would hand it out, its id the first of `ids`', async () => {
@@ -124,9 +134,9 @@ describe('createExpenseSettledOnDate → parents', () => {
     expect(result.parents.every((row) => row.linkedCashAssetId === 'acct-1' && row.transferCashAssetId === 'acct-2')).toBe(true);
     expect(result.parents.map((row) => row.balancePending ?? false)).toEqual([false, true, true]);
     // Only the occurrence already due moves the two accounts now; the others wait for their date.
-    expect(result.appliedEffects).toEqual([
-      { assetId: 'acct-1', delta: -500 },
-      { assetId: 'acct-2', delta: 500 },
+    expect(assetUpdates.map(({ id, data }) => [id, data.quantity])).toEqual([
+      ['acct-1', 500],
+      ['acct-2', 1500],
     ]);
   });
 

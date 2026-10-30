@@ -22,7 +22,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  addDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -31,9 +30,11 @@ import {
   orderBy,
   limit,
   writeBatch,
+  runTransaction,
   deleteField,
   type DocumentReference,
-  type DocumentSnapshot
+  type DocumentSnapshot,
+  type Transaction
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { removeUndefinedDeep as removeUndefinedFields } from '@/lib/utils/firestoreData';
@@ -41,8 +42,19 @@ import { invalidateDashboardOverviewSummary } from '@/lib/services/dashboardOver
 import { needsSignFlip, crossesTransferBoundary } from '@/lib/utils/expenseTypeTransition';
 import { buildRecurrenceDates, resolveRecurrenceFrequency } from '@/lib/utils/recurrenceDates';
 import { appliedBalanceEffectsOf, editBalanceEffects, hasDatedEffects, repaysDebt, reverseBalanceEffects, selectLinkableOccurrences, settlesLater, type BalanceEffect, type SettlementRow } from '@/lib/utils/cashSettlement';
-import { buildExpenseFeeFormData, type ExpenseFeeCategory, type ExpenseFeePlan } from '@/lib/utils/expenseFee';
-import { selectDebtLinkableOccurrences, type DebtRow } from '@/lib/utils/mortgageRepayment';
+import { buildExpenseFeeFormData, planExpenseFee, type ExpenseFeeCategory } from '@/lib/utils/expenseFee';
+import { debtGivenBackBy, planDebtRepayments, selectDebtLinkableOccurrences, type DebtRow } from '@/lib/utils/mortgageRepayment';
+import {
+  assetIdsTouched,
+  assetWritesOf,
+  debtsAfterGivingBack,
+  loanDebtsOf,
+  loanIdsOfEdit,
+  planDebtEditWrites,
+  type AssetWrite,
+  type ReadAsset,
+} from '@/lib/utils/expenseMoneyWrites';
+import { reverseAppliedBalances } from '@/lib/services/cashBalanceReconciliation';
 import {
   Expense,
   ExpenseFormData,
@@ -50,6 +62,7 @@ import {
 } from '@/types/expenses';
 
 const EXPENSES_COLLECTION = 'expenses';
+const ASSETS_COLLECTION = 'assets';
 
 /**
  * Raised by the batch re-typing paths (moveExpensesToCategory,
@@ -195,9 +208,15 @@ export async function createExpense(
 /**
  * Create an expense of any shape whose linked account(s) move ON THE ROWS' OWN DATES
  * (lib/utils/cashSettlement.ts): every occurrence of a series carries the account, a row dated
- * after today is written `balancePending` and settled by the server on the day. Returns the
- * created ids and the effects of the rows ALREADY happened — applied by the caller in one
- * transaction, so a series saved with three past rows moves the account by those three.
+ * after today is written `balancePending` and settled by the server on the day.
+ *
+ * ALL OR NOTHING (2026-10-30): the rows, their fees, the accounts moved by the rows already
+ * happened and the loan those rows repay (each stamped with its principal, in date order on the
+ * debt as it stands — lib/utils/mortgageRepayment.ts) are ONE transaction. Before, they were three
+ * writes in series, and a connection lost between them left the rows saved with the account
+ * unmoved. The one exception is a series too long for a transaction (`OPERATIONS_PER_TRANSACTION`:
+ * a 30-year series with a fee on every instalment): its rows go in batches first and the money
+ * alone in the transaction — the owner's call, that day, for a case they never meet.
  *
  * `createExpense` keeps the older contract (series linked on the first row only, nothing
  * pending) for the callers that move the balance themselves — a voluntary pension
@@ -205,6 +224,7 @@ export async function createExpense(
  *
  * `parents` (2026-10-12) are the parent rows as written, the fees excluded, so the form can hand
  * the first one to its host before the refetch lands (`ExpenseDialog.onSuccess(saved)`).
+ * `assetsMoved` says whether an account or a loan was written, for the caller's cache.
  */
 export async function createExpenseSettledOnDate(
   userId: string,
@@ -213,15 +233,42 @@ export async function createExpenseSettledOnDate(
   subCategoryName: string | undefined,
   now: Date,
   fee?: ExpenseFee
-): Promise<{ ids: string[]; parents: Expense[]; appliedEffects: BalanceEffect[]; appliedDebtRows: DebtRow[] }> {
-  const created = await writeExpenseRows(userId, expenseData, categoryName, subCategoryName, now, fee);
-  // The rows already happened that repay a loan: applied by the caller with the balances
-  // (lib/services/debtRepaymentService.ts), in date order on the debt as it stands. A fee row
-  // never repays anything (it carries no `debtAssetId`).
-  const appliedDebtRows = created.rows
-    .map((row, index) => ({ ...row, id: created.ids[index] }))
+): Promise<{ ids: string[]; parents: Expense[]; assetsMoved: boolean }> {
+  const planned = planExpenseRows(userId, expenseData, categoryName, subCategoryName, now, fee);
+  const effects = planned.rows.flatMap(appliedBalanceEffectsOf);
+  // The rows already happened that repay a loan. A fee row never repays anything (it carries no
+  // `debtAssetId`).
+  const debtRows: DebtRow[] = planned.rows
+    .map((row, index) => ({ ...row, id: planned.ids[index] }))
     .filter((row) => repaysDebt(row) && !row.balancePending);
-  return { ids: created.ids, parents: created.parents, appliedEffects: created.rows.flatMap(appliedBalanceEffectsOf), appliedDebtRows };
+  const loanIds = debtRows.map((row) => row.debtAssetId);
+  const assetIds = assetIdsTouched(effects, loanIds);
+
+  const rowsInTransaction = planned.docs.length + assetIds.length <= OPERATIONS_PER_TRANSACTION;
+  if (!rowsInTransaction) await commitInBatches(planned.docs);
+
+  let assetsMoved = false;
+  if (rowsInTransaction || assetIds.length > 0) {
+    await runTransaction(db, async (tx) => {
+      // ALL reads before ANY write (Firestore transactions).
+      const assets = await readAssets(tx, assetIds);
+      const plan = planDebtRepayments(debtRows, loanDebtsOf(assets, loanIds));
+      const assetWrites = assetWritesOf(assets, effects, plan.debts);
+      const stamps = new Map(
+        debtRows.map((row) => [row.id, { debtPrincipalRepaid: plan.principals.get(row.id) ?? 0, debtInterestPaid: plan.interests.get(row.id) ?? 0 }])
+      );
+      if (rowsInTransaction) {
+        for (const { ref, data } of planned.docs) tx.set(ref, { ...data, ...stamps.get(ref.id) });
+      } else {
+        for (const [id, stamp] of stamps) tx.update(doc(db, EXPENSES_COLLECTION, id), stamp);
+      }
+      writeAssets(tx, assetWrites);
+      assetsMoved = assetWrites.length > 0;
+    });
+  }
+
+  await invalidateDashboardOverviewSummary(userId, 'expense_created');
+  return { ids: planned.ids, parents: planned.parents, assetsMoved };
 }
 
 /**
@@ -234,64 +281,142 @@ export interface ExpenseFee {
   notes: string;
 }
 
+/** Firestore's ceiling on the writes of one transaction, with room to spare (the same as a batch's). */
+const OPERATIONS_PER_TRANSACTION = 450;
+
+/** The assets a save touches, read inside its transaction; one not found is skipped (the row is still saved). */
+async function readAssets(tx: Transaction, ids: string[]): Promise<Map<string, ReadAsset>> {
+  const snaps = await Promise.all(ids.map((id) => tx.get(doc(db, ASSETS_COLLECTION, id))));
+  const assets = new Map<string, ReadAsset>();
+  snaps.forEach((snap, index) => {
+    if (snap.exists()) assets.set(ids[index], snap.data() as ReadAsset);
+    else console.warn('Skipping balance update: asset not found', { assetId: ids[index] });
+  });
+  return assets;
+}
+
+function writeAssets(tx: Transaction, writes: AssetWrite[]): void {
+  const now = new Date();
+  for (const { assetId, fields } of writes) tx.update(doc(db, ASSETS_COLLECTION, assetId), { ...fields, updatedAt: now });
+}
+
+/** An edit of ONE row, as the form hands it (ExpenseDialog). */
+export interface ExpenseEdit {
+  ownerId: string;
+  expenseId: string;
+  /** The fields to write, as `updateExpense` takes them (`deleteField()` where a field is cleared). */
+  updates: Partial<ExpenseFormData>;
+  categoryName: string;
+  subCategoryName?: string;
+  /** The edited row as its accounts and its loan see it: the amount signed as stored. */
+  after: SettlementRow & { date: Date; currency: string; isDebtPayoff?: boolean };
+  /** The fee the form asks for (already through `normalizeExpenseFee`), null for none. */
+  requestedFee: number | null;
+  /** The fee category from Impostazioni, needed only to create a fee. */
+  feeCategory: ExpenseFeeCategory | null;
+  feeNote: string;
+  now: Date;
+}
+
 /**
- * Carry out an `ExpenseFeePlan` on an EDITED row — the fee row created, updated or deleted — and
- * return the effects on the accounts (for the caller to apply with the row's own, in one
- * transaction) and the id the row must now point at (null: no fee).
+ * Save an edited row ALL OR NOTHING (2026-10-30): the row, its fee row (created, updated or
+ * deleted — lib/utils/expenseFee.ts), the accounts both move and the loan the row repays, in ONE
+ * transaction. Before, these were four writes in series.
  *
- * The fee row follows its parent: its date, its account (a transfer's origin), the amount asked
- * for. An update is an edit like any other (`editBalanceEffects`: what it applied given back, the
- * new effect applied unless its date is still to come); a delete gives back only what was applied.
- * Its category, subcategory and note are the row's own and are never touched by an edit — the
- * owner may have re-filed or re-worded it. A new fee needs the category from Impostazioni.
+ * The row and its fee are READ INSIDE the transaction, and every effect is computed on them, not
+ * on the copy the form opened: an instalment the server settled while the dialog was open
+ * (`settleDueBalances`) is given back as applied, never as still pending.
+ *
+ * Accounts (`editBalanceEffects`): the old row's applied effect given back, the new one applied
+ * unless its new date is still to come. The fee row follows its parent — its date, its account,
+ * the amount asked for; its category, subcategory and note are its own and never touched. The debt
+ * (`planDebtEditWrites`): what the row had repaid given back, the edited row split again on the
+ * debt as it now stands.
  */
-export async function saveExpenseFee(
-  userId: string,
-  parent: { id: string; date: Date; currency: string; linkedCashAssetId?: string },
-  existingFee: Expense | null,
-  plan: ExpenseFeePlan,
-  category: ExpenseFeeCategory | null,
-  notes: string,
-  now: Date
-): Promise<{ effects: BalanceEffect[]; feeExpenseId: string | null }> {
-  switch (plan.kind) {
-    case 'none':
-      return { effects: [], feeExpenseId: null };
-    case 'delete': {
-      if (!existingFee) return { effects: [], feeExpenseId: null };
-      await deleteDoc(doc(db, EXPENSES_COLLECTION, existingFee.id));
-      await invalidateDashboardOverviewSummary(userId, 'expense_deleted');
-      return { effects: reverseBalanceEffects(appliedBalanceEffectsOf(existingFee)), feeExpenseId: null };
+export async function saveExpenseEdit(edit: ExpenseEdit): Promise<{ pending: boolean; feeExpenseId: string | null; assetsMoved: boolean }> {
+  const { ownerId, expenseId, after, requestedFee, feeCategory, feeNote, now } = edit;
+  const rowRef = doc(db, EXPENSES_COLLECTION, expenseId);
+  // Minted outside the transaction, so a retry writes the same document.
+  const newFeeRef = doc(collection(db, EXPENSES_COLLECTION));
+
+  const result = await runTransaction(db, async (tx) => {
+    // ALL reads before ANY write: the row, its fee, then the assets they move.
+    const rowSnap = await tx.get(rowRef);
+    if (!rowSnap.exists()) throw new Error('The expense no longer exists');
+    const stored = expenseFromSnapshot(rowSnap);
+    const feeSnap = stored.transferFeeExpenseId ? await tx.get(doc(db, EXPENSES_COLLECTION, stored.transferFeeExpenseId)) : null;
+    const storedFee = feeSnap?.exists() ? expenseFromSnapshot(feeSnap) : null;
+
+    const settlement = editBalanceEffects(stored, after, now);
+    const feePlan = planExpenseFee(storedFee, requestedFee);
+    let feeEffects: BalanceEffect[] = [];
+    let feeExpenseId: string | null = null;
+    let writeFee: () => void = () => {};
+    switch (feePlan.kind) {
+      case 'none':
+        break;
+      case 'delete': {
+        const fee = storedFee!;
+        feeEffects = reverseBalanceEffects(appliedBalanceEffectsOf(fee));
+        writeFee = () => tx.delete(doc(db, EXPENSES_COLLECTION, fee.id));
+        break;
+      }
+      case 'update': {
+        const fee = storedFee!;
+        const feeAfter = { type: fee.type, amount: -feePlan.amount, date: after.date, linkedCashAssetId: after.linkedCashAssetId };
+        const feeSettlement = editBalanceEffects(fee, feeAfter, now);
+        feeEffects = feeSettlement.effects;
+        feeExpenseId = fee.id;
+        writeFee = () =>
+          tx.update(doc(db, EXPENSES_COLLECTION, fee.id), {
+            amount: feeAfter.amount,
+            date: Timestamp.fromDate(after.date),
+            currency: after.currency,
+            linkedCashAssetId: after.linkedCashAssetId ?? deleteField(),
+            balancePending: feeSettlement.pending ? true : deleteField(),
+            updatedAt: new Date(),
+          });
+        break;
+      }
+      case 'create': {
+        // The form disables the field without a category, so reaching here without one is a bug in
+        // the caller — refused rather than written into a category the owner never chose.
+        if (!feeCategory) throw new Error('A new fee needs the fee category from Impostazioni');
+        const feeData = {
+          ...buildExpenseFeeFormData({ date: after.date, currency: after.currency, linkedCashAssetId: after.linkedCashAssetId }, feePlan.amount, feeCategory, feeNote),
+          feeOfTransferId: expenseId,
+        };
+        const { data, row } = buildSingleExpenseDoc(ownerId, feeData, feeCategory.categoryName, feeCategory.subCategoryName, now, new Date());
+        feeEffects = appliedBalanceEffectsOf(row);
+        feeExpenseId = newFeeRef.id;
+        writeFee = () => tx.set(newFeeRef, data);
+        break;
+      }
     }
-    case 'update': {
-      if (!existingFee) throw new Error('A fee update needs the fee row it updates');
-      const after = { type: existingFee.type, amount: -plan.amount, date: parent.date, linkedCashAssetId: parent.linkedCashAssetId };
-      const settlement = editBalanceEffects(existingFee, after, now);
-      await updateDoc(doc(db, EXPENSES_COLLECTION, existingFee.id), {
-        amount: after.amount,
-        date: Timestamp.fromDate(parent.date),
-        currency: parent.currency,
-        linkedCashAssetId: parent.linkedCashAssetId ?? deleteField(),
-        balancePending: settlement.pending ? true : deleteField(),
-        updatedAt: new Date(),
-      });
-      await invalidateDashboardOverviewSummary(userId, 'expense_updated');
-      return { effects: settlement.effects, feeExpenseId: existingFee.id };
-    }
-    case 'create': {
-      // The form disables the field without a category, so reaching here without one is a bug in
-      // the caller — refused rather than written into a category the owner never chose.
-      if (!category) throw new Error('A new fee needs the fee category from Impostazioni');
-      const feeData = {
-        ...buildExpenseFeeFormData({ date: parent.date, currency: parent.currency, linkedCashAssetId: parent.linkedCashAssetId }, plan.amount, category, notes),
-        feeOfTransferId: parent.id,
-      };
-      const { data, row } = buildSingleExpenseDoc(userId, feeData, category.categoryName, category.subCategoryName, now, new Date());
-      const feeRef = await addDoc(collection(db, EXPENSES_COLLECTION), data);
-      await invalidateDashboardOverviewSummary(userId, 'expense_created');
-      return { effects: appliedBalanceEffectsOf(row), feeExpenseId: feeRef.id };
-    }
-  }
+
+    const effects = [...settlement.effects, ...feeEffects];
+    const loanIds = loanIdsOfEdit(stored, after, now);
+    const assets = await readAssets(tx, assetIdsTouched(effects, loanIds));
+    const debt = planDebtEditWrites(stored, after, now, loanDebtsOf(assets, loanIds));
+    const assetWrites = assetWritesOf(assets, effects, debt.debts);
+
+    writeFee();
+    tx.update(rowRef, {
+      ...buildExpenseUpdate(edit.updates, edit.categoryName, edit.subCategoryName),
+      // The row's new date decides: still to come → it waits (the server settles it on the day),
+      // today or past → it has moved its account(s) with the effects above.
+      balancePending: settlement.pending,
+      transferFeeExpenseId: feeExpenseId ?? deleteField(),
+      ...(debt.touchesStamp
+        ? { debtPrincipalRepaid: debt.stamp?.principal ?? deleteField(), debtInterestPaid: debt.stamp?.interest ?? deleteField() }
+        : {}),
+    });
+    writeAssets(tx, assetWrites);
+    return { pending: settlement.pending, feeExpenseId, assetsMoved: assetWrites.length > 0 };
+  });
+
+  await invalidateDashboardOverviewSummary(ownerId, 'expense_updated');
+  return result;
 }
 
 /** A written row, as far as its accounts are concerned. */
@@ -308,6 +433,11 @@ interface WrittenRows {
    */
   parents: Expense[];
   isSeries: boolean;
+}
+
+/** Rows built and not yet written: their documents beside what `WrittenRows` hands back. */
+interface PlannedRows extends WrittenRows {
+  docs: { ref: DocumentReference; data: Record<string, unknown> }[];
 }
 
 /** The document as a reader would return it: its fields, its id, and its date back as a `Date`. */
@@ -399,8 +529,8 @@ function buildSingleExpenseDoc(
     transferCashAssetId: expenseData.transferCashAssetId,
     debtAssetId: expenseData.type === 'debt' ? expenseData.debtAssetId : undefined,
   };
-  // The payoff flag rides with the row the caller applies NOW (`applyDebtRepayments` reads it):
-  // without it a payoff saved today would be split like an instalment (seen in the browser, 2026-10-10).
+  // The payoff flag rides with the row applied NOW (`planDebtRepayments` reads it): without it a
+  // payoff saved today would be split like an instalment (seen in the browser, 2026-10-10).
   if (row.debtAssetId && expenseData.isDebtPayoff) row.isDebtPayoff = true;
   const settlement = settlementFieldsOf(row, settleNow);
   const data = removeUndefinedFields({
@@ -436,56 +566,65 @@ function buildSingleExpenseDoc(
 }
 
 /**
- * Write the rows of any shape — one row, an instalment plan, a recurring series — and, with a
+ * Build the rows of any shape — one row, an instalment plan, a recurring series — and, with a
  * `fee`, the fee row of EACH of them (lib/utils/expenseFee.ts), every pair in the same batch and
  * pointing at each other: a half-written pair would leave a fee nobody can reach from its parent,
  * or a parent naming a fee that does not exist. The fee rows come AFTER the parents in `ids` and
  * `rows`, so a caller indexing the parents by position is unaffected.
  */
-async function writeExpenseRows(
+function planExpenseRows(
   userId: string,
   expenseData: ExpenseFormData,
   categoryName: string,
   subCategoryName: string | undefined,
   settleNow?: Date,
   fee?: ExpenseFee
+): PlannedRows {
+  // Priority 1: Check installment first (BNPL payments with varying amounts)
+  // Installments have priority over recurring since they're more specific
+  if (expenseData.isInstallment && expenseData.installmentCount && expenseData.installmentCount > 1) {
+    return planInstallmentExpenses(userId, expenseData, categoryName, subCategoryName, settleNow, fee);
+  }
+
+  // Priority 2: Recurring expenses (a fixed amount repeating monthly or yearly)
+  if (expenseData.isRecurring && expenseData.recurringCount && expenseData.recurringCount > 0) {
+    return planRecurringExpenses(userId, expenseData, categoryName, subCategoryName, settleNow, fee);
+  }
+
+  // Priority 3: Create single expense (with its fee in the same write, when it has one)
+  const now = new Date();
+  const docRef = doc(collection(db, EXPENSES_COLLECTION));
+  const feeDoc = fee ? buildFeeDoc(userId, docRef, expenseData, fee, settleNow, now) : null;
+  const { data: cleanedData, row } = buildSingleExpenseDoc(
+    userId,
+    feeDoc ? { ...expenseData, transferFeeExpenseId: feeDoc.ref.id } : expenseData,
+    categoryName,
+    subCategoryName,
+    settleNow,
+    now
+  );
+
+  return {
+    docs: [{ ref: docRef, data: cleanedData }, ...(feeDoc ? [{ ref: feeDoc.ref, data: feeDoc.data }] : [])],
+    ids: [docRef.id, ...(feeDoc ? [feeDoc.ref.id] : [])],
+    rows: [row, ...(feeDoc ? [feeDoc.row] : [])],
+    parents: [writtenExpense(docRef.id, cleanedData, expenseData.date)],
+    isSeries: false,
+  };
+}
+
+/** The legacy write of `createExpense`: the planned rows in batches, no account moved. */
+async function writeExpenseRows(
+  userId: string,
+  expenseData: ExpenseFormData,
+  categoryName: string,
+  subCategoryName: string | undefined
 ): Promise<WrittenRows> {
   try {
-    const now = new Date();
-
-    // Priority 1: Check installment first (BNPL payments with varying amounts)
-    // Installments have priority over recurring since they're more specific
-    if (expenseData.isInstallment && expenseData.installmentCount && expenseData.installmentCount > 1) {
-      return await createInstallmentExpenses(userId, expenseData, categoryName, subCategoryName, settleNow, fee);
-    }
-
-    // Priority 2: Recurring expenses (a fixed amount repeating monthly or yearly)
-    if (expenseData.isRecurring && expenseData.recurringCount && expenseData.recurringCount > 0) {
-      return await createRecurringExpenses(userId, expenseData, categoryName, subCategoryName, settleNow, fee);
-    }
-
-    // Priority 3: Create single expense (with its fee in the same batch, when it has one)
-    const expensesRef = collection(db, EXPENSES_COLLECTION);
-    const docRef = doc(expensesRef);
-    const feeDoc = fee ? buildFeeDoc(userId, docRef, expenseData, fee, settleNow, now) : null;
-    const { data: cleanedData, row } = buildSingleExpenseDoc(
-      userId,
-      feeDoc ? { ...expenseData, transferFeeExpenseId: feeDoc.ref.id } : expenseData,
-      categoryName,
-      subCategoryName,
-      settleNow,
-      now
-    );
-
-    await commitInBatches([{ ref: docRef, data: cleanedData }, ...(feeDoc ? [{ ref: feeDoc.ref, data: feeDoc.data }] : [])]);
+    const planned = planExpenseRows(userId, expenseData, categoryName, subCategoryName);
+    await commitInBatches(planned.docs);
     await invalidateDashboardOverviewSummary(userId, 'expense_created');
-
-    return {
-      ids: [docRef.id, ...(feeDoc ? [feeDoc.ref.id] : [])],
-      rows: [row, ...(feeDoc ? [feeDoc.row] : [])],
-      parents: [writtenExpense(docRef.id, cleanedData, expenseData.date)],
-      isSeries: false,
-    };
+    return planned;
   } catch (error) {
     console.error('Error creating expense:', error);
     throw new Error('Failed to create expense');
@@ -508,14 +647,14 @@ async function writeExpenseRows(
  *
  * @returns The ids of every created occurrence, in chronological order, then the fees' ids, and the rows written.
  */
-async function createRecurringExpenses(
+function planRecurringExpenses(
   userId: string,
   expenseData: ExpenseFormData,
   categoryName: string,
   subCategoryName: string | undefined,
   settleNow?: Date,
   fee?: ExpenseFee
-): Promise<WrittenRows> {
+): PlannedRows {
   try {
     const docs: { ref: DocumentReference; data: Record<string, unknown> }[] = [];
     const feeDocs: ReturnType<typeof buildFeeDoc>[] = [];
@@ -591,10 +730,13 @@ async function createRecurringExpenses(
       parents.push(writtenExpense(docRef.id, cleanedData, expenseDate));
     });
 
-    await commitInBatches([...docs, ...feeDocs.map(({ ref, data }) => ({ ref, data }))]);
-    await invalidateDashboardOverviewSummary(userId, 'expense_created');
-
-    return { ids: [...createdIds, ...feeDocs.map((feeDoc) => feeDoc.ref.id)], rows: [...rows, ...feeDocs.map((feeDoc) => feeDoc.row)], parents, isSeries: true };
+    return {
+      docs: [...docs, ...feeDocs.map(({ ref, data }) => ({ ref, data }))],
+      ids: [...createdIds, ...feeDocs.map((feeDoc) => feeDoc.ref.id)],
+      rows: [...rows, ...feeDocs.map((feeDoc) => feeDoc.row)],
+      parents,
+      isSeries: true,
+    };
   } catch (error) {
     console.error('Error creating recurring expenses:', error);
     throw new Error('Failed to create recurring expenses');
@@ -621,14 +763,14 @@ async function createRecurringExpenses(
  *
  * @returns The created ids and the rows written
  */
-async function createInstallmentExpenses(
+function planInstallmentExpenses(
   userId: string,
   expenseData: ExpenseFormData,
   categoryName: string,
   subCategoryName: string | undefined,
   settleNow?: Date,
   fee?: ExpenseFee
-): Promise<WrittenRows> {
+): PlannedRows {
   try {
     const docs: { ref: DocumentReference; data: Record<string, unknown> }[] = [];
     const feeDocs: ReturnType<typeof buildFeeDoc>[] = [];
@@ -730,11 +872,13 @@ async function createInstallmentExpenses(
       parents.push(writtenExpense(docRef.id, cleanedData, installmentDate));
     }
 
-    await commitInBatches([...docs, ...feeDocs.map(({ ref, data }) => ({ ref, data }))]);
-    await invalidateDashboardOverviewSummary(userId, 'expense_created');
-
-    console.log(`Created ${installmentCount} installment expenses with parent ID: ${parentId}`);
-    return { ids: [...createdIds, ...feeDocs.map((feeDoc) => feeDoc.ref.id)], rows: [...rows, ...feeDocs.map((feeDoc) => feeDoc.row)], parents, isSeries: true };
+    return {
+      docs: [...docs, ...feeDocs.map(({ ref, data }) => ({ ref, data }))],
+      ids: [...createdIds, ...feeDocs.map((feeDoc) => feeDoc.ref.id)],
+      rows: [...rows, ...feeDocs.map((feeDoc) => feeDoc.row)],
+      parents,
+      isSeries: true,
+    };
   } catch (error) {
     console.error('Error creating installment expenses:', error);
     throw new Error('Failed to create installment expenses');
@@ -742,7 +886,8 @@ async function createInstallmentExpenses(
 }
 
 /**
- * Delete all expenses in an installment series
+ * Delete all expenses in an installment series, their fees, and give back what they applied
+ * (`deleteSeries`). Returns true when an account or a loan moved.
  * @param userId - Owner of the series
  * @param installmentParentId - The parent ID linking all installments
  *
@@ -755,27 +900,40 @@ async function createInstallmentExpenses(
 export async function deleteInstallmentExpenses(
   userId: string,
   installmentParentId: string
-): Promise<void> {
-  try {
-    const expensesRef = collection(db, EXPENSES_COLLECTION);
-    const q = query(
-      expensesRef,
-      where('userId', '==', userId),
-      where('installmentParentId', '==', installmentParentId)
-    );
-
-    const querySnapshot = await getDocs(q);
-    await deleteSeriesDocuments(querySnapshot.docs);
-    await invalidateDashboardOverviewSummary(userId, 'expense_deleted');
-    console.log(`Deleted ${querySnapshot.size} installment expenses with parent ID: ${installmentParentId}`);
-  } catch (error) {
-    console.error('Error deleting installment expenses:', error);
-    throw new Error('Failed to delete installment expenses');
-  }
+): Promise<boolean> {
+  return deleteSeries(userId, 'installmentParentId', installmentParentId);
 }
 
 /**
- * Update an existing expense
+ * The fields an edit writes on the row: the amount signed by its type, the names denormalised,
+ * the date as a Timestamp, `undefined` stripped (a `deleteField()` survives). Shared by
+ * `updateExpense` and the all-or-nothing edit (`saveExpenseEdit`).
+ */
+function buildExpenseUpdate(updates: Partial<ExpenseFormData>, categoryName?: string, subCategoryName?: string): Record<string, unknown> {
+  // If amount is being updated, ensure correct sign
+  let updatedAmount = updates.amount;
+  if (updatedAmount !== undefined && updates.type) {
+    updatedAmount = Math.abs(updatedAmount);
+    if (updates.type !== 'income' && updates.type !== 'transfer') {
+      updatedAmount = -updatedAmount;
+    }
+  }
+
+  return removeUndefinedFields({
+    ...updates,
+    amount: updatedAmount,
+    categoryName,
+    subCategoryName,
+    date: updates.date ? Timestamp.fromDate(updates.date) : undefined,
+    linkedCashAssetId: updates.linkedCashAssetId,
+    transferCashAssetId: updates.transferCashAssetId,
+    updatedAt: new Date(),
+  });
+}
+
+/**
+ * Update an existing expense — fields only: no account, fee or loan moves. The form's edit goes
+ * through `saveExpenseEdit`.
  */
 export async function updateExpense(
   expenseId: string,
@@ -790,27 +948,7 @@ export async function updateExpense(
     // read before the write is one more round trip in series on every «Salva modifiche».
     const userId = ownerId ?? ((await getDoc(expenseRef)).data()?.userId as string | undefined);
 
-    // If amount is being updated, ensure correct sign
-    let updatedAmount = updates.amount;
-    if (updatedAmount !== undefined && updates.type) {
-      updatedAmount = Math.abs(updatedAmount);
-      if (updates.type !== 'income' && updates.type !== 'transfer') {
-        updatedAmount = -updatedAmount;
-      }
-    }
-
-    const cleanedUpdates = removeUndefinedFields({
-      ...updates,
-      amount: updatedAmount,
-      categoryName,
-      subCategoryName,
-      date: updates.date ? Timestamp.fromDate(updates.date) : undefined,
-      linkedCashAssetId: updates.linkedCashAssetId,
-      transferCashAssetId: updates.transferCashAssetId,
-      updatedAt: new Date(),
-    });
-
-    await updateDoc(expenseRef, cleanedUpdates);
+    await updateDoc(expenseRef, buildExpenseUpdate(updates, categoryName, subCategoryName));
     if (userId) {
       await invalidateDashboardOverviewSummary(userId, 'expense_updated');
     }
@@ -879,37 +1017,70 @@ export async function getFeesOf(userId: string, rows: Pick<Expense, 'id' | 'tran
 }
 
 /**
- * Delete rows that go together — a row and its fee (`rowsDeletedWith`) — in ONE batch. The
- * caller gives back their applied balances first (`reverseAppliedBalances`), as for any delete.
+ * Delete rows that go together — a row and its fee (`rowsDeletedWith`), a whole series and its
+ * fees — ALL OR NOTHING (2026-10-30): the rows removed, what they had applied to their accounts
+ * given back, and the principal they had repaid returned to their loans, in ONE transaction.
+ * Before, the balances were given back first and the rows deleted after, two writes in series.
  *
- * A fee row deleted WITHOUT its parent (deleted by hand from the list) unlinks itself from it
- * in the same batch, so the parent never points at a row that is gone.
+ * The rows are re-read inside the transaction and the effects computed on them as stored: a row
+ * still waiting for its date (`balancePending`) moved nothing and gives back nothing — even if it
+ * was settled since the list was loaded. A row already gone is skipped.
+ *
+ * A fee row deleted WITHOUT its parent (deleted by hand from the list) unlinks itself from it in
+ * the same transaction, so the parent never points at a row that is gone.
+ *
+ * Returns true when an account or a loan moved.
  */
-export async function deleteExpenseRows(userId: string, rows: Expense[]): Promise<void> {
-  try {
-    const deletedIds = new Set(rows.map((row) => row.id));
-    const batch = writeBatch(db);
-    for (const row of rows) batch.delete(doc(db, EXPENSES_COLLECTION, row.id));
-    for (const row of rows) {
-      if (!row.feeOfTransferId || deletedIds.has(row.feeOfTransferId)) continue;
-      const parentRef = doc(db, EXPENSES_COLLECTION, row.feeOfTransferId);
-      // An update on a missing document fails the whole batch: a parent already gone needs nothing.
-      if ((await getDoc(parentRef)).exists()) {
-        batch.update(parentRef, { transferFeeExpenseId: deleteField(), updatedAt: new Date() });
-      }
-    }
-    await batch.commit();
-    await invalidateDashboardOverviewSummary(userId, 'expense_deleted');
-  } catch (error) {
-    console.error('Error deleting expense rows:', error);
-    throw new Error('Failed to delete expense');
-  }
+export async function deleteExpenseRows(userId: string, rows: Pick<Expense, 'id'>[]): Promise<boolean> {
+  const refs = [...new Set(rows.map((row) => row.id))].map((id) => doc(db, EXPENSES_COLLECTION, id));
+  const deletedIds = new Set(refs.map((ref) => ref.id));
+
+  const assetsMoved = await runTransaction(db, async (tx) => {
+    // ALL reads before ANY write: the rows, the parents a lone fee points at, then the assets.
+    const snaps = await Promise.all(refs.map((ref) => tx.get(ref)));
+    const stored = snaps.filter((snap) => snap.exists()).map(expenseFromSnapshot);
+    const parentIds = [...new Set(stored.map((row) => row.feeOfTransferId).filter((id): id is string => !!id && !deletedIds.has(id)))];
+    const parentSnaps = await Promise.all(parentIds.map((id) => tx.get(doc(db, EXPENSES_COLLECTION, id))));
+
+    const effects = reverseBalanceEffects(stored.flatMap(appliedBalanceEffectsOf));
+    const loanIds = [...debtGivenBackBy(stored).keys()];
+    const assets = await readAssets(tx, assetIdsTouched(effects, loanIds));
+    const assetWrites = assetWritesOf(assets, effects, debtsAfterGivingBack(stored, loanDebtsOf(assets, loanIds)));
+
+    for (const snap of snaps) if (snap.exists()) tx.delete(snap.ref);
+    // An update on a missing document fails the whole transaction: a parent already gone needs nothing.
+    for (const snap of parentSnaps) if (snap.exists()) tx.update(snap.ref, { transferFeeExpenseId: deleteField(), updatedAt: new Date() });
+    writeAssets(tx, assetWrites);
+    return assetWrites.length > 0;
+  });
+
+  await invalidateDashboardOverviewSummary(userId, 'expense_deleted');
+  return assetsMoved;
+}
+
+/**
+ * Delete a whole series — its occurrences, the fee row of each (`getFeesOf`) — giving back what
+ * they applied. One transaction (`deleteExpenseRows`) whenever it fits; a series too long for one
+ * (a 30-year series with a fee on every instalment) gives back the accounts and the loans in one
+ * transaction and then deletes the documents in batches, as every series did before 2026-10-30.
+ */
+async function deleteSeries(userId: string, field: 'recurringParentId' | 'installmentParentId', parentId: string): Promise<boolean> {
+  const snapshot = await getDocs(query(collection(db, EXPENSES_COLLECTION), where('userId', '==', userId), where(field, '==', parentId)));
+  const series = snapshot.docs.map((docSnapshot) => expenseFromSnapshot(docSnapshot));
+  const rows = [...series, ...(await getFeesOf(userId, series))];
+  const assetCount = assetIdsTouched(rows.flatMap(appliedBalanceEffectsOf), debtGivenBackBy(rows).keys()).length;
+  if (rows.length + assetCount <= OPERATIONS_PER_TRANSACTION) return deleteExpenseRows(userId, rows);
+
+  const assetsMoved = await reverseAppliedBalances(rows);
+  await deleteSeriesDocuments(snapshot.docs);
+  await invalidateDashboardOverviewSummary(userId, 'expense_deleted');
+  return assetsMoved;
 }
 
 /**
  * Delete the documents of a whole series — the occurrences the query returns and the fee row of
- * each (`transferFeeExpenseId`) — in batches under Firestore's ceiling. The balances were given
- * back by the caller (`reverseAppliedBalances` over the series AND its fees, `getFeesOf`).
+ * each (`transferFeeExpenseId`) — in batches under Firestore's ceiling: only for a series too long
+ * for one transaction (`deleteSeries`), whose balances were given back first.
  */
 async function deleteSeriesDocuments(docs: DocumentSnapshot[]): Promise<void> {
   const refs = docs.flatMap((docSnapshot) => {
@@ -924,7 +1095,8 @@ async function deleteSeriesDocuments(docs: DocumentSnapshot[]): Promise<void> {
 }
 
 /**
- * Delete all recurring expenses with the same parent ID
+ * Delete all recurring expenses with the same parent ID, their fees, and give back what they
+ * applied (`deleteSeries`). Returns true when an account or a loan moved.
  * @param userId - Owner of the series
  * @param recurringParentId - The shared parent ID of the recurring series
  *
@@ -937,22 +1109,8 @@ async function deleteSeriesDocuments(docs: DocumentSnapshot[]): Promise<void> {
 export async function deleteRecurringExpenses(
   userId: string,
   recurringParentId: string
-): Promise<void> {
-  try {
-    const expensesRef = collection(db, EXPENSES_COLLECTION);
-    const q = query(
-      expensesRef,
-      where('userId', '==', userId),
-      where('recurringParentId', '==', recurringParentId)
-    );
-
-    const querySnapshot = await getDocs(q);
-    await deleteSeriesDocuments(querySnapshot.docs);
-    await invalidateDashboardOverviewSummary(userId, 'expense_deleted');
-  } catch (error) {
-    console.error('Error deleting recurring expenses:', error);
-    throw new Error('Failed to delete recurring expenses');
-  }
+): Promise<boolean> {
+  return deleteSeries(userId, 'recurringParentId', recurringParentId);
 }
 
 

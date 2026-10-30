@@ -54,6 +54,8 @@
 
 ## 🐛 Bug Fixes
 
+- **Cashflow — salvataggio «tutto o niente»** — Fixed a save that could stop half-way: creating, editing or deleting an entry wrote the entry, its fee, the account's balance and the loan's principal one after the other, so a connection lost in between could leave an entry saved with its account unmoved, or a fee without its entry. Now they are written together or not at all, and when the connection drops the form says «Nessuna connessione. Controlla la rete e riprova.» with nothing changed. An edit also reads the entry as it is now, so an instalment the evening settlement has already taken from the account is never counted twice. A recurring series of several hundred entries each with its own fee is still saved in parts.
+
 - **Assistente AI — il Cashflow nel tile** — Fixed the assistant's «Entrate» and «Uscite» not matching Cashflow › Tracciamento: a row dated the 1st of a month at Italian midnight was counted in the previous month (the window was the server's, in UTC), and «Entrate» left the coupons out while the page counts them. Now every window is the Italian calendar month and «Entrate» is the page's figure, with «di cui dividendi» under it.
 - **FIRE › Obiettivi — la casa col mutuo** — Fixed the «Quota libera» list printing a home at its gross value while the «Non assegnato» total already netted the mortgage: a property now counts, for every goal, net of the loan that finances it, and a loan is never an instrument a goal can hold (nor is it offered when assigning).
 - **Assistente AI — risposte interrotte** — Fixed a long consultative answer («cosa miglioreresti della mia allocazione?») ending on «ho raggiunto il limite di lunghezza»: the answer's budget is five times what it was.

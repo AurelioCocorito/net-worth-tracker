@@ -28,13 +28,9 @@ import { LAZY_CATEGORY_ICONS } from '@/components/expenses/IconPickerPopover';
 import {
   deleteExpenseRows,
   getFeeOf,
-  getFeesOf,
   deleteRecurringExpenses,
   deleteInstallmentExpenses,
-  getExpensesByRecurringParentId,
-  getExpensesByInstallmentParentId,
 } from '@/lib/services/expenseService';
-import { reverseAppliedBalances } from '@/lib/services/cashBalanceReconciliation';
 import { rowsDeletedWith } from '@/lib/utils/expenseFee';
 import { queryKeys } from '@/lib/query/queryKeys';
 import {
@@ -305,14 +301,13 @@ export function ExpenseTable({ expenses, onEdit, onRefresh, isDemo = false, hasA
     const invalidationOwner = user && ownerId ? ownerId : null;
     try {
       setDeletingId(expense.id);
-      // Give back what the row has applied — both accounts of a transfer — before deleting it;
-      // a row still waiting for its date moved nothing (lib/utils/cashSettlement.ts).
-      // The row's fee goes with it (lib/utils/expenseFee.ts), its balance given back too.
+      // The row and its fee (lib/utils/expenseFee.ts) deleted and what they applied given back —
+      // both accounts of a transfer, a loan's principal — in ONE transaction; a row still waiting
+      // for its date moved nothing (lib/utils/cashSettlement.ts).
       const rows = rowsDeletedWith(expense, await getFeeOf(expense));
-      if (await reverseAppliedBalances(rows)) {
+      if (await deleteExpenseRows(expense.userId, rows)) {
         if (invalidationOwner) queryClient.invalidateQueries({ queryKey: queryKeys.assets.all(invalidationOwner) });
       }
-      await deleteExpenseRows(expense.userId, rows);
       toast.success('Voce eliminata con successo');
       onRefresh();
     } catch (error) {
@@ -329,13 +324,12 @@ export function ExpenseTable({ expenses, onEdit, onRefresh, isDemo = false, hasA
     const invalidationOwner = user && ownerId ? ownerId : null;
     try {
       setDeletingId(recurringParentId);
-      // Give back what the occurrences already happened have applied, their fees included, in one
-      // transaction (lib/utils/expenseFee.ts); the ones still waiting for their date moved nothing.
-      const seriesExpenses = await getExpensesByRecurringParentId(ownerId, recurringParentId);
-      if (await reverseAppliedBalances([...seriesExpenses, ...(await getFeesOf(ownerId, seriesExpenses))])) {
+      // The occurrences and their fees deleted, and what the ones already happened applied given
+      // back, in one transaction (lib/services/expenseService.ts → deleteSeries); the ones still
+      // waiting for their date moved nothing.
+      if (await deleteRecurringExpenses(ownerId, recurringParentId)) {
         if (invalidationOwner) queryClient.invalidateQueries({ queryKey: queryKeys.assets.all(invalidationOwner) });
       }
-      await deleteRecurringExpenses(ownerId, recurringParentId);
       toast.success('Tutte le voci ricorrenti sono state eliminate');
       onRefresh();
     } catch (error) {
@@ -352,13 +346,11 @@ export function ExpenseTable({ expenses, onEdit, onRefresh, isDemo = false, hasA
     const invalidationOwner = user && ownerId ? ownerId : null;
     try {
       setDeletingId(installmentParentId);
-      // Give back what the instalments already due have applied, their fees included, in one
-      // transaction; the ones still waiting for their date moved nothing.
-      const seriesExpenses = await getExpensesByInstallmentParentId(ownerId, installmentParentId);
-      if (await reverseAppliedBalances([...seriesExpenses, ...(await getFeesOf(ownerId, seriesExpenses))])) {
+      // The instalments and their fees deleted, and what the ones already due applied given back,
+      // in one transaction; the ones still waiting for their date moved nothing.
+      if (await deleteInstallmentExpenses(ownerId, installmentParentId)) {
         if (invalidationOwner) queryClient.invalidateQueries({ queryKey: queryKeys.assets.all(invalidationOwner) });
       }
-      await deleteInstallmentExpenses(ownerId, installmentParentId);
       toast.success('Tutte le rate sono state eliminate');
       onRefresh();
     } catch (error) {
