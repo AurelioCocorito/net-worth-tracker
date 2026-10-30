@@ -48,11 +48,6 @@ import {
   listOwnerFilterOptions,
   matchesOwnerFilter,
 } from '@/lib/utils/movementsOwnerFilter';
-import {
-  getExpensesByRecurringParentId,
-  getExpensesByInstallmentParentId,
-} from '@/lib/services/expenseService';
-import { reverseAppliedBalances } from '@/lib/services/cashBalanceReconciliation';
 import { rowsDeletedWith } from '@/lib/utils/expenseFee';
 import { isRepayableDebt } from '@/lib/utils/mortgageRepayment';
 import { queryKeys } from '@/lib/query/queryKeys';
@@ -583,15 +578,14 @@ export function ExpenseTrackingTab({
       // Read before the try: the React Compiler refuses a logical expression inside a try/catch.
       const invalidationOwner = user && ownerId ? ownerId : null;
       try {
-        // Give back what the row has applied — both accounts of a transfer — before deleting
-        // it; a row still waiting for its date moved nothing (mirror of ExpenseTable's delete).
-        // The row's fee goes with it (lib/utils/expenseFee.ts), its balance given back too.
+        // The row and its fee (lib/utils/expenseFee.ts) deleted and what they applied given back,
+        // in ONE transaction; a row still waiting for its date moved nothing (mirror of
+        // ExpenseTable's delete).
         const { deleteExpenseRows, getFeeOf } = await loadExpenseService();
         const rows = rowsDeletedWith(expense, await getFeeOf(expense));
-        if (await reverseAppliedBalances(rows)) {
+        if (await deleteExpenseRows(expense.userId, rows)) {
           if (invalidationOwner) queryClient.invalidateQueries({ queryKey: queryKeys.assets.all(invalidationOwner) });
         }
-        await deleteExpenseRows(expense.userId, rows);
         if (invalidationOwner) queryClient.invalidateQueries({ queryKey: queryKeys.costCenters.all(invalidationOwner) });
         toast.success('Voce eliminata con successo');
         await onRefresh();
@@ -628,14 +622,13 @@ export function ExpenseTrackingTab({
     if (!ownerId) return;
     const invalidationOwner = user && ownerId ? ownerId : null;
     try {
-      // Give back what the occurrences already happened have applied, their fees included, in one
-      // transaction (lib/utils/expenseFee.ts: each occurrence may carry a fee row of its own).
-      const seriesExpenses = await getExpensesByRecurringParentId(ownerId, recurringParentId);
-      const { deleteRecurringExpenses, getFeesOf } = await loadExpenseService();
-      if (await reverseAppliedBalances([...seriesExpenses, ...(await getFeesOf(ownerId, seriesExpenses))])) {
+      // The occurrences and their fees deleted (lib/utils/expenseFee.ts: each occurrence may carry
+      // a fee row of its own), and what the ones already happened applied given back, in one
+      // transaction (lib/services/expenseService.ts → deleteSeries).
+      const { deleteRecurringExpenses } = await loadExpenseService();
+      if (await deleteRecurringExpenses(ownerId, recurringParentId)) {
         if (invalidationOwner) queryClient.invalidateQueries({ queryKey: queryKeys.assets.all(invalidationOwner) });
       }
-      await deleteRecurringExpenses(ownerId, recurringParentId);
       if (invalidationOwner) queryClient.invalidateQueries({ queryKey: queryKeys.costCenters.all(invalidationOwner) });
       toast.success('Tutte le voci ricorrenti sono state eliminate');
       await onRefresh();
@@ -651,13 +644,11 @@ export function ExpenseTrackingTab({
     if (!ownerId) return;
     const invalidationOwner = user && ownerId ? ownerId : null;
     try {
-      // Give back what the instalments already due have applied, their fees included, in one transaction.
-      const seriesExpenses = await getExpensesByInstallmentParentId(ownerId, installmentParentId);
-      const { deleteInstallmentExpenses, getFeesOf } = await loadExpenseService();
-      if (await reverseAppliedBalances([...seriesExpenses, ...(await getFeesOf(ownerId, seriesExpenses))])) {
+      // The instalments and their fees deleted, and what the ones already due applied given back, in one transaction.
+      const { deleteInstallmentExpenses } = await loadExpenseService();
+      if (await deleteInstallmentExpenses(ownerId, installmentParentId)) {
         if (invalidationOwner) queryClient.invalidateQueries({ queryKey: queryKeys.assets.all(invalidationOwner) });
       }
-      await deleteInstallmentExpenses(ownerId, installmentParentId);
       if (invalidationOwner) queryClient.invalidateQueries({ queryKey: queryKeys.costCenters.all(invalidationOwner) });
       toast.success('Tutte le rate sono state eliminate');
       await onRefresh();

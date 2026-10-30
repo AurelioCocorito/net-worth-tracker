@@ -13,9 +13,9 @@
 Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
 
 - **Cashflow services**: services `lib/services/{budgetService,costCenterService,cashBalanceReconciliation,expenseImportService}.ts`, `lib/utils/expenseImport.ts`; the settlement rule `lib/utils/cashSettlement.ts` (pure) + `lib/server/cashSettlement.ts` (the server half, run by `/api/portfolio/snapshot`), «Collega la serie» (to an account or to a mortgage) in `components/expenses/LinkSeriesDialog.tsx`
-- **Expense fee** (2026-09-25 on a transfer; any row and every occurrence of a series since 2026-10-10): `lib/utils/expenseFee.ts` (pure; `transferFee.ts` until then), `createExpenseSettledOnDate(…, fee)` / `saveExpenseFee` / `getFeeOf` / `getFeesOf` / `deleteExpenseRows` / `deleteSeriesDocuments` in `lib/services/expenseService.ts`, the words `describeExpenseFeeField` + `EXPENSE_FEE_*` in `dialogNarrative.ts`; tests `__tests__/expenseFee.test.ts`, `e2e/cashflow.transfer-fee.spec.ts` (a transfer, a spesa, a two-row series, a transfer onto a property)
+- **Expense fee** (2026-09-25 on a transfer; any row and every occurrence of a series since 2026-10-10): `lib/utils/expenseFee.ts` (pure; `transferFee.ts` until then), `createExpenseSettledOnDate(…, fee)` / `saveExpenseEdit` / `getFeeOf` / `getFeesOf` / `deleteExpenseRows` / `deleteSeriesDocuments` in `lib/services/expenseService.ts`, the words `describeExpenseFeeField` + `EXPENSE_FEE_*` in `dialogNarrative.ts`; tests `__tests__/expenseFee.test.ts`, `e2e/cashflow.transfer-fee.spec.ts` (a transfer, a spesa, a two-row series, a transfer onto a property)
 - **50/30/20 roles**: pure `lib/utils/spendingRoles.ts` (resolution, summary, the printed shares `summarizeSpendingRoleShares`, classification counts, the badge colour), the bucket → `--role-*` token map `lib/constants/spendingRoleColors.ts`, the `deleteField()` in `updateCategory` (`lib/services/expenseCategoryService.ts`), the picker and the cache invalidation (`invalidateCategoryCaches`) in `components/expenses/CategoryManagementDialog.tsx`; tests `__tests__/{spendingRoles,expenseCategoryService}.test.ts`, `e2e/settings.roles.spec.ts`
-- **Mortgage instalment → loan debt** (2026-09-25; on a `loan` asset since 2026-10-10, doc/guide/patrimonio.md): `lib/utils/mortgageRepayment.ts` (pure: `splitInstalment` with the payoff, `debtBalanceOf`/`debtBalanceField`, `isRepayableDebt`), `lib/services/debtRepaymentService.ts` (client transactions), the server half inside `lib/server/cashSettlement.ts`; tests `__tests__/{mortgageRepayment,serverCashSettlement,updateAssetDebtFields,loanAssets}.test.ts`, `e2e/cashflow.mortgage.spec.ts`
+- **Mortgage instalment → loan debt** (2026-09-25; on a `loan` asset since 2026-10-10, doc/guide/patrimonio.md): `lib/utils/mortgageRepayment.ts` (pure: `splitInstalment` with the payoff, `debtBalanceOf`/`debtBalanceField`, `isRepayableDebt`), the client half inside the expense save's own transaction (`lib/utils/expenseMoneyWrites.ts`, pure, since 2026-10-30; `lib/services/debtRepaymentService.ts` keeps the import's give-back), the server half inside `lib/server/cashSettlement.ts`; tests `__tests__/{mortgageRepayment,serverCashSettlement,updateAssetDebtFields,loanAssets}.test.ts`, `e2e/cashflow.mortgage.spec.ts`
 - **Category icons** (2026-09-30): the curated names and labels `lib/constants/categoryIcons.ts`, one loader per icon `components/expenses/categoryIconLoaders.ts` (deep paths to lucide's canonical files, typed by `types/lucide-icon-modules.d.ts`), the ONE lazy map `LAZY_CATEGORY_ICONS` + `CategoryIcon` in `components/expenses/IconPickerPopover.tsx`; test `__tests__/categoryIcons.test.ts`
 - **«Fuori dal budget»** (2026-10-17): `Expense.excludeFromBudget` (`types/expenses.ts`), written by the form through
   `writeExpenseRows` / the series and instalment writers (every occurrence), the gate `countsTowardBudget` in
@@ -131,7 +131,7 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   the future moved the account the day it was typed. Now: the expense form creates through `createExpenseSettledOnDate`,
   which puts the account on EVERY occurrence and writes the ones dated after today (Italian day, `settlesLater`)
   `balancePending: true`; the rows already happened (a series started in the past included) move the account at save,
-  in ONE transaction (`applyBalanceEffects`), with the sign of their type. `settleDueBalances`
+  in the same transaction as the rows (§ An expense save is all or nothing), with the sign of their type. `settleDueBalances`
   (`lib/server/cashSettlement.ts`) settles the rest on their day and deletes the flag; it runs at the top of
   `/api/portfolio/snapshot`, so the daily cron and «Crea snapshot» photograph the balances AFTER the day's instalments,
   whichever of the two `0 18 * * *` crons runs first. Idempotent: each row is re-read in the transaction and settled only
@@ -139,7 +139,7 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   save) needs no migration and is never applied twice. An edit is ONE set of effects (`editBalanceEffects`: the old row's
   APPLIED effect given back, the new one applied unless its new date is still to come) — it replaced the four
   `reconcile*Edit` functions; every delete, a single row or a whole series, gives back only what was applied
-  (`reverseAppliedBalances`). `createExpense` keeps the old contract (first row only, nothing pending) for the caller
+  (`deleteExpenseRows`, in the delete's own transaction). `createExpense` keeps the old contract (first row only, nothing pending) for the caller
   that settles its own transfer — a voluntary pension contribution. Pinned by `__tests__/cashSettlement.test.ts`,
   `__tests__/cashBalanceReconciliation.test.ts` and `e2e/cashflow.accounts.spec.ts` (every row linked, today's debited
   at save, the next one waiting).
@@ -148,6 +148,25 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   today is `balancePending` until `settleDueBalances` runs in `/api/portfolio/snapshot`; a flag ABSENT means applied
   (older rows moved at save); edits and deletes move only what was applied. A `transfer` IS its two accounts: the schema
   refuses one without origin and destination, or with the same account twice (`e2e/cashflow.accounts.spec.ts`).
+- **An expense save is ALL OR NOTHING** (2026-10-30, owner's call; `lib/services/expenseService.ts` +
+  `lib/utils/expenseMoneyWrites.ts`). Creating, editing or deleting from the form or the lists is ONE Firestore
+  transaction holding the row(s), the fee row(s), the accounts and the loan: `createExpenseSettledOnDate` (the rows with
+  their stamps, `planDebtRepayments`), `saveExpenseEdit` (the row, its fee created/updated/deleted, the accounts, the
+  debt), `deleteExpenseRows` and the series deletes (`deleteSeries`). Until then a save was three to five writes in series
+  (the fee, the row, `applyBalanceEffects`, `applyDebtRepayment*`), and a connection lost between two of them left a row
+  saved with its account unmoved, or a fee orphaned. The edit and the delete READ the rows inside the transaction and
+  compute every effect on them as stored, not on the copy the form or the list opened: a row the server settled while the
+  dialog was open is given back as applied. **The one exception** is a series too long for a transaction
+  (`OPERATIONS_PER_TRANSACTION` = 450 writes: a 30-year monthly series WITH a fee on each instalment is 720 rows): its
+  rows go in batches and only the money in a transaction, as before — the owner chose not to cover a case they never
+  meet. Whether Firestore still caps a transaction at 500 writes is NOT settled (the 2026 quota tables no longer list it;
+  unverified): the ceiling stays until someone measures it on production. Pinned by `__tests__/expenseAtomicSave.test.ts`
+  (an in-memory Firestore, `__tests__/fixtures/fakeFirestore.ts`, whose `failNextCommit()` breaks the commit: nothing
+  is left; each save is ONE commit — seen red by forcing the long-series path) and `__tests__/expenseMoneyWrites.test.ts`;
+  checked on the emulator on 2026-10-30 by aborting every `documents:commit` from Playwright during a create and a
+  delete: «Nessuna connessione. Controlla la rete e riprova.», no row, the account unchanged, and the one commit carried
+  the row and the account together. `applyBalanceEffects` / `reverseAppliedBalances` remain for the CSV import's own
+  paths, which this change did not touch.
 - **«Collega la serie a un conto»** (`LinkSeriesDialog`, from a series row's detail on the feed): a series written before
   the rule carries its account on the first row only; `linkSeriesToCashAccount` puts the chosen account on the
   occurrences still to come that have not moved one (`selectLinkableOccurrences`) and leaves them pending. The past is
@@ -160,16 +179,16 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   kept from the transfer-only days; its TYPE follows the category), same date, debiting the parent's account (a
   transfer's ORIGIN) on its date like any linked row. The parent carries `transferFeeExpenseId`, the fee
   `feeOfTransferId` — the stored names say «transfer» because they were born on one, and renaming them would have
-  rewritten every row. Creation is ONE batch with pre-generated ids (`writeExpenseRows(…, fee)`: a single row and its
-  fee, or a series with ONE FEE PER OCCURRENCE, each on its occurrence's date and account, `balancePending` with it;
-  `commitInBatches` keeps the 2N documents under Firestore's 500 — the `ids` list the parents first, then the fees).
-  The fee is edited FROM its parent (`planExpenseFee` → `saveExpenseFee`: the update follows the parent's date and
+  rewritten every row. Creation is ONE transaction with pre-generated ids (`planExpenseRows(…, fee)`: a single row and its
+  fee, or a series with ONE FEE PER OCCURRENCE, each on its occurrence's date and account, `balancePending` with it —
+  the `ids` list the parents first, then the fees; a series too long for one transaction goes in batches, § An expense
+  save is all or nothing). The fee is edited FROM its parent (`planExpenseFee` inside `saveExpenseEdit`: the update follows the parent's date and
   account, a cleared field deletes it, a new one needs the category) — its category and note are its own and never
   rewritten; a fee row (`isFeeRow`) takes no fee of its own, so the field is absent when editing one. A single delete
   goes through `rowsDeletedWith` + `deleteExpenseRows`: the fee goes with its parent, its applied balance given back; a
-  fee deleted by hand unlinks itself in the same batch; a SERIES delete gives back the fees' balances too
-  (`getFeesOf`, one `in` query per 30 parents — both the tab and the table do it, 2026-10-10: the table's own series
-  delete left a fee's debit behind until the spec found it) and `deleteSeriesDocuments` removes each occurrence's fee.
+  fee deleted by hand unlinks itself in the same transaction; a SERIES delete (`deleteRecurringExpenses` /
+  `deleteInstallmentExpenses` → `deleteSeries`) takes the fees too (`getFeesOf`, one `in` query per 30 parents — the
+  service does it since 2026-10-30; on 2026-10-10 the table's own series delete had left a fee's debit behind).
   Without a category the field is disabled and LINKS the setting; the edit form refuses to save while the saved fee is
   unread (it could only guess: a duplicate, or an orphan).
 - **A `debt` row can repay a LOAN — by its PRINCIPAL** (2026-09-25 on the property's own debt, on a `loan` asset since
@@ -178,13 +197,13 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   × TAN / 12` (`splitInstalment`, French amortisation, TAN = `Asset.debtInterestRate`, absent = 0% and said in the
   form), never by the whole instalment — the interest would otherwise inflate the net worth every month. WHERE the debt
   lives on the document (a loan's `quantity`, a legacy property's `outstandingDebt`) is `debtBalanceField`'s knowledge
-  alone: the client (`debtRepaymentService`) and the server (`cashSettlement.ts`) ask it, never spell a field. Rows
+  alone: the client (`expenseMoneyWrites.ts`) and the server (`cashSettlement.ts`) ask it, never spell a field. Rows
   applied together go in DATE ORDER on the debt the previous one left (`planDebtRepayments`). What a row repaid is
   STORED (`debtPrincipalRepaid`, and beside it the interest it paid, `debtInterestPaid`, read by Patrimonio's «Mutuo»
   tile) because the interest depends on that day's debt: an edit gives it back and re-splits on today's debt
-  (`planDebtEdit`, a no-op when loan, amount, payoff flag and date side are unchanged), a delete gives back exactly it
-  (`reverseAppliedBalances` → `reverseDebtRepayments`). The client applies the rows already happened, `settleDueBalances`
-  the rest on their day, in the same transaction as the accounts. «Collega la serie al mutuo…»
+  (`planDebtEdit` → `planDebtEditWrites`, a no-op when loan, amount, payoff flag and date side are unchanged), a delete
+  gives back exactly it (`debtsAfterGivingBack`). The client applies the rows already happened, `settleDueBalances`
+  the rest on their day, always in the same transaction as the rows and the accounts. «Collega la serie al mutuo…»
   (`selectDebtLinkableOccurrences`) links only the future occurrences not yet linked whose account has not moved; the
   past is never touched — the typed debt reflects it.
 - **«Estinzione anticipata» is a `debt` row that is ALL principal** (`isDebtPayoff`, owner 2026-10-10): the checkbox
@@ -192,7 +211,7 @@ Moved here from `CLAUDE.md` → *Key Files* on 2026-09-19.
   leaves («da 10.000 € a 6.000 €», «va a zero» for a total payoff), `splitInstalment(…, isPayoff)` caps the principal at
   the debt and pays no interest; a penalty or the period's accrued interest is a cost and goes on the row's
   «Commissione», never into the principal. The flag rides on the written row (`WrittenRow.isDebtPayoff`) so the
-  client's `applyDebtRepayments` reads it — without it a payoff saved today was split like an instalment (seen in the
+  client's `planDebtRepayments` reads it — without it a payoff saved today was split like an instalment (seen in the
   browser, pinned by `e2e/cashflow.mortgage.spec.ts`). A total payoff leaves the loan at zero: «Estinto» in Patrimonio,
   the «Mutuo» tile says «il debito è estinto».
 - **A transfer can land on a PROPERTY** (owner, 2026-10-10 — the deposit on a house): `transferCashAssetId` may name a
